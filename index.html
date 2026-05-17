@@ -677,6 +677,7 @@ const Google      = ({ size = 18 }) => (
 const LockeenLogo = ({ size = 20, muted = false }) => (
   <img src={muted ? "Lockeen-icon-muted.png" : "Lockeen-icon.png"} alt="" aria-hidden="true" style={{ width: size, height: size, objectFit: 'contain' }} />
 );
+const XMark       = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
 const Brain       = (p) => <Icon {...p}><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></Icon>;
 const CalendarIcon = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Icon>;
 const ChevronLeft  = (p) => <Icon {...p}><polyline points="15 18 9 12 15 6"/></Icon>;
@@ -869,10 +870,21 @@ function Dashboard({ user, onLogout }) {
   const [tab, setTab] = useState('dashboard');
   const [exams, setExams] = useState(seedExams);
   const [activeExamId, setActiveExamId] = useState(null);
+  const [flashcardDeck, setFlashcardDeck] = useState({
+    subject: 'Biology',
+    title: 'Cellular Respiration',
+    cards: cellularRespirationCards,
+  });
 
   const openExam = (id) => {
     setActiveExamId(id);
     setTab('notes');
+  };
+
+  const openFlashcards = ({ subject, title, cards }) => {
+    setFlashcardDeck({ subject, title, cards });
+    setActiveExamId(null);
+    setTab('flashcards');
   };
 
   return (
@@ -902,7 +914,8 @@ function Dashboard({ user, onLogout }) {
           <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); setTab(t); }} />
           <div style={shellS.main}>
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} />}
-            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} />}
+            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} />}
+            {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} />}
             {tab === 'tutor'     && <TutorView />}
             {tab === 'analytics' && <AnalyticsView />}
             {tab === 'calendar'  && <CalendarView exams={exams} onOpenExam={openExam} />}
@@ -932,6 +945,7 @@ function Sidebar({ tab, setTab }) {
   const items = [
     { id: 'dashboard', label: 'Dashboard', Icon: ZapSolid },
     { id: 'notes',     label: 'My Exams',  Icon: LockeenLogo },
+    { id: 'flashcards', label: 'Flashcards', Icon: Layers },
     { id: 'tutor',     label: 'AI Tutor',  Icon: MsgCircle },
     { id: 'analytics', label: 'Analytics', Icon: BarChart3 },
     { id: 'calendar',  label: 'Calendar',  Icon: CalendarIcon },
@@ -1048,21 +1062,45 @@ const seedNotes = [
 ];
 
 const SUBJECT_COLORS = {
-  Biology:   { color: '#EEF2FF', dot: 'var(--indigo)' },
-  Chemistry: { color: '#FDF2F8', dot: 'var(--purple)' },
-  Math:      { color: '#ECFEFF', dot: '#06B6D4' },
-  History:   { color: '#FEF3C7', dot: '#F59E0B' },
-  Physics:   { color: '#DBEAFE', dot: '#3B82F6' },
-  Literature:{ color: '#EDE9FE', dot: '#7C3AED' },
-  Other:     { color: '#F3F4F6', dot: '#6B7280' },
+  'Biology':    { bg:'#EEF2FF', dot:'#3730E8', text:'#3730E8', border:'#c7d0f8' },
+  'Chemistry':  { bg:'#FDF2F8', dot:'#8B5CF6', text:'#8B5CF6', border:'#e9c5f8' },
+  'History':    { bg:'#FEF3C7', dot:'#F59E0B', text:'#92400E', border:'#fcd34d' },
+  'Math':       { bg:'#ECFEFF', dot:'#06B6D4', text:'#0E7490', border:'#a5f3fc' },
+  'Economics':  { bg:'#DCFCE7', dot:'#10B981', text:'#065F46', border:'#86efac' },
+  'Literature': { bg:'#FEE2E2', dot:'#EF4444', text:'#991B1B', border:'#fca5a5' },
 };
+
+const EXTRA_SUBJECT_COLORS = {
+  Physics: { bg: '#DBEAFE', dot: '#3B82F6', text: '#1D4ED8', border: '#BFDBFE' },
+  Other:   { bg: '#F3F4F6', dot: '#6B7280', text: '#374151', border: '#D1D5DB' },
+};
+
+function getSubjectPalette(subject, fallback = {}) {
+  return SUBJECT_COLORS[subject]
+    || EXTRA_SUBJECT_COLORS[subject]
+    || {
+      bg: fallback.bg || fallback.color || '#F3F4F6',
+      dot: fallback.dot || '#6B7280',
+      text: fallback.text || '#374151',
+      border: fallback.border || '#D1D5DB',
+    };
+}
 
 const PALETTE_CYCLE = ['#EEF2FF', '#FDF2F8', '#ECFEFF', '#FEF3C7', '#DBEAFE', '#EDE9FE'];
 const DOT_CYCLE     = ['var(--indigo)', 'var(--purple)', '#06B6D4', '#F59E0B', '#3B82F6', '#7C3AED'];
 
-function makeSampleChapter(id, title, updated, pages, files, idx) {
+const cellularRespirationCards = [
+  { q: 'What is the main purpose of cellular respiration?', a: 'To convert glucose into ATP, the usable energy currency of the cell.' },
+  { q: 'Where does glycolysis take place?', a: 'In the cytoplasm of the cell.' },
+  { q: 'What are the three main stages of cellular respiration?', a: 'Glycolysis, the Krebs cycle, and the electron transport chain.' },
+  { q: 'Which molecule is the final electron acceptor in aerobic respiration?', a: 'Oxygen, which combines with electrons and hydrogen ions to form water.' },
+  { q: 'Where does the Krebs cycle occur in eukaryotic cells?', a: 'In the mitochondrial matrix.' },
+  { q: 'Why is the electron transport chain important?', a: 'It creates the proton gradient that drives ATP synthase to produce most of the ATP.' },
+];
+
+function makeSampleChapter(id, title, updated, pages, files, idx, cards = []) {
   const i = idx % PALETTE_CYCLE.length;
-  return { id, title, updated, pages, files: files || 1, color: PALETTE_CYCLE[i], dot: DOT_CYCLE[i] };
+  return { id, title, updated, pages, files: files || 1, color: PALETTE_CYCLE[i], dot: DOT_CYCLE[i], cards };
 }
 
 function formatExamDate(iso) {
@@ -1076,7 +1114,7 @@ function formatExamDate(iso) {
 
 const seedExams = [
   { id: 1, name: 'Biology 2024',       subject: 'Biology',    date: '2026-06-24', updated: '2h ago',     chapters: [
-    makeSampleChapter(101, 'Cellular Respiration', '2h ago', 12, 1, 0),
+    makeSampleChapter(101, 'Cellular Respiration', '2h ago', 12, 1, 0, cellularRespirationCards),
     makeSampleChapter(102, 'Genetics Basics',      '3 days ago', 18, 2, 1),
   ]},
   { id: 2, name: 'Organic Chemistry',  subject: 'Chemistry',  date: '2026-07-08', updated: '1 day ago',  chapters: [
@@ -1101,7 +1139,7 @@ const seedExams = [
   ]},
 ];
 
-function NotesView({ exams, setExams, activeId, setActiveId }) {
+function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards }) {
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
@@ -1124,7 +1162,7 @@ function NotesView({ exams, setExams, activeId, setActiveId }) {
         return { ...x, chapters: [newChapter, ...x.chapters], updated: 'Just now' };
       }));
     };
-    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} />;
+    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onOpenFlashcards={onOpenFlashcards} />;
   }
 
   const filtered = exams.filter((x) => (x.name + ' ' + (x.subject || '')).toLowerCase().includes(q.toLowerCase()));
@@ -1160,12 +1198,10 @@ function NotesView({ exams, setExams, activeId, setActiveId }) {
 
       <div style={examsS.grid}>
         {filtered.map((x) => {
-          const palette = x.subject
-            ? (SUBJECT_COLORS[x.subject] || SUBJECT_COLORS.Other)
-            : { color: x.color || '#EEF2FF', dot: x.dot || 'var(--indigo)' };
+          const palette = getSubjectPalette(x.subject, x);
           return (
             <div key={x.id} style={notesS.card}>
-              <div style={{ ...notesS.cover, background: palette.color }}>
+              <div style={{ ...notesS.cover, background: palette.bg }}>
                 <div style={{ ...notesS.coverDot, background: palette.dot, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
                   <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 30, height: 30, objectFit: 'contain', display: 'block' }} />
                 </div>
@@ -1193,12 +1229,10 @@ function NotesView({ exams, setExams, activeId, setActiveId }) {
   );
 }
 
-function ExamDetail({ exam, onBack, onAddChapter }) {
+function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards }) {
   const [q, setQ] = useState('');
   const [showUpload, setShowUpload] = useState(false);
-  const palette = exam.subject
-    ? (SUBJECT_COLORS[exam.subject] || SUBJECT_COLORS.Other)
-    : { color: exam.color || '#EEF2FF', dot: exam.dot || 'var(--indigo)' };
+  const palette = getSubjectPalette(exam.subject, exam);
   const filtered = exam.chapters.filter((c) => c.title.toLowerCase().includes(q.toLowerCase()));
 
   return (
@@ -1210,7 +1244,7 @@ function ExamDetail({ exam, onBack, onAddChapter }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h2 style={homeS.h1}>{exam.name}</h2>
             {exam.date && (
-              <span style={{ ...examsS.subjectBadge, background: palette.color }}>
+              <span style={{ ...examsS.subjectBadge, background: palette.bg }}>
                 <span style={{ width: 8, height: 8, borderRadius: 999, background: palette.dot }} />
                 {formatExamDate(exam.date)}
               </span>
@@ -1255,7 +1289,7 @@ function ExamDetail({ exam, onBack, onAddChapter }) {
                   <button style={notesS.primarySmall} onClick={() => alert(`Generating quiz for "${n.title}"…`)}>
                     <Sparkles size={14} /> Generate Quiz
                   </button>
-                  <button style={notesS.ghostSmall} onClick={() => alert(`Opening flashcards for "${n.title}"…`)}>
+                  <button style={notesS.ghostSmall} onClick={() => onOpenFlashcards && onOpenFlashcards({ subject: exam.subject, title: n.title, cards: n.cards || [] })}>
                     <Layers size={14} /> Flashcards
                   </button>
                 </div>
@@ -1267,6 +1301,174 @@ function ExamDetail({ exam, onBack, onAddChapter }) {
     </div>
   );
 }
+
+function FlashcardViewer({ subject, title, cards, setTab }) {
+  const palette = getSubjectPalette(subject);
+  const total = cards.length;
+  const [idx, setIdx] = useState(0);
+  const [correct, setCorrect] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [answered, setAnswered] = useState([]);
+  const [done, setDone] = useState(false);
+
+  const reset = () => {
+    setIdx(0);
+    setCorrect(0);
+    setFlipped(false);
+    setAnswered([]);
+    setDone(false);
+  };
+
+  useEffect(() => {
+    reset();
+  }, [subject, title, cards]);
+
+  if (!total) {
+    return (
+      <div style={flashS.emptyWrap}>
+        <div style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</div>
+        <h2 style={flashS.resultTitle}>No flashcards yet</h2>
+        <p style={flashS.resultSub}>{title}</p>
+        <button onClick={() => setTab('notes')} style={flashS.backBtn}>Back to Study</button>
+      </div>
+    );
+  }
+
+  const isAnswered = answered[idx] !== undefined;
+  const progress = ((idx + 1) / total) * 100;
+  const current = cards[idx];
+
+  const goTo = (nextIdx) => {
+    if (nextIdx < 0 || nextIdx >= total) return;
+    setIdx(nextIdx);
+    setFlipped(answered[nextIdx] !== undefined);
+  };
+
+  const handleAnswer = (known) => {
+    if (isAnswered) return;
+    const nextAnswered = [...answered];
+    nextAnswered[idx] = known;
+    setAnswered(nextAnswered);
+    if (known) setCorrect((c) => c + 1);
+    setTimeout(() => {
+      if (idx === total - 1) {
+        setDone(true);
+      } else {
+        setIdx((i) => i + 1);
+        setFlipped(false);
+      }
+    }, 350);
+  };
+
+  if (done) {
+    const percent = Math.round((correct / total) * 100);
+    const titleText = percent >= 80 ? 'Excellent work!' : percent >= 60 ? 'Good effort!' : 'Keep studying!';
+    return (
+      <div style={flashS.resultWrap}>
+        <div style={{ ...flashS.scoreCircle, borderColor: palette.dot, background: palette.bg }}>
+          <div style={{ ...flashS.scorePercent, color: palette.dot }}>{percent}%</div>
+          <div style={{ ...flashS.scoreFraction, color: palette.text }}>{correct}/{total}</div>
+        </div>
+        <h2 style={flashS.resultTitle}>{titleText}</h2>
+        <p style={flashS.resultSub}>{title}</p>
+        <div style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</div>
+        <div style={flashS.resultActions}>
+          <button onClick={reset} style={{ ...flashS.tryAgainBtn, background: palette.dot }}>Try again</button>
+          <button onClick={() => setTab('notes')} style={flashS.backBtn}>Back to Study</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={flashS.wrap}>
+      <div style={flashS.headerRow}>
+        <div style={flashS.headerLeft}>
+          <span style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
+          <span style={flashS.deckTitle}>{title}</span>
+        </div>
+        <span style={flashS.correctCount}>{correct} / {total} correct</span>
+      </div>
+
+      <div style={flashS.progressTrack}>
+        <div style={{ ...flashS.progressFill, width: `${progress}%`, background: palette.dot }} />
+      </div>
+
+      <button
+        type="button"
+        onClick={() => { if (!isAnswered) setFlipped((v) => !v); }}
+        style={flashS.cardStage}
+      >
+        <div style={{ ...flashS.cardInner, transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
+          <div style={flashS.cardFront}>
+            <span style={flashS.faceLabel}>Question</span>
+            <div style={flashS.questionText}>{current.q}</div>
+            <span style={flashS.cardHint}>Tap to reveal answer</span>
+          </div>
+          <div style={{ ...flashS.cardBack, background: palette.bg, borderColor: palette.border }}>
+            <span style={{ ...flashS.faceLabel, color: palette.text }}>Answer</span>
+            <div style={{ ...flashS.answerText, color: palette.text }}>{current.a}</div>
+          </div>
+        </div>
+      </button>
+
+      <div style={{ ...flashS.answerRow, opacity: flipped && !isAnswered ? 1 : 0, pointerEvents: flipped && !isAnswered ? 'auto' : 'none' }}>
+        <button onClick={() => handleAnswer(false)} style={flashS.dontKnowBtn}>
+          <XMark size={16} /> Non lo sapevo
+        </button>
+        <button onClick={() => handleAnswer(true)} style={flashS.knewBtn}>
+          <Check size={16} /> Lo sapevo
+        </button>
+      </div>
+
+      <div style={flashS.navRow}>
+        <button onClick={() => goTo(idx - 1)} disabled={idx === 0} style={{ ...flashS.navBtn, ...(idx === 0 ? flashS.navBtnDisabled : null) }}>
+          <ChevronLeft size={16} />
+        </button>
+        <span style={flashS.navLabel}>{idx + 1} / {total}</span>
+        <button onClick={() => goTo(idx + 1)} disabled={idx === total - 1} style={{ ...flashS.navBtn, ...(idx === total - 1 ? flashS.navBtnDisabled : null) }}>
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const flashS = {
+  wrap: { maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 },
+  headerRow: { maxWidth: 480, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 },
+  subjectChip: { display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, border: '1px solid transparent', fontSize: 12, fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap' },
+  deckTitle: { fontWeight: 600, color: 'var(--ink)', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  correctCount: { color: 'var(--gray)', fontSize: 12, whiteSpace: 'nowrap' },
+  progressTrack: { maxWidth: 480, width: '100%', height: 4, borderRadius: 999, background: '#E5E7EB', overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 999, transition: 'width .4s' },
+  cardStage: { maxWidth: 480, width: '100%', height: 280, perspective: 1000, padding: 0, background: 'transparent', border: 'none', textAlign: 'left' },
+  cardInner: { position: 'relative', width: '100%', height: '100%', transformStyle: 'preserve-3d', transition: 'transform .55s cubic-bezier(.4,0,.2,1)' },
+  cardFront: { position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', background: '#fff', border: '1.5px solid var(--border)', borderRadius: 20, padding: 22, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
+  cardBack: { position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)', border: '1.5px solid transparent', borderRadius: 20, padding: 22, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 18 },
+  faceLabel: { color: 'var(--gray)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.12em' },
+  questionText: { color: 'var(--ink)', fontSize: 20, fontWeight: 700, lineHeight: 1.35, textAlign: 'center', alignSelf: 'center' },
+  answerText: { fontSize: 15, lineHeight: 1.6, fontWeight: 500 },
+  cardHint: { color: 'var(--gray)', fontSize: 13, textAlign: 'center' },
+  answerRow: { maxWidth: 480, width: '100%', display: 'flex', gap: 10, transition: 'opacity .2s ease' },
+  dontKnowBtn: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 13, borderRadius: 14, border: '1px solid #fca5a5', background: '#FEE2E2', color: '#991B1B', fontWeight: 600 },
+  knewBtn: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 13, borderRadius: 14, border: '1px solid #86efac', background: '#DCFCE7', color: '#166534', fontWeight: 600 },
+  navRow: { maxWidth: 480, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, marginTop: 2 },
+  navBtn: { width: 36, height: 36, borderRadius: 999, border: '1px solid var(--border)', background: '#fff', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
+  navBtnDisabled: { opacity: .45, cursor: 'not-allowed' },
+  navLabel: { minWidth: 42, textAlign: 'center', color: 'var(--gray)', fontSize: 13, fontWeight: 600 },
+  resultWrap: { maxWidth: 480, minHeight: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
+  scoreCircle: { width: 96, height: 96, borderRadius: 999, border: '3px solid transparent', display: 'grid', placeItems: 'center', alignContent: 'center' },
+  scorePercent: { fontSize: 28, lineHeight: 1, fontWeight: 800 },
+  scoreFraction: { fontSize: 13, fontWeight: 700, marginTop: 4 },
+  resultTitle: { margin: 0, fontSize: 24, fontWeight: 700, color: 'var(--ink)' },
+  resultSub: { margin: 0, color: 'var(--gray)', fontSize: 15 },
+  resultActions: { display: 'flex', gap: 10, marginTop: 10 },
+  tryAgainBtn: { padding: '12px 18px', borderRadius: 999, color: '#fff', fontWeight: 600 },
+  backBtn: { padding: '12px 18px', borderRadius: 999, border: '1.5px solid var(--border)', background: '#fff', color: 'var(--ink)', fontWeight: 600 },
+  emptyWrap: { maxWidth: 480, minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
+};
 
 function CreateExamModal({ onClose, onCreate }) {
   const [name, setName] = useState('');
