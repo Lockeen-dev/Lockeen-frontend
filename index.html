@@ -1242,6 +1242,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
     questions: cellularRespirationQuestions,
   });
   const [quizHistory, setQuizHistory] = useState({});
+  const [quizRuns, setQuizRuns] = useState([]);
   const [flashHistory, setFlashHistory] = useState({});
   const [recentFlashDecks, setRecentFlashDecks] = useState([]);
   const [flashLanding, setFlashLanding] = useState(true);
@@ -1286,12 +1287,15 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
     setTab('notes');
   };
 
-  function onQuizComplete(noteId, scorePct) {
+  function onQuizComplete(noteId, scorePct, runMeta) {
     if (!noteId) return;
     setQuizHistory(prev => ({
       ...prev,
       [noteId]: [...(prev[noteId] || []), scorePct]
     }));
+    if (runMeta) {
+      setQuizRuns(prev => [{ id: Date.now(), score: scorePct, date: new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }), ...runMeta }, ...prev]);
+    }
   }
 
   function onFlashComplete(noteId, scorePct) {
@@ -1360,7 +1364,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
         }}
       >
         <div style={shellS.grid}>
-          <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); setTab(t); }} />
+          <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); if (t === 'quiz') setQuizDeck(null); setTab(t); }} />
           <div style={shellS.main}>
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
             {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} />}
@@ -1368,7 +1372,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
               ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} />
               : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} />
             )}
-            {tab === 'quiz' && <QuizView {...quizDeck} setTab={setTab} darkMode={darkMode} onQuizComplete={onQuizComplete} />}
+            {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={darkMode} />}
             {tab === 'tutor'     && <TutorView />}
             {tab === 'analytics' && <AnalyticsView weekData={weekData} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} />}
             {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} />}
@@ -2090,6 +2094,41 @@ const cellularRespirationQuestions = [
     explanation: 'Electron transport chain drives oxidative phosphorylation, making most ATP.',
   },
 ];
+const chemistryQuestions = [
+  { q: 'What type of reaction involves a nucleophile attacking an electrophile?', options: ['Radical reaction', 'Nucleophilic substitution', 'Electrophilic addition', 'Elimination'], correct: 1, explanation: 'Nucleophilic substitution (SN1/SN2) involves nucleophile attacking electrophilic carbon.' },
+  { q: 'In SN2 reactions, the rate depends on:', options: ['Only substrate concentration', 'Only nucleophile concentration', 'Both substrate and nucleophile', 'Neither'], correct: 2, explanation: 'SN2 is bimolecular — rate = k[substrate][nucleophile].' },
+  { q: 'What is the IUPAC name for CH3CH2CH3?', options: ['Methane', 'Ethane', 'Propane', 'Butane'], correct: 2, explanation: 'Three carbons in a chain = propane.' },
+  { q: 'Which reagent converts alkenes to alkanes?', options: ['HCl', 'H2/Pd', 'NaOH', 'KMnO4'], correct: 1, explanation: 'H2 with Pd catalyst reduces alkenes to alkanes via hydrogenation.' },
+  { q: "Markovnikov's rule applies to:", options: ['Nucleophilic substitution', 'Electrophilic addition to alkenes', 'Radical chain reactions', 'Elimination reactions'], correct: 1, explanation: "Markovnikov: H adds to less substituted carbon in electrophilic addition." },
+];
+const mathQuestions = [
+  { q: 'What is the integral of x squared?', options: ['2x', 'x cubed', 'x^3/3 + C', 'x^2/2 + C'], correct: 2, explanation: 'Power rule: integral(x^n) = x^(n+1)/(n+1) + C.' },
+  { q: 'Integration by parts formula:', options: ['integral(uv)=u*integral(v)', 'integral(u dv)=uv - integral(v du)', 'integral(uv)=integral(u)*integral(v)', 'integral(u dv)=uv + integral(v du)'], correct: 1, explanation: 'IBP: integral(u dv) = uv - integral(v du). Derived from product rule.' },
+  { q: 'A convergent series has:', options: ['Terms growing to infinity', 'A finite sum', 'All positive terms', 'Terms equal to zero'], correct: 1, explanation: 'Convergent series has a finite limit S as n approaches infinity.' },
+  { q: 'The ratio test: series converges if lim |a(n+1)/a(n)|:', options: ['> 1', '= 1', '< 1', '= 0'], correct: 2, explanation: 'L < 1 converges, L > 1 diverges, L = 1 inconclusive.' },
+  { q: 'The integral from 0 to 1 of e^x equals:', options: ['e', 'e - 1', 'e + 1', '1'], correct: 1, explanation: '[e^x] from 0 to 1 = e - 1.' },
+];
+const historyQuestions = [
+  { q: 'Immediate trigger of World War II?', options: ['Assassination of Franz Ferdinand', "Germany's invasion of Poland", 'Attack on Pearl Harbor', 'Fall of France'], correct: 1, explanation: 'Germany invaded Poland on September 1, 1939.' },
+  { q: 'The Molotov-Ribbentrop Pact (1939) was signed between:', options: ['Germany and Italy', 'USSR and Germany', 'Japan and Germany', 'USSR and Japan'], correct: 1, explanation: 'Nazi-Soviet non-aggression pact signed August 1939.' },
+  { q: 'Operation Barbarossa was the German invasion of:', options: ['France', 'Britain', 'Soviet Union', 'North Africa'], correct: 2, explanation: "Barbarossa (June 1941) — Germany's invasion of the Soviet Union." },
+  { q: 'The Battle of Midway (1942) was a turning point in:', options: ['European theater', 'Pacific theater', 'North African campaign', 'Eastern front'], correct: 1, explanation: 'Midway turned the tide in the Pacific — Japan lost 4 carriers.' },
+  { q: 'D-Day Normandy landings occurred on:', options: ['June 6, 1944', 'June 6, 1943', 'May 8, 1945', 'September 2, 1945'], correct: 0, explanation: 'D-Day was June 6, 1944 — Allied amphibious assault on Normandy.' },
+];
+const physicsQuestions = [
+  { q: 'Wave-particle duality was demonstrated by:', options: ["Newton's prism experiment", 'Double-slit experiment', 'Millikan oil drop', 'Rutherford scattering'], correct: 1, explanation: 'Double-slit shows particles create interference patterns — wave behavior.' },
+  { q: 'The Schrodinger equation describes:', options: ['Relativistic mass increase', 'Quantum state evolution over time', 'Nuclear binding energy', 'Electromagnetic propagation'], correct: 1, explanation: 'Fundamental equation governing quantum state evolution.' },
+  { q: 'Heisenberg uncertainty principle states:', options: ['Energy and time cannot both be known', 'Position and momentum cannot both be precise', 'Spin states are always uncertain', 'All quantum states are probabilistic'], correct: 1, explanation: 'Delta_x * Delta_p >= h_bar/2.' },
+  { q: 'The de Broglie wavelength (lambda=h/p) means:', options: ['Only photons have wavelength', 'All matter has wave-like properties', 'Wavelength inversely proportional to frequency', 'Large objects have large wavelength'], correct: 1, explanation: 'de Broglie extended wave-particle duality to all matter.' },
+  { q: 'Quantum entanglement refers to:', options: ['Particles sharing space', 'Correlated quantum states regardless of distance', 'Particles at absolute zero', 'Superposition of energy levels'], correct: 1, explanation: 'Entangled particles have correlated measurements regardless of distance.' },
+];
+const literatureQuestions = [
+  { q: 'Central theme of Hamlet?', options: ['Love and marriage', 'Revenge and moral corruption', 'Nature and civilization', 'War and honor'], correct: 1, explanation: 'Hamlet explores revenge, moral corruption, and the consequences of inaction.' },
+  { q: "Hamlet's 'To be or not to be' soliloquy reflects:", options: ['His love for Ophelia', 'Contemplation of existence and death', 'His plan to kill Claudius', 'Grief over his father'], correct: 1, explanation: "Questions whether to endure suffering or end it." },
+  { q: 'William Wordsworth is associated with:', options: ['Metaphysical poetry', 'Romantic poetry', 'Augustan satire', 'Modernist free verse'], correct: 1, explanation: 'Wordsworth is a key Romantic poet.' },
+  { q: '"Ode to a Nightingale" was written by:', options: ['Wordsworth', 'Byron', 'Keats', 'Shelley'], correct: 2, explanation: 'Keats wrote "Ode to a Nightingale" (1819).' },
+  { q: 'The Romantic movement emphasized:', options: ['Reason and order', 'Nature, emotion, and the individual', 'Classical forms', 'Urban industrial life'], correct: 1, explanation: 'Romanticism celebrated nature, emotion, and imagination.' },
+];
 
 function makeSampleChapter(id, title, updated, pages, files, idx, cards = [], questions = []) {
   const i = idx % PALETTE_CYCLE.length;
@@ -2126,27 +2165,27 @@ function GradeValue({ value, color, size = 20 }) {
 const seedExams = [
   { id: 1, name: 'Biology 2024',       subject: 'Biology',    date: '2026-06-24', targetGrade: 27, updated: '2h ago',     chapters: [
     makeSampleChapter(101, 'Cellular Respiration', '2h ago', 12, 1, 0, cellularRespirationCards, cellularRespirationQuestions),
-    makeSampleChapter(102, 'Genetics Basics',      '3 days ago', 18, 2, 1),
+    makeSampleChapter(102, 'Genetics Basics',      '3 days ago', 18, 2, 1, [], cellularRespirationQuestions),
   ]},
   { id: 2, name: 'Organic Chemistry',  subject: 'Chemistry',  date: '2026-07-08', targetGrade: 25, updated: '1 day ago',  chapters: [
-    makeSampleChapter(201, 'Reaction Mechanisms', '1 day ago',  22, 2, 1),
-    makeSampleChapter(202, 'Alkanes & Alkenes',   '4 days ago', 14, 1, 2),
+    makeSampleChapter(201, 'Reaction Mechanisms', '1 day ago',  22, 2, 1, [], chemistryQuestions),
+    makeSampleChapter(202, 'Alkanes & Alkenes',   '4 days ago', 14, 1, 2, [], chemistryQuestions),
   ]},
   { id: 3, name: 'Calculus II',        subject: 'Math',       date: '2026-06-15', targetGrade: 28, updated: '3 days ago', chapters: [
-    makeSampleChapter(301, 'Integration Techniques', '3 days ago', 28, 3, 2),
-    makeSampleChapter(302, 'Series & Sequences',     '1 week ago', 20, 2, 3),
+    makeSampleChapter(301, 'Integration Techniques', '3 days ago', 28, 3, 2, [], mathQuestions),
+    makeSampleChapter(302, 'Series & Sequences',     '1 week ago', 20, 2, 3, [], mathQuestions),
   ]},
   { id: 4, name: 'World War II',       subject: 'History',    date: '2026-06-24', targetGrade: 24, updated: '5 days ago', chapters: [
-    makeSampleChapter(401, 'Causes & Outbreak', '5 days ago', 16, 1, 3),
-    makeSampleChapter(402, 'Pacific Theater',   '1 week ago', 22, 2, 4),
+    makeSampleChapter(401, 'Causes & Outbreak', '5 days ago', 16, 1, 3, [], historyQuestions),
+    makeSampleChapter(402, 'Pacific Theater',   '1 week ago', 22, 2, 4, [], historyQuestions),
   ]},
   { id: 5, name: 'Quantum Physics',    subject: 'Physics',    date: '2026-07-22', targetGrade: 27, updated: '1 week ago', chapters: [
-    makeSampleChapter(501, 'Wave-Particle Duality',  '1 week ago',  24, 2, 4),
-    makeSampleChapter(502, 'Schrödinger Equation',   '2 weeks ago', 30, 3, 5),
+    makeSampleChapter(501, 'Wave-Particle Duality',  '1 week ago',  24, 2, 4, [], physicsQuestions),
+    makeSampleChapter(502, 'Schrödinger Equation',   '2 weeks ago', 30, 3, 5, [], physicsQuestions),
   ]},
   { id: 6, name: 'English Literature', subject: 'Literature', date: '2026-05-29', targetGrade: 24, updated: '2 weeks ago', chapters: [
-    makeSampleChapter(601, 'Shakespeare — Hamlet', '2 weeks ago', 26, 2, 5),
-    makeSampleChapter(602, 'Romantic Poetry',      '3 weeks ago', 18, 1, 0),
+    makeSampleChapter(601, 'Shakespeare — Hamlet', '2 weeks ago', 26, 2, 5, [], literatureQuestions),
+    makeSampleChapter(602, 'Romantic Poetry',      '3 weeks ago', 18, 1, 0, [], literatureQuestions),
   ]},
 ];
 
@@ -2602,7 +2641,7 @@ const flashS = {
   emptyWrap: { maxWidth: 480, minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
 };
 
-function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete }) {
+function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes' }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const total = questions.length;
   const [started, setStarted] = useState(false);
@@ -2706,7 +2745,7 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
         <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
         <h2 style={quizS.resultTitle}>No quiz yet</h2>
         <p style={quizS.resultSub}>{title}</p>
-        <button onClick={() => setTab('notes')} style={quizS.backBtn}>Back to Study</button>
+        <button onClick={() => setTab(backTo)} style={quizS.backBtn}>Back to Study</button>
       </div>
     );
   }
@@ -2774,7 +2813,7 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
         <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
         <div style={quizS.resultActions}>
           <button onClick={resetAll} style={{ ...quizS.tryAgainBtn, background: palette.dot }}>Try again</button>
-          <button onClick={() => setTab('notes')} style={quizS.backBtn}>Back to Study</button>
+          <button onClick={() => setTab(backTo)} style={quizS.backBtn}>Back to Study</button>
         </div>
       </div>
     );
@@ -2886,6 +2925,171 @@ const quizS = {
   tryAgainBtn: { padding: '12px 18px', borderRadius: 999, color: '#fff', fontWeight: 600 },
   backBtn: { padding: '12px 18px', borderRadius: 999, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 },
 };
+
+function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
+  const [selectedExamId, setSelectedExamId] = useState(exams[0]?.id ?? null);
+  const [selectedChapterId, setSelectedChapterId] = useState('all');
+  const [numQ, setNumQ] = useState(10);
+  const [activeDeck, setActiveDeck] = useState(deck && deck.questions && deck.questions.length > 0 ? deck : null);
+
+  const selectedExam = exams.find(e => e.id === selectedExamId);
+
+  const availableQuestions = React.useMemo(() => {
+    if (!selectedExam) return [];
+    if (selectedChapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []);
+    const ch = selectedExam.chapters.find(c => c.id === selectedChapterId);
+    return ch?.questions || [];
+  }, [selectedExam, selectedChapterId]);
+
+  const maxQ = availableQuestions.length;
+  const effectiveNumQ = Math.min(numQ, maxQ || 1);
+
+  const startQuiz = (overrides = {}) => {
+    const examId = overrides.examId ?? selectedExamId;
+    const chapterId = overrides.chapterId ?? selectedChapterId;
+    const exam = exams.find(e => e.id === examId) || selectedExam;
+    const qs = chapterId === 'all'
+      ? (exam?.chapters || []).flatMap(c => c.questions || [])
+      : (exam?.chapters.find(c => c.id === chapterId)?.questions || []);
+    const chapterName = chapterId === 'all' ? 'Intero esame' : (exam?.chapters.find(c => c.id === chapterId)?.title || '');
+    const n = overrides.numQ ?? effectiveNumQ;
+    setActiveDeck({
+      noteId: chapterId === 'all' ? examId : chapterId,
+      subject: exam?.subject || '',
+      title: chapterName,
+      questions: qs.slice(0, n),
+      _meta: { examId, examName: exam?.name || '', chapterId, chapterName, numQ: Math.min(n, qs.length) },
+    });
+  };
+
+  const handleQuizComplete = (noteId, scorePct) => {
+    onQuizComplete(noteId, scorePct, activeDeck?._meta || null);
+  };
+
+  const filteredRuns = quizRuns.filter(r => r.examId === selectedExamId);
+
+  if (activeDeck) {
+    return (
+      <QuizView
+        noteId={activeDeck.noteId}
+        subject={activeDeck.subject}
+        title={activeDeck.title}
+        questions={activeDeck.questions}
+        setTab={(t) => { if (t === 'quiz') { setActiveDeck(null); } else { setTab(t); } }}
+        darkMode={darkMode}
+        onQuizComplete={handleQuizComplete}
+        backTo="quiz"
+      />
+    );
+  }
+
+  const sL = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--gray)', marginBottom: 8 };
+  const pill = (active) => ({
+    padding: '7px 14px', borderRadius: 999,
+    border: `1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`,
+    background: active ? '#EEF2FF' : 'var(--surface)',
+    color: active ? 'var(--indigo)' : 'var(--gray)',
+    fontWeight: 600, fontSize: 13, cursor: 'pointer',
+  });
+
+  return (
+    <div>
+      <div style={{ maxWidth: 580, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 22 }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Quiz</h2>
+
+        {/* Exam selector */}
+        <div>
+          <div style={sL}>Esame</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {exams.map(exam => {
+              const active = exam.id === selectedExamId;
+              const pal = getSubjectPalette(exam.subject, {}, darkMode);
+              return (
+                <button key={exam.id} onClick={() => { setSelectedExamId(exam.id); setSelectedChapterId('all'); }}
+                  style={{ padding: '7px 14px', borderRadius: 999, border: `1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.bg : 'var(--surface)', color: active ? pal.text : 'var(--gray)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                  {exam.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Chapter selector */}
+        {selectedExam && (
+          <div>
+            <div style={sL}>Capitolo</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <button onClick={() => setSelectedChapterId('all')} style={pill(selectedChapterId === 'all')}>Intero esame</button>
+              {selectedExam.chapters.map(ch => (
+                <button key={ch.id} onClick={() => setSelectedChapterId(ch.id)} style={pill(selectedChapterId === ch.id)}>{ch.title}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Number of questions */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={sL}>Domande</span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--indigo)' }}>{maxQ > 0 ? effectiveNumQ : 0}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[5, 10, 15, 20].map(n => {
+              const disabled = maxQ > 0 && n > maxQ;
+              return (
+                <button key={n} onClick={() => !disabled && setNumQ(n)} disabled={disabled}
+                  style={{ flex: 1, padding: '9px 4px', borderRadius: 10, border: `1.5px solid ${numQ === n && !disabled ? 'var(--indigo)' : 'var(--border)'}`, background: numQ === n && !disabled ? '#EEF2FF' : 'var(--surface)', fontWeight: 700, fontSize: 13, color: numQ === n && !disabled ? 'var(--indigo)' : 'var(--gray)', opacity: disabled ? 0.35 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+                  {n}
+                </button>
+              );
+            })}
+          </div>
+          {maxQ === 0 && <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--gray)' }}>Nessuna domanda disponibile per questa selezione</p>}
+        </div>
+
+        {/* Start Quiz */}
+        <button onClick={() => startQuiz()} disabled={maxQ === 0}
+          style={{ width: '100%', borderRadius: 14, padding: '15px 16px', background: maxQ > 0 ? 'var(--indigo)' : '#CBD5E1', color: '#fff', fontWeight: 700, fontSize: 15, cursor: maxQ > 0 ? 'pointer' : 'not-allowed' }}>
+          Configura e avvia Quiz
+        </button>
+      </div>
+
+      {/* Past quiz runs */}
+      {filteredRuns.length > 0 && (
+        <div style={{ maxWidth: 580, margin: '32px auto 0' }}>
+          <div style={{ height: 1, background: 'var(--border)', marginBottom: 24 }} />
+          <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Quiz precedenti</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {filteredRuns.map(run => {
+              const sc = run.score >= 80 ? '#10B981' : run.score >= 60 ? '#F59E0B' : '#EF4444';
+              return (
+                <div key={run.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 999, border: `2px solid ${sc}`, background: `${sc}18`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: sc }}>{run.score}%</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{run.chapterName}</div>
+                    <div style={{ fontSize: 12, color: 'var(--gray)', marginTop: 2 }}>{run.numQ} domande · {run.date}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => alert('Review coming soon')}
+                      style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--gray)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                      Review
+                    </button>
+                    <button onClick={() => startQuiz({ examId: run.examId, chapterId: run.chapterId, numQ: run.numQ })}
+                      style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                      Try again
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function CreateExamModal({ onClose, onCreate }) {
   const [name, setName] = useState('');
