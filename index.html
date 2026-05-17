@@ -1380,8 +1380,9 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
         <CreateExamModal
           onClose={() => setShowCreate(false)}
           onCreate={(exam) => {
-            const sc = SUBJECT_COLORS[exam.subject] || EXTRA_SUBJECT_COLORS.Other;
-            const enriched = { ...exam, color: sc.bg, dot: sc.dot, subject: exam.subject };
+            const dateBasedCount = exams.filter((e) => !!e.date).length;
+            const idx = dateBasedCount % PALETTE_CYCLE.length;
+            const enriched = { ...exam, color: PALETTE_CYCLE[idx], dot: DOT_CYCLE[idx] };
             setExams((p) => [enriched, ...p]);
             setShowCreate(false);
             if (exam.date && onExamAdded) {
@@ -1391,8 +1392,8 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
                 name: '📝 Exam: ' + exam.name,
                 time: '09:00', dur: '2h', cat: 'study',
                 noteId: exam.id,
-                noteColor: sc.dot, noteBg: sc.bg, noteText: sc.text,
-                noteSubject: exam.subject,
+                noteColor: DOT_CYCLE[idx], noteBg: PALETTE_CYCLE[idx],
+                noteText: 'var(--ink)', noteSubject: exam.name,
               });
             }
           }}
@@ -1925,15 +1926,12 @@ const quizS = {
 };
 
 function CreateExamModal({ onClose, onCreate }) {
-  const [name, setName]       = useState('');
-  const [subject, setSubject] = useState('');
-  const [subjectErr, setSubjectErr] = useState(false);
+  const [name, setName] = useState('');
   const today = new Date();
   const [day, setDay]     = useState(today.getDate());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear]   = useState(today.getFullYear());
 
-  const SUBJECTS_EXAM = ['Biology','Chemistry','History','Math','Economics','Literature','Other'];
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years  = [2025, 2026, 2027, 2028];
   const pad    = (n) => (n < 10 ? '0' + n : '' + n);
@@ -1941,15 +1939,13 @@ function CreateExamModal({ onClose, onCreate }) {
   const submit = (e) => {
     if (e) e.preventDefault();
     if (!name.trim()) return;
-    if (!subject) { setSubjectErr(true); return; }
     const lastDay = new Date(year, month, 0).getDate();
     const safeDay = Math.min(Number(day), lastDay);
     const iso = `${year}-${pad(month)}-${pad(safeDay)}`;
-    onCreate({ id: Date.now(), name: name.trim(), subject, date: iso, updated: 'Just now', chapters: [] });
+    onCreate({ id: Date.now(), name: name.trim(), date: iso, updated: 'Just now', chapters: [] });
   };
 
-  const sc = SUBJECT_COLORS[subject] || EXTRA_SUBJECT_COLORS.Other;
-  const canSubmit = name.trim() && subject;
+  const canSubmit = name.trim();
 
   return (
     <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
@@ -1961,24 +1957,6 @@ function CreateExamModal({ onClose, onCreate }) {
         <div style={uploadS.field}>
           <label style={uploadS.label}>Exam name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Biology Final 2024" style={uploadS.input} autoFocus />
-        </div>
-
-        <div style={uploadS.field}>
-          <label style={uploadS.label}>Subject</label>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:8 }}>
-            {SUBJECTS_EXAM.map(s => {
-              const col = SUBJECT_COLORS[s] || EXTRA_SUBJECT_COLORS.Other;
-              const sel = subject === s;
-              return (
-                <button key={s} type="button" onClick={() => { setSubject(s); setSubjectErr(false); }}
-                  style={{ padding:'6px 14px', borderRadius:999, fontSize:12, fontWeight:600, cursor:'pointer', border:'1.5px solid',
-                    background: sel ? col.dot : col.bg, color: sel ? '#fff' : col.text, borderColor: sel ? col.dot : col.border }}>
-                  {s}
-                </button>
-              );
-            })}
-          </div>
-          {subjectErr && <div style={{ fontSize:11, color:'#DC2626', marginTop:4 }}>Select a subject</div>}
         </div>
 
         <div style={uploadS.field}>
@@ -2005,7 +1983,7 @@ function CreateExamModal({ onClose, onCreate }) {
         <div style={uploadS.actions}>
           <button type="button" onClick={onClose} style={uploadS.cancelBtn}>Cancel</button>
           <button type="submit" disabled={!canSubmit}
-            style={{ ...uploadS.submitBtn, background: canSubmit ? sc.dot : undefined, ...(!canSubmit ? uploadS.submitBtnDisabled : null) }}>
+            style={{ ...uploadS.submitBtn, ...(!canSubmit ? uploadS.submitBtnDisabled : null) }}>
             Create Exam
           </button>
         </div>
