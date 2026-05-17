@@ -129,6 +129,23 @@
   [data-theme="dark"] #page-landing [class*="border-border"] { border-color: #334155 !important; }
   [data-theme="dark"] #page-landing [class*="bg-muted"] { background-color: rgba(30,41,59,.65) !important; }
   .quiz-option-ready:hover { background: var(--sidebar-bg) !important; }
+  .grade-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--grade-color);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,.18);
+  }
+  .grade-range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--grade-color);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,.18);
+  }
 </style>
 </head>
 <body class="min-h-screen bg-white antialiased">
@@ -1203,15 +1220,19 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
   const [activeExamId, setActiveExamId] = useState(null);
   const [themeSpin, setThemeSpin] = useState(0);
   const [flashcardDeck, setFlashcardDeck] = useState({
+    noteId: 1,
     subject: 'Biology',
     title: 'Cellular Respiration',
     cards: cellularRespirationCards,
   });
   const [quizDeck, setQuizDeck] = useState({
+    noteId: 1,
     subject: 'Biology',
     title: 'Cellular Respiration',
     questions: cellularRespirationQuestions,
   });
+  const [quizHistory, setQuizHistory] = useState({});
+  const [flashHistory, setFlashHistory] = useState({});
   const [weekData, setWeekData] = useState(initialWeekData);
 
   function handleSessionSaved(mins) {
@@ -1241,14 +1262,30 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
     setTab('notes');
   };
 
-  const openFlashcards = ({ subject, title, cards }) => {
-    setFlashcardDeck({ subject, title, cards });
+  function onQuizComplete(noteId, scorePct) {
+    if (!noteId) return;
+    setQuizHistory(prev => ({
+      ...prev,
+      [noteId]: [...(prev[noteId] || []), scorePct]
+    }));
+  }
+
+  function onFlashComplete(noteId, scorePct) {
+    if (!noteId) return;
+    setFlashHistory(prev => ({
+      ...prev,
+      [noteId]: [...(prev[noteId] || []), scorePct]
+    }));
+  }
+
+  const openFlashcards = ({ noteId, subject, title, cards }) => {
+    setFlashcardDeck({ noteId, subject, title, cards });
     setActiveExamId(null);
     setTab('flashcards');
   };
 
-  const openQuiz = ({ subject, title, questions }) => {
-    setQuizDeck({ subject, title, questions });
+  const openQuiz = ({ noteId, subject, title, questions }) => {
+    setQuizDeck({ noteId, subject, title, questions });
     setActiveExamId(null);
     setTab('quiz');
   };
@@ -1299,12 +1336,12 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
         <div style={shellS.grid}>
           <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); setTab(t); }} />
           <div style={shellS.main}>
-            {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} />}
+            {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} />}
             {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} />}
-            {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} />}
-            {tab === 'quiz' && <QuizView {...quizDeck} setTab={setTab} darkMode={darkMode} />}
+            {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} />}
+            {tab === 'quiz' && <QuizView {...quizDeck} setTab={setTab} darkMode={darkMode} onQuizComplete={onQuizComplete} />}
             {tab === 'tutor'     && <TutorView />}
-            {tab === 'analytics' && <AnalyticsView weekData={weekData} />}
+            {tab === 'analytics' && <AnalyticsView weekData={weekData} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} />}
             {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} />}
           </div>
         </div>
@@ -1734,12 +1771,12 @@ const homeS = {
 
 /* ===================== MY NOTES ===================== */
 const seedNotes = [
-  { id: 1, title: 'Cellular Respiration',         subject: 'Biology',   updated: '2h ago',  pages: 12, color: '#EEF2FF', dot: 'var(--indigo)', examDate: '2026-06-15' },
-  { id: 2, title: 'Organic Chemistry Reactions',  subject: 'Chemistry', updated: 'Yesterday', pages: 24, color: '#FDF2F8', dot: 'var(--purple)', examDate: '2026-06-20' },
-  { id: 3, title: 'World War II Timeline',        subject: 'History',   updated: '3 days ago', pages: 18, color: '#FEF3C7', dot: '#F59E0B', examDate: '2026-07-01' },
-  { id: 4, title: 'Calculus — Derivatives',       subject: 'Math',      updated: '1 week ago', pages: 32, color: '#ECFEFF', dot: '#06B6D4', examDate: '2026-06-10' },
-  { id: 5, title: 'Macroeconomics Notes',         subject: 'Economics', updated: '2 weeks ago', pages: 16, color: '#DCFCE7', dot: '#10B981', examDate: '2026-07-05' },
-  { id: 6, title: 'Shakespeare — Hamlet',         subject: 'Literature',updated: '3 weeks ago', pages: 22, color: '#FEE2E2', dot: '#EF4444', examDate: '2026-06-28' },
+  { id: 1, title: 'Cellular Respiration',         subject: 'Biology',   updated: '2h ago',  pages: 12, color: '#EEF2FF', dot: 'var(--indigo)', examDate: '2026-06-15', targetGrade: 27 },
+  { id: 2, title: 'Organic Chemistry Reactions',  subject: 'Chemistry', updated: 'Yesterday', pages: 24, color: '#FDF2F8', dot: 'var(--purple)', examDate: '2026-06-20', targetGrade: 25 },
+  { id: 3, title: 'World War II Timeline',        subject: 'History',   updated: '3 days ago', pages: 18, color: '#FEF3C7', dot: '#F59E0B', examDate: '2026-07-01', targetGrade: 24 },
+  { id: 4, title: 'Calculus — Derivatives',       subject: 'Math',      updated: '1 week ago', pages: 32, color: '#ECFEFF', dot: '#06B6D4', examDate: '2026-06-10', targetGrade: 28 },
+  { id: 5, title: 'Macroeconomics Notes',         subject: 'Economics', updated: '2 weeks ago', pages: 16, color: '#DCFCE7', dot: '#10B981', examDate: '2026-07-05', targetGrade: 26 },
+  { id: 6, title: 'Shakespeare — Hamlet',         subject: 'Literature',updated: '3 weeks ago', pages: 22, color: '#FEE2E2', dot: '#EF4444', examDate: '2026-06-28', targetGrade: 24 },
 ];
 
 const SUBJECT_COLORS = {
@@ -1850,28 +1887,40 @@ function daysLeft(iso) {
   } catch (_) { return -1; }
 }
 
+function GradeValue({ value, color, size = 20 }) {
+  const grade = Number(value || 27);
+  const isLode = grade >= 30;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <span style={{ fontSize: size, fontWeight: 800, color }}>{isLode ? '30L' : grade}</span>
+      <span style={{ fontSize: Math.max(9, size - 12), color: 'var(--gray-2)', fontWeight: 700 }}>/30</span>
+      {isLode && <span style={gradeS.lodeBadge}>con lode</span>}
+    </span>
+  );
+}
+
 const seedExams = [
-  { id: 1, name: 'Biology 2024',       subject: 'Biology',    date: '2026-06-24', updated: '2h ago',     chapters: [
+  { id: 1, name: 'Biology 2024',       subject: 'Biology',    date: '2026-06-24', targetGrade: 27, updated: '2h ago',     chapters: [
     makeSampleChapter(101, 'Cellular Respiration', '2h ago', 12, 1, 0, cellularRespirationCards, cellularRespirationQuestions),
     makeSampleChapter(102, 'Genetics Basics',      '3 days ago', 18, 2, 1),
   ]},
-  { id: 2, name: 'Organic Chemistry',  subject: 'Chemistry',  date: '2026-07-08', updated: '1 day ago',  chapters: [
+  { id: 2, name: 'Organic Chemistry',  subject: 'Chemistry',  date: '2026-07-08', targetGrade: 25, updated: '1 day ago',  chapters: [
     makeSampleChapter(201, 'Reaction Mechanisms', '1 day ago',  22, 2, 1),
     makeSampleChapter(202, 'Alkanes & Alkenes',   '4 days ago', 14, 1, 2),
   ]},
-  { id: 3, name: 'Calculus II',        subject: 'Math',       date: '2026-06-15', updated: '3 days ago', chapters: [
+  { id: 3, name: 'Calculus II',        subject: 'Math',       date: '2026-06-15', targetGrade: 28, updated: '3 days ago', chapters: [
     makeSampleChapter(301, 'Integration Techniques', '3 days ago', 28, 3, 2),
     makeSampleChapter(302, 'Series & Sequences',     '1 week ago', 20, 2, 3),
   ]},
-  { id: 4, name: 'World War II',       subject: 'History',    date: '2026-06-24', updated: '5 days ago', chapters: [
+  { id: 4, name: 'World War II',       subject: 'History',    date: '2026-06-24', targetGrade: 24, updated: '5 days ago', chapters: [
     makeSampleChapter(401, 'Causes & Outbreak', '5 days ago', 16, 1, 3),
     makeSampleChapter(402, 'Pacific Theater',   '1 week ago', 22, 2, 4),
   ]},
-  { id: 5, name: 'Quantum Physics',    subject: 'Physics',    date: '2026-07-22', updated: '1 week ago', chapters: [
+  { id: 5, name: 'Quantum Physics',    subject: 'Physics',    date: '2026-07-22', targetGrade: 27, updated: '1 week ago', chapters: [
     makeSampleChapter(501, 'Wave-Particle Duality',  '1 week ago',  24, 2, 4),
     makeSampleChapter(502, 'Schrödinger Equation',   '2 weeks ago', 30, 3, 5),
   ]},
-  { id: 6, name: 'English Literature', subject: 'Literature', date: '2026-05-29', updated: '2 weeks ago', chapters: [
+  { id: 6, name: 'English Literature', subject: 'Literature', date: '2026-05-29', targetGrade: 24, updated: '2 weeks ago', chapters: [
     makeSampleChapter(601, 'Shakespeare — Hamlet', '2 weeks ago', 26, 2, 5),
     makeSampleChapter(602, 'Romantic Poetry',      '3 weeks ago', 18, 1, 0),
   ]},
@@ -1928,7 +1977,8 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
           onCreate={(exam) => {
             const dateBasedCount = exams.filter((e) => !!e.date).length;
             const idx = dateBasedCount % PALETTE_CYCLE.length;
-            const enriched = { ...exam, color: PALETTE_CYCLE[idx], dot: DOT_CYCLE[idx] };
+            const palette = SUBJECT_COLORS[exam.subject] || EXTRA_SUBJECT_COLORS.Other;
+            const enriched = { ...exam, color: palette.bg, dot: palette.dot };
             setExams((p) => [enriched, ...p]);
             setShowCreate(false);
             if (exam.date && onExamAdded) {
@@ -1938,8 +1988,8 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
                 name: '📝 Exam: ' + exam.name,
                 time: '09:00', dur: '2h', cat: 'study',
                 noteId: exam.id,
-                noteColor: DOT_CYCLE[idx], noteBg: PALETTE_CYCLE[idx],
-                noteText: 'var(--ink)', noteSubject: exam.name,
+                noteColor: palette.dot, noteBg: palette.bg,
+                noteText: palette.text, noteSubject: exam.subject,
               });
             }
           }}
@@ -1974,6 +2024,11 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
                 <p style={notesS.meta}>
                   {x.chapters.length} {x.chapters.length === 1 ? 'chapter' : 'chapters'}
                 </p>
+                <div style={gradeS.cardTarget}>
+                  <span style={{ width: 7, height: 7, borderRadius: 999, background: palette.dot }} />
+                  <span style={gradeS.cardTargetLabel}>Target</span>
+                  <GradeValue value={x.targetGrade || 27} color={palette.dot} size={18} />
+                </div>
                 <div style={notesS.actions}>
                   <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
                     <LockeenLogo size={16} /> Open Exam
@@ -2048,10 +2103,10 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
                 <h3 style={notesS.title}>{n.title}</h3>
                 <p style={notesS.meta}>{n.files || 1} {(n.files || 1) === 1 ? 'file' : 'files'} • {n.pages} pages • Updated {n.updated}</p>
                 <div style={notesS.actions}>
-                  <button style={notesS.primarySmall} onClick={() => onOpenQuiz && onOpenQuiz({ subject: exam.subject, title: n.title, questions: n.questions || [] })}>
+                  <button style={notesS.primarySmall} onClick={() => onOpenQuiz && onOpenQuiz({ noteId: exam.id, subject: exam.subject, title: n.title, questions: n.questions || [] })}>
                     <Sparkles size={14} /> Generate Quiz
                   </button>
-                  <button style={notesS.ghostSmall} onClick={() => onOpenFlashcards && onOpenFlashcards({ subject: exam.subject, title: n.title, cards: n.cards || [] })}>
+                  <button style={notesS.ghostSmall} onClick={() => onOpenFlashcards && onOpenFlashcards({ noteId: exam.id, subject: exam.subject, title: n.title, cards: n.cards || [] })}>
                     <Layers size={14} /> Flashcards
                   </button>
                 </div>
@@ -2064,7 +2119,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
   );
 }
 
-function FlashcardViewer({ subject, title, cards, setTab, darkMode }) {
+function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFlashComplete }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const total = cards.length;
   const [idx, setIdx] = useState(0);
@@ -2072,6 +2127,7 @@ function FlashcardViewer({ subject, title, cards, setTab, darkMode }) {
   const [flipped, setFlipped] = useState(false);
   const [answered, setAnswered] = useState([]);
   const [done, setDone] = useState(false);
+  const resultSavedRef = useRef(false);
 
   const reset = () => {
     setIdx(0);
@@ -2079,11 +2135,18 @@ function FlashcardViewer({ subject, title, cards, setTab, darkMode }) {
     setFlipped(false);
     setAnswered([]);
     setDone(false);
+    resultSavedRef.current = false;
   };
 
   useEffect(() => {
     reset();
   }, [subject, title, cards]);
+
+  useEffect(() => {
+    if (!done || !total || resultSavedRef.current) return;
+    resultSavedRef.current = true;
+    onFlashComplete && onFlashComplete(noteId, Math.round((correct / total) * 100));
+  }, [done, total, correct, noteId, onFlashComplete]);
 
   if (!total) {
     return (
@@ -2232,7 +2295,7 @@ const flashS = {
   emptyWrap: { maxWidth: 480, minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
 };
 
-function QuizView({ subject, title, questions, setTab, darkMode }) {
+function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const total = questions.length;
   const [started, setStarted] = useState(false);
@@ -2245,6 +2308,7 @@ function QuizView({ subject, title, questions, setTab, darkMode }) {
   const [timerVal, setTimerVal] = useState(20);
   const timerID = useRef(null);
   const [done, setDone] = useState(false);
+  const resultSavedRef = useRef(false);
 
   const stopTimer = () => {
     if (timerID.current) {
@@ -2264,12 +2328,18 @@ function QuizView({ subject, title, questions, setTab, darkMode }) {
     setTimerSecs(20);
     setTimerVal(20);
     setDone(false);
+    resultSavedRef.current = false;
   };
 
   useEffect(() => () => stopTimer(), []);
   useEffect(() => {
     resetAll();
   }, [subject, title, questions]);
+  useEffect(() => {
+    if (!done || !total || resultSavedRef.current) return;
+    resultSavedRef.current = true;
+    onQuizComplete && onQuizComplete(noteId, Math.round((correct / total) * 100));
+  }, [done, total, correct, noteId, onQuizComplete]);
 
   const startTimer = () => {
     stopTimer();
@@ -2485,6 +2555,8 @@ const quizS = {
 
 function CreateExamModal({ onClose, onCreate }) {
   const [name, setName] = useState('');
+  const [subject, setSubject] = useState('Biology');
+  const [targetGrade, setTargetGrade] = useState(27);
   const today = new Date();
   const [day, setDay]     = useState(today.getDate());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -2493,6 +2565,8 @@ function CreateExamModal({ onClose, onCreate }) {
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years  = [2025, 2026, 2027, 2028];
   const pad    = (n) => (n < 10 ? '0' + n : '' + n);
+  const subjectPalette = SUBJECT_COLORS[subject] || EXTRA_SUBJECT_COLORS.Other;
+  const targetPct = ((targetGrade - 18) / 12) * 100;
 
   const submit = (e) => {
     if (e) e.preventDefault();
@@ -2500,7 +2574,17 @@ function CreateExamModal({ onClose, onCreate }) {
     const lastDay = new Date(year, month, 0).getDate();
     const safeDay = Math.min(Number(day), lastDay);
     const iso = `${year}-${pad(month)}-${pad(safeDay)}`;
-    onCreate({ id: Date.now(), name: name.trim(), date: iso, updated: 'Just now', chapters: [] });
+    onCreate({
+      id: Date.now(),
+      name: name.trim(),
+      subject,
+      date: iso,
+      updated: 'Just now',
+      targetGrade,
+      color: subjectPalette.bg,
+      dot: subjectPalette.dot,
+      chapters: []
+    });
   };
 
   const canSubmit = name.trim();
@@ -2515,6 +2599,15 @@ function CreateExamModal({ onClose, onCreate }) {
         <div style={uploadS.field}>
           <label style={uploadS.label}>Exam name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Biology Final 2024" style={uploadS.input} autoFocus />
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={uploadS.label}>Subject</label>
+          <select value={subject} onChange={(e) => setSubject(e.target.value)} style={dateS.select} aria-label="Subject">
+            {Object.keys(SUBJECT_COLORS).map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </div>
 
         <div style={uploadS.field}>
@@ -2535,6 +2628,38 @@ function CreateExamModal({ onClose, onCreate }) {
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
+          </div>
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={dateS.label}>Voto target 🎯</label>
+          <div style={gradeS.sliderRow}>
+            <div style={gradeS.sliderValue}>
+              <GradeValue value={targetGrade} color={subjectPalette.dot} size={26} />
+            </div>
+            <input
+              type="range"
+              className="grade-range"
+              min="18"
+              max="30"
+              step="1"
+              value={targetGrade}
+              onChange={(e) => setTargetGrade(Number(e.target.value))}
+              style={{
+                ...gradeS.range,
+                '--grade-color': subjectPalette.dot,
+                accentColor: subjectPalette.dot,
+                background: `linear-gradient(90deg, ${subjectPalette.dot} 0%, ${subjectPalette.dot} ${targetPct}%, var(--border) ${targetPct}%, var(--border) 100%)`
+              }}
+              aria-label="Voto target"
+            />
+          </div>
+          <div style={gradeS.ticks}>
+            {[18, 21, 24, 27, 30].map((t) => (
+              <span key={t} style={{ color: targetGrade === t ? subjectPalette.dot : 'var(--gray-2)', fontWeight: targetGrade === t ? 800 : 500 }}>
+                {t === 30 ? '30L' : t}
+              </span>
+            ))}
           </div>
         </div>
 
@@ -2900,14 +3025,18 @@ const subjects = [
   { name: 'Literature', progress: 58, color: '#EF4444' },
 ];
 
-function AnalyticsView({ weekData }) {
-  const maxMin = Math.max(...weekData.map(d => d.mins));
+function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab }) {
+  const maxMin = Math.max(...weekData.map(d => d.mins), 1);
   const totalMin = weekData.reduce((a, b) => a + b.mins, 0);
+  const trackedNotes = notes && notes.length ? notes : seedExams;
+  const avgTarget = trackedNotes.length
+    ? (trackedNotes.reduce((sum, n) => sum + (n.targetGrade || 27), 0) / trackedNotes.length).toFixed(1)
+    : '27.0';
   const stats = [
     { label: 'Study time this week', value: `${Math.floor(totalMin/60)}h ${totalMin%60}m`, Icon: Clock,     tint: 'var(--lavender)', col: 'var(--indigo)' },
     { label: 'Current streak',       value: '42 days',                                    Icon: Flame,     tint: '#FFF7ED',         col: '#F97316' },
     { label: 'Avg. quiz score',      value: '88%',                                        Icon: Trend,     tint: '#ECFDF5',         col: '#10B981' },
-    { label: 'Rank this week',       value: '#12',                                        Icon: Trophy,    tint: '#FEF9C3',         col: '#CA8A04' },
+    { label: 'Voto medio target',    value: avgTarget,                                    Icon: Trophy,    tint: '#FEF9C3',         col: '#CA8A04' },
   ];
 
   return (
@@ -2975,9 +3104,150 @@ function AnalyticsView({ weekData }) {
           </div>
         </div>
       </div>
+
+      <div style={gradeS.section}>
+        <div style={gradeS.sectionHead}>
+          <h3 style={gradeS.sectionTitle}>🎯 Grade Predictor</h3>
+          <p style={gradeS.sectionSub}>Previsione basata sui tuoi quiz e flashcard</p>
+        </div>
+        <div style={gradeS.grid}>
+          {trackedNotes.map(note => (
+            <GradePredictorCard
+              key={note.id}
+              note={note}
+              quizHistory={quizHistory || {}}
+              flashHistory={flashHistory || {}}
+              setTab={setTab}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
+
+function GradePredictorCard({ note, quizHistory, flashHistory, setTab }) {
+  const palette = getSubjectPalette(note.subject, note, false);
+  const targetGrade = note.targetGrade || 27;
+  const allScores = [
+    ...(quizHistory[note.id] || []),
+    ...(flashHistory[note.id] || [])
+  ];
+  const avgScore = allScores.length > 0
+    ? allScores.reduce((a,b)=>a+b,0) / allScores.length
+    : 50;
+  const predictedGrade = Math.round(18 + (avgScore / 100) * 12);
+  const gap = targetGrade - predictedGrade;
+  const predPct = Math.max(0, Math.min(100, ((predictedGrade - 18) / 12) * 100));
+  const targetPct = Math.max(0, Math.min(100, ((targetGrade - 18) / 12) * 100));
+  const onTarget = predictedGrade === targetGrade;
+  const overlap = !onTarget && Math.abs(gap) < 2;
+  const gradeText = (v) => v >= 30 ? '30L' : v;
+
+  let messageStyle = gradeS.msgEmpty;
+  let message = '📝 Fai il primo quiz per vedere la previsione del voto.';
+  if (allScores.length > 0 && gap > 4) {
+    messageStyle = gradeS.msgWarn;
+    message = `⚠️ Sei a ${gap} punti dall'obiettivo. Fai più quiz per migliorare la previsione.`;
+  } else if (allScores.length > 0 && gap > 0) {
+    messageStyle = gradeS.msgAlmost;
+    message = `💪 Quasi lì! Ti mancano solo ${gap} punti. Continua così.`;
+  } else if (allScores.length > 0 && gap <= 0) {
+    messageStyle = gradeS.msgGood;
+    message = '🎉 Sei sulla strada giusta! Al ritmo attuale puoi raggiungere il tuo obiettivo.';
+  }
+
+  return (
+    <div style={gradeS.card}>
+      <div style={gradeS.cardHead}>
+        <div style={gradeS.noteName}>
+          <span style={{ ...gradeS.noteDot, background: palette.dot }} />
+          <span>{note.name || note.title}</span>
+        </div>
+        <span style={gradeS.examDate}>{formatExamDate(note.date || note.examDate)}</span>
+      </div>
+
+      <div style={gradeS.barWrap}>
+        <div style={gradeS.track} />
+        <div style={{ ...gradeS.fill, background: palette.dot, width: `${predPct}%` }} />
+        {onTarget ? (
+          <div style={{ ...gradeS.point, left: `${targetPct}%`, background: '#10B981' }}>
+            <span style={{ ...gradeS.pointLabel, color: '#065F46', width: 80, left: -31 }}>🎯 On target!</span>
+          </div>
+        ) : overlap ? (
+          <div style={{ ...gradeS.point, left: `${targetPct}%`, background: '#F59E0B', borderColor: palette.dot, zIndex: 3 }}>
+            <span style={{ ...gradeS.pointLabel, color: '#92400E' }}>{gradeText(targetGrade)}</span>
+          </div>
+        ) : (
+          <React.Fragment>
+            <div style={{ ...gradeS.point, left: `${predPct}%`, background: palette.dot, zIndex: 2 }}>
+              <span style={{ ...gradeS.pointLabel, color: palette.dot }}>{gradeText(predictedGrade)}</span>
+            </div>
+            <div style={{ ...gradeS.point, left: `${targetPct}%`, background: '#F59E0B', zIndex: 3 }}>
+              <span style={{ ...gradeS.pointLabel, color: '#92400E' }}>{gradeText(targetGrade)}</span>
+            </div>
+          </React.Fragment>
+        )}
+        <span style={gradeS.minLabel}>18</span>
+        <span style={gradeS.maxLabel}>30L</span>
+      </div>
+
+      <div style={gradeS.nums}>
+        <div>
+          <div style={{ ...gradeS.num, color: palette.dot }}>{gradeText(predictedGrade)}</div>
+          <div style={gradeS.numLabel}>Previsione attuale</div>
+        </div>
+        <div>
+          <div style={{ ...gradeS.num, color: '#F59E0B' }}>{gradeText(targetGrade)}</div>
+          <div style={gradeS.numLabel}>Il tuo obiettivo</div>
+        </div>
+        <div>
+          <div style={{ ...gradeS.num, color: gap > 0 ? '#EF4444' : '#10B981' }}>{gap > 0 ? `-${gap}` : `+${Math.abs(gap)}`}</div>
+          <div style={gradeS.numLabel}>Punti da recuperare</div>
+        </div>
+      </div>
+
+      <div style={{ ...gradeS.message, ...messageStyle }}>{message}</div>
+      <button style={gradeS.quizBtn} onClick={() => setTab && setTab('quiz')}>Vai al Quiz →</button>
+    </div>
+  );
+}
+
+const gradeS = {
+  lodeBadge: { background: 'linear-gradient(90deg,#F59E0B,#EF4444)', color: '#fff', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 20, lineHeight: 1.2 },
+  sliderRow: { display: 'flex', alignItems: 'center', gap: 14 },
+  sliderValue: { minWidth: 92, display: 'flex', alignItems: 'center' },
+  range: { flex: 1, height: 8, borderRadius: 999, outline: 'none', appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' },
+  ticks: { display: 'flex', justifyContent: 'space-between', marginTop: 7, fontSize: 9, color: 'var(--gray-2)' },
+  cardTarget: { display: 'flex', alignItems: 'center', gap: 6, margin: '-4px 0 14px' },
+  cardTargetLabel: { fontSize: 11, color: 'var(--gray)', fontWeight: 700 },
+  section: { marginTop: 22 },
+  sectionHead: { marginBottom: 16 },
+  sectionTitle: { margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' },
+  sectionSub: { margin: '4px 0 0', fontSize: 13, color: 'var(--gray)' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 },
+  card: { background: '#fff', border: '1px solid var(--border)', borderRadius: 18, padding: 18 },
+  cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 18 },
+  noteName: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--ink)', minWidth: 0 },
+  noteDot: { width: 9, height: 9, borderRadius: 999, flexShrink: 0 },
+  examDate: { fontSize: 12, color: 'var(--gray)', whiteSpace: 'nowrap' },
+  barWrap: { position: 'relative', height: 48, marginBottom: 12 },
+  track: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '100%', height: 8, background: 'var(--border)', borderRadius: 999 },
+  fill: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: 8, borderRadius: 999 },
+  point: { position: 'absolute', top: '50%', transform: 'translate(-50%,-50%)', width: 18, height: 18, borderRadius: '50%', border: '3px solid #fff', boxShadow: '0 2px 6px rgba(0,0,0,.15)' },
+  pointLabel: { position: 'absolute', top: -20, left: -3, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' },
+  minLabel: { position: 'absolute', left: 0, bottom: 0, fontSize: 9, color: 'var(--gray-2)' },
+  maxLabel: { position: 'absolute', right: 0, bottom: 0, fontSize: 9, color: 'var(--gray-2)' },
+  nums: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 },
+  num: { fontSize: 20, fontWeight: 800, lineHeight: 1 },
+  numLabel: { marginTop: 4, fontSize: 10, color: 'var(--gray)', lineHeight: 1.25 },
+  message: { borderRadius: 10, padding: '10px 12px', fontSize: 12, lineHeight: 1.5, border: '1px solid var(--border)', marginBottom: 8 },
+  msgEmpty: { background: 'var(--sidebar-bg)', borderColor: 'var(--border)', color: 'var(--gray)' },
+  msgWarn: { background: '#FEF3C7', borderColor: '#fcd34d', color: '#92400E' },
+  msgAlmost: { background: '#EEF2FF', borderColor: 'var(--indigo)', color: 'var(--indigo)' },
+  msgGood: { background: '#DCFCE7', borderColor: '#86efac', color: '#166534' },
+  quizBtn: { width: '100%', marginTop: 8, padding: '10px 12px', borderRadius: 10, background: '#fff', border: '1px solid var(--indigo)', color: 'var(--indigo)', fontSize: 12, fontWeight: 700 },
+};
 
 const analS = {
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 22 },
