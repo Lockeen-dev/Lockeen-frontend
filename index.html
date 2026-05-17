@@ -3673,9 +3673,12 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
 
   const rangeLabel = view === 'week' ? weekLabel() : `${CAL_MONTHS[viewMonth]} ${viewYear}`;
   const weekDays = useMemo(() => Array.from({length:7}, (_, i) => calAddDays(weekStart, i)), [weekStart]);
+  const todayDow = today.getDay(); // 0=Sun,1=Mon,...,6=Sat
   const monthGrid = useMemo(() => {
-    const startMonday = getMonday(new Date(viewYear, viewMonth, 1));
-    return Array.from({length:42}, (_, i) => calAddDays(startMonday, i));
+    const firstOfMonth = new Date(viewYear, viewMonth, 1);
+    const diff = (firstOfMonth.getDay() - todayDow + 7) % 7;
+    const gridStart = calAddDays(firstOfMonth, -diff);
+    return Array.from({length:42}, (_, i) => calAddDays(gridStart, i));
   }, [viewMonth, viewYear]);
 
   const lifeBalance = useMemo(() => {
@@ -3689,7 +3692,9 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
 
   const fmtModalDate = (key) => { if (!key) return ''; const [y,m,d] = key.split('-').map(Number); return `${CAL_MONTHS_S[m-1]} ${d}, ${y}`; };
   const DAY_NAMES = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
-  const WEEK_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const _ALL_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const _rot = (today.getDay() + 6) % 7; // Mon=0..Sun=6
+  const WEEK_LABELS = [..._ALL_LABELS.slice(_rot), ..._ALL_LABELS.slice(0, _rot)];
 
   const renderWeek = () => {
     const hours   = Array.from({ length: 24 }, (_, i) => i);
