@@ -1841,6 +1841,14 @@ function formatExamDate(iso) {
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   } catch (_) { return iso; }
 }
+function daysLeft(iso) {
+  if (!iso) return -1;
+  try {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const exam = new Date(iso + 'T00:00:00'); exam.setHours(0,0,0,0);
+    return Math.round((exam - today) / 86400000);
+  } catch (_) { return -1; }
+}
 
 const seedExams = [
   { id: 1, name: 'Biology 2024',       subject: 'Biology',    date: '2026-06-24', updated: '2h ago',     chapters: [
@@ -1947,7 +1955,12 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
                 <div style={{ ...notesS.coverDot, background: palette.dot, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
                   <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 30, height: 30, objectFit: 'contain', display: 'block' }} />
                 </div>
-                {x.date && <span style={notesS.subjectChip}>{formatExamDate(x.date)}</span>}
+                {x.date && (
+                  <span style={notesS.subjectChip}>
+                    <span style={{ display:'block' }}>{formatExamDate(x.date)}</span>
+                    {daysLeft(x.date) >= 0 && <span style={{ display:'block', fontSize:9, color:'var(--gray)', fontWeight:600, marginTop:2 }}>{daysLeft(x.date) === 0 ? 'Oggi!' : `${daysLeft(x.date)} giorni`}</span>}
+                  </span>
+                )}
               </div>
               <div style={{ padding: 18 }}>
                 <h3 style={notesS.title}>{x.name}</h3>
@@ -2574,7 +2587,7 @@ const notesS = {
   card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', transition: 'transform .15s, box-shadow .15s' },
   cover: { height: 100, position: 'relative', display: 'grid', placeItems: 'center' },
   coverDot: { width: 36, height: 36, borderRadius: 12 },
-  subjectChip: { position: 'absolute', top: 12, right: 12, fontSize: 11, fontWeight: 700, padding: '4px 10px', background: 'rgba(255,255,255,.8)', borderRadius: 999, color: 'var(--ink)' },
+  subjectChip: { position: 'absolute', top: 12, right: 12, fontSize: 11, fontWeight: 700, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--ink)', textAlign: 'right', lineHeight: 1.4 },
   title: { margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
   meta: { margin: '0 0 14px', color: 'var(--gray)', fontSize: 12 },
   actions: { display: 'flex', gap: 8 },
