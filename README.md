@@ -1,1 +1,3 @@
-# Lockeen-frontend
+# Lockeen Frontend
+
+Frontend for Lockeen.
