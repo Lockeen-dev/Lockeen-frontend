@@ -978,6 +978,8 @@ const MsgCircle   = (p) => <Icon {...p}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8
 const BarChart3   = (p) => <Icon {...p}><path d="M3 3v18h18"/><path d="M7 16v-5"/><path d="M12 16V8"/><path d="M17 16v-3"/></Icon>;
 const Sparkles    = (p) => <Icon {...p}><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></Icon>;
 const Check       = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12"/></Icon>;
+const CheckCircle = (p) => <Icon {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>;
+const Zap         = (p) => <Icon {...p}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></Icon>;
 const ArrowRight  = (p) => <Icon {...p}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></Icon>;
 const Search      = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Icon>;
 const Plus        = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
@@ -1344,7 +1346,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
         <div style={shellS.grid}>
           <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); setTab(t); }} />
           <div style={shellS.main}>
-            {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} />}
+            {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} />}
             {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} />}
             {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} />}
             {tab === 'quiz' && <QuizView {...quizDeck} setTab={setTab} darkMode={darkMode} onQuizComplete={onQuizComplete} />}
@@ -1713,7 +1715,14 @@ const sideS = {
 };
 
 /* ===================== DASHBOARD HOME ===================== */
-function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode }) {
+function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEvents }) {
+  const todayKey = dayKey(new Date());
+  const todayEvents = (calEvents && calEvents[todayKey]) || [];
+  const [checked, setChecked] = React.useState({});
+  const toggleCheck = (idx) => setChecked(prev => ({ ...prev, [idx]: !prev[idx] }));
+  const nextTask = todayEvents.find((_, i) => !checked[i]);
+  const doneCount = Object.values(checked).filter(Boolean).length;
+
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
@@ -1733,6 +1742,65 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode }) {
           <h3 style={homeS.cardTitle}>Chemistry Flash</h3>
           <p style={homeS.cardMeta}>48 cards • Practice</p>
           <button style={homeS.outlineBtn} onClick={() => setTab('notes')}>Review Cards</button>
+        </div>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:20, padding:20 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+            <div style={{ width:34, height:34, borderRadius:10, background:'var(--lavender)', color:'var(--indigo)', display:'grid', placeItems:'center' }}><Zap size={16} /></div>
+            <div>
+              <h4 style={{ margin:0, fontSize:14, fontWeight:700, color:'var(--ink)' }}>Next Task</h4>
+              <p style={{ margin:'2px 0 0', fontSize:11, color:'var(--gray)' }}>{todayEvents.length} tasks today</p>
+            </div>
+          </div>
+          {nextTask ? (
+            <div style={{ background:'var(--sidebar-bg)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px', display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:6, height:32, borderRadius:999, background: (() => { const cat = LIFE_CATS.find(c => c.id === nextTask.cat); return nextTask.noteColor || cat?.color || 'var(--indigo)'; })(), flexShrink:0 }} />
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nextTask.name}</div>
+                <div style={{ fontSize:11, color:'var(--gray)', marginTop:2 }}>🕐 {nextTask.time} · ⏱ {nextTask.dur}</div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign:'center', padding:'16px 0', color:'var(--gray)', fontSize:13 }}>
+              {todayEvents.length > 0 ? '✅ All done!' : 'No tasks today'}
+            </div>
+          )}
+          <button onClick={() => setTab('calendar')} style={{ ...homeS.outlineBtn, marginTop:12, fontSize:12, padding:'9px 14px' }}>
+            Open Calendar <ArrowRight size={14} />
+          </button>
+        </div>
+
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:20, padding:20 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:34, height:34, borderRadius:10, background:'var(--lavender)', color:'var(--indigo)', display:'grid', placeItems:'center' }}><CheckCircle size={16} /></div>
+              <h4 style={{ margin:0, fontSize:14, fontWeight:700, color:'var(--ink)' }}>Today's Checklist</h4>
+            </div>
+            {todayEvents.length > 0 && <span style={{ fontSize:11, color:'var(--gray)', fontWeight:600 }}>{doneCount}/{todayEvents.length}</span>}
+          </div>
+          {todayEvents.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'16px 0', color:'var(--gray)', fontSize:13 }}>No tasks — enjoy your day!</div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:180, overflowY:'auto' }}>
+              {todayEvents.map((ev, idx) => {
+                const cat = LIFE_CATS.find(c => c.id === ev.cat);
+                const done = !!checked[idx];
+                return (
+                  <div key={idx} onClick={() => toggleCheck(idx)} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, background:'var(--sidebar-bg)', border:'1px solid var(--border)', cursor:'pointer', opacity:done?0.5:1, transition:'opacity .15s' }}>
+                    <div style={{ width:18, height:18, borderRadius:6, border:`2px solid ${done?'var(--indigo)':'var(--border)'}`, background:done?'var(--indigo)':'transparent', display:'grid', placeItems:'center', flexShrink:0, transition:'all .15s' }}>
+                      {done && <Check size={11} color="#fff" />}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <span style={{ fontSize:12, fontWeight:600, color:'var(--ink)', textDecoration:done?'line-through':'none' }}>{ev.name}</span>
+                    </div>
+                    <span style={{ fontSize:10, color:'var(--gray)', whiteSpace:'nowrap' }}>{ev.time}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -3405,14 +3473,14 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const handleEvClick = (ev) => { if (ev.noteId) setTab('notes'); };
 
   const weekLabel = () => {
-    const end = calAddDays(weekStart, 4);
+    const end = calAddDays(weekStart, 6);
     if (weekStart.getMonth() === end.getMonth())
       return `${CAL_MONTHS_S[weekStart.getMonth()]} ${weekStart.getDate()}–${end.getDate()}, ${weekStart.getFullYear()}`;
     return `${CAL_MONTHS_S[weekStart.getMonth()]} ${weekStart.getDate()} – ${CAL_MONTHS_S[end.getMonth()]} ${end.getDate()}`;
   };
 
   const rangeLabel = view === 'week' ? weekLabel() : `${CAL_MONTHS[viewMonth]} ${viewYear}`;
-  const weekDays = useMemo(() => Array.from({length:5}, (_, i) => calAddDays(weekStart, i)), [weekStart]);
+  const weekDays = useMemo(() => Array.from({length:7}, (_, i) => calAddDays(weekStart, i)), [weekStart]);
   const monthGrid = useMemo(() => {
     const startMonday = getMonday(new Date(viewYear, viewMonth, 1));
     return Array.from({length:42}, (_, i) => calAddDays(startMonday, i));
@@ -3428,7 +3496,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   }, [events, weekStart]);
 
   const fmtModalDate = (key) => { if (!key) return ''; const [y,m,d] = key.split('-').map(Number); return `${CAL_MONTHS_S[m-1]} ${d}, ${y}`; };
-  const DAY_NAMES = ['MON','TUE','WED','THU','FRI'];
+  const DAY_NAMES = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
   const WEEK_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
   const renderWeek = () => (
@@ -3672,7 +3740,7 @@ const calS = {
   catsRow: { display:'flex', gap:8, flexWrap:'wrap' },
   catChip: { display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:999, fontSize:12, fontWeight:600, cursor:'pointer', transition:'opacity .15s' },
   catDot: { width:8, height:8, borderRadius:999, flexShrink:0 },
-  weekGrid: { display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:10 },
+  weekGrid: { display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:8 },
   weekCol: { display:'flex', flexDirection:'column', gap:6 },
   weekColHeader: { display:'flex', flexDirection:'column', alignItems:'center', gap:2, padding:'10px 8px', background:'var(--sidebar-bg)', border:'1px solid var(--border)', borderRadius:10, marginBottom:2 },
   weekDayName: { fontSize:10, fontWeight:700, color:'var(--gray-2)', letterSpacing:'0.06em' },
