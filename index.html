@@ -2640,29 +2640,31 @@ function CreateExamModal({ onClose, onCreate }) {
             <div style={gradeS.sliderValue}>
               <GradeValue value={targetGrade} color={subjectPalette.dot} size={26} />
             </div>
-            <input
-              type="range"
-              className="grade-range"
-              min="18"
-              max="30"
-              step="1"
-              value={targetGrade}
-              onChange={(e) => setTargetGrade(Number(e.target.value))}
-              style={{
-                ...gradeS.range,
-                '--grade-color': subjectPalette.dot,
-                accentColor: subjectPalette.dot,
-                background: `linear-gradient(90deg, ${subjectPalette.dot} 0%, ${subjectPalette.dot} ${targetPct}%, var(--border) ${targetPct}%, var(--border) 100%)`
-              }}
-              aria-label="Voto target"
-            />
-          </div>
-          <div style={gradeS.ticks}>
-            {[18, 21, 24, 27, 30].map((t) => (
-              <span key={t} style={{ color: targetGrade === t ? subjectPalette.dot : 'var(--gray-2)', fontWeight: targetGrade === t ? 800 : 500 }}>
-                {t}
-              </span>
-            ))}
+            <div style={gradeS.sliderTrackCol}>
+              <input
+                type="range"
+                className="grade-range"
+                min="18"
+                max="30"
+                step="1"
+                value={targetGrade}
+                onChange={(e) => setTargetGrade(Number(e.target.value))}
+                style={{
+                  ...gradeS.range,
+                  '--grade-color': subjectPalette.dot,
+                  accentColor: subjectPalette.dot,
+                  background: `linear-gradient(90deg, ${subjectPalette.dot} 0%, ${subjectPalette.dot} ${targetPct}%, var(--border) ${targetPct}%, var(--border) 100%)`
+                }}
+                aria-label="Voto target"
+              />
+              <div style={gradeS.ticks}>
+                {[18, 21, 24, 27, 30].map((t) => (
+                  <span key={t} style={{ color: targetGrade === t ? subjectPalette.dot : 'var(--gray-2)', fontWeight: targetGrade === t ? 800 : 500 }}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -3220,8 +3222,9 @@ const gradeS = {
   lodeBadge: { background: 'linear-gradient(90deg,#F59E0B,#EF4444)', color: '#fff', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 20, lineHeight: 1.2 },
   sliderRow: { display: 'flex', alignItems: 'center', gap: 14 },
   sliderValue: { minWidth: 92, display: 'flex', alignItems: 'center' },
-  range: { flex: 1, height: 8, borderRadius: 999, outline: 'none', appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' },
-  ticks: { display: 'flex', justifyContent: 'space-between', marginTop: 7, fontSize: 9, color: 'var(--gray-2)' },
+  sliderTrackCol: { flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 },
+  range: { width: '100%', height: 8, borderRadius: 999, outline: 'none', appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' },
+  ticks: { display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--gray-2)' },
   cardTarget: { display: 'flex', alignItems: 'center', gap: 6, margin: '-4px 0 14px' },
   cardTargetLabel: { fontSize: 11, color: 'var(--gray)', fontWeight: 700 },
   section: { marginTop: 22 },
