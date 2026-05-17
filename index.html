@@ -3344,100 +3344,96 @@ const calS = {
 /* ===================== AI STUDY PLANNER ===================== */
 function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId }) {
   const SUBJECTS_LIST = ['Biology','Chemistry','History','Math','Economics','Literature'];
-  const TECH_PRESETS = ['Pomodoro 25/5','Pomodoro 50/10','Blocchi da 1h','Blocchi da 2h','Blocchi da 3h'];
-  const TIME_DEFS = [
-    { id:'morning',   label:'Mattina',    emoji:'🌅', range:'07:00 – 12:00', slots:['07:00','08:30','10:00','11:00'] },
-    { id:'afternoon', label:'Pomeriggio', emoji:'☀️', range:'13:00 – 18:00', slots:['13:00','14:30','16:00','17:00'] },
-    { id:'evening',   label:'Sera',       emoji:'🌆', range:'19:00 – 22:00', slots:['19:00','20:30','21:30'] },
-    { id:'night',     label:'Notte',      emoji:'🌙', range:'22:00 – 02:00', slots:['22:00','23:30','01:00'] },
-  ];
-  const TECH_DUR = {
-    'Pomodoro 25/5': 30, 'Pomodoro 50/10': 60,
-    'Blocchi da 1h': 60, 'Blocchi da 2h': 120, 'Blocchi da 3h': 180,
+  const TECH_PRESETS  = ['Pomodoro 25/5','Pomodoro 50/10','Blocchi 1h','Blocchi 2h','Blocchi 3h'];
+  const TECH_DUR      = { 'Pomodoro 25/5':25, 'Pomodoro 50/10':50, 'Blocchi 1h':60, 'Blocchi 2h':120, 'Blocchi 3h':180 };
+  const TIME_SLOTS    = {
+    morning:   ['07:00','08:30','10:00','11:00'],
+    afternoon: ['13:00','14:30','16:00','17:00'],
+    evening:   ['19:00','20:30','21:30'],
+    night:     ['22:00','23:30'],
   };
-  const durLabel = (m) => m >= 60 ? (m%60 ? `${Math.floor(m/60)}h${m%60}m` : `${Math.floor(m/60)}h`) : `${m}m`;
+  const TIME_DEFS = [
+    { id:'morning',   label:'Mattina',    emoji:'🌅' },
+    { id:'afternoon', label:'Pomeriggio', emoji:'☀️' },
+    { id:'evening',   label:'Sera',       emoji:'🌆' },
+    { id:'night',     label:'Notte',      emoji:'🌙' },
+  ];
+
+  const durLabel = (m) => m >= 60 ? (m % 60 ? `${Math.floor(m/60)}h${m%60}m` : `${Math.floor(m/60)}h`) : `${m}m`;
+  const hoursLabel = (v) => Number.isInteger(v) ? `${v}h` : `${v}h`;
 
   const [step, setStep]                   = useState('form');
   const [selSubjects, setSelSubjects]     = useState(new Set(['Biology','Math']));
-  const [selHours, setSelHours]           = useState(2);
+  const [hoursVal, setHoursVal]           = useState(2);
   const [selTechniques, setSelTechniques] = useState(new Set(['Pomodoro 25/5']));
   const [customTech, setCustomTech]       = useState('');
-  const [selTimeSlots, setSelTimeSlots]   = useState(new Set(['morning']));
-  const [selectedNoteId, setSelectedNoteId] = useState(initialNoteId);
+  const [selTimes, setSelTimes]           = useState(new Set(['morning']));
   const [plan, setPlan]                   = useState(null);
   const [added, setAdded]                 = useState(false);
   const [errors, setErrors]               = useState({});
 
-  // Derive examDate from selectedNoteId
-  const selectedNote = seedNotes.find(n => n.id === selectedNoteId);
-  const examDate = selectedNote ? selectedNote.examDate : null;
-  const fromNote = initialNoteId !== null && initialNoteId !== undefined;
-
   const toggleSubject = (s) => {
     setSelSubjects(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n; });
-    if (errors.subjects) setErrors(e => ({ ...e, subjects: null }));
+    setErrors(e => ({ ...e, subjects: null }));
   };
   const toggleTech = (t) => {
     setCustomTech('');
     setSelTechniques(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
-    if (errors.tech) setErrors(e => ({ ...e, tech: null }));
+    setErrors(e => ({ ...e, tech: null }));
   };
-  const toggleSlot = (id) => {
-    setSelTimeSlots(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-    if (errors.time) setErrors(e => ({ ...e, time: null }));
+  const toggleTime = (id) => {
+    setSelTimes(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setErrors(e => ({ ...e, time: null }));
   };
   const onCustomChange = (v) => {
     setCustomTech(v);
     if (v) setSelTechniques(new Set());
-    if (errors.tech) setErrors(e => ({ ...e, tech: null }));
+    setErrors(e => ({ ...e, tech: null }));
   };
 
   const validate = () => {
     const errs = {};
     if (selSubjects.size === 0) errs.subjects = 'Seleziona almeno una materia';
     if (selTechniques.size === 0 && !customTech.trim()) errs.tech = 'Seleziona o scrivi una tecnica';
-    if (selTimeSlots.size === 0) errs.time = 'Seleziona almeno un orario';
+    if (selTimes.size === 0) errs.time = 'Seleziona almeno un orario';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const buildPlan = () => {
     const subjects = [...selSubjects];
-    const durM = customTech.trim()
-      ? 90
-      : TECH_DUR[[...selTechniques][0]] || 90;
-    const allSlots = TIME_DEFS
-      .filter(t => selTimeSlots.has(t.id))
-      .flatMap(t => t.slots)
-      .sort();
-    const hours = typeof selHours === 'number' ? selHours : 5;
-    const nSess = Math.min(Math.floor((hours * 60) / durM), allSlots.length);
+    const durM = customTech.trim() ? 90 : TECH_DUR[[...selTechniques][0]] || 90;
     const techName = customTech.trim() || [...selTechniques][0] || 'Sessione';
+    const allSlots = [...selTimes].flatMap(t => TIME_SLOTS[t]).sort();
+    const nSess = Math.min(Math.floor(hoursVal * 60 / durM), allSlots.length);
 
-    const start = new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()+1);
-    const end = examDate ? new Date(examDate) : new Date(start.getTime() + 14*86400000);
-    end.setHours(0,0,0,0);
+    // End date = closest examDate among selected subjects
+    const examDates = subjects
+      .map(s => { const n = seedNotes.find(nn => nn.subject === s); return n && n.examDate ? new Date(n.examDate) : null; })
+      .filter(Boolean);
+    const endDate = examDates.length > 0
+      ? new Date(Math.min(...examDates.map(d => d.getTime())))
+      : new Date(Date.now() + 21 * 86400000);
+    endDate.setHours(0,0,0,0);
 
+    const start = new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate() + 1);
     const DAY_N = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
     const MON_N = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    const days = []; let subIdx = 0; let cur = new Date(start);
-    while (cur < end) {
+    const days = []; let sIdx = 0; const cur = new Date(start);
+    while (cur < endDate) {
       const d = new Date(cur);
       const dayLabel = `${DAY_N[d.getDay()]} ${MON_N[d.getMonth()]} ${d.getDate()}`;
       const dateKey = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
       const sessions = [];
-      for (let j = 0; j < nSess; j++) {
-        const subj = subjects[subIdx % subjects.length]; subIdx++;
+      for (let i = 0; i < nSess; i++) {
+        const subj = subjects[sIdx % subjects.length]; sIdx++;
         const col = SUBJECT_COLORS[subj] || EXTRA_SUBJECT_COLORS.Other;
-        sessions.push({
-          time: allSlots[j],
-          name: customTech.trim() ? `${customTech.trim()} — ${subj}` : `${subj} study session`,
-          dur: durLabel(durM), color: col.dot, bg: col.bg, text: col.text, subject: subj, dateKey,
-        });
+        sessions.push({ time: allSlots[i], name: `${subj} — ${techName}`,
+          dur: durLabel(durM), color: col.dot, bg: col.bg, text: col.text, subject: subj, dateKey });
       }
       const tm = sessions.length * durM;
-      const total = (tm>=60 ? Math.floor(tm/60)+'h ' : '') + (tm%60 ? tm%60+'m' : '');
+      const total = (tm >= 60 ? Math.floor(tm/60)+'h ' : '') + (tm % 60 ? tm%60+'m' : '');
       days.push({ day: dayLabel, date: dateKey, sessions, total: total.trim() });
       cur.setDate(cur.getDate() + 1);
     }
@@ -3465,28 +3461,18 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId }) {
   };
 
   const overlayClick = (e) => { if (e.target === e.currentTarget && step === 'form') onClose(); };
-  const HOURS_OPTS = [1,2,3,4,'5+'];
+  const errMsg = { fontSize:11, color:'#DC2626', marginTop:4 };
 
-  const chipStyle = (sel, col) => ({
-    display:'inline-flex', alignItems:'center', gap:6,
-    padding:'6px 14px', borderRadius:999, fontSize:12, fontWeight:600, cursor:'pointer', transition:'all .15s', border:'1.5px solid',
-    background: sel ? col.dot : col.bg,
-    color:      sel ? '#fff'  : col.text,
-    borderColor: sel ? col.dot : col.border,
-  });
+  // Slider fill percentage
+  const sliderPct = ((hoursVal - 1) / 7) * 100;
+
   const toggleStyle = (sel) => ({
-    padding:'6px 12px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer', border:'1px solid', transition:'all .15s',
+    padding:'6px 12px', borderRadius:8, fontSize:12, fontWeight:600,
+    cursor:'pointer', border:'1px solid', transition:'all .15s',
     background:  sel ? 'var(--lavender)' : 'var(--sidebar-bg)',
     borderColor: sel ? 'var(--indigo)'   : 'var(--border)',
     color:       sel ? 'var(--indigo)'   : 'var(--gray)',
   });
-  const hourStyle = (sel) => ({
-    padding:'6px 10px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer', border:'1px solid', transition:'all .15s',
-    background:  sel ? '#EEF2FF' : 'transparent',
-    borderColor: sel ? '#3730E8' : 'var(--border)',
-    color:       sel ? '#3730E8' : 'var(--gray)',
-  });
-  const errMsg = { fontSize:11, color:'#DC2626', marginTop:4 };
 
   return (
     <div style={plannerS.overlay} onClick={overlayClick}>
@@ -3514,76 +3500,82 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId }) {
               <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:8 }}>
                 {SUBJECTS_LIST.map(s => {
                   const col = SUBJECT_COLORS[s]; const sel = selSubjects.has(s);
-                  return <button key={s} onClick={() => toggleSubject(s)} style={chipStyle(sel, col)}>{s}</button>;
+                  return (
+                    <button key={s} onClick={() => toggleSubject(s)} style={{
+                      padding:'6px 14px', borderRadius:999, fontSize:12, fontWeight:600,
+                      cursor:'pointer', border:'1.5px solid', transition:'all .15s',
+                      background: sel ? col.dot : col.bg,
+                      color:      sel ? '#fff'  : col.text,
+                      borderColor: sel ? col.dot : col.border,
+                    }}>{s}</button>
+                  );
                 })}
               </div>
               {errors.subjects && <div style={errMsg}>{errors.subjects}</div>}
             </div>
 
-            {/* Campo 2 — Data esame */}
-            <div>
-              <div style={plannerS.fieldLabel}>Data esame</div>
-              {fromNote && selectedNote ? (
-                <div style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:8, padding:'8px 14px',
-                  background: SUBJECT_COLORS[selectedNote.subject]?.bg || '#EEF2FF',
-                  border:`1.5px solid ${SUBJECT_COLORS[selectedNote.subject]?.dot || '#3730E8'}`,
-                  borderRadius:999, fontSize:13, fontWeight:600,
-                  color: SUBJECT_COLORS[selectedNote.subject]?.text || '#3730E8' }}>
-                  📅 {selectedNote.subject} — Exam: {new Date(selectedNote.examDate).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
-                </div>
-              ) : (
-                <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:8 }}>
-                  {seedNotes.map(n => {
-                    const col = SUBJECT_COLORS[n.subject]; const sel = selectedNoteId === n.id;
-                    return (
-                      <button key={n.id} onClick={() => setSelectedNoteId(sel ? null : n.id)}
-                        style={{ ...chipStyle(sel, col), flexDirection:'column', alignItems:'flex-start', borderRadius:12, padding:'8px 12px' }}>
-                        <span style={{ fontSize:12, fontWeight:700 }}>{n.subject}</span>
-                        <span style={{ fontSize:10, opacity:.8 }}>📅 {new Date(n.examDate).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Campo 3 — Ore */}
+            {/* Campo 2 — Ore slider */}
             <div>
               <div style={plannerS.fieldLabel}>Ore disponibili al giorno</div>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:8 }}>
-                {HOURS_OPTS.map(h => {
-                  const sel = selHours === h || (h==='5+' && selHours >= 5);
-                  return <button key={h} onClick={() => setSelHours(h==='5+' ? 5 : h)} style={hourStyle(sel)}>{h}{h!=='5+' ? 'h' : ''}</button>;
-                })}
+              <div style={{ display:'flex', alignItems:'center', gap:16, marginTop:10 }}>
+                <div style={{ textAlign:'center', minWidth:48 }}>
+                  <div style={{ fontSize:22, fontWeight:700, color:'var(--indigo)', lineHeight:1 }}>{hoursLabel(hoursVal)}</div>
+                  <div style={{ fontSize:11, color:'var(--gray)', marginTop:2 }}>al giorno</div>
+                </div>
+                <div style={{ flex:1 }}>
+                  <input type="range" min="1" max="8" step="0.5" value={hoursVal}
+                    onChange={e => setHoursVal(Number(e.target.value))}
+                    style={{ width:'100%', height:4, borderRadius:999, cursor:'pointer', outline:'none', appearance:'none',
+                      background:`linear-gradient(to right, var(--indigo) ${sliderPct}%, var(--border) ${sliderPct}%)` }} />
+                  <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
+                    {[1,2,3,4,5,6,7,8].map(n => (
+                      <span key={n} style={{ fontSize:10, color:'var(--gray)' }}>{n}h</span>
+                    ))}
+                  </div>
+                </div>
               </div>
+              <style>{`
+                input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;background:var(--indigo);box-shadow:0 0 0 3px rgba(55,48,232,.2);cursor:pointer}
+                input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--indigo);border:none;box-shadow:0 0 0 3px rgba(55,48,232,.2);cursor:pointer}
+              `}</style>
             </div>
 
-            {/* Campo 4 — Tecnica */}
+            {/* Campo 3 — Tecnica */}
             <div>
               <div style={plannerS.fieldLabel}>Tecnica di studio</div>
               <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:8 }}>
-                {TECH_PRESETS.map(t => <button key={t} onClick={() => toggleTech(t)} style={toggleStyle(selTechniques.has(t))}>{t}</button>)}
+                {TECH_PRESETS.map(t => (
+                  <button key={t} onClick={() => toggleTech(t)} style={toggleStyle(selTechniques.has(t))}>{t}</button>
+                ))}
               </div>
               <input value={customTech} onChange={e => onCustomChange(e.target.value)}
-                placeholder="Oppure scrivi la tua tecnica… es. Sessioni da 4h con pausa caffè"
+                placeholder="Oppure scrivi la tua tecnica… es. Sessioni da 4h"
                 style={{ marginTop:8, width:'100%', padding:'9px 12px', border:'1px solid var(--border)',
                   borderRadius:10, fontSize:13, color:'var(--ink)', background:'var(--surface)',
                   outline:'none', boxSizing:'border-box' }} />
               {errors.tech && <div style={errMsg}>{errors.tech}</div>}
             </div>
 
-            {/* Campo 5 — Orario */}
+            {/* Campo 4 — Quando studi */}
             <div>
-              <div style={plannerS.fieldLabel}>Orario preferito</div>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:8 }}>
-                {TIME_DEFS.map(t => (
-                  <button key={t.id} onClick={() => toggleSlot(t.id)}
-                    style={{ ...toggleStyle(selTimeSlots.has(t.id)), display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 14px', gap:2, borderRadius:12 }}>
-                    <span style={{ fontSize:18 }}>{t.emoji}</span>
-                    <span style={{ fontSize:12, fontWeight:600 }}>{t.label}</span>
-                    <span style={{ fontSize:10, opacity:.7 }}>{t.range}</span>
-                  </button>
-                ))}
+              <div style={plannerS.fieldLabel}>Quando studi?</div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginTop:8 }}>
+                {TIME_DEFS.map(t => {
+                  const sel = selTimes.has(t.id);
+                  return (
+                    <button key={t.id} onClick={() => toggleTime(t.id)} style={{
+                      display:'flex', flexDirection:'column', alignItems:'center', gap:4,
+                      padding:'10px 6px', borderRadius:12, border:'1px solid',
+                      cursor:'pointer', transition:'all .15s',
+                      background:  sel ? 'var(--lavender)' : 'var(--sidebar-bg)',
+                      borderColor: sel ? 'var(--indigo)'   : 'var(--border)',
+                      color:       sel ? 'var(--indigo)'   : 'var(--gray)',
+                    }}>
+                      <span style={{ fontSize:20 }}>{t.emoji}</span>
+                      <span style={{ fontSize:11, fontWeight:600 }}>{t.label}</span>
+                    </button>
+                  );
+                })}
               </div>
               {errors.time && <div style={errMsg}>{errors.time}</div>}
             </div>
@@ -3627,8 +3619,7 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId }) {
         {/* FOOTER */}
         <div style={plannerS.footer}>
           {step === 'form' && (
-            <button onClick={generate}
-              style={{ ...plannerS.generateBtn, opacity:1, cursor:'pointer' }}>
+            <button onClick={generate} style={plannerS.generateBtn}>
               <Sparkles size={16} /> Generate Plan
             </button>
           )}
@@ -3662,7 +3653,7 @@ const plannerS = {
   sub:        { fontSize:12, color:'var(--gray)', marginTop:2 },
   closeBtn:   { width:32, height:32, borderRadius:999, background:'var(--sidebar-bg)', border:'1px solid var(--border)', color:'var(--gray)', display:'grid', placeItems:'center', cursor:'pointer' },
   body:       { padding:'20px 24px', display:'flex', flexDirection:'column', gap:16, flex:1, overflowY:'auto' },
-  fieldLabel: { fontSize:12, fontWeight:700, color:'var(--ink)', marginBottom:0 },
+  fieldLabel: { fontSize:12, fontWeight:700, color:'var(--ink)' },
   footer:     { padding:'16px 24px', borderTop:'1px solid var(--border)', position:'sticky', bottom:0, background:'#fff' },
   generateBtn:{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px', borderRadius:14, background:'var(--indigo)', color:'#fff', fontSize:14, fontWeight:600, border:'none', cursor:'pointer' },
   addBtn:     { width:'100%', padding:'11px', borderRadius:12, border:'1.5px solid var(--indigo)', background:'#fff', color:'var(--indigo)', fontSize:13, fontWeight:600, cursor:'pointer' },
