@@ -1163,7 +1163,9 @@ function NotesView({ exams, setExams, activeId, setActiveId }) {
           return (
             <div key={x.id} style={notesS.card}>
               <div style={{ ...notesS.cover, background: palette.color }}>
-                <div style={{ ...notesS.coverDot, background: palette.dot }} />
+                <div style={{ ...notesS.coverDot, background: palette.dot, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+                  <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 58, height: 58, maxWidth: 'none' }} />
+                </div>
                 {x.date && <span style={notesS.subjectChip}>{formatExamDate(x.date)}</span>}
               </div>
               <div style={{ padding: 18 }}>
