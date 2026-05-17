@@ -1254,6 +1254,18 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
   const [plannerOpen, setPlannerOpen]       = useState(false);
   const [plannerNoteId, setPlannerNoteId]     = useState(null);
   const [calEvents, setCalEvents]             = useState(initCalEvents);
+  const [timerTrigger, setTimerTrigger]       = useState(null);
+
+  function onStartTimer(mins) { setTimerTrigger({ mins, ts: Date.now() }); }
+  function onMarkEventDone(dk, evIdx) {
+    setCalEvents(prev => {
+      const next = { ...prev };
+      const arr = [...(next[dk] || [])];
+      arr[evIdx] = { ...arr[evIdx], completed: true };
+      next[dk] = arr;
+      return next;
+    });
+  }
 
   function handlePlanAdded(evArr) {
     setCalEvents(prev => {
@@ -1346,7 +1358,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
         <div style={shellS.grid}>
           <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); setTab(t); }} />
           <div style={shellS.main}>
-            {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} />}
+            {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
             {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} />}
             {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} />}
             {tab === 'quiz' && <QuizView {...quizDeck} setTab={setTab} darkMode={darkMode} onQuizComplete={onQuizComplete} />}
@@ -1356,7 +1368,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
           </div>
         </div>
       </div>
-      <StudyTimer onSessionSaved={handleSessionSaved} />
+      <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />
       {plannerOpen && <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} initialNoteId={plannerNoteId} />}
     </div>
   );
@@ -1379,10 +1391,10 @@ const shellS = {
 };
 
 /* ===================== STUDY TIMER ===================== */
-function StudyTimer({ onSessionSaved }) {
+function StudyTimer({ onSessionSaved, startTrigger }) {
   const PS = 1500;
   const PB = 300;
-  const CIRC = 238.76;
+  const CIRC = 376.99;
   const [expanded, setExpanded] = useState(false);
   const [running, setRunning] = useState(false);
   const [mode, setMode_] = useState('free');
@@ -1392,12 +1404,14 @@ function StudyTimer({ onSessionSaved }) {
   const [sessionCount, setSessN] = useState(1);
   const [sessions, setSessions] = useState([]);
   const [showToast, setShowToast] = useState(null);
+  const [customInputMins, setCustomInputMins] = useState('25');
   const timerRef = useRef(null);
   const fwRef = useRef(null);
   const elapsedRef = useRef(0);
   const pomoRef = useRef(0);
   const modeRef = useRef('free');
   const phaseRef = useRef('study');
+  const customDurRef = useRef(1500);
   const dragRef = useRef({ active: false, offsetX: 0, offsetY: 0 });
 
   const fmt = (s) => {
@@ -1428,6 +1442,19 @@ function StudyTimer({ onSessionSaved }) {
       setElapsed(elapsedRef.current);
       return;
     }
+    if (modeRef.current === 'custom') {
+      elapsedRef.current += 1;
+      setElapsed(elapsedRef.current);
+      if (elapsedRef.current >= customDurRef.current) {
+        clearInterval(timerRef.current); timerRef.current = null;
+        setRunning(false);
+        saveSession(Math.round(customDurRef.current / 60));
+        elapsedRef.current = 0;
+        setElapsed(0);
+        setSessN(n => n + 1);
+      }
+      return;
+    }
     pomoRef.current += 1;
     setPomoEl(pomoRef.current);
     if (phaseRef.current === 'study' && pomoRef.current >= PS) {
@@ -1451,6 +1478,10 @@ function StudyTimer({ onSessionSaved }) {
       setRunning(false);
       return;
     }
+    if (modeRef.current === 'custom') {
+      const mins = parseInt(customInputMins, 10) || 25;
+      customDurRef.current = mins * 60;
+    }
     setRunning(true);
     timerRef.current = setInterval(tick, 1000);
   };
@@ -1469,11 +1500,13 @@ function StudyTimer({ onSessionSaved }) {
   const stopSession = () => {
     clearTimer();
     setRunning(false);
-    const mins = modeRef.current === 'free'
+    const mins = modeRef.current === 'custom'
       ? Math.round(elapsedRef.current / 60)
-      : phaseRef.current === 'study'
-        ? Math.round(pomoRef.current / 60)
-        : 0;
+      : modeRef.current === 'free'
+        ? Math.round(elapsedRef.current / 60)
+        : phaseRef.current === 'study'
+          ? Math.round(pomoRef.current / 60)
+          : 0;
     saveSession(mins);
     elapsedRef.current = 0;
     pomoRef.current = 0;
@@ -1502,6 +1535,23 @@ function StudyTimer({ onSessionSaved }) {
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { phaseRef.current = pomoPhase; }, [pomoPhase]);
+
+  useEffect(() => {
+    if (!startTrigger) return;
+    const mins = startTrigger.mins || 25;
+    clearTimer();
+    elapsedRef.current = 0; pomoRef.current = 0; phaseRef.current = 'study';
+    setElapsed(0); setPomoEl(0); setPomoPhase('study'); setRunning(false);
+    modeRef.current = 'custom';
+    setMode_('custom');
+    customDurRef.current = mins * 60;
+    setCustomInputMins(String(mins));
+    setExpanded(true);
+    setTimeout(() => {
+      setRunning(true);
+      timerRef.current = setInterval(tick, 1000);
+    }, 80);
+  }, [startTrigger]);
 
   useEffect(() => {
     const onMove = (e) => {
@@ -1536,10 +1586,11 @@ function StudyTimer({ onSessionSaved }) {
   }, [showToast]);
 
   const isPomo = mode === 'pomodoro';
+  const isCustom = mode === 'custom';
   const phaseDur = pomoPhase === 'study' ? PS : PB;
-  const displaySeconds = isPomo ? phaseDur - pomoElapsed : elapsed;
-  const progress = isPomo ? Math.min(pomoElapsed / phaseDur, 1) : (elapsed % 3600) / 3600;
-  const ringColor = isPomo && pomoPhase === 'break' ? '#10B981' : 'var(--indigo)';
+  const displaySeconds = isPomo ? phaseDur - pomoElapsed : isCustom ? Math.max(0, customDurRef.current - elapsed) : elapsed;
+  const progress = isPomo ? Math.min(pomoElapsed / phaseDur, 1) : isCustom ? Math.min(elapsed / customDurRef.current, 1) : (elapsed % 3600) / 3600;
+  const ringColor = isPomo && pomoPhase === 'break' ? '#10B981' : isCustom ? '#8B5CF6' : 'var(--indigo)';
   const dashOffset = CIRC * (1 - progress);
   const disabledStop = elapsed === 0 && pomoElapsed === 0 && !running;
   const totalStudy = sessions.reduce((sum, s) => sum + s.mins, 0);
@@ -1567,7 +1618,7 @@ function StudyTimer({ onSessionSaved }) {
         <div style={timerS.header}>
           <div onMouseDown={onHandleDown} style={timerS.dragHandle}>
             <GripDots size={12} color="var(--gray)" style={{ opacity: .4 }} />
-            <span>Study Timer</span>
+            <span style={{ fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Study Timer</span>
           </div>
           <button style={timerS.closeBtn} onClick={() => setExpanded(false)} aria-label="Minimize timer">
             <ChevronDown size={15} />
@@ -1576,26 +1627,39 @@ function StudyTimer({ onSessionSaved }) {
 
         <div style={timerS.toggle}>
           <button style={{ ...timerS.tab, ...(mode === 'free' ? timerS.tabActive : null) }} onClick={() => setMode('free')}>Free</button>
-          <button style={{ ...timerS.tab, ...(mode === 'pomodoro' ? timerS.tabActive : null) }} onClick={() => setMode('pomodoro')}>Pomodoro</button>
+          <button style={{ ...timerS.tab, ...(mode === 'pomodoro' ? timerS.tabActive : null) }} onClick={() => setMode('pomodoro')}>Pomo</button>
+          <button style={{ ...timerS.tab, ...(mode === 'custom' ? { ...timerS.tabActive, background: '#8B5CF6' } : null) }} onClick={() => setMode('custom')}>Custom</button>
         </div>
         {isPomo && <div style={timerS.pomoHint}>25 min studio · 5 min pausa automatica</div>}
+        {isCustom && !running && (
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="number" min="1" max="240" value={customInputMins}
+              onChange={e => setCustomInputMins(e.target.value)}
+              style={{ flex: 1, padding: '8px 10px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--sidebar-bg)', color: 'var(--ink)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', textAlign: 'center', outline: 'none' }}
+              placeholder="25"
+            />
+            <span style={{ fontSize: 12, color: 'var(--gray)', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>minuti</span>
+          </div>
+        )}
 
         <div style={timerS.ringWrap}>
-          <svg width="90" height="90" viewBox="0 0 90 90" style={timerS.ringSvg}>
-            <circle cx="45" cy="45" r="38" fill="none" stroke="var(--border)" strokeWidth="7" />
-            <circle cx="45" cy="45" r="38" fill="none" stroke={ringColor} strokeWidth="7" strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={dashOffset} style={timerS.ringFill} />
+          <svg width="140" height="140" viewBox="0 0 140 140" style={timerS.ringSvg}>
+            <circle cx="70" cy="70" r="60" fill="none" stroke="var(--border)" strokeWidth="8" />
+            <circle cx="70" cy="70" r="60" fill="none" stroke={ringColor} strokeWidth="8" strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={dashOffset} style={timerS.ringFill} />
           </svg>
           <div style={timerS.ringCenter}>
             <div style={timerS.ringTime}>{fmt(displaySeconds)}</div>
-            {isPomo && <div style={timerS.ringPhase}>{pomoPhase === 'study' ? 'Study' : 'Break'}</div>}
+            {isPomo && <div style={timerS.ringPhase}>{pomoPhase === 'study' ? 'Studio' : 'Pausa'}</div>}
+            {isCustom && <div style={timerS.ringPhase}>Custom</div>}
           </div>
-          <div style={timerS.session}>Session {sessionCount}</div>
+          <div style={timerS.session}>Sessione {sessionCount}</div>
         </div>
 
         <div style={timerS.controls}>
-          <button style={{ ...timerS.playBtn, ...(running ? null : (elapsed > 0 || pomoElapsed > 0) ? timerS.resumeBtn : null) }} onClick={toggleRun}>
-            {running ? <Pause size={14} /> : <Play size={14} />}
-            <span>{running ? 'Pause' : (elapsed > 0 || pomoElapsed > 0) ? 'Resume' : 'Start'}</span>
+          <button style={{ ...timerS.playBtn, ...(running ? timerS.pauseBtn : (elapsed > 0 || pomoElapsed > 0) ? timerS.resumeBtn : null) }} onClick={toggleRun}>
+            {running ? <Pause size={15} /> : <Play size={15} />}
+            <span>{running ? 'Pausa' : (elapsed > 0 || pomoElapsed > 0) ? 'Riprendi' : 'Avvia'}</span>
           </button>
           <button style={{ ...timerS.stopBtn, opacity: disabledStop ? .3 : 1 }} disabled={disabledStop} onClick={stopSession} aria-label="Stop session">
             <Stop size={15} />
@@ -1607,7 +1671,7 @@ function StudyTimer({ onSessionSaved }) {
 
         {sessions.length > 0 && (
           <div style={timerS.log}>
-            <div style={timerS.logTitle}>TODAY'S SESSIONS</div>
+            <div style={timerS.logTitle}>SESSIONI DI OGGI</div>
             <div style={timerS.logList}>
               {sessions.map((s, i) => (
                 <div key={`${s.time}-${i}`} style={timerS.logRow}>
@@ -1618,8 +1682,8 @@ function StudyTimer({ onSessionSaved }) {
               ))}
             </div>
             <div style={timerS.totalRow}>
-              <span>Total study</span>
-              <span>{totalStudy}m</span>
+              <span>Totale studio</span>
+              <span style={{ color: 'var(--indigo)', fontWeight: 700 }}>{totalStudy}m</span>
             </div>
           </div>
         )}
@@ -1629,39 +1693,40 @@ function StudyTimer({ onSessionSaved }) {
 }
 
 const timerS = {
-  pill: { position: 'fixed', bottom: 24, right: 24, zIndex: 999, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: 'var(--indigo)', borderRadius: 999, cursor: 'pointer', boxShadow: '0 8px 24px rgba(55,48,232,.4)', color: '#fff' },
+  pill: { position: 'fixed', bottom: 24, right: 24, zIndex: 999, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: 'var(--indigo)', borderRadius: 999, cursor: 'pointer', boxShadow: '0 8px 32px rgba(55,48,232,.45)', color: '#fff', fontFamily: 'inherit' },
   pillDot: { width: 8, height: 8, borderRadius: '50%', background: '#fff', flexShrink: 0 },
-  pillTime: { fontSize: 14, fontWeight: 600, color: '#fff' },
-  pillPhase: { fontSize: 10, color: 'rgba(255,255,255,.7)' },
-  card: { position: 'fixed', bottom: 70, right: 24, zIndex: 999, background: '#fff', borderRadius: 20, border: '1px solid var(--border)', padding: 18, width: 236, boxShadow: '0 20px 60px rgba(15,16,53,.2)' },
+  pillTime: { fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: 'inherit' },
+  pillPhase: { fontSize: 10, color: 'rgba(255,255,255,.7)', fontFamily: 'inherit' },
+  card: { position: 'fixed', bottom: 76, right: 24, zIndex: 999, background: 'var(--surface)', borderRadius: 24, border: '1px solid var(--border)', padding: '20px 20px 16px', width: 268, boxShadow: '0 24px 64px rgba(15,16,53,.28)', fontFamily: 'inherit' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  dragHandle: { display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontSize: 13, fontWeight: 600, cursor: 'grab', userSelect: 'none' },
-  closeBtn: { width: 24, height: 24, borderRadius: '50%', display: 'grid', placeItems: 'center', color: 'var(--gray)', background: 'var(--sidebar-bg)' },
-  toggle: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, background: 'var(--sidebar-bg)', borderRadius: 8, padding: 2 },
-  tab: { borderRadius: 6, padding: '6px 8px', background: 'transparent', color: 'var(--gray)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' },
+  dragHandle: { display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'grab', userSelect: 'none', fontFamily: 'inherit' },
+  closeBtn: { width: 26, height: 26, borderRadius: '50%', display: 'grid', placeItems: 'center', color: 'var(--gray)', background: 'var(--sidebar-bg)', border: '1px solid var(--border)' },
+  toggle: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 3, background: 'var(--sidebar-bg)', borderRadius: 10, padding: 3 },
+  tab: { borderRadius: 7, padding: '7px 6px', background: 'transparent', color: 'var(--gray)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', fontFamily: 'inherit', letterSpacing: '0.04em' },
   tabActive: { background: 'var(--indigo)', color: '#fff' },
-  pomoHint: { marginTop: 7, fontSize: 10, color: 'var(--gray)', textAlign: 'center' },
-  ringWrap: { position: 'relative', display: 'grid', placeItems: 'center', margin: '14px 0 12px' },
+  pomoHint: { marginTop: 8, fontSize: 11, color: 'var(--gray)', textAlign: 'center', fontFamily: 'inherit' },
+  ringWrap: { position: 'relative', display: 'grid', placeItems: 'center', margin: '16px 0 14px' },
   ringSvg: { transform: 'rotate(-90deg)' },
   ringFill: { transition: 'stroke-dashoffset .95s linear, stroke .3s' },
-  ringCenter: { position: 'absolute', top: 22, left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' },
-  ringTime: { fontSize: 19, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.1 },
-  ringPhase: { marginTop: 3, fontSize: 9, color: 'var(--gray)' },
-  session: { marginTop: 4, fontSize: 10, color: 'var(--gray)' },
-  controls: { display: 'grid', gridTemplateColumns: '1fr 34px 34px', gap: 5 },
-  playBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, padding: 9, background: 'var(--indigo)', color: '#fff', fontSize: 12, fontWeight: 700 },
+  ringCenter: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' },
+  ringTime: { fontSize: 30, fontWeight: 800, color: 'var(--ink)', lineHeight: 1, fontFamily: 'inherit', letterSpacing: '-0.02em' },
+  ringPhase: { marginTop: 5, fontSize: 10, color: 'var(--gray)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'inherit' },
+  session: { marginTop: 6, fontSize: 11, color: 'var(--gray)', fontFamily: 'inherit', fontWeight: 500 },
+  controls: { display: 'grid', gridTemplateColumns: '1fr 38px 38px', gap: 6 },
+  playBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 12, padding: '11px 10px', background: 'var(--indigo)', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' },
+  pauseBtn: { background: 'var(--sidebar-bg)', border: '1.5px solid var(--border)', color: 'var(--ink)' },
   resumeBtn: { background: 'var(--lavender)', color: 'var(--indigo)' },
-  stopBtn: { width: 34, height: 34, borderRadius: 10, display: 'grid', placeItems: 'center', background: '#FEE2E2', color: '#991B1B' },
-  resetBtn: { width: 34, height: 34, borderRadius: 10, display: 'grid', placeItems: 'center', background: 'var(--sidebar-bg)', border: '1px solid var(--border)', color: 'var(--gray)' },
-  log: { marginTop: 12, borderTop: '0.5px solid var(--border)', paddingTop: 10 },
-  logTitle: { fontSize: 10, letterSpacing: '.08em', color: 'var(--gray)', fontWeight: 700, marginBottom: 8 },
+  stopBtn: { width: 38, height: 38, borderRadius: 12, display: 'grid', placeItems: 'center', background: '#FEE2E2', color: '#991B1B' },
+  resetBtn: { width: 38, height: 38, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'var(--sidebar-bg)', border: '1px solid var(--border)', color: 'var(--gray)' },
+  log: { marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 12 },
+  logTitle: { fontSize: 10, letterSpacing: '.08em', color: 'var(--gray)', fontWeight: 700, marginBottom: 9, fontFamily: 'inherit' },
   logList: { display: 'flex', flexDirection: 'column', gap: 7 },
-  logRow: { display: 'grid', gridTemplateColumns: '12px 1fr auto', alignItems: 'center', gap: 6, fontSize: 11 },
-  logDot: { width: 6, height: 6, borderRadius: '50%', background: 'var(--indigo)' },
-  logTime: { color: 'var(--gray)' },
-  logMins: { fontWeight: 600, color: 'var(--ink)' },
-  totalRow: { display: 'flex', justifyContent: 'space-between', borderTop: '0.5px solid var(--border)', marginTop: 8, paddingTop: 8, fontSize: 11, color: 'var(--gray)', fontWeight: 600 },
-  toast: { position: 'fixed', top: 24, right: 24, zIndex: 1000, display: 'flex', alignItems: 'center', gap: 7, background: '#DCFCE7', border: '1px solid #86efac', color: '#166534', borderRadius: 10, padding: '7px 14px', fontSize: 12, fontWeight: 500, boxShadow: '0 10px 30px rgba(22,101,52,.12)' },
+  logRow: { display: 'grid', gridTemplateColumns: '12px 1fr auto', alignItems: 'center', gap: 6, fontSize: 12, fontFamily: 'inherit' },
+  logDot: { width: 7, height: 7, borderRadius: '50%', background: 'var(--indigo)' },
+  logTime: { color: 'var(--gray)', fontFamily: 'inherit' },
+  logMins: { fontWeight: 700, color: 'var(--ink)', fontFamily: 'inherit' },
+  totalRow: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 10, fontSize: 12, color: 'var(--gray)', fontWeight: 600, fontFamily: 'inherit' },
+  toast: { position: 'fixed', top: 24, right: 24, zIndex: 1000, display: 'flex', alignItems: 'center', gap: 7, background: 'var(--msg-good-bg)', border: '1px solid var(--msg-good-border)', color: 'var(--msg-good-text)', borderRadius: 12, padding: '9px 16px', fontSize: 13, fontWeight: 600, boxShadow: '0 10px 30px rgba(22,101,52,.15)', fontFamily: 'inherit' },
 };
 
 /* ===================== SIDEBAR ===================== */
@@ -1725,16 +1790,40 @@ const mockDashboard = {
   recommendedFlashcards: { title:'Chemistry Flash', cardCount:48, mode:'Practice', lastSessionDaysAgo:3 },
 };
 
-function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEvents }) {
+function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEvents, onMarkEventDone, onStartTimer }) {
   const todayKey = dayKey(new Date());
   const todayEvents = (calEvents && calEvents[todayKey]) || [];
   const [checked, setChecked] = React.useState({});
+  const [confirmModal, setConfirmModal] = React.useState(null);
   const toggleCheck = (idx) => setChecked(prev => ({ ...prev, [idx]: !prev[idx] }));
   const doneCount = Object.values(checked).filter(Boolean).length;
   const fmtDur = (mins) => mins >= 60 ? (mins % 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${Math.floor(mins/60)}h`) : `${mins}m`;
 
   return (
     <div>
+      {confirmModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:2000, display:'grid', placeItems:'center' }} onClick={() => setConfirmModal(null)}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:20, padding:'28px 24px', width:320, boxShadow:'0 24px 64px rgba(0,0,0,.25)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width:44, height:44, borderRadius:'50%', background:'var(--lavender)', display:'grid', placeItems:'center', margin:'0 auto 16px' }}>
+              <CheckCircle size={22} color="var(--indigo)" />
+            </div>
+            <h3 style={{ margin:'0 0 8px', fontSize:17, fontWeight:700, color:'var(--ink)', textAlign:'center' }}>Attività completata?</h3>
+            <p style={{ margin:'0 0 22px', fontSize:13, color:'var(--gray)', textAlign:'center', lineHeight:1.5 }}>
+              Hai completato <strong style={{ color:'var(--ink)' }}>{confirmModal.ev.name}</strong>?
+            </p>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <button onClick={() => { toggleCheck(confirmModal.idx); onMarkEventDone && onMarkEventDone(todayKey, confirmModal.idx); setConfirmModal(null); }}
+                style={{ padding:'12px 16px', borderRadius:12, background:'var(--indigo)', color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer', width:'100%' }}>
+                Sì, completata!
+              </button>
+              <button onClick={() => setConfirmModal(null)}
+                style={{ padding:'12px 16px', borderRadius:12, background:'var(--sidebar-bg)', border:'1px solid var(--border)', color:'var(--gray)', fontWeight:600, fontSize:14, cursor:'pointer', width:'100%' }}>
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ marginBottom: 24 }}>
         <h2 style={homeS.h1}>Good morning, {user.name}</h2>
         <p style={homeS.sub}>Ready to continue your learning journey?</p>
@@ -1763,7 +1852,7 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
               const catText = ev.noteText || cat?.text || 'var(--indigo)';
               const done = !!checked[idx];
               return (
-                <div key={idx} onClick={() => toggleCheck(idx)} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 14px', borderRadius:12, cursor:'pointer', transition:'background .12s', background: done ? 'transparent' : 'var(--sidebar-bg)', opacity: done ? 0.45 : 1 }}>
+                <div key={idx} onClick={() => { if (!done) setConfirmModal({ idx, ev }); else toggleCheck(idx); }} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 14px', borderRadius:12, cursor:'pointer', transition:'background .12s', background: done ? 'transparent' : 'var(--sidebar-bg)', opacity: done ? 0.45 : 1 }}>
                   <div style={{ width:3, alignSelf:'stretch', borderRadius:999, background:accentColor, flexShrink:0 }} />
                   <div style={{ minWidth:52, fontSize:12, fontWeight:700, color:'var(--gray)', flexShrink:0 }}>{ev.time}</div>
                   <div style={{ flex:1, fontSize:14, fontWeight:600, color:'var(--ink)', textDecoration:done?'line-through':'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ev.name}</div>
@@ -1780,14 +1869,9 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
           </div>
         )}
 
-        <div style={{ display:'flex', gap:10 }}>
-          <button onClick={() => setTab('calendar')} style={{ flex:1, display:'inline-flex', alignItems:'center', justifyContent:'center', gap:7, padding:'11px 16px', borderRadius:12, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer' }}>
-            <CalendarIcon size={14} /> Open Calendar
-          </button>
-          <button onClick={onOpenPlanner} style={{ flex:1, display:'inline-flex', alignItems:'center', justifyContent:'center', gap:7, padding:'11px 16px', borderRadius:12, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer' }}>
-            <Brain size={14} /> Crea piano di studio
-          </button>
-        </div>
+        <button onClick={() => setTab('calendar')} style={{ width:'100%', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:8, padding:'11px 16px', borderRadius:12, background:'var(--sidebar-bg)', border:'1px solid var(--border)', color:'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer' }}>
+          <CalendarIcon size={14} /> Apri Calendario
+        </button>
       </div>
 
       {/* Task del giorno */}
@@ -1806,7 +1890,7 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
                 <span>⏱ {fmtDur(task.durationMinutes)}</span>
               </div>
             </div>
-            <button style={{ ...homeS.primaryBtn, marginTop:0, background:task.accentColor }}>Inizia ora</button>
+            <button style={{ ...homeS.primaryBtn, marginTop:0, background:task.accentColor }} onClick={() => onStartTimer && onStartTimer(task.durationMinutes)}>Inizia ora</button>
           </div>
         ))}
       </div>
@@ -3544,10 +3628,10 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
                 const borderColor = ev.noteId ? ev.noteColor : cat?.color;
                 const bg = ev.noteId ? ev.noteBg : cat?.bg;
                 return (
-                  <div key={idx} style={{ ...calS.evCard, borderLeft:`3px solid ${borderColor}`, background:bg, cursor:ev.noteId?'pointer':'default' }}
+                  <div key={idx} style={{ ...calS.evCard, borderLeft:`3px solid ${borderColor}`, background:bg, cursor:ev.noteId?'pointer':'default', opacity: ev.completed ? 0.55 : 1 }}
                     onClick={() => handleEvClick(ev)}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:4 }}>
-                      <span style={calS.evName}>{ev.name}</span>
+                      <span style={{ ...calS.evName, textDecoration: ev.completed ? 'line-through' : 'none' }}>{ev.name}</span>
                       <button style={calS.evTrash} onClick={(e) => { e.stopPropagation(); deleteEvent(key, idx); }}><Trash size={11} /></button>
                     </div>
                     <div style={calS.evMeta}><Clock size={10} /> {ev.time} · {ev.dur}</div>
@@ -3584,7 +3668,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
               <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:3 }}>
                 {dayEvs.slice(0,2).map((ev, idx) => {
                   const cat = LIFE_CATS.find(c => c.id === ev.cat);
-                  return <div key={idx} style={{ ...calS.monthPill, background:ev.noteId?ev.noteColor:cat?.color }}>{ev.name}</div>;
+                  return <div key={idx} style={{ ...calS.monthPill, background:ev.noteId?ev.noteColor:cat?.color, opacity:ev.completed?0.5:1, textDecoration:ev.completed?'line-through':'none' }}>{ev.name}</div>;
                 })}
                 {dayEvs.length > 2 && <div style={calS.monthMore}>+{dayEvs.length-2} more</div>}
               </div>
@@ -3728,10 +3812,10 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
                   const color = ev.noteId ? ev.noteColor : cat?.color;
                   const text = ev.noteId ? ev.noteText : cat?.text;
                   return (
-                    <div key={idx} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderRadius:10, background:bg, border:`1px solid ${color}33`, marginBottom:8 }}>
+                    <div key={idx} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderRadius:10, background:bg, border:`1px solid ${color}33`, marginBottom:8, opacity: ev.completed ? 0.55 : 1 }}>
                       <div style={{ width:4, alignSelf:'stretch', borderRadius:999, background:color, flexShrink:0 }} />
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:600, color:text||'var(--ink)', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ev.name}</div>
+                        <div style={{ fontSize:13, fontWeight:600, color:text||'var(--ink)', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textDecoration: ev.completed ? 'line-through' : 'none' }}>{ev.name}</div>
                         <div style={{ fontSize:11, color:text||'var(--gray)', opacity:.7, display:'flex', gap:8 }}>
                           <span>🕐 {ev.time}</span><span>⏱ {ev.dur}</span>
                         </div>
