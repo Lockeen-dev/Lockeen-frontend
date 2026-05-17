@@ -95,6 +95,18 @@
   .page { display: block; }
   @keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
   @keyframes spin-once { to { transform: rotate(360deg) } }
+  @keyframes timer-pulse {
+    0%,100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.35); opacity: .55; }
+  }
+  @media (max-width: 768px) {
+    .plan-life-grid {
+      grid-template-columns: 1fr !important;
+    }
+    .plan-life-right {
+      display: none !important;
+    }
+  }
   [data-theme="dark"] nav.fixed { background: rgba(15,23,42,.85) !important; }
   [data-theme="dark"] .gradient-hero-bg { opacity: .10 !important; }
   [data-theme="dark"] .hero-blob { opacity: .10; }
@@ -363,105 +375,334 @@
   </div>
 </section>
 
-<!-- ============ COMMUNITY ============ -->
-<section id="community" class="py-24 lg:py-32 bg-white">
-  <div class="max-w-7xl mx-auto px-6 lg:px-8">
-    <div class="grid lg:grid-cols-2 gap-16 items-center">
-      <div>
-        <h2 class="text-4xl md:text-5xl lg:text-6xl mb-6 font-bold" style="line-height:1.1">
-          Join the <span class="gradient-text">Study Arena</span>
-        </h2>
-        <p class="text-xl text-foreground/70 mb-12" style="line-height:1.6">
-          Connect with students worldwide. Compete, collaborate, and climb the leaderboards while achieving your academic goals.
-        </p>
+<!-- ============ PLAN YOUR LIFE ============ -->
+<section id="community" style="padding:80px 24px;background:#fff">
+  <div class="plan-life-grid" style="max-width:1100px;margin:0 auto;display:grid;
+    grid-template-columns:1fr 1fr;gap:56px;align-items:center">
 
-        <div class="space-y-6">
-          <div class="flex gap-4">
-            <div class="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
-              <i data-lucide="trophy" class="text-yellow-500" style="font-size:1.5rem"></i>
-            </div>
-            <div>
-              <h4 class="mb-1 font-semibold">Competitive Leaderboards</h4>
-              <p class="text-foreground/70">Compete with students globally and track your ranking in real-time.</p>
+    <!-- COLONNA SINISTRA -->
+    <div style="display:flex;flex-direction:column;gap:28px">
+
+      <div>
+        <h2 style="font-size:clamp(28px,3.5vw,42px);font-weight:800;
+          color:var(--ink);line-height:1.1;letter-spacing:-.03em;
+          margin-bottom:16px">
+          Plan your life,<br>not just your<br>
+          <span style="color:var(--indigo)">study.</span>
+        </h2>
+        <p style="font-size:16px;color:var(--gray);line-height:1.7;
+          max-width:420px">
+          Lockeen's smart calendar keeps study sessions, gym, and
+          social life in perfect balance — so you never burn out
+          before exam day.
+        </p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:20px">
+
+        <div style="display:flex;align-items:flex-start;gap:16px">
+          <div style="width:44px;height:44px;border-radius:12px;
+            background:#EEF2FF;display:grid;place-items:center;
+            font-size:20px;flex-shrink:0">🧠</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--ink);
+              margin-bottom:4px">AI Study Planner</div>
+            <div style="font-size:14px;color:var(--gray);line-height:1.6">
+              Tell it your exam date and available hours — it fills your
+              calendar automatically, respecting gym and social blocks.
             </div>
           </div>
-          <div class="flex gap-4">
-            <div class="w-12 h-12 bg-orange-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
-              <i data-lucide="flame" class="text-orange-500" style="font-size:1.5rem"></i>
-            </div>
-            <div>
-              <h4 class="mb-1 font-semibold">Study Streaks</h4>
-              <p class="text-foreground/70">Build consistency with daily study streaks and unlock achievements.</p>
-            </div>
-          </div>
-          <div class="flex gap-4">
-            <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-              <i data-lucide="users" class="text-primary" style="font-size:1.5rem"></i>
-            </div>
-            <div>
-              <h4 class="mb-1 font-semibold">Study Groups</h4>
-              <p class="text-foreground/70">Create or join study groups to share notes and quiz each other.</p>
+        </div>
+
+        <div style="display:flex;align-items:flex-start;gap:16px">
+          <div style="width:44px;height:44px;border-radius:12px;
+            background:#FFF7ED;display:grid;place-items:center;
+            font-size:20px;flex-shrink:0">🔥</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--ink);
+              margin-bottom:4px">Study Streaks & Pressure</div>
+            <div style="font-size:14px;color:var(--gray);line-height:1.6">
+              Daily streaks keep you consistent. Miss a day and your
+              streak breaks — just enough pressure to stay on track.
             </div>
           </div>
+        </div>
+
+        <div style="display:flex;align-items:flex-start;gap:16px">
+          <div style="width:44px;height:44px;border-radius:12px;
+            background:#F5F3FF;display:grid;place-items:center;
+            font-size:20px;flex-shrink:0">⚖️</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--ink);
+              margin-bottom:4px">Life Balance Score</div>
+            <div style="font-size:14px;color:var(--gray);line-height:1.6">
+              See exactly how you split time between study, fitness,
+              social, and rest — and adjust in one click.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="display:flex;align-items:center;gap:14px">
+        <button type="button"
+          style="padding:13px 26px;background:var(--indigo);color:#fff;
+          border:none;border-radius:12px;font-size:15px;font-weight:600;
+          cursor:pointer">
+          📅 Open my Calendar
+        </button>
+        <span style="font-size:13px;color:var(--gray-2)">Free to start</span>
+      </div>
+
+    </div>
+
+    <!-- COLONNA DESTRA -->
+    <div class="plan-life-right" style="display:flex;flex-direction:column;gap:10px">
+
+      <!-- CALENDARIO -->
+      <div style="background:#fff;border-radius:20px;
+        border:1px solid var(--border);padding:18px;
+        box-shadow:0 20px 60px rgba(55,48,232,.1)">
+
+        <div style="display:flex;align-items:center;
+          justify-content:space-between;margin-bottom:14px">
+          <span style="font-size:13px;font-weight:700;
+            color:var(--ink)">May 2026</span>
+          <div style="display:flex;gap:4px">
+            <div style="width:24px;height:24px;border-radius:50%;
+              border:1px solid var(--border);background:#F8F9FF;
+              display:grid;place-items:center;font-size:11px;
+              color:var(--gray);cursor:pointer">‹</div>
+            <div style="width:24px;height:24px;border-radius:50%;
+              border:1px solid var(--border);background:#F8F9FF;
+              display:grid;place-items:center;font-size:11px;
+              color:var(--gray);cursor:pointer">›</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">
+
+          <!-- MON -->
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;flex-direction:column;align-items:center;
+              gap:2px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+              <span style="font-size:9px;font-weight:500;color:var(--gray-2);
+                text-transform:uppercase;letter-spacing:.06em">Mon</span>
+              <span style="font-size:14px;font-weight:500;color:var(--ink);
+                width:26px;height:26px;display:flex;align-items:center;
+                justify-content:center;border-radius:50%">12</span>
+            </div>
+            <div style="border-radius:7px;padding:6px 6px 6px 8px;
+              border:1px solid var(--border);border-left:3px solid #3730E8;
+              background:rgba(55,48,232,.06)">
+              <div style="font-size:10px;font-weight:600;color:var(--ink);
+                line-height:1.3">Biology study</div>
+              <div style="font-size:9px;color:var(--gray-2);margin-top:1px">09:00</div>
+            </div>
+            <div style="border-radius:7px;padding:6px 6px 6px 8px;
+              border:1px solid var(--border);border-left:3px solid #10B981;
+              background:rgba(16,185,129,.06)">
+              <div style="font-size:10px;font-weight:600;color:var(--ink);
+                line-height:1.3">Gym 🏋️</div>
+              <div style="font-size:9px;color:var(--gray-2);margin-top:1px">17:00</div>
+            </div>
+            <div style="border:1px dashed var(--border);border-radius:7px;
+              padding:5px;text-align:center;font-size:9px;color:var(--gray-2)">
+              + Add</div>
+          </div>
+
+          <!-- TUE -->
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;flex-direction:column;align-items:center;
+              gap:2px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+              <span style="font-size:9px;font-weight:500;color:var(--gray-2);
+                text-transform:uppercase;letter-spacing:.06em">Tue</span>
+              <span style="font-size:14px;font-weight:500;color:var(--ink);
+                width:26px;height:26px;display:flex;align-items:center;
+                justify-content:center;border-radius:50%">13</span>
+            </div>
+            <div style="border-radius:7px;padding:6px 6px 6px 8px;
+              border:1px solid var(--border);border-left:3px solid #8B5CF6;
+              background:rgba(139,92,246,.06)">
+              <div style="font-size:10px;font-weight:600;color:var(--ink);
+                line-height:1.3">Chemistry</div>
+              <div style="font-size:9px;color:var(--gray-2);margin-top:1px">10:00</div>
+            </div>
+            <div style="border-radius:7px;padding:6px 6px 6px 8px;
+              border:1px solid var(--border);border-left:3px solid #F59E0B;
+              background:rgba(245,158,11,.06)">
+              <div style="font-size:10px;font-weight:600;color:var(--ink);
+                line-height:1.3">Coffee ☕</div>
+              <div style="font-size:9px;color:var(--gray-2);margin-top:1px">15:00</div>
+            </div>
+            <div style="border:1px dashed var(--border);border-radius:7px;
+              padding:5px;text-align:center;font-size:9px;color:var(--gray-2)">
+              + Add</div>
+          </div>
+
+          <!-- WED (oggi) -->
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;flex-direction:column;align-items:center;
+              gap:2px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+              <span style="font-size:9px;font-weight:500;color:var(--gray-2);
+                text-transform:uppercase;letter-spacing:.06em">Wed</span>
+              <span style="font-size:12px;font-weight:500;color:#fff;
+                background:var(--indigo);width:26px;height:26px;
+                display:flex;align-items:center;justify-content:center;
+                border-radius:50%">14</span>
+            </div>
+            <div style="border-radius:7px;padding:6px 6px 6px 8px;
+              border:1px solid var(--border);border-left:3px solid #06B6D4;
+              background:rgba(6,182,212,.06)">
+              <div style="font-size:10px;font-weight:600;color:var(--ink);
+                line-height:1.3">Math</div>
+              <div style="font-size:9px;color:var(--gray-2);margin-top:1px">08:00</div>
+            </div>
+            <div style="border-radius:7px;padding:6px 6px 6px 8px;
+              border:1px solid var(--border);border-left:3px solid #8B5CF6;
+              background:rgba(139,92,246,.06)">
+              <div style="font-size:10px;font-weight:600;color:var(--ink);
+                line-height:1.3">Rest 😴</div>
+              <div style="font-size:9px;color:var(--gray-2);margin-top:1px">20:00</div>
+            </div>
+            <div style="border:1px dashed var(--border);border-radius:7px;
+              padding:5px;text-align:center;font-size:9px;color:var(--gray-2)">
+              + Add</div>
+          </div>
+
+          <!-- THU -->
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;flex-direction:column;align-items:center;
+              gap:2px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+              <span style="font-size:9px;font-weight:500;color:var(--gray-2);
+                text-transform:uppercase;letter-spacing:.06em">Thu</span>
+              <span style="font-size:14px;font-weight:500;color:var(--ink);
+                width:26px;height:26px;display:flex;align-items:center;
+                justify-content:center;border-radius:50%">15</span>
+            </div>
+            <div style="border-radius:7px;padding:6px 6px 6px 8px;
+              border:1px solid var(--border);border-left:3px solid #F59E0B;
+              background:rgba(245,158,11,.06)">
+              <div style="font-size:10px;font-weight:600;color:var(--ink);
+                line-height:1.3">History</div>
+              <div style="font-size:9px;color:var(--gray-2);margin-top:1px">11:00</div>
+            </div>
+            <div style="border-radius:7px;padding:6px 6px 6px 8px;
+              border:1px solid var(--border);border-left:3px solid #10B981;
+              background:rgba(16,185,129,.06)">
+              <div style="font-size:10px;font-weight:600;color:var(--ink);
+                line-height:1.3">Run 🏃</div>
+              <div style="font-size:9px;color:var(--gray-2);margin-top:1px">18:00</div>
+            </div>
+            <div style="border:1px dashed var(--border);border-radius:7px;
+              padding:5px;text-align:center;font-size:9px;color:var(--gray-2)">
+              + Add</div>
+          </div>
+
+          <!-- FRI -->
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;flex-direction:column;align-items:center;
+              gap:2px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+              <span style="font-size:9px;font-weight:500;color:var(--gray-2);
+                text-transform:uppercase;letter-spacing:.06em">Fri</span>
+              <span style="font-size:14px;font-weight:500;color:var(--ink);
+                width:26px;height:26px;display:flex;align-items:center;
+                justify-content:center;border-radius:50%">16</span>
+            </div>
+            <div style="border-radius:7px;padding:6px 6px 6px 8px;
+              border:1px solid var(--border);border-left:3px solid #10B981;
+              background:rgba(16,185,129,.06)">
+              <div style="font-size:10px;font-weight:600;color:var(--ink);
+                line-height:1.3">Economics</div>
+              <div style="font-size:9px;color:var(--gray-2);margin-top:1px">09:00</div>
+            </div>
+            <div style="border-radius:7px;padding:6px 6px 6px 8px;
+              border:1px solid var(--border);border-left:3px solid #F59E0B;
+              background:rgba(245,158,11,.06)">
+              <div style="font-size:10px;font-weight:600;color:var(--ink);
+                line-height:1.3">Aperitivo 🍹</div>
+              <div style="font-size:9px;color:var(--gray-2);margin-top:1px">19:00</div>
+            </div>
+            <div style="border:1px dashed var(--border);border-radius:7px;
+              padding:5px;text-align:center;font-size:9px;color:var(--gray-2)">
+              + Add</div>
+          </div>
+
         </div>
       </div>
 
-      <div class="relative">
-        <div class="bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-3xl border border-border p-8">
-          <div class="bg-white rounded-2xl border border-border p-6 mb-6">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="font-semibold">Top Students</h3>
-              <i data-lucide="trophy" class="text-yellow-500" style="font-size:1.25rem"></i>
-            </div>
-            <div class="space-y-4">
-              <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors">
-                <div class="text-2xl">🥇</div>
-                <div class="flex-1">
-                  <div class="font-medium">Sarah Chen</div>
-                  <div class="text-sm text-foreground/60">12,450 points</div>
-                </div>
-                <div class="text-2xl text-foreground/30">#1</div>
-              </div>
-              <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors">
-                <div class="text-2xl">🥈</div>
-                <div class="flex-1">
-                  <div class="font-medium">Marcus Kim</div>
-                  <div class="text-sm text-foreground/60">11,890 points</div>
-                </div>
-                <div class="text-2xl text-foreground/30">#2</div>
-              </div>
-              <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors">
-                <div class="text-2xl">🥉</div>
-                <div class="flex-1">
-                  <div class="font-medium">Emma Wilson</div>
-                  <div class="text-sm text-foreground/60">10,320 points</div>
-                </div>
-                <div class="text-2xl text-foreground/30">#3</div>
-              </div>
-            </div>
-          </div>
+      <!-- BOTTOM ROW: balance + streak -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
 
-          <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-6 text-white">
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <div class="text-3xl mb-1 font-bold">42 Days</div>
-                <div class="text-white/80">Current Streak</div>
-              </div>
-              <i data-lucide="flame" style="font-size:3rem"></i>
+        <!-- LIFE BALANCE -->
+        <div style="background:#fff;border-radius:16px;
+          border:1px solid var(--border);padding:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--ink);
+            margin-bottom:10px">⚖️ Life balance</div>
+          <div style="display:flex;gap:5px;align-items:flex-end;
+            height:44px;overflow:hidden">
+            <div style="flex:1;display:flex;flex-direction:column;
+              align-items:center;gap:3px">
+              <div style="width:100%;height:36px;background:#3730E8;
+                border-radius:4px"></div>
+              <div style="font-size:9px;font-weight:600;color:#3730E8">55%</div>
+              <div style="font-size:8px;color:var(--gray-2)">Study</div>
             </div>
-            <div class="flex gap-1">
-              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:100%"></div></div>
-              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:100%"></div></div>
-              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:100%"></div></div>
-              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:100%"></div></div>
-              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:100%"></div></div>
-              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:0%"></div></div>
-              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:0%"></div></div>
+            <div style="flex:1;display:flex;flex-direction:column;
+              align-items:center;gap:3px">
+              <div style="width:100%;height:16px;background:#10B981;
+                border-radius:4px"></div>
+              <div style="font-size:9px;font-weight:600;color:#10B981">20%</div>
+              <div style="font-size:8px;color:var(--gray-2)">Fit</div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;
+              align-items:center;gap:3px">
+              <div style="width:100%;height:12px;background:#F59E0B;
+                border-radius:4px"></div>
+              <div style="font-size:9px;font-weight:600;color:#F59E0B">15%</div>
+              <div style="font-size:8px;color:var(--gray-2)">Social</div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;
+              align-items:center;gap:3px">
+              <div style="width:100%;height:8px;background:#8B5CF6;
+                border-radius:4px"></div>
+              <div style="font-size:9px;font-weight:600;color:#8B5CF6">10%</div>
+              <div style="font-size:8px;color:var(--gray-2)">Rest</div>
             </div>
           </div>
         </div>
+
+        <!-- STREAK -->
+        <div style="background:linear-gradient(135deg,var(--indigo),var(--purple));
+          border-radius:16px;padding:16px;display:flex;
+          flex-direction:column;justify-content:space-between;gap:10px">
+          <div>
+            <div style="font-size:22px;font-weight:800;color:#fff;
+              letter-spacing:-.02em">🔥 42 Days</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.7);
+              margin-top:2px">Current Streak</div>
+          </div>
+          <div style="display:flex;gap:4px">
+            <div style="flex:1;height:5px;border-radius:3px;
+              background:rgba(255,255,255,.9)"></div>
+            <div style="flex:1;height:5px;border-radius:3px;
+              background:rgba(255,255,255,.9)"></div>
+            <div style="flex:1;height:5px;border-radius:3px;
+              background:rgba(255,255,255,.9)"></div>
+            <div style="flex:1;height:5px;border-radius:3px;
+              background:rgba(255,255,255,.9)"></div>
+            <div style="flex:1;height:5px;border-radius:3px;
+              background:rgba(255,255,255,.9)"></div>
+            <div style="flex:1;height:5px;border-radius:3px;
+              background:rgba(255,255,255,.25)"></div>
+            <div style="flex:1;height:5px;border-radius:3px;
+              background:rgba(255,255,255,.25)"></div>
+          </div>
+        </div>
+
       </div>
     </div>
+
   </div>
 </section>
 
@@ -688,8 +929,8 @@
 const { useState, useEffect, useRef, useMemo } = React;
 
 /* ===================== ICONS (inline SVG, stroke=currentColor) ===================== */
-const Icon = ({ d, fill, size = 20, sw = 1.8, children, viewBox = "0 0 24 24" }) => (
-  <svg width={size} height={size} viewBox={viewBox} fill={fill || "none"} stroke="currentColor"
+const Icon = ({ d, fill, size = 20, sw = 1.8, children, viewBox = "0 0 24 24", style, color }) => (
+  <svg width={size} height={size} viewBox={viewBox} fill={fill || "none"} stroke="currentColor" style={style} color={color}
     strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {children || (d ? <path d={d} /> : null)}
   </svg>
@@ -734,13 +975,13 @@ const CalendarIcon = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="18
 const ChevronLeft  = (p) => <Icon {...p}><polyline points="15 18 9 12 15 6"/></Icon>;
 const ChevronRight = (p) => <Icon {...p}><polyline points="9 18 15 12 9 6"/></Icon>;
 const Trash        = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></Icon>;
-const Play         = (p) => <Icon {...p}><polygon points="5 3 19 12 5 21 5 3"/></Icon>;
-const Pause        = (p) => <Icon {...p}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></Icon>;
-const StopIcon     = (p) => <Icon {...p}><rect x="3" y="3" width="18" height="18" rx="2"/></Icon>;
-const RotateCcw    = (p) => <Icon {...p}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.14"/></Icon>;
 const ChevronUp    = (p) => <Icon {...p}><polyline points="18 15 12 9 6 15"/></Icon>;
 const ChevronDown  = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9"/></Icon>;
-const GripDots     = (p) => <Icon {...p} viewBox="0 0 12 12" sw={0} fill="currentColor"><circle cx="3" cy="3" r="1.2"/><circle cx="6" cy="3" r="1.2"/><circle cx="9" cy="3" r="1.2"/><circle cx="3" cy="6" r="1.2"/><circle cx="6" cy="6" r="1.2"/><circle cx="9" cy="6" r="1.2"/><circle cx="3" cy="9" r="1.2"/><circle cx="6" cy="9" r="1.2"/><circle cx="9" cy="9" r="1.2"/></Icon>;
+const RefreshCw    = (p) => <Icon {...p}><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></Icon>;
+const Play     = (p) => <Icon {...p}><polygon points="5 3 19 12 5 21 5 3"/></Icon>;
+const Pause    = (p) => <Icon {...p}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></Icon>;
+const Stop     = (p) => <Icon {...p}><rect x="3" y="3" width="18" height="18" rx="2"/></Icon>;
+const GripDots = (p) => <Icon {...p} viewBox="0 0 12 12" sw={0} fill="currentColor"><circle cx="3" cy="3" r="1.2"/><circle cx="6" cy="3" r="1.2"/><circle cx="9" cy="3" r="1.2"/><circle cx="3" cy="6" r="1.2"/><circle cx="6" cy="6" r="1.2"/><circle cx="9" cy="6" r="1.2"/><circle cx="3" cy="9" r="1.2"/><circle cx="6" cy="9" r="1.2"/><circle cx="9" cy="9" r="1.2"/></Icon>;
 
 /* ===================== ROOT APP ===================== */
 function App() {
@@ -959,7 +1200,6 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
     title: 'Cellular Respiration',
     questions: cellularRespirationQuestions,
   });
-
   const [weekData, setWeekData] = useState(initialWeekData);
 
   function handleSessionSaved(mins) {
@@ -1077,6 +1317,292 @@ const shellS = {
   outerCard: { border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
   grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 640 },
   main: { padding: '32px 36px' },
+};
+
+/* ===================== STUDY TIMER ===================== */
+function StudyTimer({ onSessionSaved }) {
+  const PS = 1500;
+  const PB = 300;
+  const CIRC = 238.76;
+  const [expanded, setExpanded] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [mode, setMode_] = useState('free');
+  const [elapsed, setElapsed] = useState(0);
+  const [pomoElapsed, setPomoEl] = useState(0);
+  const [pomoPhase, setPomoPhase] = useState('study');
+  const [sessionCount, setSessN] = useState(1);
+  const [sessions, setSessions] = useState([]);
+  const [showToast, setShowToast] = useState(null);
+  const timerRef = useRef(null);
+  const fwRef = useRef(null);
+  const elapsedRef = useRef(0);
+  const pomoRef = useRef(0);
+  const modeRef = useRef('free');
+  const phaseRef = useRef('study');
+  const dragRef = useRef({ active: false, offsetX: 0, offsetY: 0 });
+
+  const fmt = (s) => {
+    const n = Math.max(0, s);
+    return `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+  };
+
+  const addSession = (mins) => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setSessions(prev => [...prev, { mins, time }]);
+  };
+
+  const saveSession = (mins) => {
+    if (mins < 1) return;
+    addSession(mins);
+    onSessionSaved && onSessionSaved(mins);
+    setShowToast(mins);
+  };
+
+  const clearTimer = () => {
+    clearInterval(timerRef.current);
+    timerRef.current = null;
+  };
+
+  const tick = () => {
+    if (modeRef.current === 'free') {
+      elapsedRef.current += 1;
+      setElapsed(elapsedRef.current);
+      return;
+    }
+    pomoRef.current += 1;
+    setPomoEl(pomoRef.current);
+    if (phaseRef.current === 'study' && pomoRef.current >= PS) {
+      saveSession(25);
+      setSessN(n => n + 1);
+      phaseRef.current = 'break';
+      setPomoPhase('break');
+      pomoRef.current = 0;
+      setPomoEl(0);
+    } else if (phaseRef.current === 'break' && pomoRef.current >= PB) {
+      phaseRef.current = 'study';
+      setPomoPhase('study');
+      pomoRef.current = 0;
+      setPomoEl(0);
+    }
+  };
+
+  const toggleRun = () => {
+    if (running) {
+      clearTimer();
+      setRunning(false);
+      return;
+    }
+    setRunning(true);
+    timerRef.current = setInterval(tick, 1000);
+  };
+
+  const doReset = () => {
+    clearTimer();
+    setRunning(false);
+    elapsedRef.current = 0;
+    pomoRef.current = 0;
+    phaseRef.current = 'study';
+    setElapsed(0);
+    setPomoEl(0);
+    setPomoPhase('study');
+  };
+
+  const stopSession = () => {
+    clearTimer();
+    setRunning(false);
+    const mins = modeRef.current === 'free'
+      ? Math.round(elapsedRef.current / 60)
+      : phaseRef.current === 'study'
+        ? Math.round(pomoRef.current / 60)
+        : 0;
+    saveSession(mins);
+    elapsedRef.current = 0;
+    pomoRef.current = 0;
+    phaseRef.current = 'study';
+    setElapsed(0);
+    setPomoEl(0);
+    setPomoPhase('study');
+    setSessN(n => n + 1);
+  };
+
+  const setMode = (m) => {
+    if (running) return;
+    doReset();
+    modeRef.current = m;
+    setMode_(m);
+  };
+
+  const onHandleDown = (e) => {
+    const fw = fwRef.current;
+    if (!fw) return;
+    const rect = fw.getBoundingClientRect();
+    dragRef.current = { active: true, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+    fw.style.cursor = 'grabbing';
+    e.preventDefault();
+  };
+
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+  useEffect(() => { phaseRef.current = pomoPhase; }, [pomoPhase]);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      const drag = dragRef.current;
+      const fw = fwRef.current;
+      if (!drag.active || !fw) return;
+      const left = Math.min(Math.max(e.clientX - drag.offsetX, 0), window.innerWidth - fw.offsetWidth);
+      const top = Math.min(Math.max(e.clientY - drag.offsetY, 0), window.innerHeight - fw.offsetHeight);
+      fw.style.left = `${left}px`;
+      fw.style.top = `${top}px`;
+      fw.style.right = 'auto';
+      fw.style.bottom = 'auto';
+    };
+    const onUp = () => {
+      dragRef.current.active = false;
+      if (fwRef.current) fwRef.current.style.cursor = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, []);
+
+  useEffect(() => () => clearInterval(timerRef.current), []);
+
+  useEffect(() => {
+    if (!showToast) return undefined;
+    const t = setTimeout(() => setShowToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [showToast]);
+
+  const isPomo = mode === 'pomodoro';
+  const phaseDur = pomoPhase === 'study' ? PS : PB;
+  const displaySeconds = isPomo ? phaseDur - pomoElapsed : elapsed;
+  const progress = isPomo ? Math.min(pomoElapsed / phaseDur, 1) : (elapsed % 3600) / 3600;
+  const ringColor = isPomo && pomoPhase === 'break' ? '#10B981' : 'var(--indigo)';
+  const dashOffset = CIRC * (1 - progress);
+  const disabledStop = elapsed === 0 && pomoElapsed === 0 && !running;
+  const totalStudy = sessions.reduce((sum, s) => sum + s.mins, 0);
+
+  if (!expanded) {
+    return (
+      <button style={timerS.pill} onClick={() => setExpanded(true)} aria-label="Open study timer">
+        <span style={{ ...timerS.pillDot, animation: running ? 'timer-pulse 1.2s infinite' : 'none' }} />
+        <span style={timerS.pillTime}>{fmt(displaySeconds)}</span>
+        {isPomo && <span style={timerS.pillPhase}>{pomoPhase === 'study' ? 'Study' : 'Break'}</span>}
+        <ChevronUp size={15} color="rgba(255,255,255,.7)" />
+      </button>
+    );
+  }
+
+  return (
+    <React.Fragment>
+      {showToast && (
+        <div style={timerS.toast}>
+          <Check size={14} />
+          <span>{showToast}m aggiunti ad Analytics!</span>
+        </div>
+      )}
+      <div ref={fwRef} style={timerS.card}>
+        <div style={timerS.header}>
+          <div onMouseDown={onHandleDown} style={timerS.dragHandle}>
+            <GripDots size={12} color="var(--gray)" style={{ opacity: .4 }} />
+            <span>Study Timer</span>
+          </div>
+          <button style={timerS.closeBtn} onClick={() => setExpanded(false)} aria-label="Minimize timer">
+            <ChevronDown size={15} />
+          </button>
+        </div>
+
+        <div style={timerS.toggle}>
+          <button style={{ ...timerS.tab, ...(mode === 'free' ? timerS.tabActive : null) }} onClick={() => setMode('free')}>Free</button>
+          <button style={{ ...timerS.tab, ...(mode === 'pomodoro' ? timerS.tabActive : null) }} onClick={() => setMode('pomodoro')}>Pomodoro</button>
+        </div>
+        {isPomo && <div style={timerS.pomoHint}>25 min studio · 5 min pausa automatica</div>}
+
+        <div style={timerS.ringWrap}>
+          <svg width="90" height="90" viewBox="0 0 90 90" style={timerS.ringSvg}>
+            <circle cx="45" cy="45" r="38" fill="none" stroke="var(--border)" strokeWidth="7" />
+            <circle cx="45" cy="45" r="38" fill="none" stroke={ringColor} strokeWidth="7" strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={dashOffset} style={timerS.ringFill} />
+          </svg>
+          <div style={timerS.ringCenter}>
+            <div style={timerS.ringTime}>{fmt(displaySeconds)}</div>
+            {isPomo && <div style={timerS.ringPhase}>{pomoPhase === 'study' ? 'Study' : 'Break'}</div>}
+          </div>
+          <div style={timerS.session}>Session {sessionCount}</div>
+        </div>
+
+        <div style={timerS.controls}>
+          <button style={{ ...timerS.playBtn, ...(running ? null : (elapsed > 0 || pomoElapsed > 0) ? timerS.resumeBtn : null) }} onClick={toggleRun}>
+            {running ? <Pause size={14} /> : <Play size={14} />}
+            <span>{running ? 'Pause' : (elapsed > 0 || pomoElapsed > 0) ? 'Resume' : 'Start'}</span>
+          </button>
+          <button style={{ ...timerS.stopBtn, opacity: disabledStop ? .3 : 1 }} disabled={disabledStop} onClick={stopSession} aria-label="Stop session">
+            <Stop size={15} />
+          </button>
+          <button style={timerS.resetBtn} onClick={doReset} aria-label="Reset timer">
+            <RefreshCw size={15} />
+          </button>
+        </div>
+
+        {sessions.length > 0 && (
+          <div style={timerS.log}>
+            <div style={timerS.logTitle}>TODAY'S SESSIONS</div>
+            <div style={timerS.logList}>
+              {sessions.map((s, i) => (
+                <div key={`${s.time}-${i}`} style={timerS.logRow}>
+                  <span style={timerS.logDot} />
+                  <span style={timerS.logTime}>{s.time}</span>
+                  <span style={timerS.logMins}>{s.mins}m</span>
+                </div>
+              ))}
+            </div>
+            <div style={timerS.totalRow}>
+              <span>Total study</span>
+              <span>{totalStudy}m</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </React.Fragment>
+  );
+}
+
+const timerS = {
+  pill: { position: 'fixed', bottom: 24, right: 24, zIndex: 999, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: 'var(--indigo)', borderRadius: 999, cursor: 'pointer', boxShadow: '0 8px 24px rgba(55,48,232,.4)', color: '#fff' },
+  pillDot: { width: 8, height: 8, borderRadius: '50%', background: '#fff', flexShrink: 0 },
+  pillTime: { fontSize: 14, fontWeight: 600, color: '#fff' },
+  pillPhase: { fontSize: 10, color: 'rgba(255,255,255,.7)' },
+  card: { position: 'fixed', bottom: 70, right: 24, zIndex: 999, background: '#fff', borderRadius: 20, border: '1px solid var(--border)', padding: 18, width: 236, boxShadow: '0 20px 60px rgba(15,16,53,.2)' },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  dragHandle: { display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontSize: 13, fontWeight: 600, cursor: 'grab', userSelect: 'none' },
+  closeBtn: { width: 24, height: 24, borderRadius: '50%', display: 'grid', placeItems: 'center', color: 'var(--gray)', background: 'var(--sidebar-bg)' },
+  toggle: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, background: 'var(--sidebar-bg)', borderRadius: 8, padding: 2 },
+  tab: { borderRadius: 6, padding: '6px 8px', background: 'transparent', color: 'var(--gray)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' },
+  tabActive: { background: 'var(--indigo)', color: '#fff' },
+  pomoHint: { marginTop: 7, fontSize: 10, color: 'var(--gray)', textAlign: 'center' },
+  ringWrap: { position: 'relative', display: 'grid', placeItems: 'center', margin: '14px 0 12px' },
+  ringSvg: { transform: 'rotate(-90deg)' },
+  ringFill: { transition: 'stroke-dashoffset .95s linear, stroke .3s' },
+  ringCenter: { position: 'absolute', top: 22, left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' },
+  ringTime: { fontSize: 19, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.1 },
+  ringPhase: { marginTop: 3, fontSize: 9, color: 'var(--gray)' },
+  session: { marginTop: 4, fontSize: 10, color: 'var(--gray)' },
+  controls: { display: 'grid', gridTemplateColumns: '1fr 34px 34px', gap: 5 },
+  playBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, padding: 9, background: 'var(--indigo)', color: '#fff', fontSize: 12, fontWeight: 700 },
+  resumeBtn: { background: 'var(--lavender)', color: 'var(--indigo)' },
+  stopBtn: { width: 34, height: 34, borderRadius: 10, display: 'grid', placeItems: 'center', background: '#FEE2E2', color: '#991B1B' },
+  resetBtn: { width: 34, height: 34, borderRadius: 10, display: 'grid', placeItems: 'center', background: 'var(--sidebar-bg)', border: '1px solid var(--border)', color: 'var(--gray)' },
+  log: { marginTop: 12, borderTop: '0.5px solid var(--border)', paddingTop: 10 },
+  logTitle: { fontSize: 10, letterSpacing: '.08em', color: 'var(--gray)', fontWeight: 700, marginBottom: 8 },
+  logList: { display: 'flex', flexDirection: 'column', gap: 7 },
+  logRow: { display: 'grid', gridTemplateColumns: '12px 1fr auto', alignItems: 'center', gap: 6, fontSize: 11 },
+  logDot: { width: 6, height: 6, borderRadius: '50%', background: 'var(--indigo)' },
+  logTime: { color: 'var(--gray)' },
+  logMins: { fontWeight: 600, color: 'var(--ink)' },
+  totalRow: { display: 'flex', justifyContent: 'space-between', borderTop: '0.5px solid var(--border)', marginTop: 8, paddingTop: 8, fontSize: 11, color: 'var(--gray)', fontWeight: 600 },
+  toast: { position: 'fixed', top: 24, right: 24, zIndex: 1000, display: 'flex', alignItems: 'center', gap: 7, background: '#DCFCE7', border: '1px solid #86efac', color: '#166534', borderRadius: 10, padding: '7px 14px', fontSize: 12, fontWeight: 500, boxShadow: '0 10px 30px rgba(22,101,52,.12)' },
 };
 
 /* ===================== SIDEBAR ===================== */
@@ -2813,269 +3339,6 @@ const calS = {
   cancelBtn: { padding:'10px 20px', borderRadius:999, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor:'pointer' },
   saveBtn: { padding:'10px 20px', borderRadius:999, border:'none', color:'#fff', fontWeight:600, fontSize:14, cursor:'pointer' },
 };
-
-
-/* ===================== STUDY TIMER ===================== */
-/* ===================== STUDY TIMER ===================== */
-function StudyTimer({ onSessionSaved }) {
-  const [expanded, setExpanded]   = useState(false);
-  const [running, setRunning]     = useState(false);
-  const [mode, setMode_]          = useState('free');
-  const [elapsed, setElapsed]     = useState(0);
-  const [pomoElapsed, setPomoEl]  = useState(0);
-  const [pomoPhase, setPomoPhase] = useState('study');
-  const [sessionCount, setSessN]  = useState(1);
-  const [sessions, setSessions]   = useState([]);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMsg, setToastMsg]   = useState('');
-  const [dragging, setDragging]   = useState(false);
-  const timerRef  = useRef(null);
-  const fwRef     = useRef(null);
-  const elapsedRef = useRef(0);
-  const pomoRef   = useRef(0);
-  const modeRef   = useRef('free');
-  const phaseRef  = useRef('study');
-  const dragOffset = useRef({ x: 0, y: 0 });
-  const isDragging = useRef(false);
-
-  const PS = 1500, PB = 300;
-  const CIRC = 238.76;
-
-  const fmt = (s) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-  };
-
-  const nowHHMM = () => {
-    const d = new Date();
-    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  };
-
-  const fireToast = (msg) => {
-    setToastMsg(msg); setShowToast(true);
-    setTimeout(() => setShowToast(false), 2500);
-  };
-
-  const addSession = (mins) => {
-    setSessions(prev => [...prev, { mins, time: nowHHMM() }]);
-  };
-
-  const doReset = () => {
-    clearInterval(timerRef.current);
-    setRunning(false);
-    elapsedRef.current = 0; pomoRef.current = 0;
-    setElapsed(0); setPomoEl(0); setPomoPhase('study'); phaseRef.current = 'study';
-  };
-
-  const stopSession = () => {
-    clearInterval(timerRef.current);
-    setRunning(false);
-    let mins = 0;
-    if (modeRef.current === 'free') mins = Math.round(elapsedRef.current / 60);
-    else if (phaseRef.current === 'study') mins = Math.round(pomoRef.current / 60);
-    if (mins >= 1) { addSession(mins); onSessionSaved(mins); fireToast(`${mins}m aggiunti ad Analytics!`); }
-    elapsedRef.current = 0; pomoRef.current = 0;
-    setElapsed(0); setPomoEl(0); setPomoPhase('study'); phaseRef.current = 'study';
-    setSessN(n => n + 1);
-  };
-
-  const tick = () => {
-    if (modeRef.current === 'free') {
-      elapsedRef.current++;
-      setElapsed(elapsedRef.current);
-    } else {
-      if (phaseRef.current === 'study') {
-        pomoRef.current++;
-        setPomoEl(pomoRef.current);
-        if (pomoRef.current >= PS) {
-          addSession(25); onSessionSaved(25); fireToast('25m aggiunti ad Analytics!');
-          phaseRef.current = 'break'; setPomoPhase('break'); pomoRef.current = 0; setPomoEl(0);
-        }
-      } else {
-        pomoRef.current++;
-        setPomoEl(pomoRef.current);
-        if (pomoRef.current >= PB) {
-          phaseRef.current = 'study'; setPomoPhase('study'); pomoRef.current = 0; setPomoEl(0);
-        }
-      }
-    }
-  };
-
-  const toggleRun = () => {
-    if (running) { clearInterval(timerRef.current); setRunning(false); }
-    else { setRunning(true); timerRef.current = setInterval(tick, 1000); }
-  };
-
-  const setMode = (m) => {
-    if (running) return;
-    modeRef.current = m; setMode_(m); doReset();
-  };
-
-  useEffect(() => { modeRef.current = mode; }, [mode]);
-
-  useEffect(() => {
-    const onMove = (e) => {
-      if (!isDragging.current || !fwRef.current) return;
-      const fw = fwRef.current;
-      const x = Math.max(0, Math.min(window.innerWidth - fw.offsetWidth, e.clientX - dragOffset.current.x));
-      const y = Math.max(0, Math.min(window.innerHeight - fw.offsetHeight, e.clientY - dragOffset.current.y));
-      fw.style.left = x + 'px'; fw.style.top = y + 'px';
-      fw.style.right = 'auto'; fw.style.bottom = 'auto';
-    };
-    const onUp = () => { isDragging.current = false; setDragging(false); };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-    return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-  }, []);
-
-  useEffect(() => { return () => clearInterval(timerRef.current); }, []);
-
-  const onHandleDown = (e) => {
-    if (!fwRef.current) return;
-    isDragging.current = true; setDragging(true);
-    const rect = fwRef.current.getBoundingClientRect();
-    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    e.preventDefault();
-  };
-
-  const isStopped = elapsed === 0 && pomoElapsed === 0 && !running;
-
-  const displayTime = () => {
-    if (mode === 'free') return fmt(elapsed);
-    if (pomoPhase === 'study') return fmt(Math.max(0, PS - pomoElapsed));
-    return fmt(Math.max(0, PB - pomoElapsed));
-  };
-
-  const ringOffset = () => {
-    if (mode === 'free') return CIRC - (CIRC * ((elapsed % 3600) / 3600));
-    if (pomoPhase === 'study') return CIRC - (CIRC * (pomoElapsed / PS));
-    return CIRC - (CIRC * (pomoElapsed / PB));
-  };
-  const ringColor = mode === 'pomo' && pomoPhase === 'break' ? '#10B981' : 'var(--indigo)';
-  const totalStudy = sessions.reduce((a, s) => a + s.mins, 0);
-
-  const pillTime = mode === 'free' ? fmt(elapsed)
-    : pomoPhase === 'study' ? fmt(Math.max(0, PS - pomoElapsed))
-    : fmt(Math.max(0, PB - pomoElapsed));
-
-  return (
-    <>
-      {showToast && (
-        <div style={timerS.toast}>
-          <Check size={14} /> {toastMsg}
-        </div>
-      )}
-      {!expanded && (
-        <div style={timerS.pill} onClick={() => setExpanded(true)}>
-          <span style={{ ...timerS.dot, animation: running ? 'pulse 1.2s infinite' : 'none' }} />
-          <span style={{ fontSize:14, fontWeight:600, color:'#fff', fontFamily:'monospace' }}>{pillTime}</span>
-          {mode === 'pomo' && <span style={{ fontSize:10, color:'rgba(255,255,255,.7)' }}>{pomoPhase === 'study' ? 'Study' : 'Break'}</span>}
-          <ChevronUp size={14} style={{ color:'rgba(255,255,255,.7)' }} />
-        </div>
-      )}
-      {expanded && (
-        <div ref={fwRef} style={timerS.card}>
-          <div style={timerS.headerRow} onMouseDown={onHandleDown}>
-            <div style={{ display:'flex', alignItems:'center', gap:6, cursor: dragging ? 'grabbing' : 'grab' }}>
-              <GripDots size={12} style={{ color:'var(--gray)', opacity:.4 }} />
-              <span style={{ fontSize:13, fontWeight:600, color:'var(--ink)' }}>Study Timer</span>
-            </div>
-            <button onClick={() => setExpanded(false)} style={timerS.closeBtn}><ChevronDown size={14} /></button>
-          </div>
-
-          <div style={timerS.modeToggle}>
-            {['free','pomo'].map(m => (
-              <button key={m} onClick={() => setMode(m)}
-                style={{ ...timerS.modeBtn, ...(mode===m ? timerS.modeBtnActive : {}) }}>
-                {m === 'free' ? 'Free' : 'Pomodoro'}
-              </button>
-            ))}
-          </div>
-          {mode === 'pomo' && <div style={{ fontSize:10, color:'var(--gray)', textAlign:'center', marginTop:4, marginBottom:2 }}>25 min studio · 5 min pausa automatica</div>}
-
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', margin:'14px 0 10px' }}>
-            <svg width="90" height="90" viewBox="0 0 90 90">
-              <circle cx="45" cy="45" r="38" fill="none" stroke="var(--border)" strokeWidth="5" />
-              <circle cx="45" cy="45" r="38" fill="none"
-                stroke={ringColor} strokeWidth="5"
-                strokeDasharray={CIRC}
-                strokeDashoffset={ringOffset()}
-                strokeLinecap="round"
-                transform="rotate(-90 45 45)"
-                style={{ transition:'stroke-dashoffset .95s linear, stroke .3s' }} />
-              <text x="45" y="43" textAnchor="middle" dominantBaseline="middle"
-                style={{ fontSize:19, fontWeight:600, fill:'var(--ink)', fontFamily:'monospace' }}>{displayTime()}</text>
-              {mode === 'pomo' && (
-                <text x="45" y="57" textAnchor="middle" dominantBaseline="middle"
-                  style={{ fontSize:9, fill:'var(--gray)' }}>{pomoPhase === 'study' ? 'Study' : 'Break'}</text>
-              )}
-            </svg>
-            <div style={{ fontSize:10, color:'var(--gray)', marginTop:4 }}>Session {sessionCount}</div>
-          </div>
-
-          <div style={timerS.controls}>
-            <button onClick={toggleRun} style={{ ...timerS.playBtn, ...(running ? {} : elapsed===0&&pomoElapsed===0 ? {} : timerS.playBtnPaused) }}>
-              {running ? <Pause size={14}/> : <Play size={14}/>}
-              <span style={{ fontSize:13, fontWeight:600 }}>{running ? 'Pause' : elapsed===0&&pomoElapsed===0 ? 'Start' : 'Resume'}</span>
-            </button>
-            <button onClick={stopSession} disabled={isStopped}
-              style={{ ...timerS.iconBtn, background:'#FEE2E2', color:'#991B1B', opacity: isStopped ? .3 : 1 }}>
-              <StopIcon size={14} />
-            </button>
-            <button onClick={doReset} style={{ ...timerS.iconBtn, background:'var(--sidebar-bg)', border:'1px solid var(--border)', color:'var(--gray)' }}>
-              <RotateCcw size={14} />
-            </button>
-          </div>
-
-          {sessions.length > 0 && (
-            <div style={timerS.log}>
-              <div style={timerS.logLabel}>TODAY'S SESSIONS</div>
-              {sessions.map((s, i) => (
-                <div key={i} style={timerS.logRow}>
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <span style={timerS.logDot} />
-                    <span style={{ fontSize:11, color:'var(--gray)' }}>{s.time}</span>
-                  </div>
-                  <span style={{ fontSize:11, fontWeight:600, color:'var(--ink)' }}>{s.mins}m</span>
-                </div>
-              ))}
-              <div style={{ ...timerS.logRow, borderTop:'0.5px solid var(--border)', marginTop:6, paddingTop:6 }}>
-                <span style={{ fontSize:11, color:'var(--gray)' }}>Total study</span>
-                <span style={{ fontSize:11, fontWeight:600, color:'var(--indigo)' }}>{totalStudy}m</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-      <style>{`
-        @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:.6} }
-      `}</style>
-    </>
-  );
-}
-
-const timerS = {
-  pill: { position:'fixed', bottom:24, right:24, zIndex:999, display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background:'var(--indigo)', borderRadius:999, cursor:'pointer', boxShadow:'0 8px 24px rgba(55,48,232,.4)', userSelect:'none' },
-  dot: { width:8, height:8, borderRadius:'50%', background:'#fff', flexShrink:0 },
-  card: { position:'fixed', bottom:70, right:24, zIndex:999, background:'#fff', borderRadius:20, border:'1px solid var(--border)', padding:18, width:236, boxShadow:'0 20px 60px rgba(15,16,53,.2)', userSelect:'none' },
-  headerRow: { display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, cursor:'grab' },
-  closeBtn: { width:24, height:24, borderRadius:999, background:'var(--sidebar-bg)', border:'1px solid var(--border)', color:'var(--gray)', display:'grid', placeItems:'center' },
-  modeToggle: { display:'flex', background:'var(--sidebar-bg)', borderRadius:8, padding:2, gap:2, marginBottom:6 },
-  modeBtn: { flex:1, padding:'5px 0', borderRadius:6, fontSize:11, fontWeight:600, color:'var(--gray)', background:'transparent', border:'none', cursor:'pointer' },
-  modeBtnActive: { background:'var(--indigo)', color:'#fff' },
-  controls: { display:'grid', gridTemplateColumns:'1fr 34px 34px', gap:5, marginBottom:10 },
-  playBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'9px', borderRadius:10, background:'var(--indigo)', color:'#fff', border:'none', cursor:'pointer' },
-  playBtnPaused: { background:'var(--lavender)', color:'var(--indigo)' },
-  iconBtn: { width:34, height:34, borderRadius:10, display:'grid', placeItems:'center', border:'none', cursor:'pointer' },
-  log: { borderTop:'0.5px solid var(--border)', paddingTop:10, display:'flex', flexDirection:'column', gap:4 },
-  logLabel: { fontSize:10, fontWeight:700, color:'var(--gray)', letterSpacing:'0.06em', marginBottom:4 },
-  logRow: { display:'flex', alignItems:'center', justifyContent:'space-between' },
-  logDot: { width:6, height:6, borderRadius:999, background:'var(--indigo)', flexShrink:0 },
-  toast: { position:'fixed', top:24, right:24, zIndex:1000, display:'flex', alignItems:'center', gap:8, padding:'7px 14px', background:'#DCFCE7', border:'1px solid #86efac', color:'#166534', borderRadius:10, fontSize:12, fontWeight:500, boxShadow:'0 4px 12px rgba(0,0,0,.1)' },
-};
-
-
 
 
 /* ===================== AI STUDY PLANNER ===================== */
