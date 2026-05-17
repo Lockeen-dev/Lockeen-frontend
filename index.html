@@ -1243,6 +1243,8 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
   });
   const [quizHistory, setQuizHistory] = useState({});
   const [flashHistory, setFlashHistory] = useState({});
+  const [recentFlashDecks, setRecentFlashDecks] = useState([]);
+  const [flashLanding, setFlashLanding] = useState(true);
   const [weekData, setWeekData] = useState(initialWeekData);
 
   function handleSessionSaved(mins) {
@@ -1294,15 +1296,17 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
 
   function onFlashComplete(noteId, scorePct) {
     if (!noteId) return;
-    setFlashHistory(prev => ({
-      ...prev,
-      [noteId]: [...(prev[noteId] || []), scorePct]
-    }));
+    setFlashHistory(prev => ({ ...prev, [noteId]: [...(prev[noteId] || []), scorePct] }));
+    setRecentFlashDecks(prev => {
+      const next = prev.filter(d => d.title !== flashcardDeck.title);
+      return [{ ...flashcardDeck, lastScore: scorePct, ts: Date.now() }, ...next].slice(0, 12);
+    });
   }
 
   const openFlashcards = ({ noteId, subject, title, cards }) => {
     setFlashcardDeck({ noteId, subject, title, cards });
     setActiveExamId(null);
+    setFlashLanding(false);
     setTab('flashcards');
   };
 
@@ -1359,8 +1363,11 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
           <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); setTab(t); }} />
           <div style={shellS.main}>
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
-            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} />}
-            {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} />}
+            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} />}
+            {tab === 'flashcards' && (flashLanding
+              ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} />
+              : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} />
+            )}
             {tab === 'quiz' && <QuizView {...quizDeck} setTab={setTab} darkMode={darkMode} onQuizComplete={onQuizComplete} />}
             {tab === 'tutor'     && <TutorView />}
             {tab === 'analytics' && <AnalyticsView weekData={weekData} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} />}
@@ -2143,7 +2150,7 @@ const seedExams = [
   ]},
 ];
 
-function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, darkMode, onOpenPlanner, onExamAdded }) {
+function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {} }) {
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
@@ -2166,7 +2173,7 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
         return { ...x, chapters: [newChapter, ...x.chapters], updated: 'Just now' };
       }));
     };
-    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} />;
+    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} />;
   }
 
   const filtered = exams.filter((x) => (x.name + ' ' + (x.subject || '')).toLowerCase().includes(q.toLowerCase()));
@@ -2261,7 +2268,7 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
   );
 }
 
-function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, darkMode }) {
+function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {} }) {
   const [q, setQ] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const palette = getSubjectPalette(exam.subject, exam, darkMode);
@@ -2330,11 +2337,96 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
           ))}
         </div>
       )}
+      {(() => {
+        const qh = quizHistory[exam.id] || [];
+        const fh = flashHistory[exam.id] || [];
+        if (qh.length === 0 && fh.length === 0) return null;
+        const avg = (arr) => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
+        const last = (arr) => arr.length ? arr[arr.length-1] : null;
+        const badge = (arr, label) => (
+          <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14 }}>
+            <span style={{ fontSize:20 }}>{label === 'Quiz' ? '🧠' : '🃏'}</span>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>{label}</div>
+              <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>{arr.length} sessioni · Media {avg(arr)}% · Ultima {last(arr)}%</div>
+            </div>
+            <div style={{ fontSize:18, fontWeight:800, color: avg(arr) >= 80 ? '#10B981' : avg(arr) >= 60 ? '#F59E0B' : '#EF4444' }}>{avg(arr)}%</div>
+          </div>
+        );
+        return (
+          <div style={{ marginTop:28 }}>
+            <h3 style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Storico attività</h3>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {qh.length > 0 && badge(qh, 'Quiz')}
+              {fh.length > 0 && badge(fh, 'Flashcard')}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
 
-function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFlashComplete }) {
+function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode }) {
+  const fmtDate = (ts) => {
+    const d = new Date(ts);
+    return d.toLocaleDateString('it-IT', { day:'numeric', month:'short' });
+  };
+  const fmtScore = (s) => s >= 80 ? { label: '🏆 ' + s + '%', color: '#10B981' } : s >= 60 ? { label: '👍 ' + s + '%', color: '#F59E0B' } : { label: '📖 ' + s + '%', color: '#EF4444' };
+
+  return (
+    <div>
+      <div style={{ marginBottom:24 }}>
+        <h2 style={homeS.h1}>Flashcards</h2>
+        <p style={homeS.sub}>Rivedi i tuoi mazzi recenti o esplora per materia</p>
+      </div>
+
+      {recentDecks.length === 0 ? (
+        <div style={{ textAlign:'center', padding:'48px 24px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:20 }}>
+          <div style={{ fontSize:48, marginBottom:16 }}>🃏</div>
+          <h3 style={{ margin:'0 0 8px', fontSize:18, fontWeight:700, color:'var(--ink)' }}>Nessuna sessione recente</h3>
+          <p style={{ color:'var(--gray)', fontSize:14, marginBottom:20 }}>Vai su My Exams per iniziare una sessione di flashcard</p>
+          <button onClick={() => setTab('notes')} style={{ padding:'11px 24px', borderRadius:12, background:'var(--indigo)', color:'#fff', fontWeight:700, fontSize:14, border:'none', cursor:'pointer' }}>
+            Vai a My Exams
+          </button>
+        </div>
+      ) : (
+        <div>
+          <h3 style={{ margin:'0 0 14px', fontSize:14, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Sessioni recenti</h3>
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            {recentDecks.map((deck, i) => {
+              const sc = deck.lastScore != null ? fmtScore(deck.lastScore) : null;
+              return (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, cursor:'pointer' }}
+                  onClick={() => onOpenDeck(deck)}>
+                  <div style={{ width:44, height:44, borderRadius:12, background:'var(--lavender)', display:'grid', placeItems:'center', flexShrink:0 }}>
+                    <span style={{ fontSize:22 }}>🃏</span>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deck.title}</div>
+                    <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>{deck.subject} · {(deck.cards||[]).length} carte · {deck.ts ? fmtDate(deck.ts) : ''}</div>
+                  </div>
+                  {sc && <span style={{ fontSize:13, fontWeight:700, color:sc.color, flexShrink:0 }}>{sc.label}</span>}
+                  <button onClick={e => { e.stopPropagation(); onOpenDeck(deck); }}
+                    style={{ padding:'8px 16px', borderRadius:10, background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:13, border:'none', cursor:'pointer', flexShrink:0 }}>
+                    Rivedi
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop:20, textAlign:'center' }}>
+            <button onClick={() => setTab('notes')} style={{ padding:'10px 24px', borderRadius:12, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer' }}>
+              + Nuova sessione da My Exams
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFlashComplete, onBackToLanding }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const total = cards.length;
   const [idx, setIdx] = useState(0);
@@ -2414,7 +2506,7 @@ function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFl
         <div style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</div>
         <div style={flashS.resultActions}>
           <button onClick={reset} style={{ ...flashS.tryAgainBtn, background: palette.dot }}>Try again</button>
-          <button onClick={() => setTab('notes')} style={flashS.backBtn}>Back to Study</button>
+          <button onClick={() => onBackToLanding ? onBackToLanding() : setTab('notes')} style={flashS.backBtn}>Torna ai mazzi</button>
         </div>
       </div>
     );
@@ -2518,9 +2610,11 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
   const [correct, setCorrect] = useState(0);
   const [selected, setSelected] = useState(null);
   const [pendingIdx, setPendingIdx] = useState(null);
+  const [difficulty, setDifficulty] = useState('medium');
+  const DIFF_OPTIONS = [{id:'easy',label:'Easy',emoji:'🟢',secs:60},{id:'medium',label:'Medium',emoji:'🟡',secs:30},{id:'hard',label:'Hard',emoji:'🔴',secs:20},{id:'extreme',label:'Extreme',emoji:'💀',secs:10}];
   const [timerOn, setTimerOn] = useState(false);
-  const [timerSecs, setTimerSecs] = useState(20);
-  const [timerVal, setTimerVal] = useState(20);
+  const [timerSecs, setTimerSecs] = useState(30);
+  const [timerVal, setTimerVal] = useState(30);
   const timerID = useRef(null);
   const [done, setDone] = useState(false);
   const resultSavedRef = useRef(false);
@@ -2540,8 +2634,9 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
     setSelected(null);
     setPendingIdx(null);
     setTimerOn(false);
-    setTimerSecs(20);
-    setTimerVal(20);
+    setTimerSecs(30);
+    setTimerVal(30);
+    setDifficulty('medium');
     setDone(false);
     resultSavedRef.current = false;
   };
@@ -2624,6 +2719,19 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
           <h2 style={quizS.startTitle}>{title}</h2>
           <p style={quizS.startSub}>{total} questions · {subject}</p>
         </div>
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:'var(--gray)', letterSpacing:'0.05em', marginBottom:10, textTransform:'uppercase' }}>Difficoltà</div>
+          <div style={{ display:'flex', gap:8 }}>
+            {DIFF_OPTIONS.map(d => (
+              <button key={d.id} onClick={() => { setDifficulty(d.id); setTimerSecs(d.secs); setTimerVal(d.secs); }}
+                style={{ flex:1, padding:'10px 6px', borderRadius:12, border:`2px solid ${difficulty===d.id?palette.dot:'var(--border)'}`, background:difficulty===d.id?palette.bg:'var(--surface)', color:difficulty===d.id?palette.text:'var(--gray)', fontWeight:700, fontSize:11, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                <span style={{fontSize:16}}>{d.emoji}</span>
+                <span>{d.label}</span>
+                <span style={{fontSize:10, opacity:.7}}>{d.secs}s</span>
+              </button>
+            ))}
+          </div>
+        </div>
         <div style={quizS.timerCard}>
           <div style={quizS.timerTop}>
             <span style={quizS.timerLabel}><Clock size={16} /> Timer per domanda</span>
@@ -2632,9 +2740,20 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
             </button>
           </div>
           {timerOn && (
-            <select value={timerSecs} onChange={(e) => setTimerSecs(Number(e.target.value))} style={quizS.timerSelect}>
-              {[10, 20, 30, 60].map((s) => <option key={s} value={s}>{s}s</option>)}
-            </select>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:10 }}>
+              <input type="number" min="5" max="300" value={timerSecs}
+                onChange={e => { const v = Math.max(5, Math.min(300, Number(e.target.value)||5)); setTimerSecs(v); setTimerVal(v); }}
+                style={{ width:70, padding:'7px 10px', borderRadius:10, border:'1.5px solid var(--border)', background:'var(--sidebar-bg)', color:'var(--ink)', fontSize:15, fontWeight:700, fontFamily:'inherit', textAlign:'center', outline:'none' }} />
+              <span style={{fontSize:12, color:'var(--gray)'}}>secondi</span>
+              <div style={{display:'flex', gap:4, marginLeft:'auto'}}>
+                {[15,30,60,120].map(s => (
+                  <button key={s} onClick={() => { setTimerSecs(s); setTimerVal(s); }}
+                    style={{padding:'5px 9px', borderRadius:8, border:`1.5px solid ${timerSecs===s?palette.dot:'var(--border)'}`, background:timerSecs===s?palette.bg:'transparent', color:timerSecs===s?palette.text:'var(--gray)', fontSize:11, fontWeight:700, cursor:'pointer'}}>
+                    {s}s
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
         <button onClick={startQuiz} style={{ ...quizS.startBtn, background: palette.dot }}>Start Quiz</button>
