@@ -1955,12 +1955,19 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
                 <div style={{ ...notesS.coverDot, background: palette.dot, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
                   <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 30, height: 30, objectFit: 'contain', display: 'block' }} />
                 </div>
-                {x.date && (
-                  <span style={notesS.subjectChip}>
-                    <span style={{ display:'block' }}>{formatExamDate(x.date)}</span>
-                    {daysLeft(x.date) >= 0 && <span style={{ display:'block', fontSize:9, color:'var(--gray)', fontWeight:600, marginTop:2 }}>{daysLeft(x.date) === 0 ? 'Oggi!' : `${daysLeft(x.date)} giorni`}</span>}
-                  </span>
-                )}
+                {x.date && (() => {
+                  const dl = daysLeft(x.date);
+                  return (
+                    <>
+                      {dl >= 0 && (
+                        <span style={{ position:'absolute', top:12, left:12, fontSize:11, fontWeight:700, padding:'5px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--indigo)', lineHeight:1.3 }}>
+                          {dl === 0 ? 'Oggi!' : `${dl} giorni`}
+                        </span>
+                      )}
+                      <span style={{ ...notesS.subjectChip, lineHeight:1.3 }}>{formatExamDate(x.date)}</span>
+                    </>
+                  );
+                })()}
               </div>
               <div style={{ padding: 18 }}>
                 <h3 style={notesS.title}>{x.name}</h3>
@@ -3375,7 +3382,7 @@ const calS = {
   navGroup: { display:'flex', alignItems:'center', gap:10 },
   navBtn: { width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:18, display:'grid', placeItems:'center', cursor:'pointer' },
   rangeLabel: { fontSize:16, fontWeight:700, color:'var(--ink)', letterSpacing:'-0.01em', minWidth:200, textAlign:'center' },
-  viewToggleGroup: { display:'flex', background:'var(--sidebar-bg)', border:'1px solid var(--border)', borderRadius:10, padding:3, gap:2 },
+  viewToggleGroup: { display:'flex', background:'var(--sidebar-bg)', border:'1.5px solid var(--border)', borderRadius:10, padding:3, gap:2 },
   toggleBtn: { padding:'6px 16px', borderRadius:8, fontSize:13, fontWeight:600, color:'var(--gray)', background:'transparent', border:'none', cursor:'pointer' },
   toggleBtnActive: { background:'var(--surface)', color:'var(--ink)', boxShadow:'0 1px 4px rgba(0,0,0,.15)', border:'0.5px solid var(--border)' },
   catsRow: { display:'flex', gap:8, flexWrap:'wrap' },
