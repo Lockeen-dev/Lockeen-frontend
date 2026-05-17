@@ -1668,7 +1668,7 @@ function StudyTimer({ onSessionSaved, startTrigger }) {
             <div style={timerS.ringTime}>{fmt(displaySeconds)}</div>
             {isPomo && <div style={timerS.ringPhase}>{pomoPhase === 'study' ? 'Studio' : 'Pausa'}</div>}
             {isCustom && <div style={timerS.ringPhase}>Custom</div>}
-            {!isPomo && !isCustom && <div style={timerS.ringPhase}>Libero</div>}
+            {!isPomo && !isCustom && <div style={timerS.ringPhase}>INIZIA ORA</div>}
           </div>
           <div style={timerS.session}>Sessione {sessionCount}</div>
         </div>
@@ -3568,7 +3568,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     else { setViewMonth(m => { if (m === 11) { setViewYear(y => y+1); return 0; } return m+1; }); }
   };
 
-  const openModal = (key) => { setModalKey(key); setSelCat('study'); setSelNoteId(null); setModalName(''); setModalTime('09:00'); setModalDur('1h'); };
+  const openModal = (key, time = '09:00') => { setModalKey(key); setSelCat('study'); setSelNoteId(null); setModalName(''); setModalTime(time); setModalDur('1h'); };
   const closeModal = () => setModalKey(null);
   const openDayDetail = (key) => setDayDetailKey(key);
   const closeDayDetail = () => setDayDetailKey(null);
@@ -3627,47 +3627,97 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const DAY_NAMES = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
   const WEEK_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
-  const renderWeek = () => (
-    <div style={calS.weekGrid}>
-      {weekDays.map((day, i) => {
-        const key = dayKey(day);
-        const dayEvs = (events[key] || []).filter(ev => activeCats.has(ev.cat));
-        const isToday = dayKey(day) === dayKey(today);
-        return (
-          <div key={i} style={calS.weekCol}>
-            <div style={calS.weekColHeader}>
-              <span style={calS.weekDayName}>{DAY_NAMES[i]}</span>
-              <span style={{ ...calS.weekDayNum, ...(isToday ? calS.weekDayToday : {}) }}>{day.getDate()}</span>
-            </div>
-            <div style={calS.weekEvs}>
-              {dayEvs.map((ev, idx) => {
-                const cat = LIFE_CATS.find(c => c.id === ev.cat);
-                const borderColor = ev.noteId ? ev.noteColor : cat?.color;
-                const bg = ev.noteId ? ev.noteBg : cat?.bg;
-                return (
-                  <div key={idx} style={{ ...calS.evCard, borderLeft:`3px solid ${borderColor}`, background:bg, cursor:ev.noteId?'pointer':'default', opacity: ev.completed ? 0.55 : 1 }}
-                    onClick={() => handleEvClick(ev)}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:4 }}>
-                      <span style={{ ...calS.evName, textDecoration: ev.completed ? 'line-through' : 'none' }}>{ev.name}</span>
-                      <button style={calS.evTrash} onClick={(e) => { e.stopPropagation(); deleteEvent(key, idx); }}><Trash size={11} /></button>
-                    </div>
-                    <div style={calS.evMeta}><Clock size={10} /> {ev.time} · {ev.dur}</div>
-                    {ev.noteId && (
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:5 }}>
-                        <span style={{ ...calS.noteChip, background:ev.noteBg, color:ev.noteText }}>{ev.noteSubject}</span>
-                        <BookOpen size={11} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              <button style={calS.addSlot} onClick={() => openModal(key)}>+ Add</button>
-            </div>
+  const renderWeek = () => {
+    const START_H = 7;
+    const END_H   = 23;
+    const HOUR_H  = 58;
+    const hours   = Array.from({ length: END_H - START_H }, (_, i) => START_H + i);
+    const now     = new Date();
+    const nowFrac = now.getHours() + now.getMinutes() / 60;
+    const nowY    = (nowFrac - START_H) * HOUR_H;
+    const showNow = nowFrac >= START_H && nowFrac < END_H;
+
+    const timeToY  = (t) => { const [h, m] = (t || '08:00').split(':').map(Number); return Math.max(0, (h + m / 60 - START_H) * HOUR_H); };
+    const durToH   = (d) => Math.max(HOUR_H * 0.45, durToMins(d || '30m') / 60 * HOUR_H);
+    const slotTime = (h) => `${String(h).padStart(2, '0')}:00`;
+
+    return (
+      <div style={{ border:'1px solid var(--border)', borderRadius:16, overflow:'hidden', background:'var(--surface)' }}>
+        {/* Day header row */}
+        <div style={{ display:'grid', gridTemplateColumns:'50px repeat(7, 1fr)', borderBottom:'1px solid var(--border)', background:'var(--sidebar-bg)' }}>
+          <div style={{ borderRight:'1px solid var(--border)' }} />
+          {weekDays.map((day, i) => {
+            const isToday = dayKey(day) === dayKey(today);
+            return (
+              <div key={i} style={{ padding:'10px 4px', textAlign:'center', borderRight: i < 6 ? '1px solid var(--border)' : 'none' }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'var(--gray)', letterSpacing:'0.06em', marginBottom:5 }}>{DAY_NAMES[i]}</div>
+                <div style={{ width:28, height:28, borderRadius:'50%', background: isToday ? 'var(--indigo)' : 'transparent', color: isToday ? '#fff' : 'var(--ink)', fontSize:13, fontWeight:700, display:'grid', placeItems:'center', margin:'0 auto' }}>{day.getDate()}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Scrollable time body */}
+        <div style={{ display:'flex', maxHeight:560, overflowY:'auto' }}>
+          {/* Hour labels */}
+          <div style={{ width:50, flexShrink:0, borderRight:'1px solid var(--border)' }}>
+            {hours.map(h => (
+              <div key={h} style={{ height:HOUR_H, display:'flex', alignItems:'flex-start', justifyContent:'flex-end', paddingRight:7, paddingTop:5, fontSize:10, fontWeight:600, color:'var(--gray)', lineHeight:1, boxSizing:'border-box', borderBottom:'1px solid var(--border)' }}>
+                {h}:00
+              </div>
+            ))}
           </div>
-        );
-      })}
-    </div>
-  );
+
+          {/* Day columns */}
+          <div style={{ flex:1, display:'grid', gridTemplateColumns:'repeat(7, 1fr)' }}>
+            {weekDays.map((day, i) => {
+              const key    = dayKey(day);
+              const dayEvs = (events[key] || []).filter(ev => activeCats.has(ev.cat));
+              const isToday = dayKey(day) === dayKey(today);
+              return (
+                <div key={i} style={{ position:'relative', borderRight: i < 6 ? '1px solid var(--border)' : 'none' }}>
+                  {/* Clickable hour slots */}
+                  {hours.map(h => (
+                    <div key={h} onClick={() => openModal(key, slotTime(h))}
+                      style={{ height:HOUR_H, borderBottom:'1px solid var(--border)', cursor:'pointer', boxSizing:'border-box', background: isToday ? 'rgba(55,48,232,.02)' : 'transparent' }}
+                      onMouseEnter={e => e.currentTarget.style.background='var(--lavender)'}
+                      onMouseLeave={e => e.currentTarget.style.background= isToday ? 'rgba(55,48,232,.02)' : 'transparent'}
+                    />
+                  ))}
+                  {/* Absolute events */}
+                  {dayEvs.map((ev, idx) => {
+                    const cat   = LIFE_CATS.find(c => c.id === ev.cat);
+                    const color = ev.noteId ? ev.noteColor : (cat?.color || 'var(--indigo)');
+                    const bg    = ev.noteId ? ev.noteBg    : (cat?.bg    || 'var(--lavender)');
+                    const top   = timeToY(ev.time);
+                    const h     = durToH(ev.dur);
+                    return (
+                      <div key={idx} onClick={e => { e.stopPropagation(); handleEvClick(ev); }}
+                        style={{ position:'absolute', top, left:3, right:3, height: h - 2, borderRadius:7, background:bg, borderLeft:`3px solid ${color}`, padding:'4px 6px', cursor: ev.noteId?'pointer':'default', overflow:'hidden', zIndex:1, boxSizing:'border-box', opacity: ev.completed ? 0.5 : 1 }}>
+                        <div style={{ fontSize:11, fontWeight:700, color, lineHeight:1.2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textDecoration: ev.completed ? 'line-through' : 'none' }}>{ev.name}</div>
+                        {h > 32 && <div style={{ fontSize:10, color, opacity:.75, marginTop:2 }}>{ev.time}{ev.dur ? ` · ${ev.dur}` : ''}</div>}
+                        <button onClick={e => { e.stopPropagation(); deleteEvent(key, (events[key]||[]).indexOf(ev)); }}
+                          style={{ position:'absolute', top:2, right:2, background:'transparent', border:'none', cursor:'pointer', padding:2, opacity:.6 }}>
+                          <Trash size={10} color={color} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {/* Current time indicator */}
+                  {isToday && showNow && (
+                    <div style={{ position:'absolute', top:nowY, left:0, right:0, zIndex:2, pointerEvents:'none' }}>
+                      <div style={{ position:'absolute', left:0, top:-4, width:8, height:8, borderRadius:'50%', background:'#EF4444', flexShrink:0 }} />
+                      <div style={{ height:2, background:'#EF4444', marginLeft:8 }} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderMonth = () => (
     <div>
