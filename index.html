@@ -1004,7 +1004,17 @@ const Google      = ({ size = 18 }) => (
   </svg>
 );
 const LockeenLogo = ({ size = 20, muted = false }) => (
-  <img src={muted ? "Lockeen-icon-muted.png" : "Lockeen-icon.png"} alt="" aria-hidden="true" style={{ width: size, height: size, objectFit: 'contain' }} />
+  <img
+    src={muted ? "Lockeen-icon-muted.png" : "Lockeen-icon.png"}
+    alt=""
+    aria-hidden="true"
+    onError={(e) => {
+      if (e.currentTarget.dataset.fallback) return;
+      e.currentTarget.dataset.fallback = '1';
+      e.currentTarget.src = 'logo-icon.png';
+    }}
+    style={{ width: size, height: size, objectFit: 'contain', display: 'block', borderRadius: muted ? 0 : 4 }}
+  />
 );
 const XMark       = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
 const Sun         = (p) => <Icon {...p}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></Icon>;
@@ -1761,7 +1771,7 @@ const timerS = {
 function Sidebar({ tab, setTab }) {
   const items = [
     { id: 'dashboard', label: 'Dashboard', Icon: ZapSolid },
-    { id: 'notes',     label: 'My Exams',  Icon: BookOpen },
+    { id: 'notes',     label: 'My Exams',  Icon: LockeenLogo },
     { id: 'flashcards', label: 'Flashcards', Icon: Layers },
     { id: 'quiz', label: 'Quiz', Icon: Sparkles },
     { id: 'tutor',     label: 'AI Tutor',  Icon: MsgCircle },
@@ -2292,7 +2302,7 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
                 </div>
                 <div style={notesS.actions}>
                   <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
-                    <BookOpen size={16} /> Open Exam
+                    <LockeenLogo size={16} /> Open Exam
                   </button>
                   <button style={notesS.ghostSmall} onClick={() => alert(`Quick quiz from "${x.name}"…`)}>
                     <Sparkles size={14} /> Quick Quiz
