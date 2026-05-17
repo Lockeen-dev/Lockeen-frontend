@@ -3502,6 +3502,8 @@ const getMonday  = (d) => { const r = new Date(d); const day = r.getDay(); r.set
 const calAddDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
 const dayKey     = (d) => `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
 const durToMins  = (s) => { let m=0; const h=s.match(/(\d+)h/); const mn=s.match(/(\d+)m/); if(h) m+=parseInt(h[1])*60; if(mn) m+=parseInt(mn[1]); return m||0; };
+const CAL_HOUR_H = 58;
+const CAL_START_H = 0;
 
 const SUBJECT_NOTE_MAP = {
   Biology:    { noteId:1, bg:'#EEF2FF', color:'#3730E8', text:'#3730E8' },
@@ -3558,6 +3560,68 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const [modalName, setModalName]   = useState('');
   const [modalTime, setModalTime]   = useState('09:00');
   const [modalDur, setModalDur]     = useState('1h');
+  const [drag, setDrag]             = useState(null);
+  const dragMeta   = useRef({});
+  const gridBodyRef = useRef(null);
+
+  const startDrag = (e, ev, key, idx) => {
+    e.preventDefault(); e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cat   = LIFE_CATS.find(c => c.id === ev.cat);
+    const color = ev.noteId ? ev.noteColor : (cat?.color || 'var(--indigo)');
+    const bg    = ev.noteId ? ev.noteBg    : (cat?.bg    || 'var(--lavender)');
+    const evH   = Math.max(CAL_HOUR_H * 0.45, durToMins(ev.dur || '30m') / 60 * CAL_HOUR_H) - 2;
+    dragMeta.current = { active:true, ev, fromKey:key, fromIdx:idx, color, bg, evH,
+      offsetY: e.clientY - rect.top, offsetX: e.clientX - rect.left,
+      toKey:key, toTime:ev.time, wsRef: weekStart };
+    setDrag({ ev, fromKey:key, fromIdx:idx, ghostX:rect.left, ghostY:rect.top,
+      ghostW:rect.width, ghostH:evH, toKey:key, toTime:ev.time, color, bg });
+  };
+
+  useEffect(() => {
+    const onMove = (e) => {
+      const m = dragMeta.current;
+      if (!m.active) return;
+      const grid = gridBodyRef.current;
+      if (!grid) return;
+      const rect = grid.getBoundingClientRect();
+      const colsLeft  = rect.left + 50;
+      const colW      = (rect.width - 50) / 7;
+      const dayIdx    = Math.max(0, Math.min(6, Math.floor((e.clientX - colsLeft) / colW)));
+      const relY      = e.clientY - rect.top + grid.scrollTop - m.offsetY;
+      const frac      = Math.max(0, relY / CAL_HOUR_H);
+      let hour        = Math.floor(frac) + CAL_START_H;
+      let mins        = Math.round((frac % 1) * 4) * 15;
+      if (mins >= 60) { hour++; mins = 0; }
+      hour = Math.max(0, Math.min(23, hour));
+      const newTime   = `${String(hour).padStart(2,'0')}:${String(mins).padStart(2,'0')}`;
+      const newKey    = dayKey(calAddDays(m.wsRef, dayIdx));
+      m.toKey = newKey; m.toTime = newTime;
+      setDrag(prev => prev ? { ...prev,
+        ghostX: e.clientX - m.offsetX,
+        ghostY: e.clientY - m.offsetY,
+        toKey: newKey, toTime: newTime } : null);
+    };
+    const onUp = () => {
+      const m = dragMeta.current;
+      if (!m.active) return;
+      m.active = false;
+      if (m.toKey && m.toTime) {
+        setEvents(prev => {
+          const next = { ...prev };
+          const arr  = [...(next[m.fromKey] || [])];
+          arr.splice(m.fromIdx, 1);
+          next[m.fromKey] = arr;
+          next[m.toKey]   = [...(next[m.toKey] || []), { ...m.ev, time: m.toTime }];
+          return next;
+        });
+      }
+      setDrag(null);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup',   onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, []);
 
   const navPrev = () => {
     if (view === 'week') { setWeekStart(d => calAddDays(d, -7)); }
@@ -3628,17 +3692,14 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const WEEK_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
   const renderWeek = () => {
-    const START_H = 0;
-    const END_H   = 24;
-    const HOUR_H  = 58;
-    const hours   = Array.from({ length: END_H - START_H }, (_, i) => START_H + i);
+    const hours   = Array.from({ length: 24 }, (_, i) => i);
     const now     = new Date();
     const nowFrac = now.getHours() + now.getMinutes() / 60;
-    const nowY    = (nowFrac - START_H) * HOUR_H;
-    const showNow = nowFrac >= START_H && nowFrac < END_H;
+    const nowY    = nowFrac * CAL_HOUR_H;
+    const showNow = true;
 
-    const timeToY  = (t) => { const [h, m] = (t || '08:00').split(':').map(Number); return Math.max(0, (h + m / 60 - START_H) * HOUR_H); };
-    const durToH   = (d) => Math.max(HOUR_H * 0.45, durToMins(d || '30m') / 60 * HOUR_H);
+    const timeToY  = (t) => { const [h, m] = (t || '08:00').split(':').map(Number); return Math.max(0, (h + m / 60) * CAL_HOUR_H); };
+    const durToH   = (d) => Math.max(CAL_HOUR_H * 0.45, durToMins(d || '30m') / 60 * CAL_HOUR_H);
     const slotTime = (h) => `${String(h).padStart(2, '0')}:00`;
 
     return (
@@ -3658,7 +3719,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
         </div>
 
         {/* Scrollable time body */}
-        <div style={{ display:'flex', maxHeight:560, overflowY:'auto' }}>
+        <div ref={gridBodyRef} style={{ display:'flex', maxHeight:560, overflowY:'auto' }}>
           {/* Hour labels */}
           <div style={{ width:50, flexShrink:0, borderRight:'1px solid var(--border)' }}>
             {hours.map(h => (
@@ -3692,8 +3753,10 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
                     const top   = timeToY(ev.time);
                     const h     = durToH(ev.dur);
                     return (
-                      <div key={idx} onClick={e => { e.stopPropagation(); handleEvClick(ev); }}
-                        style={{ position:'absolute', top, left:3, right:3, height: h - 2, borderRadius:7, background:bg, borderLeft:`3px solid ${color}`, padding:'4px 6px', cursor: ev.noteId?'pointer':'default', overflow:'hidden', zIndex:1, boxSizing:'border-box', opacity: ev.completed ? 0.5 : 1 }}>
+                      <div key={idx}
+                        onMouseDown={e => startDrag(e, ev, key, idx)}
+                        onClick={e => { e.stopPropagation(); handleEvClick(ev); }}
+                        style={{ position:'absolute', top, left:3, right:3, height: h - 2, borderRadius:7, background:bg, borderLeft:`3px solid ${color}`, padding:'4px 6px', cursor:'grab', overflow:'hidden', zIndex:1, boxSizing:'border-box', opacity: drag && drag.fromKey===key && drag.fromIdx===idx ? 0.25 : ev.completed ? 0.5 : 1, userSelect:'none' }}>
                         <div style={{ fontSize:11, fontWeight:700, color, lineHeight:1.2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textDecoration: ev.completed ? 'line-through' : 'none' }}>{ev.name}</div>
                         {h > 32 && <div style={{ fontSize:10, color, opacity:.75, marginTop:2 }}>{ev.time}{ev.dur ? ` · ${ev.dur}` : ''}</div>}
                         <button onClick={e => { e.stopPropagation(); deleteEvent(key, (events[key]||[]).indexOf(ev)); }}
@@ -3902,6 +3965,15 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
         );
       })()}
       {modalKey && renderModal()}
+      {drag && (
+        <div style={{ position:'fixed', left:drag.ghostX, top:drag.ghostY, width:drag.ghostW, height:drag.ghostH,
+          background:drag.bg, borderLeft:`3px solid ${drag.color}`, borderRadius:8, padding:'5px 8px',
+          zIndex:9999, pointerEvents:'none', boxShadow:'0 12px 32px rgba(0,0,0,.22)',
+          opacity:0.92, boxSizing:'border-box', overflow:'hidden' }}>
+          <div style={{ fontSize:11, fontWeight:700, color:drag.color, lineHeight:1.2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{drag.ev.name}</div>
+          <div style={{ fontSize:10, color:drag.color, opacity:.8, marginTop:3 }}>🕐 {drag.toTime}</div>
+        </div>
+      )}
     </div>
   );
 }
