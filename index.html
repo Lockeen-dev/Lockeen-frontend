@@ -1715,6 +1715,16 @@ const sideS = {
 };
 
 /* ===================== DASHBOARD HOME ===================== */
+// API: GET /api/tasks/today  |  API: GET /api/recommendations/*  |  API: GET /api/checklist/today
+const mockDashboard = {
+  todayTasks: [
+    { id:'t1', subject:'Biologia', topic:'Respirazione cellulare', time:'09:00', durationMinutes:90, accentColor:'var(--indigo)' },
+    { id:'t2', subject:'Matematica Analisi', topic:'Limiti e continuità', time:'14:00', durationMinutes:60, accentColor:'var(--purple)' },
+  ],
+  recommendedQuiz:       { title:'Biology Quiz', questionCount:15, estimatedMinutes:20, difficulty:'Media' },
+  recommendedFlashcards: { title:'Chemistry Flash', cardCount:48, mode:'Practice', lastSessionDaysAgo:3 },
+};
+
 function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEvents }) {
   const todayKey = dayKey(new Date());
   const todayEvents = (calEvents && calEvents[todayKey]) || [];
@@ -1722,6 +1732,7 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
   const toggleCheck = (idx) => setChecked(prev => ({ ...prev, [idx]: !prev[idx] }));
   const nextTask = todayEvents.find((_, i) => !checked[i]);
   const doneCount = Object.values(checked).filter(Boolean).length;
+  const fmtDur = (mins) => mins >= 60 ? (mins % 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${Math.floor(mins/60)}h`) : `${mins}m`;
 
   return (
     <div>
@@ -1730,17 +1741,48 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
         <p style={homeS.sub}>Ready to continue your learning journey?</p>
       </div>
 
+      {/* SECTION 1 — Task del giorno (HERO) */}
+      <div style={{ marginBottom: 8 }}>
+        <h3 style={homeS.sectionLabel}>📅 Task del giorno</h3>
+      </div>
+      <div style={{ ...homeS.cardsRow, marginBottom: 28 }}>
+        {mockDashboard.todayTasks.map(task => (
+          <div key={task.id} style={{ ...homeS.bigCard, background:'var(--surface)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:6 }}>
+              <div style={{ width:9, height:9, borderRadius:999, background:task.accentColor, flexShrink:0 }} />
+              <span style={{ fontSize:11, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'0.05em' }}>{task.subject}</span>
+            </div>
+            <div style={{ borderLeft:`3px solid ${task.accentColor}`, paddingLeft:12, marginBottom:12 }}>
+              <h3 style={{ margin:0, fontSize:17, fontWeight:700, color:'var(--ink)', lineHeight:1.3 }}>{task.topic}</h3>
+              <div style={{ display:'flex', alignItems:'center', gap:14, marginTop:6, color:'var(--gray)', fontSize:12 }}>
+                <span><Clock size={11} style={{display:'inline',marginRight:4}} />{task.time}</span>
+                <span>⏱ {fmtDur(task.durationMinutes)}</span>
+              </div>
+            </div>
+            <button style={{ ...homeS.primaryBtn, marginTop:4, background:task.accentColor }}>Inizia ora</button>
+          </div>
+        ))}
+      </div>
+
+      {/* SECTION 2 — Consigliati oggi */}
+      <div style={{ marginBottom: 8 }}>
+        <h3 style={homeS.sectionLabel}>⭐ Consigliati oggi</h3>
+      </div>
       <div style={homeS.cardsRow}>
         <div style={{ ...homeS.bigCard, background: 'var(--bigcard-bio)' }}>
-          <div style={{ ...homeS.dot, background: 'var(--indigo)' }} />
-          <h3 style={homeS.cardTitle}>Biology Quiz</h3>
-          <p style={homeS.cardMeta}>15 questions • 20 min</p>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+            <div style={{ ...homeS.dot, background: 'var(--indigo)' }} />
+            <span style={{ fontSize:12, padding:'3px 10px', borderRadius:999, background:'var(--lavender)', color:'var(--indigo)', fontWeight:700 }}>{mockDashboard.recommendedQuiz.difficulty}</span>
+          </div>
+          <h3 style={homeS.cardTitle}>{mockDashboard.recommendedQuiz.title}</h3>
+          <p style={homeS.cardMeta}>{mockDashboard.recommendedQuiz.questionCount} questions • {mockDashboard.recommendedQuiz.estimatedMinutes} min</p>
           <button style={homeS.primaryBtn} onClick={openQuiz}>Start Quiz</button>
         </div>
         <div style={{ ...homeS.bigCard, background: 'var(--bigcard-chem)' }}>
-          <div style={{ ...homeS.dot, background: 'var(--purple)' }} />
-          <h3 style={homeS.cardTitle}>Chemistry Flash</h3>
-          <p style={homeS.cardMeta}>48 cards • Practice</p>
+          <div style={{ ...homeS.dot, background: 'var(--purple)', marginBottom:4 }} />
+          <h3 style={homeS.cardTitle}>{mockDashboard.recommendedFlashcards.title}</h3>
+          <p style={homeS.cardMeta}>{mockDashboard.recommendedFlashcards.cardCount} cards • {mockDashboard.recommendedFlashcards.mode}</p>
+          <p style={{ ...homeS.cardMeta, fontSize:11, marginTop:2 }}>Ultima sessione: {mockDashboard.recommendedFlashcards.lastSessionDaysAgo} gg fa</p>
           <button style={homeS.outlineBtn} onClick={() => setTab('notes')}>Review Cards</button>
         </div>
       </div>
@@ -1830,6 +1872,7 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
 const homeS = {
   h1: { margin: 0, fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)' },
   sub: { margin: '6px 0 0', color: 'var(--gray)', fontSize: 15 },
+  sectionLabel: { margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
   cardsRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 },
   bigCard: { border: '1px solid var(--border)', borderRadius: 20, padding: 22, display: 'flex', flexDirection: 'column', gap: 10 },
   dot: { width: 22, height: 22, borderRadius: 999, boxShadow: '0 0 0 6px var(--dot-glow,rgba(255,255,255,.6))' },
