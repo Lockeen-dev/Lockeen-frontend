@@ -733,6 +733,14 @@ const Brain       = (p) => <Icon {...p}><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a
 const CalendarIcon = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Icon>;
 const ChevronLeft  = (p) => <Icon {...p}><polyline points="15 18 9 12 15 6"/></Icon>;
 const ChevronRight = (p) => <Icon {...p}><polyline points="9 18 15 12 9 6"/></Icon>;
+const Trash        = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></Icon>;
+const Play         = (p) => <Icon {...p}><polygon points="5 3 19 12 5 21 5 3"/></Icon>;
+const Pause        = (p) => <Icon {...p}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></Icon>;
+const StopIcon     = (p) => <Icon {...p}><rect x="3" y="3" width="18" height="18" rx="2"/></Icon>;
+const RotateCcw    = (p) => <Icon {...p}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.14"/></Icon>;
+const ChevronUp    = (p) => <Icon {...p}><polyline points="18 15 12 9 6 15"/></Icon>;
+const ChevronDown  = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9"/></Icon>;
+const GripDots     = (p) => <Icon {...p} viewBox="0 0 12 12" sw={0} fill="currentColor"><circle cx="3" cy="3" r="1.2"/><circle cx="6" cy="3" r="1.2"/><circle cx="9" cy="3" r="1.2"/><circle cx="3" cy="6" r="1.2"/><circle cx="6" cy="6" r="1.2"/><circle cx="9" cy="6" r="1.2"/><circle cx="3" cy="9" r="1.2"/><circle cx="6" cy="9" r="1.2"/><circle cx="9" cy="9" r="1.2"/></Icon>;
 
 /* ===================== ROOT APP ===================== */
 function App() {
@@ -952,6 +960,14 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
     questions: cellularRespirationQuestions,
   });
 
+  const [weekData, setWeekData] = useState(initialWeekData);
+
+  function handleSessionSaved(mins) {
+    const labels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const today = labels[new Date().getDay()];
+    setWeekData(prev => prev.map(d => d.day === today ? { ...d, mins: d.mins + mins } : d));
+  }
+
   const openExam = (id) => {
     setActiveExamId(id);
     setTab('notes');
@@ -1020,11 +1036,12 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
             {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} />}
             {tab === 'quiz' && <QuizView {...quizDeck} setTab={setTab} darkMode={darkMode} />}
             {tab === 'tutor'     && <TutorView />}
-            {tab === 'analytics' && <AnalyticsView />}
-            {tab === 'calendar'  && <CalendarView exams={exams} onOpenExam={openExam} darkMode={darkMode} />}
+            {tab === 'analytics' && <AnalyticsView weekData={weekData} />}
+            {tab === 'calendar'  && <CalendarView setTab={setTab} />}
           </div>
         </div>
       </div>
+      <StudyTimer onSessionSaved={handleSessionSaved} />
     </div>
   );
 }
@@ -2280,7 +2297,7 @@ const tutorS = {
 };
 
 /* ===================== ANALYTICS ===================== */
-const weekData = [
+const initialWeekData = [
   { day: 'Mon', mins: 45 },
   { day: 'Tue', mins: 80 },
   { day: 'Wed', mins: 60 },
@@ -2297,7 +2314,7 @@ const subjects = [
   { name: 'Literature', progress: 58, color: '#EF4444' },
 ];
 
-function AnalyticsView() {
+function AnalyticsView({ weekData }) {
   const maxMin = Math.max(...weekData.map(d => d.mins));
   const totalMin = weekData.reduce((a, b) => a + b.mins, 0);
   const stats = [
@@ -2404,113 +2421,629 @@ const analS = {
 };
 
 /* ===================== CALENDAR ===================== */
-function CalendarView({ exams, onOpenExam, darkMode }) {
-  const today = new Date();
-  const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+const LIFE_CATS = [
+  { id:'study',   label:'Study',   color:'#3730E8', bg:'#EEF2FF', text:'#3730E8' },
+  { id:'fitness', label:'Fitness', color:'#10B981', bg:'#DCFCE7', text:'#065F46' },
+  { id:'social',  label:'Social',  color:'#F59E0B', bg:'#FEF3C7', text:'#92400E' },
+  { id:'rest',    label:'Rest',    color:'#8B5CF6', bg:'#F5F3FF', text:'#5B21B6' },
+  { id:'other',   label:'Other',   color:'#6B7280', bg:'#F3F4F6', text:'#374151' },
+];
 
-  const year = cursor.getFullYear();
-  const month = cursor.getMonth(); // 0-indexed
-  const monthLabel = cursor.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+/* ===================== CALENDAR HELPERS ===================== */
+const CAL_MONTHS   = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CAL_MONTHS_S = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const getMonday  = (d) => { const r = new Date(d); const day = r.getDay(); r.setDate(r.getDate() + (day === 0 ? -6 : 1 - day)); r.setHours(0,0,0,0); return r; };
+const calAddDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+const dayKey     = (d) => `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+const durToMins  = (s) => { let m=0; const h=s.match(/(\d+)h/); const mn=s.match(/(\d+)m/); if(h) m+=parseInt(h[1])*60; if(mn) m+=parseInt(mn[1]); return m||0; };
 
-  const prevMonth = new Date(year, month - 1, 1);
-  const nextMonth = new Date(year, month + 1, 1);
-  const prevLabel = prevMonth.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
-  const nextLabel = nextMonth.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+const SUBJECT_NOTE_MAP = {
+  Biology:    { noteId:1, bg:'#EEF2FF', color:'#3730E8', text:'#3730E8' },
+  Chemistry:  { noteId:2, bg:'#FDF2F8', color:'#8B5CF6', text:'#8B5CF6' },
+  History:    { noteId:3, bg:'#FEF3C7', color:'#F59E0B', text:'#92400E' },
+  Math:       { noteId:4, bg:'#ECFEFF', color:'#06B6D4', text:'#0E7490' },
+  Economics:  { noteId:5, bg:'#DCFCE7', color:'#10B981', text:'#065F46' },
+  Literature: { noteId:6, bg:'#FEE2E2', color:'#EF4444', text:'#991B1B' },
+};
 
-  // Build day grid (Mon-first)
-  const firstOfMonth = new Date(year, month, 1);
-  // JS getDay(): 0 = Sun. Convert to Mon=0..Sun=6
-  const leading = (firstOfMonth.getDay() + 6) % 7;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const cells = [];
-  for (let i = 0; i < leading; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  while (cells.length % 7 !== 0) cells.push(null);
+const calSeedNotes = [
+  { id:1, title:'Cellular Respiration' }, { id:2, title:'Organic Chemistry Reactions' },
+  { id:3, title:'World War II Timeline' }, { id:4, title:'Calculus — Derivatives' },
+  { id:5, title:'Macroeconomics Notes' }, { id:6, title:'Shakespeare — Hamlet' },
+];
 
-  // Index exams by date "YYYY-MM-DD"
-  const byDate = {};
-  exams.forEach((x) => {
-    if (!x.date) return;
-    (byDate[x.date] = byDate[x.date] || []).push(x);
-  });
+const initCalEvents = () => {
+  const t = new Date(); t.setHours(0,0,0,0);
+  const ev = {};
+  const set = (d, arr) => { ev[dayKey(d)] = arr; };
+  set(t, [
+    { name:'Biology — Cellular Respiration', time:'09:00', dur:'1h30m', cat:'study', noteId:1, noteColor:'#3730E8', noteBg:'#EEF2FF', noteText:'#3730E8', noteSubject:'Biology' },
+    { name:'Gym', time:'17:00', dur:'1h', cat:'fitness', noteId:null, noteColor:null, noteBg:null, noteText:null, noteSubject:null },
+  ]);
+  set(calAddDays(t,1), [
+    { name:'Chemistry — Organic Chemistry', time:'10:00', dur:'1h', cat:'study', noteId:2, noteColor:'#8B5CF6', noteBg:'#FDF2F8', noteText:'#8B5CF6', noteSubject:'Chemistry' },
+    { name:'Coffee with Sara', time:'15:00', dur:'1h30m', cat:'social', noteId:null, noteColor:null, noteBg:null, noteText:null, noteSubject:null },
+  ]);
+  set(calAddDays(t,2), [
+    { name:'Math — Calculus Derivatives', time:'08:00', dur:'45m', cat:'study', noteId:4, noteColor:'#06B6D4', noteBg:'#ECFEFF', noteText:'#0E7490', noteSubject:'Math' },
+    { name:'Rest & recover', time:'20:00', dur:'30m', cat:'rest', noteId:null, noteColor:null, noteBg:null, noteText:null, noteSubject:null },
+  ]);
+  set(calAddDays(t,3), [
+    { name:'History — WWII Timeline', time:'11:00', dur:'2h', cat:'study', noteId:3, noteColor:'#F59E0B', noteBg:'#FEF3C7', noteText:'#92400E', noteSubject:'History' },
+  ]);
+  set(calAddDays(t,-1), [
+    { name:'Physics revision', time:'14:00', dur:'1h', cat:'study', noteId:null, noteColor:null, noteBg:null, noteText:null, noteSubject:null },
+    { name:'Morning run', time:'07:00', dur:'40m', cat:'fitness', noteId:null, noteColor:null, noteBg:null, noteText:null, noteSubject:null },
+  ]);
+  return ev;
+};
 
-  const pad = (n) => (n < 10 ? '0' + n : '' + n);
-  const isoFor = (d) => `${year}-${pad(month + 1)}-${pad(d)}`;
-  const isToday = (d) => d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+function CalendarView({ setTab }) {
+  const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+  const [view, setView]           = useState('week');
+  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
+  const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
+  const [viewYear, setViewYear]   = useState(() => new Date().getFullYear());
+  const [activeCats, setActiveCats] = useState(() => new Set(LIFE_CATS.map(c => c.id)));
+  const [events, setEvents]       = useState(initCalEvents);
+  const [modalKey, setModalKey]   = useState(null);
+  const [selCat, setSelCat]       = useState('study');
+  const [selNoteId, setSelNoteId] = useState(null);
+  const [modalName, setModalName] = useState('');
+  const [modalTime, setModalTime] = useState('09:00');
+  const [modalDur, setModalDur]   = useState('1h');
 
-  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const navPrev = () => {
+    if (view === 'week') { setWeekStart(d => calAddDays(d, -7)); }
+    else { setViewMonth(m => { if (m === 0) { setViewYear(y => y-1); return 11; } return m-1; }); }
+  };
+  const navNext = () => {
+    if (view === 'week') { setWeekStart(d => calAddDays(d, 7)); }
+    else { setViewMonth(m => { if (m === 11) { setViewYear(y => y+1); return 0; } return m+1; }); }
+  };
+
+  const openModal = (key) => { setModalKey(key); setSelCat('study'); setSelNoteId(null); setModalName(''); setModalTime('09:00'); setModalDur('1h'); };
+  const closeModal = () => setModalKey(null);
+  const toggleCat = (id) => setActiveCats(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const deleteEvent = (key, idx) => setEvents(ev => ({ ...ev, [key]: ev[key].filter((_, i) => i !== idx) }));
+
+  const selectSubject = (subject) => {
+    const info = SUBJECT_NOTE_MAP[subject];
+    if (selNoteId === info.noteId) { setSelNoteId(null); setModalName(''); }
+    else {
+      setSelNoteId(info.noteId);
+      const note = calSeedNotes.find(n => n.id === info.noteId);
+      setModalName(`${subject} — ${note?.title || subject}`);
+    }
+  };
+
+  const addEvent = () => {
+    if (!modalName.trim()) return;
+    const noteSubject = selCat === 'study' && selNoteId
+      ? Object.keys(SUBJECT_NOTE_MAP).find(s => SUBJECT_NOTE_MAP[s].noteId === selNoteId) || null : null;
+    const noteInfo = noteSubject ? SUBJECT_NOTE_MAP[noteSubject] : null;
+    const ev = { name: modalName, time: modalTime, dur: modalDur, cat: selCat,
+      noteId: selCat === 'study' ? selNoteId : null,
+      noteColor: noteInfo?.color || null, noteBg: noteInfo?.bg || null,
+      noteText: noteInfo?.text || null, noteSubject };
+    setEvents(prev => ({ ...prev, [modalKey]: [...(prev[modalKey] || []), ev] }));
+    closeModal();
+  };
+
+  const handleEvClick = (ev) => { if (ev.noteId) setTab('notes'); };
+
+  const weekLabel = () => {
+    const end = calAddDays(weekStart, 4);
+    if (weekStart.getMonth() === end.getMonth())
+      return `${CAL_MONTHS_S[weekStart.getMonth()]} ${weekStart.getDate()}–${end.getDate()}, ${weekStart.getFullYear()}`;
+    return `${CAL_MONTHS_S[weekStart.getMonth()]} ${weekStart.getDate()} – ${CAL_MONTHS_S[end.getMonth()]} ${end.getDate()}`;
+  };
+
+  const rangeLabel = view === 'week' ? weekLabel() : `${CAL_MONTHS[viewMonth]} ${viewYear}`;
+  const weekDays = useMemo(() => Array.from({length:5}, (_, i) => calAddDays(weekStart, i)), [weekStart]);
+  const monthGrid = useMemo(() => {
+    const startMonday = getMonday(new Date(viewYear, viewMonth, 1));
+    return Array.from({length:42}, (_, i) => calAddDays(startMonday, i));
+  }, [viewMonth, viewYear]);
+
+  const lifeBalance = useMemo(() => {
+    const totals = {}; LIFE_CATS.forEach(c => { totals[c.id] = 0; });
+    Array.from({length:7}, (_, i) => calAddDays(weekStart, i)).forEach(d => {
+      (events[dayKey(d)] || []).forEach(ev => { totals[ev.cat] = (totals[ev.cat]||0) + durToMins(ev.dur); });
+    });
+    const total = Object.values(totals).reduce((a,b) => a+b, 0);
+    return LIFE_CATS.map(c => ({ ...c, mins: totals[c.id], pct: total > 0 ? Math.round(totals[c.id]/total*100) : 0 }));
+  }, [events, weekStart]);
+
+  const fmtModalDate = (key) => { if (!key) return ''; const [y,m,d] = key.split('-').map(Number); return `${CAL_MONTHS_S[m-1]} ${d}, ${y}`; };
+  const DAY_NAMES = ['MON','TUE','WED','THU','FRI'];
+  const WEEK_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  const renderWeek = () => (
+    <div style={calS.weekGrid}>
+      {weekDays.map((day, i) => {
+        const key = dayKey(day);
+        const dayEvs = (events[key] || []).filter(ev => activeCats.has(ev.cat));
+        const isToday = dayKey(day) === dayKey(today);
+        return (
+          <div key={i} style={calS.weekCol}>
+            <div style={calS.weekColHeader}>
+              <span style={calS.weekDayName}>{DAY_NAMES[i]}</span>
+              <span style={{ ...calS.weekDayNum, ...(isToday ? calS.weekDayToday : {}) }}>{day.getDate()}</span>
+            </div>
+            <div style={calS.weekEvs}>
+              {dayEvs.map((ev, idx) => {
+                const cat = LIFE_CATS.find(c => c.id === ev.cat);
+                const borderColor = ev.noteId ? ev.noteColor : cat?.color;
+                const bg = ev.noteId ? ev.noteBg : cat?.bg;
+                return (
+                  <div key={idx} style={{ ...calS.evCard, borderLeft:`3px solid ${borderColor}`, background:bg, cursor:ev.noteId?'pointer':'default' }}
+                    onClick={() => handleEvClick(ev)}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:4 }}>
+                      <span style={calS.evName}>{ev.name}</span>
+                      <button style={calS.evTrash} onClick={(e) => { e.stopPropagation(); deleteEvent(key, idx); }}><Trash size={11} /></button>
+                    </div>
+                    <div style={calS.evMeta}><Clock size={10} /> {ev.time} · {ev.dur}</div>
+                    {ev.noteId && (
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:5 }}>
+                        <span style={{ ...calS.noteChip, background:ev.noteBg, color:ev.noteText }}>{ev.noteSubject}</span>
+                        <BookOpen size={11} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <button style={calS.addSlot} onClick={() => openModal(key)}>+ Add</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderMonth = () => (
+    <div>
+      <div style={calS.monthWeekHeader}>{WEEK_LABELS.map(d => <div key={d} style={calS.monthWeekLabel}>{d}</div>)}</div>
+      <div style={calS.monthGrid}>
+        {monthGrid.map((day, i) => {
+          const key = dayKey(day);
+          const isCurrentMonth = day.getMonth() === viewMonth;
+          const isToday = dayKey(day) === dayKey(today);
+          const dayEvs = (events[key] || []).filter(ev => activeCats.has(ev.cat));
+          return (
+            <div key={i} style={{ ...calS.monthCell, ...(isToday?calS.monthCellToday:{}), opacity:isCurrentMonth?1:0.35, cursor:isCurrentMonth?'pointer':'default' }}
+              onClick={() => isCurrentMonth && openModal(key)}>
+              <span style={{ ...calS.monthDayNum, ...(isToday?calS.monthDayToday:{}) }}>{day.getDate()}</span>
+              <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:3 }}>
+                {dayEvs.slice(0,2).map((ev, idx) => {
+                  const cat = LIFE_CATS.find(c => c.id === ev.cat);
+                  return <div key={idx} style={{ ...calS.monthPill, background:ev.noteId?ev.noteColor:cat?.color }}>{ev.name}</div>;
+                })}
+                {dayEvs.length > 2 && <div style={calS.monthMore}>+{dayEvs.length-2} more</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderModal = () => {
+    const cat = LIFE_CATS.find(c => c.id === selCat);
+    const noteInfo = selNoteId ? Object.values(SUBJECT_NOTE_MAP).find(v => v.noteId === selNoteId) : null;
+    const saveBg = noteInfo ? noteInfo.color : cat?.color;
+    return (
+      <div style={calS.overlay} onClick={closeModal}>
+        <div style={calS.modal} onClick={e => e.stopPropagation()}>
+          <h3 style={calS.modalTitle}>Add activity · {fmtModalDate(modalKey)}</h3>
+          <div style={calS.modalField}>
+            <label style={calS.modalLabel}>What are you doing?</label>
+            <input value={modalName} onChange={e => setModalName(e.target.value)} onKeyDown={e => e.key==='Enter' && addEvent()}
+              placeholder="e.g. Study session, Gym, Coffee…" style={calS.modalInput} autoFocus />
+          </div>
+          <div style={{ display:'flex', gap:12, marginBottom:16 }}>
+            <div style={{ flex:1 }}><label style={calS.modalLabel}>Start time</label><input type="time" value={modalTime} onChange={e => setModalTime(e.target.value)} style={calS.modalInput} /></div>
+            <div style={{ flex:1 }}><label style={calS.modalLabel}>Duration</label>
+              <select value={modalDur} onChange={e => setModalDur(e.target.value)} style={calS.modalInput}>
+                {['15m','30m','45m','1h','1h30m','2h','3h'].map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ marginBottom:16 }}>
+            <label style={calS.modalLabel}>Category</label>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
+              {LIFE_CATS.map(c => (
+                <button key={c.id} onClick={() => { setSelCat(c.id); if(c.id!=='study') setSelNoteId(null); }}
+                  style={{ ...calS.catChip, background:selCat===c.id?c.color:c.bg, color:selCat===c.id?'#fff':c.text, border:`1.5px solid ${c.color}` }}>
+                  <span style={{ ...calS.catDot, background:selCat===c.id?'#fff':c.color }} />{c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {selCat === 'study' && (
+            <div style={{ marginBottom:16 }}>
+              <label style={calS.modalLabel}>Which subject?</label>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
+                {Object.entries(SUBJECT_NOTE_MAP).map(([subject, info]) => (
+                  <button key={subject} onClick={() => selectSubject(subject)}
+                    style={{ ...calS.catChip, background:selNoteId===info.noteId?info.color:info.bg, color:selNoteId===info.noteId?'#fff':info.text, border:`1.5px solid ${info.color}` }}>
+                    {subject}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20 }}>
+            <button onClick={closeModal} style={calS.cancelBtn}>Cancel</button>
+            <button onClick={addEvent} style={{ ...calS.saveBtn, background:saveBg }}>Add activity</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div>
-      <div style={{ marginBottom: 22 }}>
+    <div style={calS.wrap}>
+      <div style={{ marginBottom:22 }}>
         <h2 style={homeS.h1}>Calendar</h2>
-        <p style={homeS.sub}>Your upcoming exams at a glance</p>
+        <p style={homeS.sub}>Plan your week, track your life balance</p>
       </div>
-
-      <div style={calS.card}>
-        <div style={calS.header}>
-          <button style={calS.navBtn} onClick={() => setCursor(new Date(year, month - 1, 1))}>
-            <ChevronLeft size={14} /> {prevLabel}
-          </button>
-          <div style={calS.monthLabel}>{monthLabel}</div>
-          <button style={calS.navBtn} onClick={() => setCursor(new Date(year, month + 1, 1))}>
-            {nextLabel} <ChevronRight size={14} />
-          </button>
+      <div style={calS.header}>
+        <div style={calS.navGroup}>
+          <button onClick={navPrev} style={calS.navBtn}>‹</button>
+          <span style={calS.rangeLabel}>{rangeLabel}</span>
+          <button onClick={navNext} style={calS.navBtn}>›</button>
         </div>
-
-        <div style={calS.weekdayRow}>
-          {weekdays.map((w) => <div key={w} style={calS.weekday}>{w}</div>)}
+        <div style={calS.viewToggleGroup}>
+          {['week','month'].map(v => (
+            <button key={v} onClick={() => setView(v)} style={{ ...calS.toggleBtn, ...(view===v?calS.toggleBtnActive:{}) }}>
+              {v.charAt(0).toUpperCase()+v.slice(1)}
+            </button>
+          ))}
         </div>
-
-        <div style={calS.grid}>
-          {cells.map((d, i) => {
-            if (d === null) return <div key={i} style={{ ...calS.cell, ...calS.cellEmpty }} />;
-            const iso = isoFor(d);
-            const dayExams = byDate[iso] || [];
-            const todayCell = isToday(d);
-            return (
-              <div key={i} style={{ ...calS.cell, ...(todayCell ? calS.cellToday : null) }}>
-                <div style={{ ...calS.dayNum, ...(todayCell ? calS.dayNumToday : null) }}>{d}</div>
-                <div style={calS.pills}>
-                  {dayExams.map((x) => {
-                    const palette = getSubjectPalette(x.subject, x, darkMode);
-                    return (
-                      <button
-                        key={x.id}
-                        onClick={() => onOpenExam(x.id)}
-                        style={{ ...calS.examPill, background: palette.dot }}
-                        title={`Open ${x.name}`}
-                      >
-                        {x.name}
-                      </button>
-                    );
-                  })}
-                </div>
+      </div>
+      <div style={calS.catsRow}>
+        {LIFE_CATS.map(c => (
+          <button key={c.id} onClick={() => toggleCat(c.id)}
+            style={{ ...calS.catChip, opacity:activeCats.has(c.id)?1:0.3, background:c.bg, color:c.text, border:`1.5px solid ${c.color}33` }}>
+            <span style={{ ...calS.catDot, background:c.color }} />{c.label}
+          </button>
+        ))}
+      </div>
+      {view === 'week' ? renderWeek() : renderMonth()}
+      <div style={calS.balanceSection}>
+        <h4 style={calS.balanceTitle}>Life Balance — this week</h4>
+        <div style={calS.balanceGrid}>
+          {lifeBalance.map(b => (
+            <div key={b.id} style={calS.balanceCard}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                <span style={{ ...calS.catDot, background:b.color }} />
+                <span style={{ fontSize:12, fontWeight:600, color:'var(--ink)' }}>{b.label}</span>
               </div>
-            );
-          })}
+              <div style={{ fontSize:22, fontWeight:800, color:b.color, letterSpacing:'-0.02em', marginBottom:6 }}>{b.pct}%</div>
+              <div style={{ height:4, background:'#F4F5FF', borderRadius:999, overflow:'hidden', marginBottom:4 }}>
+                <div style={{ width:`${b.pct}%`, height:'100%', background:b.color, borderRadius:999 }} />
+              </div>
+              <div style={{ fontSize:11, color:'var(--gray)' }}>{b.mins}m</div>
+            </div>
+          ))}
         </div>
       </div>
+      {modalKey && renderModal()}
     </div>
   );
 }
 
 const calS = {
-  card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
-  navBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
-  monthLabel: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' },
-  weekdayRow: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 },
-  weekday: { textAlign: 'center', fontSize: 12, fontWeight: 600, color: 'var(--gray)', padding: '4px 0' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 },
-  cell: { minHeight: 92, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 },
-  cellEmpty: { background: '#FAFBFF', border: '1px dashed var(--border)' },
-  cellToday: { borderColor: 'var(--indigo)', background: '#F4F5FF', boxShadow: 'inset 0 0 0 1px var(--indigo)' },
-  dayNum: { fontSize: 12, fontWeight: 600, color: 'var(--gray)' },
-  dayNumToday: { color: 'var(--indigo)', fontWeight: 800 },
-  pills: { display: 'flex', flexDirection: 'column', gap: 4 },
-  examPill: { display: 'block', width: '100%', textAlign: 'left', padding: '4px 8px', background: '#3730E8', color: '#fff', borderRadius: 8, fontSize: 11, fontWeight: 600, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  wrap: { display:'flex', flexDirection:'column', gap:18 },
+  header: { display:'flex', alignItems:'center', justifyContent:'space-between' },
+  navGroup: { display:'flex', alignItems:'center', gap:10 },
+  navBtn: { width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:18, display:'grid', placeItems:'center', cursor:'pointer' },
+  rangeLabel: { fontSize:16, fontWeight:700, color:'var(--ink)', letterSpacing:'-0.01em', minWidth:200, textAlign:'center' },
+  viewToggleGroup: { display:'flex', background:'#F8F9FF', border:'1px solid var(--border)', borderRadius:10, padding:3, gap:2 },
+  toggleBtn: { padding:'6px 16px', borderRadius:8, fontSize:13, fontWeight:600, color:'var(--gray)', background:'transparent', border:'none', cursor:'pointer' },
+  toggleBtnActive: { background:'#fff', color:'var(--ink)', boxShadow:'0 1px 4px rgba(0,0,0,.08)', border:'0.5px solid var(--border)' },
+  catsRow: { display:'flex', gap:8, flexWrap:'wrap' },
+  catChip: { display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:999, fontSize:12, fontWeight:600, cursor:'pointer', transition:'opacity .15s' },
+  catDot: { width:8, height:8, borderRadius:999, flexShrink:0 },
+  weekGrid: { display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:10 },
+  weekCol: { display:'flex', flexDirection:'column', gap:6 },
+  weekColHeader: { display:'flex', flexDirection:'column', alignItems:'center', gap:2, paddingBottom:8, borderBottom:'1px solid var(--border)' },
+  weekDayName: { fontSize:10, fontWeight:700, color:'var(--gray)', letterSpacing:'0.06em' },
+  weekDayNum: { fontSize:22, fontWeight:700, color:'var(--ink)', lineHeight:1, width:36, height:36, display:'grid', placeItems:'center', borderRadius:999 },
+  weekDayToday: { background:'#3730E8', color:'#fff' },
+  weekEvs: { display:'flex', flexDirection:'column', gap:6 },
+  evCard: { borderRadius:10, padding:'8px 10px', display:'flex', flexDirection:'column', gap:4 },
+  evName: { fontSize:12, fontWeight:600, color:'var(--ink)', lineHeight:1.3 },
+  evMeta: { display:'flex', alignItems:'center', gap:4, fontSize:10, color:'var(--gray)' },
+  evTrash: { color:'var(--gray-2)', padding:2, borderRadius:4, flexShrink:0, opacity:0.6 },
+  noteChip: { fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:999 },
+  addSlot: { border:'1.5px dashed var(--border)', borderRadius:10, padding:'7px', fontSize:12, color:'var(--gray-2)', fontWeight:600, textAlign:'center', cursor:'pointer', background:'transparent' },
+  monthWeekHeader: { display:'grid', gridTemplateColumns:'repeat(7, 1fr)', marginBottom:4 },
+  monthWeekLabel: { textAlign:'center', fontSize:11, fontWeight:700, color:'var(--gray)', letterSpacing:'0.04em', padding:'4px 0' },
+  monthGrid: { display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:2 },
+  monthCell: { minHeight:72, padding:'6px 8px', borderRadius:8, border:'1px solid transparent', display:'flex', flexDirection:'column' },
+  monthCellToday: { border:'1.5px solid #3730E8' },
+  monthDayNum: { fontSize:12, fontWeight:600, color:'var(--ink)' },
+  monthDayToday: { background:'#3730E8', color:'#fff', width:20, height:20, borderRadius:999, display:'grid', placeItems:'center', fontSize:11 },
+  monthPill: { fontSize:10, fontWeight:600, color:'#fff', padding:'2px 6px', borderRadius:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  monthMore: { fontSize:10, color:'var(--gray)', fontWeight:600 },
+  balanceSection: { borderTop:'1px solid var(--border)', paddingTop:18 },
+  balanceTitle: { margin:'0 0 12px', fontSize:14, fontWeight:700, color:'var(--ink)' },
+  balanceGrid: { display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:10 },
+  balanceCard: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:14 },
+  overlay: { position:'fixed', inset:0, background:'rgba(15,16,53,.4)', display:'grid', placeItems:'center', zIndex:100 },
+  modal: { background:'var(--surface)', borderRadius:20, padding:28, width:'100%', maxWidth:480, boxShadow:'0 20px 60px -10px rgba(15,16,53,.2)' },
+  modalTitle: { margin:'0 0 20px', fontSize:16, fontWeight:700, color:'var(--ink)' },
+  modalField: { marginBottom:16 },
+  modalLabel: { display:'block', fontSize:12, fontWeight:700, color:'var(--ink)', marginBottom:8 },
+  modalInput: { width:'100%', padding:'10px 12px', border:'1px solid var(--border)', borderRadius:10, fontSize:14, color:'var(--ink)', background:'var(--surface)', outline:'none', boxSizing:'border-box' },
+  cancelBtn: { padding:'10px 20px', borderRadius:999, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor:'pointer' },
+  saveBtn: { padding:'10px 20px', borderRadius:999, border:'none', color:'#fff', fontWeight:600, fontSize:14, cursor:'pointer' },
 };
+
+
+/* ===================== STUDY TIMER ===================== */
+/* ===================== STUDY TIMER ===================== */
+function StudyTimer({ onSessionSaved }) {
+  const [expanded, setExpanded]   = useState(false);
+  const [running, setRunning]     = useState(false);
+  const [mode, setMode_]          = useState('free');
+  const [elapsed, setElapsed]     = useState(0);
+  const [pomoElapsed, setPomoEl]  = useState(0);
+  const [pomoPhase, setPomoPhase] = useState('study');
+  const [sessionCount, setSessN]  = useState(1);
+  const [sessions, setSessions]   = useState([]);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMsg, setToastMsg]   = useState('');
+  const [dragging, setDragging]   = useState(false);
+  const timerRef  = useRef(null);
+  const fwRef     = useRef(null);
+  const elapsedRef = useRef(0);
+  const pomoRef   = useRef(0);
+  const modeRef   = useRef('free');
+  const phaseRef  = useRef('study');
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+
+  const PS = 1500, PB = 300;
+  const CIRC = 238.76;
+
+  const fmt = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  };
+
+  const nowHHMM = () => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  };
+
+  const fireToast = (msg) => {
+    setToastMsg(msg); setShowToast(true);
+    setTimeout(() => setShowToast(false), 2500);
+  };
+
+  const addSession = (mins) => {
+    setSessions(prev => [...prev, { mins, time: nowHHMM() }]);
+  };
+
+  const doReset = () => {
+    clearInterval(timerRef.current);
+    setRunning(false);
+    elapsedRef.current = 0; pomoRef.current = 0;
+    setElapsed(0); setPomoEl(0); setPomoPhase('study'); phaseRef.current = 'study';
+  };
+
+  const stopSession = () => {
+    clearInterval(timerRef.current);
+    setRunning(false);
+    let mins = 0;
+    if (modeRef.current === 'free') mins = Math.round(elapsedRef.current / 60);
+    else if (phaseRef.current === 'study') mins = Math.round(pomoRef.current / 60);
+    if (mins >= 1) { addSession(mins); onSessionSaved(mins); fireToast(`${mins}m aggiunti ad Analytics!`); }
+    elapsedRef.current = 0; pomoRef.current = 0;
+    setElapsed(0); setPomoEl(0); setPomoPhase('study'); phaseRef.current = 'study';
+    setSessN(n => n + 1);
+  };
+
+  const tick = () => {
+    if (modeRef.current === 'free') {
+      elapsedRef.current++;
+      setElapsed(elapsedRef.current);
+    } else {
+      if (phaseRef.current === 'study') {
+        pomoRef.current++;
+        setPomoEl(pomoRef.current);
+        if (pomoRef.current >= PS) {
+          addSession(25); onSessionSaved(25); fireToast('25m aggiunti ad Analytics!');
+          phaseRef.current = 'break'; setPomoPhase('break'); pomoRef.current = 0; setPomoEl(0);
+        }
+      } else {
+        pomoRef.current++;
+        setPomoEl(pomoRef.current);
+        if (pomoRef.current >= PB) {
+          phaseRef.current = 'study'; setPomoPhase('study'); pomoRef.current = 0; setPomoEl(0);
+        }
+      }
+    }
+  };
+
+  const toggleRun = () => {
+    if (running) { clearInterval(timerRef.current); setRunning(false); }
+    else { setRunning(true); timerRef.current = setInterval(tick, 1000); }
+  };
+
+  const setMode = (m) => {
+    if (running) return;
+    modeRef.current = m; setMode_(m); doReset();
+  };
+
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!isDragging.current || !fwRef.current) return;
+      const fw = fwRef.current;
+      const x = Math.max(0, Math.min(window.innerWidth - fw.offsetWidth, e.clientX - dragOffset.current.x));
+      const y = Math.max(0, Math.min(window.innerHeight - fw.offsetHeight, e.clientY - dragOffset.current.y));
+      fw.style.left = x + 'px'; fw.style.top = y + 'px';
+      fw.style.right = 'auto'; fw.style.bottom = 'auto';
+    };
+    const onUp = () => { isDragging.current = false; setDragging(false); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+  }, []);
+
+  useEffect(() => { return () => clearInterval(timerRef.current); }, []);
+
+  const onHandleDown = (e) => {
+    if (!fwRef.current) return;
+    isDragging.current = true; setDragging(true);
+    const rect = fwRef.current.getBoundingClientRect();
+    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    e.preventDefault();
+  };
+
+  const isStopped = elapsed === 0 && pomoElapsed === 0 && !running;
+
+  const displayTime = () => {
+    if (mode === 'free') return fmt(elapsed);
+    if (pomoPhase === 'study') return fmt(Math.max(0, PS - pomoElapsed));
+    return fmt(Math.max(0, PB - pomoElapsed));
+  };
+
+  const ringOffset = () => {
+    if (mode === 'free') return CIRC - (CIRC * ((elapsed % 3600) / 3600));
+    if (pomoPhase === 'study') return CIRC - (CIRC * (pomoElapsed / PS));
+    return CIRC - (CIRC * (pomoElapsed / PB));
+  };
+  const ringColor = mode === 'pomo' && pomoPhase === 'break' ? '#10B981' : 'var(--indigo)';
+  const totalStudy = sessions.reduce((a, s) => a + s.mins, 0);
+
+  const pillTime = mode === 'free' ? fmt(elapsed)
+    : pomoPhase === 'study' ? fmt(Math.max(0, PS - pomoElapsed))
+    : fmt(Math.max(0, PB - pomoElapsed));
+
+  return (
+    <>
+      {showToast && (
+        <div style={timerS.toast}>
+          <Check size={14} /> {toastMsg}
+        </div>
+      )}
+      {!expanded && (
+        <div style={timerS.pill} onClick={() => setExpanded(true)}>
+          <span style={{ ...timerS.dot, animation: running ? 'pulse 1.2s infinite' : 'none' }} />
+          <span style={{ fontSize:14, fontWeight:600, color:'#fff', fontFamily:'monospace' }}>{pillTime}</span>
+          {mode === 'pomo' && <span style={{ fontSize:10, color:'rgba(255,255,255,.7)' }}>{pomoPhase === 'study' ? 'Study' : 'Break'}</span>}
+          <ChevronUp size={14} style={{ color:'rgba(255,255,255,.7)' }} />
+        </div>
+      )}
+      {expanded && (
+        <div ref={fwRef} style={timerS.card}>
+          <div style={timerS.headerRow} onMouseDown={onHandleDown}>
+            <div style={{ display:'flex', alignItems:'center', gap:6, cursor: dragging ? 'grabbing' : 'grab' }}>
+              <GripDots size={12} style={{ color:'var(--gray)', opacity:.4 }} />
+              <span style={{ fontSize:13, fontWeight:600, color:'var(--ink)' }}>Study Timer</span>
+            </div>
+            <button onClick={() => setExpanded(false)} style={timerS.closeBtn}><ChevronDown size={14} /></button>
+          </div>
+
+          <div style={timerS.modeToggle}>
+            {['free','pomo'].map(m => (
+              <button key={m} onClick={() => setMode(m)}
+                style={{ ...timerS.modeBtn, ...(mode===m ? timerS.modeBtnActive : {}) }}>
+                {m === 'free' ? 'Free' : 'Pomodoro'}
+              </button>
+            ))}
+          </div>
+          {mode === 'pomo' && <div style={{ fontSize:10, color:'var(--gray)', textAlign:'center', marginTop:4, marginBottom:2 }}>25 min studio · 5 min pausa automatica</div>}
+
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', margin:'14px 0 10px' }}>
+            <svg width="90" height="90" viewBox="0 0 90 90">
+              <circle cx="45" cy="45" r="38" fill="none" stroke="var(--border)" strokeWidth="5" />
+              <circle cx="45" cy="45" r="38" fill="none"
+                stroke={ringColor} strokeWidth="5"
+                strokeDasharray={CIRC}
+                strokeDashoffset={ringOffset()}
+                strokeLinecap="round"
+                transform="rotate(-90 45 45)"
+                style={{ transition:'stroke-dashoffset .95s linear, stroke .3s' }} />
+              <text x="45" y="43" textAnchor="middle" dominantBaseline="middle"
+                style={{ fontSize:19, fontWeight:600, fill:'var(--ink)', fontFamily:'monospace' }}>{displayTime()}</text>
+              {mode === 'pomo' && (
+                <text x="45" y="57" textAnchor="middle" dominantBaseline="middle"
+                  style={{ fontSize:9, fill:'var(--gray)' }}>{pomoPhase === 'study' ? 'Study' : 'Break'}</text>
+              )}
+            </svg>
+            <div style={{ fontSize:10, color:'var(--gray)', marginTop:4 }}>Session {sessionCount}</div>
+          </div>
+
+          <div style={timerS.controls}>
+            <button onClick={toggleRun} style={{ ...timerS.playBtn, ...(running ? {} : elapsed===0&&pomoElapsed===0 ? {} : timerS.playBtnPaused) }}>
+              {running ? <Pause size={14}/> : <Play size={14}/>}
+              <span style={{ fontSize:13, fontWeight:600 }}>{running ? 'Pause' : elapsed===0&&pomoElapsed===0 ? 'Start' : 'Resume'}</span>
+            </button>
+            <button onClick={stopSession} disabled={isStopped}
+              style={{ ...timerS.iconBtn, background:'#FEE2E2', color:'#991B1B', opacity: isStopped ? .3 : 1 }}>
+              <StopIcon size={14} />
+            </button>
+            <button onClick={doReset} style={{ ...timerS.iconBtn, background:'var(--sidebar-bg)', border:'1px solid var(--border)', color:'var(--gray)' }}>
+              <RotateCcw size={14} />
+            </button>
+          </div>
+
+          {sessions.length > 0 && (
+            <div style={timerS.log}>
+              <div style={timerS.logLabel}>TODAY'S SESSIONS</div>
+              {sessions.map((s, i) => (
+                <div key={i} style={timerS.logRow}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <span style={timerS.logDot} />
+                    <span style={{ fontSize:11, color:'var(--gray)' }}>{s.time}</span>
+                  </div>
+                  <span style={{ fontSize:11, fontWeight:600, color:'var(--ink)' }}>{s.mins}m</span>
+                </div>
+              ))}
+              <div style={{ ...timerS.logRow, borderTop:'0.5px solid var(--border)', marginTop:6, paddingTop:6 }}>
+                <span style={{ fontSize:11, color:'var(--gray)' }}>Total study</span>
+                <span style={{ fontSize:11, fontWeight:600, color:'var(--indigo)' }}>{totalStudy}m</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <style>{`
+        @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:.6} }
+      `}</style>
+    </>
+  );
+}
+
+const timerS = {
+  pill: { position:'fixed', bottom:24, right:24, zIndex:999, display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background:'var(--indigo)', borderRadius:999, cursor:'pointer', boxShadow:'0 8px 24px rgba(55,48,232,.4)', userSelect:'none' },
+  dot: { width:8, height:8, borderRadius:'50%', background:'#fff', flexShrink:0 },
+  card: { position:'fixed', bottom:70, right:24, zIndex:999, background:'#fff', borderRadius:20, border:'1px solid var(--border)', padding:18, width:236, boxShadow:'0 20px 60px rgba(15,16,53,.2)', userSelect:'none' },
+  headerRow: { display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, cursor:'grab' },
+  closeBtn: { width:24, height:24, borderRadius:999, background:'var(--sidebar-bg)', border:'1px solid var(--border)', color:'var(--gray)', display:'grid', placeItems:'center' },
+  modeToggle: { display:'flex', background:'var(--sidebar-bg)', borderRadius:8, padding:2, gap:2, marginBottom:6 },
+  modeBtn: { flex:1, padding:'5px 0', borderRadius:6, fontSize:11, fontWeight:600, color:'var(--gray)', background:'transparent', border:'none', cursor:'pointer' },
+  modeBtnActive: { background:'var(--indigo)', color:'#fff' },
+  controls: { display:'grid', gridTemplateColumns:'1fr 34px 34px', gap:5, marginBottom:10 },
+  playBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'9px', borderRadius:10, background:'var(--indigo)', color:'#fff', border:'none', cursor:'pointer' },
+  playBtnPaused: { background:'var(--lavender)', color:'var(--indigo)' },
+  iconBtn: { width:34, height:34, borderRadius:10, display:'grid', placeItems:'center', border:'none', cursor:'pointer' },
+  log: { borderTop:'0.5px solid var(--border)', paddingTop:10, display:'flex', flexDirection:'column', gap:4 },
+  logLabel: { fontSize:10, fontWeight:700, color:'var(--gray)', letterSpacing:'0.06em', marginBottom:4 },
+  logRow: { display:'flex', alignItems:'center', justifyContent:'space-between' },
+  logDot: { width:6, height:6, borderRadius:999, background:'var(--indigo)', flexShrink:0 },
+  toast: { position:'fixed', top:24, right:24, zIndex:1000, display:'flex', alignItems:'center', gap:8, padding:'7px 14px', background:'#DCFCE7', border:'1px solid #86efac', color:'#166534', borderRadius:10, fontSize:12, fontWeight:500, boxShadow:'0 4px 12px rgba(0,0,0,.1)' },
+};
+
+
 
 /* ===================== MOUNT ===================== */
 ReactDOM.createRoot(document.getElementById('react-root')).render(<App />);
