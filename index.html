@@ -1820,6 +1820,21 @@ function getSubjectPalette(subject, fallback = {}, darkMode = false) {
     };
 }
 
+function inferSubjectFromName(value) {
+  const text = (value || '').toLowerCase();
+  const patterns = [
+    ['Biology', ['biology', 'biologia', 'cellular', 'genetics']],
+    ['Chemistry', ['chemistry', 'chimica', 'organic', 'reaction']],
+    ['History', ['history', 'storia', 'war', 'wwii']],
+    ['Math', ['math', 'matematica', 'calculus', 'algebra']],
+    ['Economics', ['economics', 'economia', 'macro', 'micro']],
+    ['Literature', ['literature', 'letteratura', 'english', 'shakespeare']],
+    ['Physics', ['physics', 'fisica', 'quantum']],
+  ];
+  const found = patterns.find(([, keys]) => keys.some((k) => text.includes(k)));
+  return found ? found[0] : null;
+}
+
 const PALETTE_CYCLE = ['#EEF2FF', '#FDF2F8', '#ECFEFF', '#FEF3C7', '#DBEAFE', '#EDE9FE'];
 const DOT_CYCLE     = ['var(--indigo)', 'var(--purple)', '#06B6D4', '#F59E0B', '#3B82F6', '#7C3AED'];
 
@@ -1889,12 +1904,10 @@ function daysLeft(iso) {
 
 function GradeValue({ value, color, size = 20 }) {
   const grade = Number(value || 27);
-  const isLode = grade >= 30;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ fontSize: size, fontWeight: 800, color }}>{isLode ? '30L' : grade}</span>
+      <span style={{ fontSize: size, fontWeight: 800, color }}>{grade}</span>
       <span style={{ fontSize: Math.max(9, size - 12), color: 'var(--gray-2)', fontWeight: 700 }}>/30</span>
-      {isLode && <span style={gradeS.lodeBadge}>con lode</span>}
     </span>
   );
 }
@@ -1975,9 +1988,7 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
         <CreateExamModal
           onClose={() => setShowCreate(false)}
           onCreate={(exam) => {
-            const dateBasedCount = exams.filter((e) => !!e.date).length;
-            const idx = dateBasedCount % PALETTE_CYCLE.length;
-            const palette = SUBJECT_COLORS[exam.subject] || EXTRA_SUBJECT_COLORS.Other;
+            const palette = getSubjectPalette(inferSubjectFromName(exam.subject), EXTRA_SUBJECT_COLORS.Other);
             const enriched = { ...exam, color: palette.bg, dot: palette.dot };
             setExams((p) => [enriched, ...p]);
             setShowCreate(false);
@@ -2555,7 +2566,6 @@ const quizS = {
 
 function CreateExamModal({ onClose, onCreate }) {
   const [name, setName] = useState('');
-  const [subject, setSubject] = useState('Biology');
   const [targetGrade, setTargetGrade] = useState(27);
   const today = new Date();
   const [day, setDay]     = useState(today.getDate());
@@ -2565,7 +2575,9 @@ function CreateExamModal({ onClose, onCreate }) {
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years  = [2025, 2026, 2027, 2028];
   const pad    = (n) => (n < 10 ? '0' + n : '' + n);
-  const subjectPalette = SUBJECT_COLORS[subject] || EXTRA_SUBJECT_COLORS.Other;
+  const subjectName = name.trim();
+  const inferredSubject = inferSubjectFromName(subjectName);
+  const subjectPalette = getSubjectPalette(inferredSubject, EXTRA_SUBJECT_COLORS.Other);
   const targetPct = ((targetGrade - 18) / 12) * 100;
 
   const submit = (e) => {
@@ -2577,7 +2589,7 @@ function CreateExamModal({ onClose, onCreate }) {
     onCreate({
       id: Date.now(),
       name: name.trim(),
-      subject,
+      subject: name.trim(),
       date: iso,
       updated: 'Just now',
       targetGrade,
@@ -2599,15 +2611,6 @@ function CreateExamModal({ onClose, onCreate }) {
         <div style={uploadS.field}>
           <label style={uploadS.label}>Exam name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Biology Final 2024" style={uploadS.input} autoFocus />
-        </div>
-
-        <div style={uploadS.field}>
-          <label style={uploadS.label}>Subject</label>
-          <select value={subject} onChange={(e) => setSubject(e.target.value)} style={dateS.select} aria-label="Subject">
-            {Object.keys(SUBJECT_COLORS).map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
         </div>
 
         <div style={uploadS.field}>
@@ -2657,7 +2660,7 @@ function CreateExamModal({ onClose, onCreate }) {
           <div style={gradeS.ticks}>
             {[18, 21, 24, 27, 30].map((t) => (
               <span key={t} style={{ color: targetGrade === t ? subjectPalette.dot : 'var(--gray-2)', fontWeight: targetGrade === t ? 800 : 500 }}>
-                {t === 30 ? '30L' : t}
+                {t}
               </span>
             ))}
           </div>
@@ -3142,7 +3145,7 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab }) {
   const targetPct = Math.max(0, Math.min(100, ((targetGrade - 18) / 12) * 100));
   const onTarget = predictedGrade === targetGrade;
   const overlap = !onTarget && Math.abs(gap) < 2;
-  const gradeText = (v) => v >= 30 ? '30L' : v;
+  const gradeText = (v) => v;
 
   let messageStyle = gradeS.msgEmpty;
   let message = '📝 Fai il primo quiz per vedere la previsione del voto.';
@@ -3189,7 +3192,7 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab }) {
           </React.Fragment>
         )}
         <span style={gradeS.minLabel}>18</span>
-        <span style={gradeS.maxLabel}>30L</span>
+        <span style={gradeS.maxLabel}>30</span>
       </div>
 
       <div style={gradeS.nums}>
