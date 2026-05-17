@@ -3549,7 +3549,7 @@ const initCalEvents = () => {
 function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const [view, setView]           = useState('week');
-  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
+  const [weekStart, setWeekStart] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
   const [viewYear, setViewYear]   = useState(() => new Date().getFullYear());
   const [activeCats, setActiveCats] = useState(() => new Set(LIFE_CATS.map(c => c.id)));
@@ -3691,7 +3691,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   }, [events, weekStart]);
 
   const fmtModalDate = (key) => { if (!key) return ''; const [y,m,d] = key.split('-').map(Number); return `${CAL_MONTHS_S[m-1]} ${d}, ${y}`; };
-  const DAY_NAMES = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+  const DAY_NAMES_ALL = ['DOM','LUN','MAR','MER','GIO','VEN','SAB'];
   const _ALL_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const _rot = (today.getDay() + 6) % 7; // Mon=0..Sun=6
   const WEEK_LABELS = [..._ALL_LABELS.slice(_rot), ..._ALL_LABELS.slice(0, _rot)];
@@ -3716,7 +3716,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
             const isToday = dayKey(day) === dayKey(today);
             return (
               <div key={i} style={{ padding:'10px 4px', textAlign:'center', borderRight: i < 6 ? '1px solid var(--border)' : 'none' }}>
-                <div style={{ fontSize:10, fontWeight:700, color:'var(--gray)', letterSpacing:'0.06em', marginBottom:5 }}>{DAY_NAMES[i]}</div>
+                <div style={{ fontSize:10, fontWeight:700, color:'var(--gray)', letterSpacing:'0.06em', marginBottom:5 }}>{DAY_NAMES_ALL[day.getDay()]}</div>
                 <div style={{ width:28, height:28, borderRadius:'50%', background: isToday ? 'var(--indigo)' : 'transparent', color: isToday ? '#fff' : 'var(--ink)', fontSize:13, fontWeight:700, display:'grid', placeItems:'center', margin:'0 auto' }}>{day.getDate()}</div>
               </div>
             );
