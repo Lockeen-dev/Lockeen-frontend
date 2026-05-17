@@ -670,6 +670,9 @@ const Google      = ({ size = 18 }) => (
     <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.6l6.2 5.2C40.9 36.6 44 30.9 44 24c0-1.2-.1-2.3-.4-3.5z"/>
   </svg>
 );
+const LockeenLogo = ({ size = 18 }) => (
+  <img src="Lockeen-2.png" alt="" aria-hidden="true" style={{ width: size, height: size, objectFit: 'contain' }} />
+);
 const Brain       = (p) => <Icon {...p}><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></Icon>;
 
 /* ===================== ROOT APP ===================== */
@@ -910,7 +913,7 @@ const shellS = {
 function Sidebar({ tab, setTab }) {
   const items = [
     { id: 'dashboard', label: 'Dashboard', Icon: ZapSolid },
-    { id: 'notes',     label: 'My Exams',  Icon: BookOpen  },
+    { id: 'notes',     label: 'My Exams',  Icon: LockeenLogo },
     { id: 'tutor',     label: 'AI Tutor',  Icon: MsgCircle },
     { id: 'analytics', label: 'Analytics', Icon: BarChart3 },
   ];
@@ -1134,7 +1137,7 @@ function NotesView() {
             <div key={x.id} style={notesS.card}>
               <div style={{ ...notesS.cover, background: palette.color }}>
                 <div style={{ ...notesS.coverDot, background: palette.dot, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-                  <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 58, height: 58, maxWidth: 'none' }} />
+                  <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 30, height: 30, objectFit: 'contain', display: 'block' }} />
                 </div>
                 {x.subject && <span style={notesS.subjectChip}>{x.subject}</span>}
               </div>
@@ -1147,7 +1150,7 @@ function NotesView() {
                 </p>
                 <div style={notesS.actions}>
                   <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
-                    <BookOpen size={14} /> Open Exam
+                    <LockeenLogo size={16} /> Open Exam
                   </button>
                   <button style={notesS.ghostSmall} onClick={() => alert(`Quick quiz from "${x.name}"…`)}>
                     <Sparkles size={14} /> Quick Quiz
