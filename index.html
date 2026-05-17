@@ -1359,7 +1359,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
           <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); setTab(t); }} />
           <div style={shellS.main}>
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
-            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} />}
+            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} />}
             {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} />}
             {tab === 'quiz' && <QuizView {...quizDeck} setTab={setTab} darkMode={darkMode} onQuizComplete={onQuizComplete} />}
             {tab === 'tutor'     && <TutorView />}
@@ -2142,11 +2142,23 @@ const seedExams = [
   ]},
 ];
 
-function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, darkMode, onOpenPlanner, onExamAdded }) {
+function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, darkMode, onOpenPlanner, onExamAdded, quizHistory, flashHistory }) {
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [selectedNote, setSelectedNote] = useState(null);
 
   const activeExam = exams.find((x) => x.id === activeId);
+
+  if (selectedNote !== null) {
+    return (
+      <ExamDetailView
+        note={selectedNote}
+        quizHistory={quizHistory || {}}
+        flashHistory={flashHistory || {}}
+        onBack={() => setSelectedNote(null)}
+      />
+    );
+  }
 
   if (activeExam) {
     const onAddChapter = ({ chapterId, chapterName, fileCount }) => {
@@ -2244,7 +2256,7 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
                   <GradeValue value={x.targetGrade || 27} color={palette.dot} size={18} />
                 </div>
                 <div style={notesS.actions}>
-                  <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
+                  <button style={notesS.primarySmall} onClick={() => setSelectedNote(x)}>
                     <LockeenLogo size={16} /> Open Exam
                   </button>
                   <button style={notesS.ghostSmall} onClick={() => alert(`Quick quiz from "${x.name}"…`)}>
@@ -2256,6 +2268,132 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function ExamDetailView({ note, quizHistory, flashHistory, onBack }) {
+  const sc = SUBJECT_COLORS[note.subject] || SUBJECT_COLORS['Biology'];
+  const examDate = note.examDate || note.date;
+  const allQuiz = quizHistory[note.id] || [];
+  const allFlash = flashHistory[note.id] || [];
+  const quizAvg = allQuiz.length > 0
+    ? Math.round(allQuiz.reduce((a, b) => a + b, 0) / allQuiz.length)
+    : 50;
+  const flashAvg = allFlash.length > 0
+    ? Math.round(allFlash.reduce((a, b) => a + b, 0) / allFlash.length)
+    : 50;
+  const readiness = Math.round(quizAvg * 0.4 + flashAvg * 0.3 + 70 * 0.2 + 55 * 0.1);
+  const examTime = examDate ? new Date(examDate + 'T00:00:00') : null;
+  const daysLeft = examTime
+    ? Math.max(0, Math.ceil((examTime - new Date()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const circumference = 251.33;
+  const dashOffset = circumference - (readiness / 100) * circumference;
+  const targetGrade = note.targetGrade || 27;
+
+  function readinessMsg() {
+    if (readiness >= 80) return {
+      icon: '🎉',
+      msg: 'Excellent! You\'re well prepared.',
+      sub: 'Keep it up for the last few sessions.'
+    };
+    if (readiness >= 60) return {
+      icon: '💪',
+      msg: 'On track for ' + targetGrade + '/30',
+      sub: 'Need ' + Math.ceil((80 - readiness) / 10) + ' more strong sessions.'
+    };
+    return {
+      icon: '⚠️',
+      msg: 'More practice needed',
+      sub: 'Focus on weak topics and increase study sessions.'
+    };
+  }
+
+  function examIcon(subject) {
+    const icons = {
+      Biology: '🧬',
+      Chemistry: '⚗️',
+      Math: '📐',
+      History: '📜',
+      Economics: '📊',
+      Literature: '📚',
+    };
+    return icons[subject] || '📖';
+  }
+
+  const rm = readinessMsg();
+  const bars = [
+    { label: 'Quiz performance', value: quizAvg, color: '#3730E8' },
+    { label: 'Flashcard mastery', value: flashAvg, color: '#8B5CF6' },
+    { label: 'Study time', value: 70, color: '#10B981' },
+    { label: 'Plan progress', value: 55, color: '#F59E0B' },
+  ];
+
+  return (
+    <div>
+      <button onClick={onBack} style={examS.backBtn}>← Back to My Exams</button>
+
+      <section style={examS.headerCard}>
+        <div style={examS.headerLeft}>
+          <div style={{ ...examS.iconBox, background: sc.bg }}>{examIcon(note.subject)}</div>
+          <div>
+            <h2 style={examS.title}>{note.name || note.title}</h2>
+            <div style={examS.badges}>
+              <span style={{ ...examS.dateBadge, background: sc.bg, color: sc.text }}>
+                <CalendarIcon size={13} /> {formatExamDate(examDate)}
+              </span>
+              <span style={examS.targetBadge}>🎯 Target: {targetGrade}/30</span>
+            </div>
+          </div>
+        </div>
+        <div style={examS.daysBox}>
+          <div style={{ ...examS.daysNum, color: daysLeft < 14 ? '#EF4444' : sc.dot }}>{daysLeft}</div>
+          <div style={examS.daysLabel}>days left</div>
+        </div>
+      </section>
+
+      <section style={examS.readinessCard}>
+        <h3 style={examS.sectionTitle}>📊 Readiness Score</h3>
+        <div style={examS.readinessGrid}>
+          <div style={examS.ringBox}>
+            <svg width="96" height="96" viewBox="0 0 96 96" style={examS.ringSvg}>
+              <circle cx="48" cy="48" r="40" fill="none" stroke="var(--border)" strokeWidth="7" />
+              <circle
+                cx="48"
+                cy="48"
+                r="40"
+                fill="none"
+                stroke={sc.dot}
+                strokeWidth="7"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={dashOffset}
+              />
+            </svg>
+            <div style={examS.ringCenter}>
+              <div style={{ ...examS.ringPct, color: sc.dot }}>{readiness}%</div>
+              <div style={examS.ringLabel}>ready</div>
+            </div>
+          </div>
+
+          <div>
+            <div style={examS.msg}>{rm.icon} {rm.msg}</div>
+            <div style={examS.sub}>{rm.sub}</div>
+            <div style={examS.bars}>
+              {bars.map((b) => (
+                <div key={b.label} style={examS.barRow}>
+                  <span style={examS.barLabel}>{b.label}</span>
+                  <span style={examS.track}>
+                    <span style={{ ...examS.fill, width: b.value + '%', background: b.color }} />
+                  </span>
+                  <span style={{ ...examS.barValue, color: b.color }}>{b.value}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -2916,6 +3054,36 @@ const examsS = {
   emptyIcon: { width: 44, height: 44, borderRadius: 12, background: 'var(--lavender)', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 4 },
   emptyTitle: { fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
   emptySub: { fontSize: 13 },
+};
+
+const examS = {
+  backBtn: { background: 'transparent', border: 'none', fontSize: 13, color: 'var(--gray)', cursor: 'pointer', marginBottom: 16, padding: 0 },
+  headerCard: { background: '#fff', borderRadius: 18, border: '1px solid var(--border)', padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 },
+  iconBox: { width: 48, height: 48, borderRadius: 14, display: 'grid', placeItems: 'center', fontSize: 22, flexShrink: 0 },
+  title: { margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: 'var(--ink)' },
+  badges: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  dateBadge: { display: 'inline-flex', alignItems: 'center', gap: 5, borderRadius: 999, padding: '5px 9px', fontSize: 12, fontWeight: 700 },
+  targetBadge: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '5px 9px', background: '#FEF9C3', color: '#CA8A04', fontSize: 12, fontWeight: 700 },
+  daysBox: { textAlign: 'center', minWidth: 72 },
+  daysNum: { fontSize: 28, fontWeight: 800, lineHeight: 1 },
+  daysLabel: { fontSize: 11, color: 'var(--gray)', marginTop: 3 },
+  readinessCard: { background: '#fff', borderRadius: 18, border: '1px solid var(--border)', padding: 20, marginTop: 14 },
+  sectionTitle: { margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' },
+  readinessGrid: { display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 20, alignItems: 'center' },
+  ringBox: { width: 96, height: 96, position: 'relative' },
+  ringSvg: { display: 'block', transform: 'rotate(-90deg)' },
+  ringCenter: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
+  ringPct: { fontSize: 22, fontWeight: 800, lineHeight: 1 },
+  ringLabel: { fontSize: 9, color: 'var(--gray)', marginTop: 3 },
+  msg: { fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 },
+  sub: { fontSize: 12, color: 'var(--gray)', lineHeight: 1.5 },
+  bars: { display: 'flex', flexDirection: 'column', gap: 7, marginTop: 8 },
+  barRow: { display: 'flex', alignItems: 'center', gap: 9 },
+  barLabel: { minWidth: 110, fontSize: 11, color: 'var(--gray)' },
+  track: { flex: 1, height: 4, background: 'var(--border)', borderRadius: 999, overflow: 'hidden' },
+  fill: { display: 'block', height: '100%', borderRadius: 999 },
+  barValue: { width: 30, textAlign: 'right', fontSize: 11, fontWeight: 600 },
 };
 
 const notesS = {
