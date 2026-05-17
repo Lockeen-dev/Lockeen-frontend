@@ -3502,7 +3502,7 @@ const getMonday  = (d) => { const r = new Date(d); const day = r.getDay(); r.set
 const calAddDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
 const dayKey     = (d) => `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
 const durToMins  = (s) => { let m=0; const h=s.match(/(\d+)h/); const mn=s.match(/(\d+)m/); if(h) m+=parseInt(h[1])*60; if(mn) m+=parseInt(mn[1]); return m||0; };
-const CAL_HOUR_H = 58;
+const CAL_HOUR_H = 42;
 const CAL_START_H = 0;
 
 const SUBJECT_NOTE_MAP = {
@@ -3561,8 +3561,16 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const [modalTime, setModalTime]   = useState('09:00');
   const [modalDur, setModalDur]     = useState('1h');
   const [drag, setDrag]             = useState(null);
+  const [viewDropOpen, setViewDropOpen] = useState(false);
   const dragMeta   = useRef({});
   const gridBodyRef = useRef(null);
+
+  useEffect(() => {
+    if (view !== 'week' || !gridBodyRef.current) return;
+    const now = new Date();
+    const scrollTo = (now.getHours() + now.getMinutes() / 60) * CAL_HOUR_H - 120;
+    gridBodyRef.current.scrollTop = Math.max(0, scrollTo);
+  }, [view]);
 
   const startDrag = (e, ev, key, idx) => {
     e.preventDefault(); e.stopPropagation();
@@ -3724,7 +3732,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
         </div>
 
         {/* Scrollable time body */}
-        <div ref={gridBodyRef} style={{ display:'flex', maxHeight:560, overflowY:'auto' }}>
+        <div ref={gridBodyRef} style={{ display:'flex', maxHeight:480, overflowY:'auto' }}>
           {/* Hour labels */}
           <div style={{ width:50, flexShrink:0, borderRight:'1px solid var(--border)' }}>
             {hours.map(h => (
@@ -3880,16 +3888,29 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
           <span style={calS.rangeLabel}>{rangeLabel}</span>
           <button onClick={navNext} style={calS.navBtn}>›</button>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={calS.viewToggleGroup}>
-            {['week','month'].map(v => (
-              <button key={v} onClick={() => setView(v)} style={{ ...calS.toggleBtn, ...(view===v?calS.toggleBtnActive:{}) }}>
-                {v.charAt(0).toUpperCase()+v.slice(1)}
-              </button>
-            ))}
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          {/* View dropdown pill */}
+          <div style={{ position:'relative' }}>
+            <button onClick={() => setViewDropOpen(o => !o)}
+              style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:999, fontSize:13, fontWeight:600, color:'var(--ink)', cursor:'pointer', userSelect:'none' }}>
+              {view === 'week' ? 'Settimana' : 'Mese'}
+              <ChevronDown size={14} color="var(--gray)" />
+            </button>
+            {viewDropOpen && (
+              <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'0 12px 32px rgba(0,0,0,.18)', zIndex:300, minWidth:160, overflow:'hidden' }}
+                onMouseLeave={() => setViewDropOpen(false)}>
+                {[{v:'week',label:'Settimana',key:'W'},{v:'month',label:'Mese',key:'M'}].map(({v, label, key}) => (
+                  <button key={v} onClick={() => { setView(v); setViewDropOpen(false); }}
+                    style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 18px', background: view===v ? 'var(--lavender)' : 'transparent', color: view===v ? 'var(--indigo)' : 'var(--ink)', fontSize:14, fontWeight: view===v ? 700 : 500, borderBottom:'1px solid var(--border)', cursor:'pointer', textAlign:'left' }}>
+                    <span>{label}</span>
+                    <span style={{ fontSize:11, color:'var(--gray)', fontWeight:700 }}>{key}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <button onClick={onOpenPlanner} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'7px 14px', background:'var(--indigo)', color:'#fff', borderRadius:12, fontSize:12, fontWeight:600, border:'none', cursor:'pointer' }}>
-            <Brain size={14} /> Study Plan
+          <button onClick={onOpenPlanner} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 16px', background:'var(--indigo)', color:'#fff', borderRadius:999, fontSize:13, fontWeight:600, border:'none', cursor:'pointer' }}>
+            <Brain size={14} /> Studio AI
           </button>
         </div>
       </div>
