@@ -970,10 +970,18 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
 
   const [plannerOpen, setPlannerOpen]       = useState(false);
   const [plannerNoteId, setPlannerNoteId]     = useState(null);
-  const [pendingCalEvents, setPendingCalEvents] = useState([]);
+  const [calEvents, setCalEvents]             = useState(initCalEvents);
 
   function handlePlanAdded(evArr) {
-    setPendingCalEvents(evArr);
+    setCalEvents(prev => {
+      const next = { ...prev };
+      evArr.forEach(({ dateKey, event }) => { next[dateKey] = [...(next[dateKey] || []), event]; });
+      return next;
+    });
+  }
+
+  function handleExamAdded(dateKey, examEvent) {
+    setCalEvents(prev => ({ ...prev, [dateKey]: [...(prev[dateKey] || []), examEvent] }));
   }
 
   const openExam = (id) => {
@@ -1040,12 +1048,12 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
           <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); setTab(t); }} />
           <div style={shellS.main}>
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} />}
-            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} />}
+            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} />}
             {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} />}
             {tab === 'quiz' && <QuizView {...quizDeck} setTab={setTab} darkMode={darkMode} />}
             {tab === 'tutor'     && <TutorView />}
             {tab === 'analytics' && <AnalyticsView weekData={weekData} />}
-            {tab === 'calendar'  && <CalendarView setTab={setTab} pendingCalEvents={pendingCalEvents} onPendingConsumed={() => setPendingCalEvents([])} onOpenPlanner={() => setPlannerOpen(true)} />}
+            {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} />}
           </div>
         </div>
       </div>
@@ -1323,7 +1331,7 @@ const seedExams = [
   ]},
 ];
 
-function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, darkMode, onOpenPlanner }) {
+function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, darkMode, onOpenPlanner, onExamAdded }) {
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
@@ -1372,11 +1380,21 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
         <CreateExamModal
           onClose={() => setShowCreate(false)}
           onCreate={(exam) => {
-            const dateBasedCount = exams.filter((e) => !!e.date).length;
-            const idx = dateBasedCount % PALETTE_CYCLE.length;
-            const enriched = { ...exam, color: PALETTE_CYCLE[idx], dot: DOT_CYCLE[idx] };
+            const sc = SUBJECT_COLORS[exam.subject] || EXTRA_SUBJECT_COLORS.Other;
+            const enriched = { ...exam, color: sc.bg, dot: sc.dot, subject: exam.subject };
             setExams((p) => [enriched, ...p]);
             setShowCreate(false);
+            if (exam.date && onExamAdded) {
+              const [yr, mo, dy] = exam.date.split('-').map(Number);
+              const dateKey = `${yr}-${mo}-${dy}`;
+              onExamAdded(dateKey, {
+                name: '📝 Exam: ' + exam.name,
+                time: '09:00', dur: '2h', cat: 'study',
+                noteId: exam.id,
+                noteColor: sc.dot, noteBg: sc.bg, noteText: sc.text,
+                noteSubject: exam.subject,
+              });
+            }
           }}
         />
       )}
@@ -1907,31 +1925,31 @@ const quizS = {
 };
 
 function CreateExamModal({ onClose, onCreate }) {
-  const [name, setName] = useState('');
+  const [name, setName]       = useState('');
+  const [subject, setSubject] = useState('');
+  const [subjectErr, setSubjectErr] = useState(false);
   const today = new Date();
   const [day, setDay]     = useState(today.getDate());
-  const [month, setMonth] = useState(today.getMonth() + 1); // 1-12
+  const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear]   = useState(today.getFullYear());
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const SUBJECTS_EXAM = ['Biology','Chemistry','History','Math','Economics','Literature','Other'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years  = [2025, 2026, 2027, 2028];
   const pad    = (n) => (n < 10 ? '0' + n : '' + n);
 
   const submit = (e) => {
     if (e) e.preventDefault();
     if (!name.trim()) return;
-    // Clamp day to last valid day of selected month/year
+    if (!subject) { setSubjectErr(true); return; }
     const lastDay = new Date(year, month, 0).getDate();
     const safeDay = Math.min(Number(day), lastDay);
     const iso = `${year}-${pad(month)}-${pad(safeDay)}`;
-    onCreate({
-      id: Date.now(),
-      name: name.trim(),
-      date: iso,
-      updated: 'Just now',
-      chapters: [],
-    });
+    onCreate({ id: Date.now(), name: name.trim(), subject, date: iso, updated: 'Just now', chapters: [] });
   };
+
+  const sc = SUBJECT_COLORS[subject] || EXTRA_SUBJECT_COLORS.Other;
+  const canSubmit = name.trim() && subject;
 
   return (
     <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
@@ -1943,6 +1961,24 @@ function CreateExamModal({ onClose, onCreate }) {
         <div style={uploadS.field}>
           <label style={uploadS.label}>Exam name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Biology Final 2024" style={uploadS.input} autoFocus />
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={uploadS.label}>Subject</label>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:8 }}>
+            {SUBJECTS_EXAM.map(s => {
+              const col = SUBJECT_COLORS[s] || EXTRA_SUBJECT_COLORS.Other;
+              const sel = subject === s;
+              return (
+                <button key={s} type="button" onClick={() => { setSubject(s); setSubjectErr(false); }}
+                  style={{ padding:'6px 14px', borderRadius:999, fontSize:12, fontWeight:600, cursor:'pointer', border:'1.5px solid',
+                    background: sel ? col.dot : col.bg, color: sel ? '#fff' : col.text, borderColor: sel ? col.dot : col.border }}>
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+          {subjectErr && <div style={{ fontSize:11, color:'#DC2626', marginTop:4 }}>Select a subject</div>}
         </div>
 
         <div style={uploadS.field}>
@@ -1968,7 +2004,8 @@ function CreateExamModal({ onClose, onCreate }) {
 
         <div style={uploadS.actions}>
           <button type="button" onClick={onClose} style={uploadS.cancelBtn}>Cancel</button>
-          <button type="submit" disabled={!name.trim()} style={{ ...uploadS.submitBtn, ...(!name.trim() ? uploadS.submitBtnDisabled : null) }}>
+          <button type="submit" disabled={!canSubmit}
+            style={{ ...uploadS.submitBtn, background: canSubmit ? sc.dot : undefined, ...(!canSubmit ? uploadS.submitBtnDisabled : null) }}>
             Create Exam
           </button>
         </div>
@@ -2491,14 +2528,13 @@ const initCalEvents = () => {
   return ev;
 };
 
-function CalendarView({ setTab, pendingCalEvents, onPendingConsumed, onOpenPlanner }) {
+function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const [view, setView]           = useState('week');
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
   const [viewYear, setViewYear]   = useState(() => new Date().getFullYear());
   const [activeCats, setActiveCats] = useState(() => new Set(LIFE_CATS.map(c => c.id)));
-  const [events, setEvents]       = useState(initCalEvents);
   const [modalKey, setModalKey]   = useState(null);
   const [selCat, setSelCat]       = useState('study');
   const [selNoteId, setSelNoteId] = useState(null);
@@ -2567,18 +2603,6 @@ function CalendarView({ setTab, pendingCalEvents, onPendingConsumed, onOpenPlann
     const total = Object.values(totals).reduce((a,b) => a+b, 0);
     return LIFE_CATS.map(c => ({ ...c, mins: totals[c.id], pct: total > 0 ? Math.round(totals[c.id]/total*100) : 0 }));
   }, [events, weekStart]);
-
-  useEffect(() => {
-    if (!pendingCalEvents || pendingCalEvents.length === 0) return;
-    setEvents(prev => {
-      const next = { ...prev };
-      pendingCalEvents.forEach(({ dateKey, event }) => {
-        next[dateKey] = [...(next[dateKey] || []), event];
-      });
-      return next;
-    });
-    if (onPendingConsumed) onPendingConsumed();
-  }, [pendingCalEvents]);
 
   const fmtModalDate = (key) => { if (!key) return ''; const [y,m,d] = key.split('-').map(Number); return `${CAL_MONTHS_S[m-1]} ${d}, ${y}`; };
   const DAY_NAMES = ['MON','TUE','WED','THU','FRI'];
