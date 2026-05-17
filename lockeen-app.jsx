@@ -80,7 +80,7 @@ function AuthScreen({ onAuth }) {
       <div style={authS.card}>
         <div style={authS.brand}>
           <div style={authS.logoBox}>
-            <BookOpen size={22} />
+            <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 58, height: 58, maxWidth: 'none' }} />
           </div>
           <span style={authS.brandText}>Lockeen</span>
         </div>
