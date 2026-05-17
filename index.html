@@ -40,6 +40,44 @@
     --pink:#FDF2F8;
     --mint:#ECFEFF;
     --teal:#E0F7FA;
+    --surface:#ffffff;
+    --input-bg:#ffffff;
+  }
+  [data-theme="dark"] {
+    --indigo:      #6366f1;
+    --indigo-2:    #818cf8;
+    --purple:      #a78bfa;
+    --ink:         #f1f5f9;
+    --gray:        #94a3b8;
+    --gray-2:      #64748b;
+    --border:      #1e293b;
+    --sidebar-bg:  #0f172a;
+    --lavender:    #1e1b4b;
+    --pink:        #2d1b33;
+    --mint:        #0c2626;
+    --teal:        #0c1a1a;
+    --surface:     #1e293b;
+    --input-bg:    #0f172a;
+  }
+  [data-theme="dark"] body,
+  [data-theme="dark"] #root,
+  [data-theme="dark"] #react-root,
+  [data-theme="dark"] #page-app {
+    background: #0f172a;
+    color: #f1f5f9;
+  }
+  [data-theme="dark"] .outerCard,
+  [data-theme="dark"] [style*="background: #fff"],
+  [data-theme="dark"] [style*="background:#fff"] {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+  }
+  [data-theme="dark"] input,
+  [data-theme="dark"] textarea,
+  [data-theme="dark"] select {
+    background: #0f172a !important;
+    color: var(--ink) !important;
+    border-color: var(--border) !important;
   }
   html, body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #070B2D; background:#ffffff; }
   .gradient-text { background: linear-gradient(90deg, #2F2BFF 0%, #8B5CF6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -56,6 +94,16 @@
   [data-lucide] { width: 1em; height: 1em; }
   .page { display: block; }
   @keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes spin-once { to { transform: rotate(360deg) } }
+  [data-theme="dark"] nav.fixed { background: rgba(15,23,42,.85) !important; }
+  [data-theme="dark"] .gradient-hero-bg { opacity: .10 !important; }
+  [data-theme="dark"] .hero-blob { opacity: .10; }
+  [data-theme="dark"] footer { background: #0f172a !important; }
+  [data-theme="dark"] #page-landing { background: #0f172a; color: #f1f5f9; }
+  [data-theme="dark"] #page-landing .bg-white { background-color: #0f172a !important; }
+  [data-theme="dark"] #page-landing [class*="text-foreground"] { color: #cbd5e1 !important; }
+  [data-theme="dark"] #page-landing [class*="border-border"] { border-color: #334155 !important; }
+  [data-theme="dark"] #page-landing [class*="bg-muted"] { background-color: rgba(30,41,59,.65) !important; }
 </style>
 </head>
 <body class="min-h-screen bg-white antialiased">
@@ -94,7 +142,7 @@
 <!-- ============ HERO ============ -->
 <section class="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden">
   <div class="absolute inset-0 gradient-hero-bg opacity-[0.03]"></div>
-  <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="hero-blob absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
 
   <div class="relative max-w-7xl mx-auto px-6 lg:px-8">
     <div class="text-center max-w-4xl mx-auto">
@@ -678,6 +726,8 @@ const LockeenLogo = ({ size = 20, muted = false }) => (
   <img src={muted ? "Lockeen-icon-muted.png" : "Lockeen-icon.png"} alt="" aria-hidden="true" style={{ width: size, height: size, objectFit: 'contain' }} />
 );
 const XMark       = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
+const Sun         = (p) => <Icon {...p}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></Icon>;
+const Moon        = (p) => <Icon {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></Icon>;
 const Brain       = (p) => <Icon {...p}><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></Icon>;
 const CalendarIcon = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Icon>;
 const ChevronLeft  = (p) => <Icon {...p}><polyline points="15 18 9 12 15 6"/></Icon>;
@@ -688,6 +738,17 @@ function App() {
   const [authed, setAuthed] = useState(false);
   const [user, setUser] = useState({ name: 'Alex', email: 'alex@lockeen.com' });
   const [modal, setModal] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('lockeen-theme');
+    if (saved === 'dark') {
+      setDarkMode(true);
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  }, []);
 
   useEffect(() => {
     window.openAuth = (m) => setModal(m === 'signup' ? 'signup' : 'signin');
@@ -717,6 +778,13 @@ function App() {
     if (window.showPage) window.showPage('page-landing');
   };
 
+  function toggleDark() {
+    const next = !darkMode;
+    setDarkMode(next);
+    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+    localStorage.setItem('lockeen-theme', next ? 'dark' : 'light');
+  }
+
   const pageAppEl = typeof document !== 'undefined' ? document.getElementById('page-app') : null;
 
   return (
@@ -726,10 +794,11 @@ function App() {
           initialMode={modal}
           onAuth={handleAuth}
           onClose={() => setModal(null)}
+          darkMode={darkMode}
         />
       )}
       {authed && pageAppEl && ReactDOM.createPortal(
-        <Dashboard user={user} onLogout={handleLogout} />,
+        <Dashboard user={user} onLogout={handleLogout} darkMode={darkMode} toggleDark={toggleDark} />,
         pageAppEl
       )}
     </React.Fragment>
@@ -737,7 +806,7 @@ function App() {
 }
 
 /* ===================== AUTH SCREEN ===================== */
-function AuthModal({ initialMode = "signin", onAuth, onClose }) {
+function AuthModal({ initialMode = "signin", onAuth, onClose, darkMode }) {
   const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('alex@lockeen.com');
@@ -766,7 +835,7 @@ function AuthModal({ initialMode = "signin", onAuth, onClose }) {
       <div style={authS.blob1} />
       <div style={authS.blob2} />
 
-      <div style={authS.card}>
+      <div style={{ ...authS.card, background: darkMode ? '#1e293b' : '#fff' }}>
         <div style={authS.brand}>
           <div style={{ width: 36, height: 36, background: '#3730E8', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 58, height: 58, maxWidth: 'none' }} />
@@ -783,7 +852,7 @@ function AuthModal({ initialMode = "signin", onAuth, onClose }) {
             : 'Start studying smarter with AI in seconds'}
         </p>
 
-        <button onClick={google} style={authS.googleBtn} disabled={loading}>
+        <button onClick={google} style={{ ...authS.googleBtn, background: darkMode ? '#1e293b' : '#fff' }} disabled={loading}>
           <Google /> Continue with Google
         </button>
 
@@ -796,15 +865,15 @@ function AuthModal({ initialMode = "signin", onAuth, onClose }) {
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {mode === 'signup' && (
             <Field label="Full name">
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" style={authS.input} />
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff' }} />
             </Field>
           )}
           <Field label="Email">
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" style={authS.input} />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff' }} />
           </Field>
           <Field label="Password" right={mode === 'signin' && <a href="#" style={authS.forgot}>Forgot?</a>}>
             <div style={{ position: 'relative' }}>
-              <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ ...authS.input, paddingRight: 44 }} />
+              <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', paddingRight: 44 }} />
               <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password" style={authS.eyeBtn}>
                 {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -847,17 +916,17 @@ const authS = {
   bg: { position: 'relative', display: 'grid', placeItems: 'center', padding: 0 },
   blob1: { position: 'absolute', top: -180, left: -180, width: 520, height: 520, background: 'radial-gradient(closest-side, rgba(55,48,232,.18), transparent 70%)', filter: 'blur(20px)' },
   blob2: { position: 'absolute', bottom: -200, right: -200, width: 560, height: 560, background: 'radial-gradient(closest-side, rgba(139,92,246,.18), transparent 70%)', filter: 'blur(20px)' },
-  card: { position: 'relative', width: '100%', maxWidth: 440, background: '#fff', borderRadius: 24, border: '1px solid var(--border)', padding: 32, boxShadow: '0 20px 60px -20px rgba(15,16,53,.15)' },
+  card: { position: 'relative', width: '100%', maxWidth: 440, background: 'var(--surface)', borderRadius: 24, border: '1px solid var(--border)', padding: 32, boxShadow: '0 20px 60px -20px rgba(15,16,53,.15)' },
   brand: { display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 24 },
   logoBox: { width: 40, height: 40, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
   brandText: { fontSize: 22, fontWeight: 800, color: 'var(--indigo)' },
   title: { fontSize: 26, fontWeight: 700, color: 'var(--ink)', margin: 0, textAlign: 'center', letterSpacing: '-0.02em' },
   sub: { textAlign: 'center', color: 'var(--gray)', marginTop: 8, marginBottom: 24, fontSize: 15 },
-  googleBtn: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 12, background: '#fff', color: 'var(--ink)', fontWeight: 600, fontSize: 15 },
+  googleBtn: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600, fontSize: 15 },
   divider: { display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0' },
   dividerLine: { flex: 1, height: 1, background: 'var(--border)' },
   dividerText: { color: 'var(--gray-2)', fontSize: 13 },
-  input: { width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 15, color: 'var(--ink)', background: '#fff', outline: 'none', transition: 'border-color .15s' },
+  input: { width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 15, color: 'var(--ink)', background: 'var(--input-bg)', outline: 'none', transition: 'border-color .15s' },
   eyeBtn: { position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', padding: 8, color: 'var(--gray)', borderRadius: 8 },
   forgot: { fontSize: 13, color: 'var(--indigo)', fontWeight: 600 },
   submit: { width: '100%', marginTop: 8, padding: '13px 16px', background: 'var(--indigo)', color: '#fff', borderRadius: 12, fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 10px 30px -8px rgba(55,48,232,.45)' },
@@ -866,10 +935,11 @@ const authS = {
 };
 
 /* ===================== DASHBOARD SHELL ===================== */
-function Dashboard({ user, onLogout }) {
+function Dashboard({ user, onLogout, darkMode, toggleDark }) {
   const [tab, setTab] = useState('dashboard');
   const [exams, setExams] = useState(seedExams);
   const [activeExamId, setActiveExamId] = useState(null);
+  const [themeSpin, setThemeSpin] = useState(0);
   const [flashcardDeck, setFlashcardDeck] = useState({
     subject: 'Biology',
     title: 'Cellular Respiration',
@@ -900,6 +970,19 @@ function Dashboard({ user, onLogout }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button style={shellS.iconBtn} aria-label="Notifications"><Bell size={18} /></button>
+            <button
+              onClick={() => { setThemeSpin((n) => n + 1); toggleDark(); }}
+              style={{
+                ...shellS.themeBtn,
+                background: darkMode ? '#1e293b' : '#fff',
+              }}
+              aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={darkMode ? 'Light mode' : 'Dark mode'}
+            >
+              <span key={themeSpin} style={{ ...shellS.themeIcon, animation: themeSpin ? 'spin-once .4s ease' : 'none' }}>
+                {darkMode ? <Moon size={18} /> : <Sun size={18} />}
+              </span>
+            </button>
             <div style={shellS.avatar}>{user.name?.[0]?.toUpperCase() || 'A'}</div>
             <button onClick={onLogout} style={shellS.signoutBtn} title="Sign out">
               <LogOut size={16} /> <span style={{ marginLeft: 6 }}>Sign out</span>
@@ -909,16 +992,23 @@ function Dashboard({ user, onLogout }) {
       </header>
 
       {/* Outer dashboard card with indigo border */}
-      <div style={shellS.outerCard}>
+      <div
+        className="outerCard"
+        style={{
+          ...shellS.outerCard,
+          background: darkMode ? '#1e293b' : '#fff',
+          boxShadow: darkMode ? '0 30px 60px -30px rgba(0,0,0,.5)' : '0 30px 60px -30px rgba(55,48,232,.25)',
+        }}
+      >
         <div style={shellS.grid}>
           <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); setTab(t); }} />
           <div style={shellS.main}>
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} />}
-            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} />}
-            {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} />}
+            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} darkMode={darkMode} />}
+            {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} />}
             {tab === 'tutor'     && <TutorView />}
             {tab === 'analytics' && <AnalyticsView />}
-            {tab === 'calendar'  && <CalendarView exams={exams} onOpenExam={openExam} />}
+            {tab === 'calendar'  && <CalendarView exams={exams} onOpenExam={openExam} darkMode={darkMode} />}
           </div>
         </div>
       </div>
@@ -932,10 +1022,12 @@ const shellS = {
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   logoBox: { width: 36, height: 36, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
   brand: { fontSize: 18, fontWeight: 800, color: 'var(--indigo)' },
-  iconBtn: { width: 38, height: 38, borderRadius: 10, background: '#fff', border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
+  iconBtn: { width: 38, height: 38, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
+  themeBtn: { width: 38, height: 38, borderRadius: 10, border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center', transition: 'background .2s, color .2s' },
+  themeIcon: { display: 'grid', placeItems: 'center' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
-  signoutBtn: { display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: '#fff', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
-  outerCard: { border: '2px solid var(--indigo)', borderRadius: 24, background: '#fff', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
+  signoutBtn: { display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
+  outerCard: { border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
   grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 640 },
   main: { padding: '32px 36px' },
 };
@@ -1042,12 +1134,12 @@ const homeS = {
   cardTitle: { margin: '6px 0 2px', fontSize: 18, fontWeight: 700, color: 'var(--ink)' },
   cardMeta: { margin: 0, color: 'var(--gray)', fontSize: 13 },
   primaryBtn: { marginTop: 14, padding: '11px 16px', borderRadius: 999, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 14, width: '100%' },
-  outlineBtn: { marginTop: 14, padding: '11px 16px', borderRadius: 999, background: '#fff', color: 'var(--ink)', border: '1px solid var(--border)', fontWeight: 600, fontSize: 14, width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  outlineBtn: { marginTop: 14, padding: '11px 16px', borderRadius: 999, background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border)', fontWeight: 600, fontSize: 14, width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
   assistant: { background: '#F6F8FF', borderRadius: 20, padding: 22, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' },
   assistantIcon: { width: 38, height: 38, borderRadius: 999, background: '#E0EAFF', color: 'var(--indigo)', display: 'grid', placeItems: 'center' },
   assistantTitle: { margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
   assistantSub: { margin: '2px 0 0', color: 'var(--gray)', fontSize: 13 },
-  msgUser: { padding: '12px 16px', background: '#fff', borderRadius: 14, border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 14 },
+  msgUser: { padding: '12px 16px', background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 14 },
   msgAI:   { padding: '12px 16px', background: 'var(--teal)', borderRadius: 14, color: 'var(--ink)', fontSize: 14 },
 };
 
@@ -1070,14 +1162,30 @@ const SUBJECT_COLORS = {
   'Literature': { bg:'#FEE2E2', dot:'#EF4444', text:'#991B1B', border:'#fca5a5' },
 };
 
+const SUBJECT_COLORS_DARK = {
+  'Biology':    { bg:'#1e1b4b', dot:'#818cf8', text:'#a5b4fc', border:'#3730a3' },
+  'Chemistry':  { bg:'#2d1b33', dot:'#c084fc', text:'#d8b4fe', border:'#7e22ce' },
+  'History':    { bg:'#292524', dot:'#fbbf24', text:'#fcd34d', border:'#92400e' },
+  'Math':       { bg:'#0c2626', dot:'#22d3ee', text:'#67e8f9', border:'#0e7490' },
+  'Economics':  { bg:'#052e16', dot:'#34d399', text:'#6ee7b7', border:'#065f46' },
+  'Literature': { bg:'#450a0a', dot:'#f87171', text:'#fca5a5', border:'#991b1b' },
+};
+
 const EXTRA_SUBJECT_COLORS = {
   Physics: { bg: '#DBEAFE', dot: '#3B82F6', text: '#1D4ED8', border: '#BFDBFE' },
   Other:   { bg: '#F3F4F6', dot: '#6B7280', text: '#374151', border: '#D1D5DB' },
 };
 
-function getSubjectPalette(subject, fallback = {}) {
-  return SUBJECT_COLORS[subject]
-    || EXTRA_SUBJECT_COLORS[subject]
+const EXTRA_SUBJECT_COLORS_DARK = {
+  Physics: { bg: '#172554', dot: '#60A5FA', text: '#93C5FD', border: '#1D4ED8' },
+  Other:   { bg: '#1F2937', dot: '#94A3B8', text: '#CBD5E1', border: '#334155' },
+};
+
+function getSubjectPalette(subject, fallback = {}, darkMode = false) {
+  const primary = darkMode ? SUBJECT_COLORS_DARK : SUBJECT_COLORS;
+  const extra = darkMode ? EXTRA_SUBJECT_COLORS_DARK : EXTRA_SUBJECT_COLORS;
+  return primary[subject]
+    || extra[subject]
     || {
       bg: fallback.bg || fallback.color || '#F3F4F6',
       dot: fallback.dot || '#6B7280',
@@ -1139,7 +1247,7 @@ const seedExams = [
   ]},
 ];
 
-function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards }) {
+function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, darkMode }) {
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
@@ -1162,7 +1270,7 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards })
         return { ...x, chapters: [newChapter, ...x.chapters], updated: 'Just now' };
       }));
     };
-    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onOpenFlashcards={onOpenFlashcards} />;
+    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onOpenFlashcards={onOpenFlashcards} darkMode={darkMode} />;
   }
 
   const filtered = exams.filter((x) => (x.name + ' ' + (x.subject || '')).toLowerCase().includes(q.toLowerCase()));
@@ -1198,7 +1306,7 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards })
 
       <div style={examsS.grid}>
         {filtered.map((x) => {
-          const palette = getSubjectPalette(x.subject, x);
+          const palette = getSubjectPalette(x.subject, x, darkMode);
           return (
             <div key={x.id} style={notesS.card}>
               <div style={{ ...notesS.cover, background: palette.bg }}>
@@ -1229,10 +1337,10 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards })
   );
 }
 
-function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards }) {
+function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, darkMode }) {
   const [q, setQ] = useState('');
   const [showUpload, setShowUpload] = useState(false);
-  const palette = getSubjectPalette(exam.subject, exam);
+  const palette = getSubjectPalette(exam.subject, exam, darkMode);
   const filtered = exam.chapters.filter((c) => c.title.toLowerCase().includes(q.toLowerCase()));
 
   return (
@@ -1302,8 +1410,8 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards }) {
   );
 }
 
-function FlashcardViewer({ subject, title, cards, setTab }) {
-  const palette = getSubjectPalette(subject);
+function FlashcardViewer({ subject, title, cards, setTab, darkMode }) {
+  const palette = getSubjectPalette(subject, {}, darkMode);
   const total = cards.length;
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -1445,7 +1553,7 @@ const flashS = {
   progressFill: { height: '100%', borderRadius: 999, transition: 'width .4s' },
   cardStage: { maxWidth: 480, width: '100%', height: 280, perspective: 1000, padding: 0, background: 'transparent', border: 'none', textAlign: 'left' },
   cardInner: { position: 'relative', width: '100%', height: '100%', transformStyle: 'preserve-3d', transition: 'transform .55s cubic-bezier(.4,0,.2,1)' },
-  cardFront: { position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', background: '#fff', border: '1.5px solid var(--border)', borderRadius: 20, padding: 22, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
+  cardFront: { position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 20, padding: 22, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
   cardBack: { position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)', border: '1.5px solid transparent', borderRadius: 20, padding: 22, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 18 },
   faceLabel: { color: 'var(--gray)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.12em' },
   questionText: { color: 'var(--ink)', fontSize: 20, fontWeight: 700, lineHeight: 1.35, textAlign: 'center', alignSelf: 'center' },
@@ -1455,7 +1563,7 @@ const flashS = {
   dontKnowBtn: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 13, borderRadius: 14, border: '1px solid #fca5a5', background: '#FEE2E2', color: '#991B1B', fontWeight: 600 },
   knewBtn: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 13, borderRadius: 14, border: '1px solid #86efac', background: '#DCFCE7', color: '#166534', fontWeight: 600 },
   navRow: { maxWidth: 480, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, marginTop: 2 },
-  navBtn: { width: 36, height: 36, borderRadius: 999, border: '1px solid var(--border)', background: '#fff', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
+  navBtn: { width: 36, height: 36, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
   navBtnDisabled: { opacity: .45, cursor: 'not-allowed' },
   navLabel: { minWidth: 42, textAlign: 'center', color: 'var(--gray)', fontSize: 13, fontWeight: 600 },
   resultWrap: { maxWidth: 480, minHeight: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
@@ -1466,7 +1574,7 @@ const flashS = {
   resultSub: { margin: 0, color: 'var(--gray)', fontSize: 15 },
   resultActions: { display: 'flex', gap: 10, marginTop: 10 },
   tryAgainBtn: { padding: '12px 18px', borderRadius: 999, color: '#fff', fontWeight: 600 },
-  backBtn: { padding: '12px 18px', borderRadius: 999, border: '1.5px solid var(--border)', background: '#fff', color: 'var(--ink)', fontWeight: 600 },
+  backBtn: { padding: '12px 18px', borderRadius: 999, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 },
   emptyWrap: { maxWidth: 480, minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
 };
 
@@ -1551,7 +1659,7 @@ const dateS = {
     borderRadius: 12,
     fontSize: 14,
     color: 'var(--ink)',
-    background: '#fff',
+    background: 'var(--surface)',
     outline: 'none',
     fontFamily: 'inherit',
     fontWeight: 500,
@@ -1568,7 +1676,7 @@ const dateS = {
 
 const examsS = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 },
-  backBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, padding: '7px 14px 7px 12px', borderRadius: 999, background: '#fff', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
+  backBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, padding: '7px 14px 7px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
   subjectBadge: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: 'var(--ink)' },
   empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '48px 20px', background: '#F8F9FF', border: '1px dashed var(--border)', borderRadius: 18, color: 'var(--gray)', textAlign: 'center' },
   emptyIcon: { width: 44, height: 44, borderRadius: 12, background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 4 },
@@ -1578,11 +1686,11 @@ const examsS = {
 
 const notesS = {
   headRow: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, gap: 16, flexWrap: 'wrap' },
-  search: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 12px', color: 'var(--gray)' },
+  search: { display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 12px', color: 'var(--gray)' },
   searchInput: { border: 'none', outline: 'none', fontSize: 14, color: 'var(--ink)', width: 180, background: 'transparent' },
   newBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 12, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 14 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 18 },
-  card: { background: '#fff', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', transition: 'transform .15s, box-shadow .15s' },
+  card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', transition: 'transform .15s, box-shadow .15s' },
   cover: { height: 100, position: 'relative', display: 'grid', placeItems: 'center' },
   coverDot: { width: 36, height: 36, borderRadius: 12 },
   subjectChip: { position: 'absolute', top: 12, right: 12, fontSize: 11, fontWeight: 700, padding: '4px 10px', background: 'rgba(255,255,255,.8)', borderRadius: 999, color: 'var(--ink)' },
@@ -1590,7 +1698,7 @@ const notesS = {
   meta: { margin: '0 0 14px', color: 'var(--gray)', fontSize: 12 },
   actions: { display: 'flex', gap: 8 },
   primarySmall: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 10px', borderRadius: 10, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 12 },
-  ghostSmall:   { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 10px', borderRadius: 10, background: '#fff', color: 'var(--ink)', border: '1px solid var(--border)', fontWeight: 600, fontSize: 12 },
+  ghostSmall:   { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 10px', borderRadius: 10, background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border)', fontWeight: 600, fontSize: 12 },
 };
 
 /* ===================== UPLOAD NOTE MODAL ===================== */
@@ -1742,7 +1850,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
 
 const uploadS = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(7,11,45,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1100, display: 'grid', placeItems: 'center', padding: 16, animation: 'fadein .2s ease' },
-  card: { position: 'relative', width: '100%', maxWidth: 520, maxHeight: '92vh', overflowY: 'auto', background: '#fff', borderRadius: 20, border: '1px solid var(--border)', padding: 28, boxShadow: '0 30px 80px -20px rgba(15,16,53,.35)' },
+  card: { position: 'relative', width: '100%', maxWidth: 520, maxHeight: '92vh', overflowY: 'auto', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)', padding: 28, boxShadow: '0 30px 80px -20px rgba(15,16,53,.35)' },
   closeBtn: { position: 'absolute', top: 14, right: 14, width: 32, height: 32, borderRadius: 999, background: '#F4F5FF', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
   title: { margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' },
   subtitle: { margin: '6px 0 18px', fontSize: 13, color: 'var(--gray)', lineHeight: 1.5 },
@@ -1754,22 +1862,22 @@ const uploadS = {
   browseBtn: { padding: '9px 18px', borderRadius: 999, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 13, boxShadow: '0 8px 22px -10px rgba(55,48,232,.55)' },
   dropHint: { fontSize: 12, color: 'var(--gray)', marginTop: 12 },
   pills: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 },
-  pill: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px 6px 12px', background: '#fff', border: '1px solid var(--border)', borderRadius: 20, maxWidth: '100%' },
+  pill: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px 6px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, maxWidth: '100%' },
   pillIcon: { fontSize: 14, lineHeight: 1 },
   pillName: { fontSize: 13, color: 'var(--ink)', fontWeight: 500, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   pillX: { width: 20, height: 20, borderRadius: 999, color: 'var(--gray)', display: 'grid', placeItems: 'center' },
   field: { marginTop: 18 },
   label: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 },
-  input: { width: '100%', padding: '11px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14, color: 'var(--ink)', background: '#fff', outline: 'none' },
+  input: { width: '100%', padding: '11px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14, color: 'var(--ink)', background: 'var(--input-bg)', outline: 'none' },
   subjPills: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  subjPill: { padding: '8px 14px', borderRadius: 999, border: '1px solid var(--border)', background: '#fff', color: 'var(--ink)', fontWeight: 600, fontSize: 13, transition: 'all .15s' },
+  subjPill: { padding: '8px 14px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600, fontSize: 13, transition: 'all .15s' },
   subjPillActive: { background: 'var(--indigo)', color: '#fff', borderColor: 'var(--indigo)', boxShadow: '0 8px 18px -10px rgba(55,48,232,.55)' },
   loading: { marginTop: 18 },
   progressTrack: { height: 6, background: '#EEF2FF', borderRadius: 999, overflow: 'hidden' },
   progressFill: { height: '100%', background: 'linear-gradient(90deg, var(--indigo), var(--purple))', borderRadius: 999, transition: 'width .1s linear' },
   loadingText: { textAlign: 'center', fontSize: 13, color: 'var(--gray)', marginTop: 8 },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 },
-  cancelBtn: { padding: '11px 18px', borderRadius: 12, background: '#fff', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 14 },
+  cancelBtn: { padding: '11px 18px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 14 },
   submitBtn: { padding: '11px 18px', borderRadius: 12, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 14, boxShadow: '0 10px 26px -10px rgba(55,48,232,.55)', transition: 'opacity .15s' },
   submitBtnDisabled: { background: '#C7C9F0', boxShadow: 'none', cursor: 'not-allowed' },
 };
@@ -1867,8 +1975,8 @@ const tutorS = {
   bubbleUser: { maxWidth: '78%', background: 'var(--indigo)', color: '#fff', padding: '12px 16px', borderRadius: 18, borderTopRightRadius: 6, fontSize: 14, lineHeight: 1.5 },
   typingDot: { width: 8, height: 8, borderRadius: 999, background: 'var(--gray-2)', animation: 'tdot 1s infinite ease-in-out' },
   suggestRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' },
-  suggestChip: { padding: '8px 12px', borderRadius: 999, background: '#fff', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12 },
-  composer: { display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: '#fff', border: '1px solid var(--border)', borderRadius: 16 },
+  suggestChip: { padding: '8px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12 },
+  composer: { display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
   composerInput: { flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: 'var(--ink)' },
   sendBtn: { width: 40, height: 40, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
 };
@@ -1972,12 +2080,12 @@ function AnalyticsView() {
 
 const analS = {
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 22 },
-  statCard: { display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: '#fff', border: '1px solid var(--border)', borderRadius: 16 },
+  statCard: { display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
   statIcon: { width: 38, height: 38, borderRadius: 12, display: 'grid', placeItems: 'center' },
   statValue: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' },
   statLabel: { fontSize: 12, color: 'var(--gray)', marginTop: 2 },
   row: { display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 },
-  chartCard: { background: '#fff', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
+  chartCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
   cardHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 },
   cardTitle: { margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' },
   cardSub: { margin: '4px 0 0', fontSize: 13, color: 'var(--gray)' },
@@ -1989,7 +2097,7 @@ const analS = {
   barTrack: { width: '100%', maxWidth: 40, height: 190, background: '#F4F5FF', borderRadius: 10, display: 'flex', alignItems: 'flex-end', overflow: 'hidden' },
   bar: { width: '100%', background: 'linear-gradient(180deg, var(--indigo), var(--purple))', borderRadius: 10, transition: 'height .4s ease' },
   dayLabel: { fontSize: 12, color: 'var(--gray)', fontWeight: 600 },
-  subjectCard: { background: '#fff', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
+  subjectCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
   subjRow: { display: 'flex', justifyContent: 'space-between', marginBottom: 6 },
   subjName: { fontSize: 13, fontWeight: 600, color: 'var(--ink)' },
   subjPct: { fontSize: 13, color: 'var(--gray)', fontWeight: 600 },
@@ -1998,7 +2106,7 @@ const analS = {
 };
 
 /* ===================== CALENDAR ===================== */
-function CalendarView({ exams, onOpenExam }) {
+function CalendarView({ exams, onOpenExam, darkMode }) {
   const today = new Date();
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
 
@@ -2066,16 +2174,19 @@ function CalendarView({ exams, onOpenExam }) {
               <div key={i} style={{ ...calS.cell, ...(todayCell ? calS.cellToday : null) }}>
                 <div style={{ ...calS.dayNum, ...(todayCell ? calS.dayNumToday : null) }}>{d}</div>
                 <div style={calS.pills}>
-                  {dayExams.map((x) => (
-                    <button
-                      key={x.id}
-                      onClick={() => onOpenExam(x.id)}
-                      style={calS.examPill}
-                      title={`Open ${x.name}`}
-                    >
-                      {x.name}
-                    </button>
-                  ))}
+                  {dayExams.map((x) => {
+                    const palette = getSubjectPalette(x.subject, x, darkMode);
+                    return (
+                      <button
+                        key={x.id}
+                        onClick={() => onOpenExam(x.id)}
+                        style={{ ...calS.examPill, background: palette.dot }}
+                        title={`Open ${x.name}`}
+                      >
+                        {x.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -2087,14 +2198,14 @@ function CalendarView({ exams, onOpenExam }) {
 }
 
 const calS = {
-  card: { background: '#fff', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
+  card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
-  navBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 999, background: '#fff', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
+  navBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
   monthLabel: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' },
   weekdayRow: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 },
   weekday: { textAlign: 'center', fontSize: 12, fontWeight: 600, color: 'var(--gray)', padding: '4px 0' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 },
-  cell: { minHeight: 92, background: '#fff', border: '1px solid var(--border)', borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 },
+  cell: { minHeight: 92, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 },
   cellEmpty: { background: '#FAFBFF', border: '1px dashed var(--border)' },
   cellToday: { borderColor: 'var(--indigo)', background: '#F4F5FF', boxShadow: 'inset 0 0 0 1px var(--indigo)' },
   dayNum: { fontSize: 12, fontWeight: 600, color: 'var(--gray)' },
