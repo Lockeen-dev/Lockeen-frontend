@@ -2310,8 +2310,88 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
 function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {} }) {
   const [q, setQ] = useState('');
   const [showUpload, setShowUpload] = useState(false);
+  const [readinessView, setReadinessView] = useState('exam');
   const palette = getSubjectPalette(exam.subject, exam, darkMode);
   const filtered = exam.chapters.filter((c) => c.title.toLowerCase().includes(q.toLowerCase()));
+  const allQuiz = quizHistory[exam.id] || [];
+  const allFlash = flashHistory[exam.id] || [];
+  const quizAvg = allQuiz.length > 0
+    ? Math.round(allQuiz.reduce((a, b) => a + b, 0) / allQuiz.length)
+    : 50;
+  const flashAvg = allFlash.length > 0
+    ? Math.round(allFlash.reduce((a, b) => a + b, 0) / allFlash.length)
+    : 50;
+  const readiness = Math.round(quizAvg * 0.4 + flashAvg * 0.3 + 70 * 0.2 + 55 * 0.1);
+  const selectedChapter = readinessView === 'exam'
+    ? null
+    : (exam.chapters || []).find((c) => (c.id ?? c.name ?? c.title) === readinessView);
+  const selectedChapterKey = selectedChapter ? (selectedChapter.id ?? selectedChapter.name ?? selectedChapter.title) : null;
+  const chapterName = selectedChapter ? (selectedChapter.name || selectedChapter.title || 'Chapter') : '';
+  const chQuiz = selectedChapterKey != null ? (quizHistory[selectedChapterKey] || []) : [];
+  const chFlash = selectedChapterKey != null ? (flashHistory[selectedChapterKey] || []) : [];
+  const chQuizAvg = selectedChapter
+    ? (chQuiz.length > 0 ? Math.round(chQuiz.reduce((a, b) => a + b, 0) / chQuiz.length) : (selectedChapter.mastery || 50))
+    : 50;
+  const chFlashAvg = selectedChapter
+    ? (chFlash.length > 0 ? Math.round(chFlash.reduce((a, b) => a + b, 0) / chFlash.length) : (selectedChapter.mastery || 50))
+    : 50;
+  const chReadiness = Math.round(chQuizAvg * 0.5 + chFlashAvg * 0.5);
+  const currentReadiness = selectedChapter ? chReadiness : readiness;
+  const circumference = 251.33;
+  const dashOffset = circumference - (currentReadiness / 100) * circumference;
+
+  function readinessMsg() {
+    if (readiness >= 80) return {
+      icon: '🎉',
+      msg: 'Excellent! You\'re well prepared.',
+      sub: 'Keep it up for the last few sessions.'
+    };
+    if (readiness >= 60) return {
+      icon: '💪',
+      msg: 'On track for ' + (exam.targetGrade || 27) + '/30',
+      sub: 'Need ' + Math.ceil((80 - readiness) / 10) + ' more strong sessions.'
+    };
+    return {
+      icon: '⚠️',
+      msg: 'More practice needed',
+      sub: 'Focus on weak topics and increase study sessions.'
+    };
+  }
+
+  function chReadinessMsg() {
+    if (chReadiness >= 80) return {
+      icon: '✅',
+      msg: chapterName + ' — Strong!',
+      sub: 'This chapter is well covered.'
+    };
+    if (chReadiness >= 55) return {
+      icon: '📘',
+      msg: chapterName + ' — Getting there',
+      sub: 'A few more sessions to master this chapter.'
+    };
+    return {
+      icon: '🔴',
+      msg: chapterName + ' — Needs work',
+      sub: 'This is a weak chapter — prioritize it.'
+    };
+  }
+
+  const rm = selectedChapter ? chReadinessMsg() : readinessMsg();
+  const readinessBars = selectedChapter
+    ? [
+      { label: 'Quiz performance', value: chQuizAvg, color: '#3730E8' },
+      { label: 'Flashcard mastery', value: chFlashAvg, color: '#8B5CF6' },
+    ]
+    : [
+      { label: 'Quiz performance', value: quizAvg, color: '#3730E8' },
+      { label: 'Flashcard mastery', value: flashAvg, color: '#8B5CF6' },
+      { label: 'Study time', value: 70, color: '#10B981' },
+      { label: 'Plan progress', value: 55, color: '#F59E0B' },
+    ];
+  const chipLabel = (chapter) => {
+    const label = chapter.name || chapter.title || 'Chapter';
+    return label.length > 12 ? label.slice(0, 12) + '…' : label;
+  };
 
   return (
     <div>
@@ -2376,6 +2456,73 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
           ))}
         </div>
       )}
+      <section style={examS.readinessCard}>
+        <div style={examS.readinessHead}>
+          <h3 style={examS.sectionTitle}>📊 Readiness Score</h3>
+          <div style={examS.toggleWrap}>
+            <button
+              type="button"
+              onClick={() => setReadinessView('exam')}
+              style={{ ...examS.toggleChip, ...(readinessView === 'exam' ? { background: palette.bg, borderColor: palette.dot, color: palette.text } : null) }}
+            >
+              Exam
+            </button>
+            {(exam.chapters || []).map((chapter) => {
+              const key = chapter.id ?? chapter.name ?? chapter.title;
+              const active = readinessView === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setReadinessView(key)}
+                  style={{ ...examS.toggleChip, ...(active ? { background: palette.bg, borderColor: palette.dot, color: palette.text } : null) }}
+                  title={chapter.name || chapter.title}
+                >
+                  {chipLabel(chapter)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div style={examS.readinessGrid}>
+          <div style={examS.ringBox}>
+            <svg width="96" height="96" viewBox="0 0 96 96" style={examS.ringSvg}>
+              <circle cx="48" cy="48" r="40" fill="none" stroke="var(--border)" strokeWidth="7" />
+              <circle
+                cx="48"
+                cy="48"
+                r="40"
+                fill="none"
+                stroke={palette.dot}
+                strokeWidth="7"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={dashOffset}
+              />
+            </svg>
+            <div style={examS.ringCenter}>
+              <div style={{ ...examS.ringPct, color: palette.dot }}>{currentReadiness}%</div>
+              <div style={examS.ringLabel}>ready</div>
+            </div>
+          </div>
+
+          <div>
+            <div style={examS.msg}>{rm.icon} {rm.msg}</div>
+            <div style={examS.sub}>{rm.sub}</div>
+            <div style={examS.bars}>
+              {readinessBars.map((b) => (
+                <div key={b.label} style={examS.barRow}>
+                  <span style={examS.barLabel}>{b.label}</span>
+                  <span style={examS.track}>
+                    <span style={{ ...examS.fill, width: b.value + '%', background: b.color }} />
+                  </span>
+                  <span style={{ ...examS.barValue, color: b.color }}>{b.value}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
       {(() => {
         const qh = quizHistory[exam.id] || [];
         const fh = flashHistory[exam.id] || [];
@@ -3240,6 +3387,28 @@ const examsS = {
   emptyIcon: { width: 44, height: 44, borderRadius: 12, background: 'var(--lavender)', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 4 },
   emptyTitle: { fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
   emptySub: { fontSize: 13 },
+};
+
+const examS = {
+  readinessCard: { background: '#fff', borderRadius: 18, border: '1px solid var(--border)', padding: 20, marginTop: 14 },
+  readinessHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 },
+  sectionTitle: { margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--ink)' },
+  toggleWrap: { display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  toggleChip: { padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: 'var(--sidebar-bg)', border: '1px solid var(--border)', color: 'var(--gray)', cursor: 'pointer' },
+  readinessGrid: { display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 20, alignItems: 'center' },
+  ringBox: { width: 96, height: 96, position: 'relative' },
+  ringSvg: { display: 'block', transform: 'rotate(-90deg)' },
+  ringCenter: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
+  ringPct: { fontSize: 22, fontWeight: 800, lineHeight: 1 },
+  ringLabel: { fontSize: 9, color: 'var(--gray)', marginTop: 3 },
+  msg: { fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 },
+  sub: { fontSize: 12, color: 'var(--gray)', lineHeight: 1.5 },
+  bars: { display: 'flex', flexDirection: 'column', gap: 7, marginTop: 8 },
+  barRow: { display: 'flex', alignItems: 'center', gap: 9 },
+  barLabel: { minWidth: 110, fontSize: 11, color: 'var(--gray)' },
+  track: { flex: 1, height: 4, background: 'var(--border)', borderRadius: 999, overflow: 'hidden' },
+  fill: { display: 'block', height: '100%', borderRadius: 999 },
+  barValue: { width: 30, textAlign: 'right', fontSize: 11, fontWeight: 600 },
 };
 
 const notesS = {
