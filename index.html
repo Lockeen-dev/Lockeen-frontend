@@ -47,6 +47,10 @@
     --assistant-icon-bg:#E0EAFF;
     --bigcard-bio:linear-gradient(180deg,#EEF2FF 0%,#FFFFFF 100%);
     --bigcard-chem:linear-gradient(180deg,#FDF2F8 0%,#FFFFFF 100%);
+    --msg-warn-bg:#FEF3C7; --msg-warn-border:#fcd34d; --msg-warn-text:#92400E;
+    --msg-almost-bg:#EEF2FF; --msg-almost-border:var(--indigo); --msg-almost-text:var(--indigo);
+    --msg-good-bg:#DCFCE7; --msg-good-border:#86efac; --msg-good-text:#166534;
+    --chart-track:#F4F5FF;
   }
   [data-theme="dark"] {
     --indigo:      #6366f1;
@@ -70,6 +74,10 @@
     --bigcard-chem:linear-gradient(180deg,#2d1b33 0%,#1a2438 100%);
     --dot-glow:rgba(255,255,255,.12);
     --border:      #2d3f55;
+    --msg-warn-bg:#271c00; --msg-warn-border:#854d0e; --msg-warn-text:#fbbf24;
+    --msg-almost-bg:#1e1b4b; --msg-almost-border:#6366f1; --msg-almost-text:#818cf8;
+    --msg-good-bg:#052e16; --msg-good-border:#14532d; --msg-good-text:#4ade80;
+    --chart-track:#1a2438;
   }
   [data-theme="dark"] body,
   [data-theme="dark"] #root,
@@ -3232,7 +3240,7 @@ const gradeS = {
   sectionTitle: { margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' },
   sectionSub: { margin: '4px 0 0', fontSize: 13, color: 'var(--gray)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 },
-  card: { background: '#fff', border: '1px solid var(--border)', borderRadius: 18, padding: 18 },
+  card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 18 },
   cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 18 },
   noteName: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--ink)', minWidth: 0 },
   noteDot: { width: 9, height: 9, borderRadius: 999, flexShrink: 0 },
@@ -3240,7 +3248,7 @@ const gradeS = {
   barWrap: { position: 'relative', height: 48, marginBottom: 12 },
   track: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '100%', height: 8, background: 'var(--border)', borderRadius: 999 },
   fill: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: 8, borderRadius: 999 },
-  point: { position: 'absolute', top: '50%', transform: 'translate(-50%,-50%)', width: 18, height: 18, borderRadius: '50%', border: '3px solid #fff', boxShadow: '0 2px 6px rgba(0,0,0,.15)' },
+  point: { position: 'absolute', top: '50%', transform: 'translate(-50%,-50%)', width: 18, height: 18, borderRadius: '50%', border: '3px solid var(--surface)', boxShadow: '0 2px 6px rgba(0,0,0,.25)' },
   pointLabel: { position: 'absolute', top: -20, left: -3, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' },
   minLabel: { position: 'absolute', left: 0, bottom: 0, fontSize: 9, color: 'var(--gray-2)' },
   maxLabel: { position: 'absolute', right: 0, bottom: 0, fontSize: 9, color: 'var(--gray-2)' },
@@ -3249,10 +3257,10 @@ const gradeS = {
   numLabel: { marginTop: 4, fontSize: 10, color: 'var(--gray)', lineHeight: 1.25 },
   message: { borderRadius: 10, padding: '10px 12px', fontSize: 12, lineHeight: 1.5, border: '1px solid var(--border)', marginBottom: 8 },
   msgEmpty: { background: 'var(--sidebar-bg)', borderColor: 'var(--border)', color: 'var(--gray)' },
-  msgWarn: { background: '#FEF3C7', borderColor: '#fcd34d', color: '#92400E' },
-  msgAlmost: { background: '#EEF2FF', borderColor: 'var(--indigo)', color: 'var(--indigo)' },
-  msgGood: { background: '#DCFCE7', borderColor: '#86efac', color: '#166534' },
-  quizBtn: { width: '100%', marginTop: 8, padding: '10px 12px', borderRadius: 10, background: '#fff', border: '1px solid var(--indigo)', color: 'var(--indigo)', fontSize: 12, fontWeight: 700 },
+  msgWarn: { background: 'var(--msg-warn-bg)', borderColor: 'var(--msg-warn-border)', color: 'var(--msg-warn-text)' },
+  msgAlmost: { background: 'var(--msg-almost-bg)', borderColor: 'var(--msg-almost-border)', color: 'var(--msg-almost-text)' },
+  msgGood: { background: 'var(--msg-good-bg)', borderColor: 'var(--msg-good-border)', color: 'var(--msg-good-text)' },
+  quizBtn: { width: '100%', marginTop: 8, padding: '10px 12px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--indigo)', color: 'var(--indigo)', fontSize: 12, fontWeight: 700 },
 };
 
 const analS = {
@@ -3271,14 +3279,14 @@ const analS = {
   chart: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 12, alignItems: 'end', height: 240 },
   barCol: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 },
   barLabel: { fontSize: 11, color: 'var(--gray)' },
-  barTrack: { width: '100%', maxWidth: 40, height: 190, background: '#F4F5FF', borderRadius: 10, display: 'flex', alignItems: 'flex-end', overflow: 'hidden' },
+  barTrack: { width: '100%', maxWidth: 40, height: 190, background: 'var(--chart-track)', borderRadius: 10, display: 'flex', alignItems: 'flex-end', overflow: 'hidden' },
   bar: { width: '100%', background: 'linear-gradient(180deg, var(--indigo), var(--purple))', borderRadius: 10, transition: 'height .4s ease' },
   dayLabel: { fontSize: 12, color: 'var(--gray)', fontWeight: 600 },
   subjectCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
   subjRow: { display: 'flex', justifyContent: 'space-between', marginBottom: 6 },
   subjName: { fontSize: 13, fontWeight: 600, color: 'var(--ink)' },
   subjPct: { fontSize: 13, color: 'var(--gray)', fontWeight: 600 },
-  progTrack: { height: 8, background: '#F4F5FF', borderRadius: 999, overflow: 'hidden' },
+  progTrack: { height: 8, background: 'var(--chart-track)', borderRadius: 999, overflow: 'hidden' },
   progFill: { height: '100%', borderRadius: 999, transition: 'width .4s ease' },
 };
 
