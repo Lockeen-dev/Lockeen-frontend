@@ -968,6 +968,13 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
     setWeekData(prev => prev.map(d => d.day === today ? { ...d, mins: d.mins + mins } : d));
   }
 
+  const [plannerOpen, setPlannerOpen]       = useState(false);
+  const [pendingCalEvents, setPendingCalEvents] = useState([]);
+
+  function handlePlanAdded(evArr) {
+    setPendingCalEvents(evArr);
+  }
+
   const openExam = (id) => {
     setActiveExamId(id);
     setTab('notes');
@@ -1031,17 +1038,18 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
         <div style={shellS.grid}>
           <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); setTab(t); }} />
           <div style={shellS.main}>
-            {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} />}
+            {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} />}
             {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} />}
             {tab === 'flashcards' && <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} />}
             {tab === 'quiz' && <QuizView {...quizDeck} setTab={setTab} darkMode={darkMode} />}
             {tab === 'tutor'     && <TutorView />}
             {tab === 'analytics' && <AnalyticsView weekData={weekData} />}
-            {tab === 'calendar'  && <CalendarView setTab={setTab} />}
+            {tab === 'calendar'  && <CalendarView setTab={setTab} pendingCalEvents={pendingCalEvents} onPendingConsumed={() => setPendingCalEvents([])} onOpenPlanner={() => setPlannerOpen(true)} />}
           </div>
         </div>
       </div>
       <StudyTimer onSessionSaved={handleSessionSaved} />
+      {plannerOpen && <AIStudyPlanner onClose={() => setPlannerOpen(false)} onPlanAdded={handlePlanAdded} />}
     </div>
   );
 }
@@ -1113,7 +1121,7 @@ const sideS = {
 };
 
 /* ===================== DASHBOARD HOME ===================== */
-function DashboardHome({ user, setTab, openQuiz }) {
+function DashboardHome({ user, setTab, openQuiz, onOpenPlanner }) {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
@@ -1150,6 +1158,9 @@ function DashboardHome({ user, setTab, openQuiz }) {
         </div>
         <button onClick={() => setTab('tutor')} style={{ ...homeS.outlineBtn, marginTop: 16, width: 'auto', alignSelf: 'flex-start', padding: '10px 18px' }}>
           Open AI Tutor <ArrowRight size={16} />
+        </button>
+        <button onClick={onOpenPlanner} style={{ marginTop:12, display:'inline-flex', alignItems:'center', gap:8, padding:'10px 18px', background:'var(--indigo)', color:'#fff', borderRadius:12, fontSize:13, fontWeight:600, border:'none', cursor:'pointer', alignSelf:'flex-start' }}>
+          <Brain size={15} /> Study Plan
         </button>
       </div>
     </div>
@@ -2478,7 +2489,7 @@ const initCalEvents = () => {
   return ev;
 };
 
-function CalendarView({ setTab }) {
+function CalendarView({ setTab, pendingCalEvents, onPendingConsumed, onOpenPlanner }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const [view, setView]           = useState('week');
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
@@ -2554,6 +2565,18 @@ function CalendarView({ setTab }) {
     const total = Object.values(totals).reduce((a,b) => a+b, 0);
     return LIFE_CATS.map(c => ({ ...c, mins: totals[c.id], pct: total > 0 ? Math.round(totals[c.id]/total*100) : 0 }));
   }, [events, weekStart]);
+
+  useEffect(() => {
+    if (!pendingCalEvents || pendingCalEvents.length === 0) return;
+    setEvents(prev => {
+      const next = { ...prev };
+      pendingCalEvents.forEach(({ dateKey, event }) => {
+        next[dateKey] = [...(next[dateKey] || []), event];
+      });
+      return next;
+    });
+    if (onPendingConsumed) onPendingConsumed();
+  }, [pendingCalEvents]);
 
   const fmtModalDate = (key) => { if (!key) return ''; const [y,m,d] = key.split('-').map(Number); return `${CAL_MONTHS_S[m-1]} ${d}, ${y}`; };
   const DAY_NAMES = ['MON','TUE','WED','THU','FRI'];
@@ -2694,12 +2717,17 @@ function CalendarView({ setTab }) {
           <span style={calS.rangeLabel}>{rangeLabel}</span>
           <button onClick={navNext} style={calS.navBtn}>›</button>
         </div>
-        <div style={calS.viewToggleGroup}>
-          {['week','month'].map(v => (
-            <button key={v} onClick={() => setView(v)} style={{ ...calS.toggleBtn, ...(view===v?calS.toggleBtnActive:{}) }}>
-              {v.charAt(0).toUpperCase()+v.slice(1)}
-            </button>
-          ))}
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={calS.viewToggleGroup}>
+            {['week','month'].map(v => (
+              <button key={v} onClick={() => setView(v)} style={{ ...calS.toggleBtn, ...(view===v?calS.toggleBtnActive:{}) }}>
+                {v.charAt(0).toUpperCase()+v.slice(1)}
+              </button>
+            ))}
+          </div>
+          <button onClick={onOpenPlanner} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'7px 14px', background:'var(--indigo)', color:'#fff', borderRadius:12, fontSize:12, fontWeight:600, border:'none', cursor:'pointer' }}>
+            <Brain size={14} /> Study Plan
+          </button>
         </div>
       </div>
       <div style={calS.catsRow}>
@@ -3044,6 +3072,257 @@ const timerS = {
 };
 
 
+
+
+/* ===================== AI STUDY PLANNER ===================== */
+function AIStudyPlanner({ onClose, onPlanAdded }) {
+  const SUBJECTS_LIST = ['Biology','Chemistry','History','Math','Economics','Literature'];
+  const defaultDate = () => {
+    const d = new Date(); d.setDate(d.getDate() + 14);
+    return d.toISOString().split('T')[0];
+  };
+
+  const [step, setStep]             = useState('form');
+  const [selSubjects, setSelSubjects] = useState(new Set(['Biology','Math']));
+  const [selHours, setSelHours]     = useState(2);
+  const [selTech, setSelTech]       = useState('pomodoro');
+  const [selTime, setSelTime]       = useState('morning');
+  const [examDate, setExamDate]     = useState(defaultDate);
+  const [plan, setPlan]             = useState(null);
+  const [added, setAdded]           = useState(false);
+
+  const toggleSubject = (s) => setSelSubjects(prev => {
+    const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n;
+  });
+
+  const HOURS_OPTS = [1,2,3,4,'5+'];
+  const TECH_OPTS = [
+    { id:'pomodoro', label:'Pomodoro 25/5' },
+    { id:'block',    label:'Blocchi da 1h'  },
+    { id:'free',     label:'Sessioni libere' },
+  ];
+  const TIME_OPTS = [
+    { id:'morning',   label:'Mattina 7–12'      },
+    { id:'afternoon', label:'Pomeriggio 13–18'  },
+    { id:'evening',   label:'Sera 19–22'         },
+  ];
+
+  const durLabel = (tech) => tech==='pomodoro' ? '1h30m' : tech==='block' ? '1h' : '1h15m';
+  const durMins  = (tech) => tech==='pomodoro' ? 90 : tech==='block' ? 60 : 75;
+
+  const buildPlan = () => {
+    const startTimes = { morning:['09:00','10:30'], afternoon:['14:00','15:30'], evening:['19:00','20:30'] };
+    const subArr = [...selSubjects];
+    const today = new Date(); today.setHours(0,0,0,0);
+    const end = new Date(examDate); end.setHours(0,0,0,0);
+    const diff = Math.max(1, Math.min(7, Math.round((end - today) / 86400000)));
+    const DAY_N = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const MON_N = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const numSess = Math.min(typeof selHours === 'number' ? selHours : 5, startTimes[selTime].length);
+    const days = []; let subIdx = 0;
+    for (let i = 0; i < diff; i++) {
+      const d = new Date(today); d.setDate(today.getDate() + i);
+      const dayLabel = `${DAY_N[d.getDay()]} ${MON_N[d.getMonth()]} ${d.getDate()}`;
+      const dateKey = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+      const sessions = [];
+      for (let j = 0; j < numSess; j++) {
+        const subj = subArr[subIdx % subArr.length]; subIdx++;
+        const col = SUBJECT_COLORS[subj] || EXTRA_SUBJECT_COLORS[subj] || EXTRA_SUBJECT_COLORS.Other;
+        sessions.push({ time: startTimes[selTime][j], name: `${subj} study session`,
+          dur: durLabel(selTech), color: col.dot, bg: col.bg, text: col.text, subject: subj, dateKey });
+      }
+      const tm = sessions.length * durMins(selTech);
+      const total = (tm>=60 ? Math.floor(tm/60)+'h ' : '') + (tm%60 ? tm%60+'m' : '');
+      days.push({ day: dayLabel, date: dateKey, sessions, total: total.trim() });
+    }
+    return days;
+  };
+
+  const generate = () => {
+    if (selSubjects.size === 0) return;
+    setStep('loading');
+    setTimeout(() => { setPlan(buildPlan()); setStep('result'); }, 1800);
+  };
+
+  const addToCalendar = () => {
+    const eventsToAdd = [];
+    plan.forEach(day => day.sessions.forEach(s => {
+      const col = SUBJECT_COLORS[s.subject] || EXTRA_SUBJECT_COLORS[s.subject] || EXTRA_SUBJECT_COLORS.Other;
+      eventsToAdd.push({ dateKey: s.dateKey, event: {
+        name: s.name, time: s.time, dur: s.dur, cat:'study',
+        noteId:null, noteColor:col.dot, noteBg:col.bg, noteText:col.text, noteSubject:s.subject,
+      }});
+    }));
+    setAdded(true);
+    onPlanAdded(eventsToAdd);
+    setTimeout(() => onClose(), 1500);
+  };
+
+  const overlayClick = (e) => { if (e.target === e.currentTarget && step === 'form') onClose(); };
+
+  const selRow = { display:'flex', flexWrap:'wrap', gap:8, marginTop:8 };
+  const chip = (sel, colDot, colBg, colBorder, colText) => ({
+    ...plannerS.chip,
+    background: sel ? colDot  : colBg,
+    color:      sel ? '#fff'  : colText,
+    border:     `1.5px solid ${sel ? colDot : colBorder}`,
+  });
+  const toggle = (sel) => ({
+    ...plannerS.toggleChip,
+    background:  sel ? '#EEF2FF' : 'transparent',
+    borderColor: sel ? '#3730E8' : 'var(--border)',
+    color:       sel ? '#3730E8' : 'var(--gray)',
+  });
+
+  return (
+    <div style={plannerS.overlay} onClick={overlayClick}>
+      <div style={plannerS.card}>
+
+        {/* HEADER */}
+        <div style={plannerS.header}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <div style={plannerS.brainBox}><Brain size={20} style={{ color:'#fff' }} /></div>
+            <div>
+              <div style={plannerS.title}>AI Study Planner</div>
+              <div style={plannerS.sub}>Genera un piano personalizzato</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={plannerS.closeBtn}><XMark size={16} /></button>
+        </div>
+
+        {/* BODY — form */}
+        {step !== 'result' && (
+          <div style={plannerS.body}>
+            <div>
+              <div style={plannerS.fieldLabel}>Materie da studiare</div>
+              <div style={selRow}>
+                {SUBJECTS_LIST.map(s => {
+                  const col = SUBJECT_COLORS[s]; const sel = selSubjects.has(s);
+                  return (
+                    <button key={s} onClick={() => toggleSubject(s)}
+                      style={chip(sel, col.dot, col.bg, col.border, col.text)}>
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+              <div>
+                <div style={plannerS.fieldLabel}>Data esame</div>
+                <input type="date" value={examDate} onChange={e => setExamDate(e.target.value)} style={plannerS.dateInput} />
+              </div>
+              <div>
+                <div style={plannerS.fieldLabel}>Ore/giorno</div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:8 }}>
+                  {HOURS_OPTS.map(h => {
+                    const sel = selHours === h || (h==='5+' && selHours >= 5);
+                    return (
+                      <button key={h} onClick={() => setSelHours(h==='5+' ? 5 : h)} style={toggle(sel)}>
+                        {h}{h !== '5+' ? 'h' : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style={plannerS.fieldLabel}>Tecnica di studio</div>
+              <div style={selRow}>
+                {TECH_OPTS.map(t => <button key={t.id} onClick={() => setSelTech(t.id)} style={toggle(selTech===t.id)}>{t.label}</button>)}
+              </div>
+            </div>
+
+            <div>
+              <div style={plannerS.fieldLabel}>Orario preferito</div>
+              <div style={selRow}>
+                {TIME_OPTS.map(t => <button key={t.id} onClick={() => setSelTime(t.id)} style={toggle(selTime===t.id)}>{t.label}</button>)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* BODY — result */}
+        {step === 'result' && plan && (
+          <div style={plannerS.body}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'#DCFCE7', border:'1px solid #86efac', borderRadius:12 }}>
+              <Check size={16} style={{ color:'#166534' }} />
+              <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>Plan ready</span>
+              <span style={{ fontSize:12, color:'#166534', marginLeft:'auto' }}>{selSubjects.size} subjects · {plan.length} days</span>
+            </div>
+            {plan.map((day, di) => (
+              <div key={di} style={{ borderRadius:14, border:'1px solid var(--border)', overflow:'hidden' }}>
+                <div style={{ padding:'10px 14px', background:'var(--sidebar-bg)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>{day.day}</span>
+                  <span style={{ fontSize:11, color:'var(--gray)' }}>{day.total} total</span>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6, padding:'10px 12px' }}>
+                  {day.sessions.map((s, si) => (
+                    <div key={si} style={{ borderLeft:`3px solid ${s.color}`, background:s.bg, borderRadius:8, padding:'7px 10px' }}>
+                      <div style={{ fontSize:12, fontWeight:600, color:'var(--ink)' }}>{s.name}</div>
+                      <div style={{ fontSize:10, color:'var(--gray)', marginTop:2 }}>{s.time} · {s.dur}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {added && (
+              <div style={{ padding:'12px 16px', background:'#DCFCE7', border:'1px solid #86efac', borderRadius:12, fontSize:13, fontWeight:600, color:'#166534', textAlign:'center' }}>
+                Piano aggiunto al calendario! ✓
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* FOOTER */}
+        <div style={plannerS.footer}>
+          {step === 'form' && (
+            <button onClick={generate} disabled={selSubjects.size === 0}
+              style={{ ...plannerS.generateBtn, opacity:selSubjects.size===0?.4:1, cursor:selSubjects.size===0?'not-allowed':'pointer' }}>
+              <Sparkles size={16} /> Generate Plan
+            </button>
+          )}
+          {step === 'loading' && (
+            <button disabled style={{ ...plannerS.generateBtn, background:'#6366f1', pointerEvents:'none', gap:4 }}>
+              <span>Generating plan</span>
+              <span style={{ animation:'bounce .8s infinite .0s', display:'inline-block' }}>.</span>
+              <span style={{ animation:'bounce .8s infinite .15s', display:'inline-block' }}>.</span>
+              <span style={{ animation:'bounce .8s infinite .3s', display:'inline-block' }}>.</span>
+            </button>
+          )}
+          {step === 'result' && !added && (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <button onClick={addToCalendar} style={plannerS.addBtn}>Add all to Calendar</button>
+              <button onClick={() => { setStep('form'); setPlan(null); }} style={plannerS.regenBtn}>Regenerate</button>
+            </div>
+          )}
+        </div>
+      </div>
+      <style>{`@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}`}</style>
+    </div>
+  );
+}
+
+const plannerS = {
+  overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,.4)', zIndex:200, display:'grid', placeItems:'center', padding:16 },
+  card:        { background:'#fff', borderRadius:24, border:'1px solid var(--border)', width:'100%', maxWidth:480, maxHeight:'90vh', overflowY:'auto', display:'flex', flexDirection:'column' },
+  header:      { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px 16px', borderBottom:'1px solid var(--border)', position:'sticky', top:0, background:'#fff', zIndex:1 },
+  brainBox:    { width:44, height:44, borderRadius:14, background:'linear-gradient(135deg, #3730E8, #8B5CF6)', display:'grid', placeItems:'center', flexShrink:0 },
+  title:       { fontSize:16, fontWeight:700, color:'var(--ink)' },
+  sub:         { fontSize:12, color:'var(--gray)', marginTop:2 },
+  closeBtn:    { width:32, height:32, borderRadius:999, background:'var(--sidebar-bg)', border:'1px solid var(--border)', color:'var(--gray)', display:'grid', placeItems:'center', cursor:'pointer' },
+  body:        { padding:'20px 24px', display:'flex', flexDirection:'column', gap:16, flex:1 },
+  fieldLabel:  { fontSize:12, fontWeight:700, color:'var(--ink)' },
+  chip:        { padding:'6px 14px', borderRadius:999, fontSize:12, fontWeight:600, cursor:'pointer', transition:'all .15s' },
+  toggleChip:  { padding:'6px 12px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer', border:'1px solid', transition:'all .15s' },
+  dateInput:   { marginTop:8, width:'100%', padding:'9px 12px', border:'1px solid var(--border)', borderRadius:10, fontSize:13, color:'var(--ink)', background:'var(--surface)', outline:'none', boxSizing:'border-box' },
+  footer:      { padding:'16px 24px', borderTop:'1px solid var(--border)', position:'sticky', bottom:0, background:'#fff' },
+  generateBtn: { width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px', borderRadius:14, background:'var(--indigo)', color:'#fff', fontSize:14, fontWeight:600, border:'none', cursor:'pointer' },
+  addBtn:      { width:'100%', padding:'11px', borderRadius:12, border:'1.5px solid var(--indigo)', background:'#fff', color:'var(--indigo)', fontSize:13, fontWeight:600, cursor:'pointer' },
+  regenBtn:    { width:'100%', padding:'11px', borderRadius:12, border:'1px solid var(--border)', background:'var(--sidebar-bg)', color:'var(--gray)', fontSize:13, fontWeight:600, cursor:'pointer' },
+};
 
 /* ===================== MOUNT ===================== */
 ReactDOM.createRoot(document.getElementById('react-root')).render(<App />);
