@@ -61,14 +61,15 @@
     --pink:        #2d1b33;
     --mint:        #0c2626;
     --teal:        #0c1a1a;
-    --surface:     #1e293b;
+    --surface:     #1a2438;
     --input-bg:    #0f172a;
     --bubble-ai-bg:#1a2035;
     --assistant-bg:#151c2e;
     --assistant-icon-bg:#1e1b4b;
-    --bigcard-bio:linear-gradient(180deg,#1e1b4b 0%,#1e293b 100%);
-    --bigcard-chem:linear-gradient(180deg,#2d1b33 0%,#1e293b 100%);
+    --bigcard-bio:linear-gradient(180deg,#1e1b4b 0%,#1a2438 100%);
+    --bigcard-chem:linear-gradient(180deg,#2d1b33 0%,#1a2438 100%);
     --dot-glow:rgba(255,255,255,.12);
+    --border:      #2d3f55;
   }
   [data-theme="dark"] body,
   [data-theme="dark"] #root,
@@ -2558,8 +2559,8 @@ const examsS = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 },
   backBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, padding: '7px 14px 7px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
   subjectBadge: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: 'var(--ink)' },
-  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '48px 20px', background: '#F8F9FF', border: '1px dashed var(--border)', borderRadius: 18, color: 'var(--gray)', textAlign: 'center' },
-  emptyIcon: { width: 44, height: 44, borderRadius: 12, background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 4 },
+  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '48px 20px', background: 'var(--sidebar-bg)', border: '1px dashed var(--border)', borderRadius: 18, color: 'var(--gray)', textAlign: 'center' },
+  emptyIcon: { width: 44, height: 44, borderRadius: 12, background: 'var(--lavender)', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 4 },
   emptyTitle: { fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
   emptySub: { fontSize: 13 },
 };
@@ -3309,9 +3310,9 @@ const calS = {
   navGroup: { display:'flex', alignItems:'center', gap:10 },
   navBtn: { width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:18, display:'grid', placeItems:'center', cursor:'pointer' },
   rangeLabel: { fontSize:16, fontWeight:700, color:'var(--ink)', letterSpacing:'-0.01em', minWidth:200, textAlign:'center' },
-  viewToggleGroup: { display:'flex', background:'#F8F9FF', border:'1px solid var(--border)', borderRadius:10, padding:3, gap:2 },
+  viewToggleGroup: { display:'flex', background:'var(--sidebar-bg)', border:'1px solid var(--border)', borderRadius:10, padding:3, gap:2 },
   toggleBtn: { padding:'6px 16px', borderRadius:8, fontSize:13, fontWeight:600, color:'var(--gray)', background:'transparent', border:'none', cursor:'pointer' },
-  toggleBtnActive: { background:'#fff', color:'var(--ink)', boxShadow:'0 1px 4px rgba(0,0,0,.08)', border:'0.5px solid var(--border)' },
+  toggleBtnActive: { background:'var(--surface)', color:'var(--ink)', boxShadow:'0 1px 4px rgba(0,0,0,.15)', border:'0.5px solid var(--border)' },
   catsRow: { display:'flex', gap:8, flexWrap:'wrap' },
   catChip: { display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:999, fontSize:12, fontWeight:600, cursor:'pointer', transition:'opacity .15s' },
   catDot: { width:8, height:8, borderRadius:999, flexShrink:0 },
@@ -3331,7 +3332,7 @@ const calS = {
   monthWeekHeader: { display:'grid', gridTemplateColumns:'repeat(7, 1fr)', marginBottom:4 },
   monthWeekLabel: { textAlign:'center', fontSize:11, fontWeight:700, color:'var(--gray)', letterSpacing:'0.04em', padding:'4px 0' },
   monthGrid: { display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:2 },
-  monthCell: { minHeight:72, padding:'6px 8px', borderRadius:8, border:'1px solid transparent', display:'flex', flexDirection:'column' },
+  monthCell: { minHeight:72, padding:'6px 8px', borderRadius:8, border:'1px solid var(--border)', display:'flex', flexDirection:'column' },
   monthCellToday: { border:'1.5px solid #3730E8' },
   monthDayNum: { fontSize:12, fontWeight:600, color:'var(--ink)' },
   monthDayToday: { background:'#3730E8', color:'#fff', width:20, height:20, borderRadius:999, display:'grid', placeItems:'center', fontSize:11 },
