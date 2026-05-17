@@ -1761,7 +1761,7 @@ const timerS = {
 function Sidebar({ tab, setTab }) {
   const items = [
     { id: 'dashboard', label: 'Dashboard', Icon: ZapSolid },
-    { id: 'notes',     label: 'My Exams',  Icon: LockeenLogo },
+    { id: 'notes',     label: 'My Exams',  Icon: BookOpen },
     { id: 'flashcards', label: 'Flashcards', Icon: Layers },
     { id: 'quiz', label: 'Quiz', Icon: Sparkles },
     { id: 'tutor',     label: 'AI Tutor',  Icon: MsgCircle },
@@ -2292,7 +2292,7 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
                 </div>
                 <div style={notesS.actions}>
                   <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
-                    <LockeenLogo size={16} /> Open Exam
+                    <BookOpen size={16} /> Open Exam
                   </button>
                   <button style={notesS.ghostSmall} onClick={() => alert(`Quick quiz from "${x.name}"…`)}>
                     <Sparkles size={14} /> Quick Quiz
@@ -2313,6 +2313,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
   const [readinessView, setReadinessView] = useState('exam');
   const palette = getSubjectPalette(exam.subject, exam, darkMode);
   const filtered = exam.chapters.filter((c) => c.title.toLowerCase().includes(q.toLowerCase()));
+  const chapterKey = (chapter) => String(chapter.id ?? chapter.name ?? chapter.title);
   const allQuiz = quizHistory[exam.id] || [];
   const allFlash = flashHistory[exam.id] || [];
   const quizAvg = allQuiz.length > 0
@@ -2324,8 +2325,8 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
   const readiness = Math.round(quizAvg * 0.4 + flashAvg * 0.3 + 70 * 0.2 + 55 * 0.1);
   const selectedChapter = readinessView === 'exam'
     ? null
-    : (exam.chapters || []).find((c) => (c.id ?? c.name ?? c.title) === readinessView);
-  const selectedChapterKey = selectedChapter ? (selectedChapter.id ?? selectedChapter.name ?? selectedChapter.title) : null;
+    : (exam.chapters || []).find((c) => chapterKey(c) === readinessView);
+  const selectedChapterKey = selectedChapter ? chapterKey(selectedChapter) : null;
   const chapterName = selectedChapter ? (selectedChapter.name || selectedChapter.title || 'Chapter') : '';
   const chQuiz = selectedChapterKey != null ? (quizHistory[selectedChapterKey] || []) : [];
   const chFlash = selectedChapterKey != null ? (flashHistory[selectedChapterKey] || []) : [];
@@ -2388,11 +2389,6 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
       { label: 'Study time', value: 70, color: '#10B981' },
       { label: 'Plan progress', value: 55, color: '#F59E0B' },
     ];
-  const chipLabel = (chapter) => {
-    const label = chapter.name || chapter.title || 'Chapter';
-    return label.length > 12 ? label.slice(0, 12) + '…' : label;
-  };
-
   return (
     <div>
       <button onClick={onBack} style={examsS.backBtn}>← My Exams</button>
@@ -2459,30 +2455,21 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
       <section style={examS.readinessCard}>
         <div style={examS.readinessHead}>
           <h3 style={examS.sectionTitle}>📊 Readiness Score</h3>
-          <div style={examS.toggleWrap}>
-            <button
-              type="button"
-              onClick={() => setReadinessView('exam')}
-              style={{ ...examS.toggleChip, ...(readinessView === 'exam' ? { background: palette.bg, borderColor: palette.dot, color: palette.text } : null) }}
+          <label style={examS.viewMenuWrap}>
+            <span style={examS.viewMenuLabel}>View</span>
+            <select
+              value={readinessView}
+              onChange={(e) => setReadinessView(e.target.value)}
+              style={{ ...examS.viewMenu, borderColor: readinessView === 'exam' ? 'var(--border)' : palette.dot, color: readinessView === 'exam' ? 'var(--gray)' : palette.text, backgroundColor: readinessView === 'exam' ? 'var(--surface)' : palette.bg }}
             >
-              Exam
-            </button>
-            {(exam.chapters || []).map((chapter) => {
-              const key = chapter.id ?? chapter.name ?? chapter.title;
-              const active = readinessView === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setReadinessView(key)}
-                  style={{ ...examS.toggleChip, ...(active ? { background: palette.bg, borderColor: palette.dot, color: palette.text } : null) }}
-                  title={chapter.name || chapter.title}
-                >
-                  {chipLabel(chapter)}
-                </button>
-              );
-            })}
-          </div>
+              <option value="exam">Exam</option>
+              {(exam.chapters || []).map((chapter) => (
+                <option key={chapterKey(chapter)} value={chapterKey(chapter)}>
+                  {chapter.name || chapter.title || 'Chapter'}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         <div style={examS.readinessGrid}>
           <div style={examS.ringBox}>
@@ -3393,8 +3380,28 @@ const examS = {
   readinessCard: { background: '#fff', borderRadius: 18, border: '1px solid var(--border)', padding: 20, marginTop: 14 },
   readinessHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 },
   sectionTitle: { margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--ink)' },
-  toggleWrap: { display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  toggleChip: { padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: 'var(--sidebar-bg)', border: '1px solid var(--border)', color: 'var(--gray)', cursor: 'pointer' },
+  viewMenuWrap: { display: 'inline-flex', alignItems: 'center', gap: 7 },
+  viewMenuLabel: { fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
+  viewMenu: {
+    minWidth: 172,
+    maxWidth: 240,
+    padding: '7px 32px 7px 12px',
+    borderRadius: 999,
+    border: '1px solid var(--border)',
+    color: 'var(--gray)',
+    background: 'var(--surface)',
+    fontSize: 12,
+    fontWeight: 700,
+    outline: 'none',
+    cursor: 'pointer',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    backgroundImage: 'linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%)',
+    backgroundPosition: 'calc(100% - 17px) 50%, calc(100% - 12px) 50%',
+    backgroundSize: '5px 5px, 5px 5px',
+    backgroundRepeat: 'no-repeat',
+    fontFamily: 'inherit',
+  },
   readinessGrid: { display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 20, alignItems: 'center' },
   ringBox: { width: 96, height: 96, position: 'relative' },
   ringSvg: { display: 'block', transform: 'rotate(-90deg)' },
