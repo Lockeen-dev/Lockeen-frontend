@@ -853,7 +853,7 @@ function CalendarView({ setTab, setSelectedNoteId }) {
               style={{ ...calS.monthCell, ...(isToday ? calS.monthCellToday : {}), ...(isDragTarget ? calS.monthCellDragOver : {}), opacity: isCurrentMonth ? 1 : 0.35, cursor: isCurrentMonth ? 'pointer' : 'default' }}
               onClick={() => isCurrentMonth && openModal(key)}
               onDragOver={e => { if (!isCurrentMonth) return; e.preventDefault(); setDragOver(key); }}
-              onDragLeave={() => setDragOver(null)}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }}
               onDrop={e => {
                 e.preventDefault();
                 setDragOver(null);
@@ -862,12 +862,15 @@ function CalendarView({ setTab, setSelectedNoteId }) {
               }}>
               <span style={{ ...calS.monthDayNum, ...(isToday ? calS.monthDayToday : {}) }}>{day.getDate()}</span>
               <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:3 }}>
-                {dayEvs.slice(0,2).map((ev, idx) => {
+                {(events[key] || []).map((ev, origIdx) => {
+                  if (!activeCats.has(ev.cat)) return null;
                   const cat = LIFE_CATS.find(c => c.id === ev.cat);
+                  const visibleIdx = (events[key] || []).filter((e2, i) => i < origIdx && activeCats.has(e2.cat)).length;
+                  if (visibleIdx >= 2) return null;
                   return (
-                    <div key={idx}
+                    <div key={origIdx}
                       draggable
-                      onDragStart={e => { e.stopPropagation(); setDragSrc({ key, idx }); }}
+                      onDragStart={e => { e.stopPropagation(); setDragSrc({ key, idx: origIdx }); }}
                       onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
                       style={{ ...calS.monthPill, background: ev.noteId ? ev.noteColor : cat?.color, cursor:'grab' }}>
                       {ev.name}
