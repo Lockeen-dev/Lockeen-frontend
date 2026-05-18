@@ -2615,7 +2615,7 @@ function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [
   const sL = { fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.08em', color:'var(--gray)', marginBottom:10 };
 
   return (
-    <div style={{ maxWidth:620, display:'flex', flexDirection:'column', gap:28 }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:28 }}>
 
       {/* Header */}
       <div>
@@ -2633,7 +2633,7 @@ function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [
               const pal = getSubjectPalette(exam.subject, {}, darkMode);
               return (
                 <button key={exam.id} onClick={() => setSelectedExamId(exam.id)}
-                  style={{ padding:'7px 16px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.bg : 'var(--surface)', color: active ? pal.text : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
+                  style={{ padding:'7px 16px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.dot : 'var(--surface)', color: active ? '#fff' : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
                   {exam.name}
                 </button>
               );
@@ -2642,31 +2642,42 @@ function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [
         </div>
       )}
 
-      {/* Chapter list */}
+      {/* Chapter list — 2-col grid */}
       {selectedExam && (
         <div>
           <div style={sL}>Capitoli — {selectedExam.name}</div>
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:10 }}>
             {selectedExam.chapters.map(ch => {
               const pal = getSubjectPalette(selectedExam.subject, {}, darkMode);
               const cardCount = (ch.cards || []).length;
               const hasCards = cardCount > 0;
+              const recentDeck = recentDecks.find(d => d.title === ch.title);
+              const lastScore = recentDeck?.lastScore ?? null;
+              const scoreStyle = lastScore != null ? fmtScore(lastScore) : null;
               return (
-                <div key={ch.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, opacity: hasCards ? 1 : 0.5 }}>
-                  <div style={{ width:42, height:42, borderRadius:12, background: pal.bg, display:'grid', placeItems:'center', flexShrink:0 }}>
-                    <span style={{ fontSize:20 }}>🃏</span>
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ch.title}</div>
-                    <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>
-                      {hasCards ? `${cardCount} carte · ${selectedExam.subject}` : 'Nessuna flashcard — carica i file in My Exams'}
+                <div key={ch.id} style={{ display:'flex', flexDirection:'column', gap:10, padding:'16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, opacity: hasCards ? 1 : 0.5 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                    <div style={{ width:44, height:44, borderRadius:12, background: pal.dot, display:'grid', placeItems:'center', flexShrink:0 }}>
+                      <span style={{ fontSize:17, fontWeight:900, color:'#fff', fontFamily:'system-ui' }}>{(selectedExam.subject || 'X')[0]}</span>
                     </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ch.title}</div>
+                      <div style={{ fontSize:12, color:'var(--gray)', marginTop:1 }}>
+                        {hasCards ? `${cardCount} carte` : 'Nessuna flashcard'}
+                      </div>
+                    </div>
+                    {scoreStyle && <span style={{ fontSize:13, fontWeight:800, color:scoreStyle.color, flexShrink:0 }}>{scoreStyle.label}</span>}
                   </div>
+                  {lastScore != null && (
+                    <div style={{ height:4, borderRadius:999, background:'var(--border)', overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${lastScore}%`, background: lastScore >= 80 ? '#10B981' : lastScore >= 60 ? '#F59E0B' : '#EF4444', borderRadius:999, transition:'width .4s' }} />
+                    </div>
+                  )}
                   <button
                     disabled={!hasCards}
                     onClick={() => onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: ch.cards })}
-                    style={{ padding:'8px 18px', borderRadius:10, background: hasCards ? pal.dot : 'var(--border)', color:'#fff', fontWeight:600, fontSize:13, border:'none', cursor: hasCards ? 'pointer' : 'not-allowed', flexShrink:0 }}>
-                    Studia
+                    style={{ width:'100%', padding:'9px', borderRadius:10, background: hasCards ? pal.dot : 'var(--border)', color:'#fff', fontWeight:600, fontSize:13, border:'none', cursor: hasCards ? 'pointer' : 'not-allowed' }}>
+                    {lastScore != null ? 'Rivedi' : 'Studia'}
                   </button>
                 </div>
               );
@@ -2687,8 +2698,8 @@ function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [
               return (
                 <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, cursor:'pointer' }}
                   onClick={() => onOpenDeck(deck)}>
-                  <div style={{ width:38, height:38, borderRadius:10, background: pal.bg, display:'grid', placeItems:'center', flexShrink:0 }}>
-                    <span style={{ fontSize:18 }}>🃏</span>
+                  <div style={{ width:38, height:38, borderRadius:10, background: pal.dot, display:'grid', placeItems:'center', flexShrink:0 }}>
+                    <span style={{ fontSize:14, fontWeight:900, color:'#fff', fontFamily:'system-ui' }}>{(deck.subject || 'X')[0]}</span>
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deck.title}</div>
@@ -2889,7 +2900,7 @@ const flashS = {
   emptyWrap: { maxWidth: 480, minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
 };
 
-function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = false }) {
+function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = false, initialDifficulty = 'medium' }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const total = questions.length;
   const [started, setStarted] = useState(autoStart);
@@ -2898,11 +2909,13 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
   const [correct, setCorrect] = useState(0);
   const [selected, setSelected] = useState(null);
   const [pendingIdx, setPendingIdx] = useState(null);
-  const [difficulty, setDifficulty] = useState('medium');
   const DIFF_OPTIONS = [{id:'easy',label:'Easy',emoji:'🟢',secs:60},{id:'medium',label:'Medium',emoji:'🟡',secs:30},{id:'hard',label:'Hard',emoji:'🔴',secs:20},{id:'extreme',label:'Extreme',emoji:'💀',secs:10}];
+  const initDiff = DIFF_OPTIONS.find(d => d.id === initialDifficulty) ? initialDifficulty : 'medium';
+  const initSecs = DIFF_OPTIONS.find(d => d.id === initDiff)?.secs || 30;
+  const [difficulty, setDifficulty] = useState(initDiff);
   const [timerOn, setTimerOn] = useState(false);
-  const [timerSecs, setTimerSecs] = useState(30);
-  const [timerVal, setTimerVal] = useState(30);
+  const [timerSecs, setTimerSecs] = useState(initSecs);
+  const [timerVal, setTimerVal] = useState(initSecs);
   const timerID = useRef(null);
   const [done, setDone] = useState(false);
   const resultSavedRef = useRef(false);
@@ -3281,6 +3294,8 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
       title: chapterName,
       questions: qs.slice(0, n),
       _meta: { examId, examName: exam?.name || '', chapterId, chapterName, numQ: Math.min(n, qs.length) },
+      _autoStart: overrides._autoStart || false,
+      _difficulty: overrides._difficulty || null,
     });
   };
 
@@ -3310,6 +3325,7 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
         onQuizComplete={handleQuizComplete}
         backTo="quiz"
         autoStart={!!activeDeck._autoStart}
+        initialDifficulty={activeDeck._difficulty || 'medium'}
       />
     );
   }
@@ -3350,9 +3366,13 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
           <div>
             <div style={sL}>Capitolo</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <button onClick={() => setSelectedChapterId('all')} style={pill(selectedChapterId === 'all')}>Intero esame</button>
+              <button onClick={() => setSelectedChapterId('all')} style={pill(selectedChapterId === 'all')}>
+                Intero esame <span style={{ opacity:0.55, fontSize:11 }}>· {selectedExam.chapters.flatMap(c => c.questions || []).length}</span>
+              </button>
               {selectedExam.chapters.map(ch => (
-                <button key={ch.id} onClick={() => setSelectedChapterId(ch.id)} style={pill(selectedChapterId === ch.id)}>{ch.title}</button>
+                <button key={ch.id} onClick={() => setSelectedChapterId(ch.id)} style={pill(selectedChapterId === ch.id)}>
+                  {ch.title} <span style={{ opacity:0.55, fontSize:11 }}>· {(ch.questions||[]).length}</span>
+                </button>
               ))}
             </div>
           </div>
@@ -3379,10 +3399,32 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
           </div>
         )}
 
+        {/* Domande hint */}
+        {maxQ > 0 && maxQ < 20 && (
+          <p style={{ margin:'-10px 0 0', fontSize:11, color:'var(--gray)', textAlign:'right' }}>Max {maxQ} domande disponibili</p>
+        )}
+
+        {/* Difficulty quick-start */}
+        {maxQ > 0 && (
+          <div>
+            <div style={{ ...sL, marginBottom:10 }}>Avvio rapido</div>
+            <div style={{ display:'flex', gap:8 }}>
+              {[{id:'easy',emoji:'🟢',label:'Easy'},{id:'medium',emoji:'🟡',label:'Medium'},{id:'hard',emoji:'🔴',label:'Hard'},{id:'extreme',emoji:'💀',label:'Extreme'}].map(d => (
+                <button key={d.id} onClick={() => startQuiz({ _autoStart: true, _difficulty: d.id })}
+                  style={{ flex:1, padding:'10px 4px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', fontWeight:600, fontSize:12, color:'var(--gray)', cursor:'pointer', textAlign:'center', lineHeight:1.4 }}>
+                  <div style={{ fontSize:20, marginBottom:2 }}>{d.emoji}</div>
+                  <div>{d.label}</div>
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize:11, color:'var(--gray)', margin:'6px 0 0', textAlign:'center' }}>Avvio immediato senza configurazione</p>
+          </div>
+        )}
+
         {/* Start Quiz */}
         <button onClick={() => startQuiz()} disabled={maxQ === 0}
           style={{ width: '100%', borderRadius: 14, padding: '15px 16px', background: maxQ > 0 ? 'var(--indigo)' : '#CBD5E1', color: '#fff', fontWeight: 700, fontSize: 15, cursor: maxQ > 0 ? 'pointer' : 'not-allowed' }}>
-          Configura e avvia Quiz
+          Inizia Quiz
         </button>
       </div>
 
