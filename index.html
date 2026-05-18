@@ -4462,6 +4462,8 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const [drag, setDrag]             = useState(null);
   const [viewDropOpen, setViewDropOpen] = useState(false);
   const dragMeta   = useRef({});
+  const monthDragMeta = useRef({});
+  const [monthDrag, setMonthDrag] = useState(null);
   const gridBodyRef = useRef(null);
 
   useEffect(() => {
@@ -4529,6 +4531,47 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     window.addEventListener('mouseup',   onUp);
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, []);
+
+  const startMonthDrag = (e, ev, key, idx) => {
+    e.preventDefault(); e.stopPropagation();
+    monthDragMeta.current = { active:true, started:false, ev, fromKey:key, fromIdx:idx, toKey:key, startX:e.clientX, startY:e.clientY };
+  };
+
+  useEffect(() => {
+    const onMove = (e) => {
+      const m = monthDragMeta.current;
+      if (!m.active) return;
+      if (!m.started) {
+        if (Math.abs(e.clientX - m.startX) < 4 && Math.abs(e.clientY - m.startY) < 4) return;
+        m.started = true;
+      }
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const cell = el && el.closest && el.closest('[data-month-cell]');
+      const toKey = cell ? cell.getAttribute('data-month-cell') : null;
+      if (toKey) m.toKey = toKey;
+      setMonthDrag({ ev:m.ev, fromKey:m.fromKey, toKey:m.toKey, ghostX:e.clientX, ghostY:e.clientY });
+    };
+    const onUp = () => {
+      const m = monthDragMeta.current;
+      if (!m.active) return;
+      const wasStarted = m.started;
+      m.active = false; m.started = false;
+      if (wasStarted && m.toKey && m.toKey !== m.fromKey) {
+        setEvents(prev => {
+          const next = { ...prev };
+          const arr = [...(next[m.fromKey] || [])];
+          arr.splice(m.fromIdx, 1);
+          next[m.fromKey] = arr;
+          next[m.toKey] = [...(next[m.toKey] || []), m.ev];
+          return next;
+        });
+      }
+      setMonthDrag(null);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [setEvents]);
 
   const navPrev = () => {
     if (view === 'week') { setWeekStart(d => calAddDays(d, -7)); }
@@ -4703,14 +4746,21 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
           const isCurrentMonth = day.getMonth() === viewMonth;
           const isToday = dayKey(day) === dayKey(today);
           const dayEvs = (events[key] || []).filter(ev => activeCats.has(ev.cat));
+          const isDropTarget = monthDrag && monthDrag.toKey === key && monthDrag.fromKey !== key;
           return (
-            <div key={i} style={{ ...calS.monthCell, ...(isToday?calS.monthCellToday:{}), opacity:isCurrentMonth?1:0.35, cursor:isCurrentMonth?'pointer':'default' }}
-              onClick={() => isCurrentMonth && openDayDetail(key)}>
+            <div key={i}
+              data-month-cell={isCurrentMonth ? key : undefined}
+              style={{ ...calS.monthCell, ...(isToday?calS.monthCellToday:{}), ...(isDropTarget?{ background:'var(--lavender)', border:'1.5px dashed var(--indigo)' }:{}), opacity:isCurrentMonth?1:0.35, cursor:isCurrentMonth?'pointer':'default' }}
+              onClick={() => { if (monthDragMeta.current.started) return; isCurrentMonth && openDayDetail(key); }}>
               <span style={{ ...calS.monthDayNum, ...(isToday?calS.monthDayToday:{}) }}>{day.getDate()}</span>
               <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:3 }}>
                 {dayEvs.slice(0,2).map((ev, idx) => {
                   const cat = LIFE_CATS.find(c => c.id === ev.cat);
-                  return <div key={idx} style={{ ...calS.monthPill, background:ev.noteId?ev.noteColor:cat?.color, opacity:ev.completed?0.5:1, textDecoration:ev.completed?'line-through':'none' }}>{ev.name}</div>;
+                  const origIdx = (events[key] || []).indexOf(ev);
+                  const isDragging = monthDrag && monthDrag.fromKey === key && monthDrag.ev === ev;
+                  return <div key={idx}
+                    onMouseDown={e => startMonthDrag(e, ev, key, origIdx)}
+                    style={{ ...calS.monthPill, background:ev.noteId?ev.noteColor:cat?.color, opacity:isDragging?0.3:(ev.completed?0.5:1), textDecoration:ev.completed?'line-through':'none', cursor:'grab', userSelect:'none' }}>{ev.name}</div>;
                 })}
                 {dayEvs.length > 2 && <div style={calS.monthMore}>+{dayEvs.length-2} more</div>}
               </div>
@@ -4718,6 +4768,11 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
           );
         })}
       </div>
+      {monthDrag && monthDrag.started !== false && (
+        <div style={{ position:'fixed', left:monthDrag.ghostX+8, top:monthDrag.ghostY+8, pointerEvents:'none', zIndex:9999, background: monthDrag.ev.noteId ? monthDrag.ev.noteColor : (LIFE_CATS.find(c => c.id === monthDrag.ev.cat)?.color || 'var(--indigo)'), color:'#fff', fontSize:10, fontWeight:600, padding:'4px 8px', borderRadius:4, boxShadow:'0 4px 12px rgba(0,0,0,.2)' }}>
+          {monthDrag.ev.name}
+        </div>
+      )}
     </div>
   );
 
