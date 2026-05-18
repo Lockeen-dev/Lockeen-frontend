@@ -678,6 +678,8 @@ function CalendarView({ setTab, setSelectedNoteId }) {
   const [modalName, setModalName] = useState('');
   const [modalTime, setModalTime] = useState('09:00');
   const [modalDur, setModalDur]   = useState('1h');
+  const [dragSrc, setDragSrc]     = useState(null);  // { key, idx }
+  const [dragOver, setDragOver]   = useState(null);  // day key
 
   const navPrev = () => {
     if (view === 'week') { setWeekStart(d => addDays(d, -7)); }
@@ -701,6 +703,18 @@ function CalendarView({ setTab, setSelectedNoteId }) {
   const deleteEvent = (key, idx) => setEvents(ev => ({
     ...ev, [key]: ev[key].filter((_, i) => i !== idx),
   }));
+
+  const moveEvent = (fromKey, fromIdx, toKey) => {
+    if (fromKey === toKey) return;
+    setEvents(prev => {
+      const ev = prev[fromKey][fromIdx];
+      return {
+        ...prev,
+        [fromKey]: prev[fromKey].filter((_, i) => i !== fromIdx),
+        [toKey]: [...(prev[toKey] || []), ev],
+      };
+    });
+  };
 
   const selectSubject = (subject) => {
     const info = SUBJECT_NOTE_MAP[subject];
@@ -832,17 +846,30 @@ function CalendarView({ setTab, setSelectedNoteId }) {
           const key = dayKey(day);
           const isCurrentMonth = day.getMonth() === viewMonth;
           const isToday = dayKey(day) === dayKey(today);
+          const isDragTarget = dragOver === key && dragSrc && dragSrc.key !== key;
           const dayEvs = (events[key] || []).filter(ev => activeCats.has(ev.cat));
           return (
             <div key={i}
-              style={{ ...calS.monthCell, ...(isToday ? calS.monthCellToday : {}), opacity: isCurrentMonth ? 1 : 0.35, cursor: isCurrentMonth ? 'pointer' : 'default' }}
-              onClick={() => isCurrentMonth && openModal(key)}>
+              style={{ ...calS.monthCell, ...(isToday ? calS.monthCellToday : {}), ...(isDragTarget ? calS.monthCellDragOver : {}), opacity: isCurrentMonth ? 1 : 0.35, cursor: isCurrentMonth ? 'pointer' : 'default' }}
+              onClick={() => isCurrentMonth && openModal(key)}
+              onDragOver={e => { if (!isCurrentMonth) return; e.preventDefault(); setDragOver(key); }}
+              onDragLeave={() => setDragOver(null)}
+              onDrop={e => {
+                e.preventDefault();
+                setDragOver(null);
+                if (dragSrc && isCurrentMonth) moveEvent(dragSrc.key, dragSrc.idx, key);
+                setDragSrc(null);
+              }}>
               <span style={{ ...calS.monthDayNum, ...(isToday ? calS.monthDayToday : {}) }}>{day.getDate()}</span>
               <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:3 }}>
                 {dayEvs.slice(0,2).map((ev, idx) => {
                   const cat = LIFE_CATS.find(c => c.id === ev.cat);
                   return (
-                    <div key={idx} style={{ ...calS.monthPill, background: ev.noteId ? ev.noteColor : cat?.color }}>
+                    <div key={idx}
+                      draggable
+                      onDragStart={e => { e.stopPropagation(); setDragSrc({ key, idx }); }}
+                      onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
+                      style={{ ...calS.monthPill, background: ev.noteId ? ev.noteColor : cat?.color, cursor:'grab' }}>
                       {ev.name}
                     </div>
                   );
@@ -1003,6 +1030,7 @@ const calS = {
   monthGrid: { display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:2 },
   monthCell: { minHeight:72, padding:'6px 8px', borderRadius:8, border:'1px solid transparent', display:'flex', flexDirection:'column' },
   monthCellToday: { border:'1.5px solid #3730E8' },
+  monthCellDragOver: { background:'#EEF2FF', border:'1.5px dashed #3730E8' },
   monthDayNum: { fontSize:12, fontWeight:600, color:'var(--ink)' },
   monthDayToday: { background:'#3730E8', color:'#fff', width:20, height:20, borderRadius:999, display:'grid', placeItems:'center', fontSize:11 },
   monthPill: { fontSize:10, fontWeight:600, color:'#fff', padding:'2px 6px', borderRadius:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
