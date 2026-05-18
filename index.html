@@ -1529,7 +1529,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
 }
 
 const shellS = {
-  wrap: { minHeight: '100vh', padding: '24px 24px 48px', maxWidth: 1280, margin: '0 auto' },
+  wrap: { minHeight: '100vh', width: '100%', maxWidth: 1280, margin: '0 auto', padding: '24px 24px 48px', boxSizing: 'border-box', overflowX: 'hidden' },
   header: { marginBottom: 20 },
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   logoBox: { width: 36, height: 36, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
@@ -1539,9 +1539,9 @@ const shellS = {
   themeIcon: { display: 'grid', placeItems: 'center' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
   signoutBtn: { display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
-  outerCard: { border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
-  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 640 },
-  main: { padding: '32px 36px' },
+  outerCard: { width: '100%', maxWidth: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
+  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 640, width: '100%', minWidth: 0 },
+  main: { padding: '32px 36px', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box' },
 };
 
 /* ===================== STUDY TIMER ===================== */
@@ -1972,7 +1972,7 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
   const fmtDur = (mins) => mins >= 60 ? (mins % 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${Math.floor(mins/60)}h`) : `${mins}m`;
 
   return (
-    <div>
+    <div style={homeS.wrap}>
       {confirmModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:2000, display:'grid', placeItems:'center' }} onClick={() => setConfirmModal(null)}>
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:20, padding:'28px 24px', width:320, boxShadow:'0 24px 64px rgba(0,0,0,.25)' }} onClick={e => e.stopPropagation()}>
@@ -2002,10 +2002,10 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
       </div>
 
       {/* HERO — Today's Schedule (full-width) */}
-      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:20, padding: isMobile ? '16px 14px' : '22px 24px', marginBottom:24 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
+      <div style={{ ...homeS.scheduleCard, padding: isMobile ? '16px 14px' : '22px 24px' }}>
+        <div style={homeS.scheduleHead}>
           <CalendarIcon size={18} color="var(--indigo)" />
-          <h3 style={{ margin:0, fontSize:16, fontWeight:700, color:'var(--ink)' }}>
+          <h3 style={homeS.scheduleTitle}>
             Programma di oggi
             {todayEvents.length > 0 && <span style={{ marginLeft:8, fontSize:12, fontWeight:600, color:'var(--gray)' }}>{doneCount}/{todayEvents.length} completati</span>}
           </h3>
@@ -2024,7 +2024,7 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
               const catText = ev.noteText || cat?.text || 'var(--indigo)';
               const done = !!checked[idx];
               return (
-                <div key={idx} onClick={() => { if (!done) setConfirmModal({ idx, ev }); else toggleCheck(idx); }} style={{ display:'flex', alignItems:'center', gap: isMobile ? 8 : 14, padding: isMobile ? '10px 10px' : '12px 14px', borderRadius:12, cursor:'pointer', transition:'background .12s', background: done ? 'transparent' : 'var(--sidebar-bg)', opacity: done ? 0.45 : 1 }}>
+                <div key={idx} onClick={() => { if (!done) setConfirmModal({ idx, ev }); else toggleCheck(idx); }} style={{ display:'flex', alignItems:'center', gap: isMobile ? 8 : 14, padding: isMobile ? '10px 10px' : '12px 14px', borderRadius:12, cursor:'pointer', transition:'background .12s', background: done ? 'transparent' : 'var(--sidebar-bg)', opacity: done ? 0.45 : 1, width:'100%', minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                   <div style={{ width:3, alignSelf:'stretch', borderRadius:999, background:accentColor, flexShrink:0 }} />
                   <div style={{ minWidth: isMobile ? 44 : 52, fontSize:12, fontWeight:700, color:'var(--gray)', flexShrink:0 }}>{ev.time}</div>
                   <div style={{ flex:1, minWidth:0, fontSize:14, fontWeight:600, color:'var(--ink)', textDecoration:done?'line-through':'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ev.name}</div>
@@ -2110,8 +2110,12 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
 }
 
 const homeS = {
+  wrap: { width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'hidden' },
   h1: { margin: 0, fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)' },
   sub: { margin: '6px 0 0', color: 'var(--gray)', fontSize: 15 },
+  scheduleCard: { width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', overflow: 'hidden', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:20, marginBottom:24 },
+  scheduleHead: { display:'flex', alignItems:'center', gap:10, marginBottom:18, width:'100%', minWidth:0 },
+  scheduleTitle: { margin:0, minWidth:0, fontSize:16, fontWeight:700, color:'var(--ink)', lineHeight:1.25 },
   sectionLabel: { margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
   cardsRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 },
   bigCard: { border: '1px solid var(--border)', borderRadius: 20, padding: 22, display: 'flex', flexDirection: 'column', gap: 10 },
