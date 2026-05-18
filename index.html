@@ -1330,6 +1330,12 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
     setTab('quiz');
   };
 
+  const openQuizForExam = (examId) => {
+    setQuizDeck({ _examId: examId, questions: [] });
+    setActiveExamId(null);
+    setTab('quiz');
+  };
+
   return (
     <div style={shellS.wrap}>
       {/* Header bar */}
@@ -1377,7 +1383,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
           <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); if (t === 'quiz') setQuizDeck(null); setTab(t); }} />
           <div style={shellS.main}>
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
-            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} />}
+            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} />}
             {tab === 'flashcards' && (flashLanding
               ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} exams={exams} />
               : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} />
@@ -2248,7 +2254,7 @@ const seedExams = [
   ]},
 ];
 
-function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {} }) {
+function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {} }) {
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
@@ -2353,7 +2359,7 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
                   <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
                     <LockeenLogo size={16} /> Open Exam
                   </button>
-                  <button style={notesS.ghostSmall} onClick={() => alert(`Quick quiz from "${x.name}"…`)}>
+                  <button style={notesS.ghostSmall} onClick={() => onOpenQuizForExam && onOpenQuizForExam(x.id)}>
                     <Sparkles size={14} /> Quick Quiz
                   </button>
                 </div>
@@ -3242,7 +3248,7 @@ function QuizReview({ run, onBack, darkMode }) {
 }
 
 function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
-  const [selectedExamId, setSelectedExamId] = useState(exams[0]?.id ?? null);
+  const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? exams[0]?.id ?? null);
   const [selectedChapterId, setSelectedChapterId] = useState('all');
   const [numQ, setNumQ] = useState(10);
   const [activeDeck, setActiveDeck] = useState(deck && deck.questions && deck.questions.length > 0 ? deck : null);
