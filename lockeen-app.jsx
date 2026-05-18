@@ -678,7 +678,7 @@ function CalendarView({ setTab, setSelectedNoteId }) {
   const [modalName, setModalName] = useState('');
   const [modalTime, setModalTime] = useState('09:00');
   const [modalDur, setModalDur]   = useState('1h');
-  const [dragSrc, setDragSrc]     = useState(null);  // { key, idx }
+  const dragSrcRef                = React.useRef(null);  // { key, idx }
   const [dragOver, setDragOver]   = useState(null);  // day key
   const didDragRef                = React.useRef(false);
 
@@ -847,7 +847,7 @@ function CalendarView({ setTab, setSelectedNoteId }) {
           const key = dayKey(day);
           const isCurrentMonth = day.getMonth() === viewMonth;
           const isToday = dayKey(day) === dayKey(today);
-          const isDragTarget = dragOver === key && dragSrc && dragSrc.key !== key;
+          const isDragTarget = dragOver === key && dragSrcRef.current && dragSrcRef.current.key !== key;
           const dayEvs = (events[key] || []).filter(ev => activeCats.has(ev.cat));
           return (
             <div key={i}
@@ -859,8 +859,9 @@ function CalendarView({ setTab, setSelectedNoteId }) {
                 e.preventDefault();
                 didDragRef.current = true;
                 setDragOver(null);
-                if (dragSrc && isCurrentMonth) moveEvent(dragSrc.key, dragSrc.idx, key);
-                setDragSrc(null);
+                const src = dragSrcRef.current;
+                if (src && isCurrentMonth) moveEvent(src.key, src.idx, key);
+                dragSrcRef.current = null;
               }}>
               <span style={{ ...calS.monthDayNum, ...(isToday ? calS.monthDayToday : {}) }}>{day.getDate()}</span>
               <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:3 }}>
@@ -872,8 +873,8 @@ function CalendarView({ setTab, setSelectedNoteId }) {
                   return (
                     <div key={origIdx}
                       draggable
-                      onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragSrc({ key, idx: origIdx }); }}
-                      onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
+                      onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; dragSrcRef.current = { key, idx: origIdx }; }}
+                      onDragEnd={() => { dragSrcRef.current = null; setDragOver(null); }}
                       style={{ ...calS.monthPill, background: ev.noteId ? ev.noteColor : cat?.color, cursor:'grab' }}>
                       {ev.name}
                     </div>
