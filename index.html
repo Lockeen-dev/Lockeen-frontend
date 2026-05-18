@@ -327,9 +327,9 @@
     <div class="relative">
       <div class="relative bg-gradient-to-br from-[#070B2D] to-[#2F2BFF] rounded-3xl shadow-2xl overflow-hidden p-1">
         <div class="bg-white rounded-[1.375rem] overflow-hidden">
-          <div class="grid grid-cols-12 min-h-[600px]">
+          <div class="grid grid-cols-12 min-h-[400px] md:min-h-[600px]">
             <!-- Sidebar -->
-            <div class="col-span-3 bg-muted/50 border-r border-border p-6">
+            <div class="hidden md:block md:col-span-3 bg-muted/50 border-r border-border p-6">
               <div class="space-y-3">
                 <div class="flex items-center gap-3 p-3 bg-primary text-white rounded-xl">
                   <i data-lucide="zap" style="font-size:1.25rem"></i>
@@ -363,32 +363,32 @@
             </div>
 
             <!-- Main -->
-            <div class="col-span-9 p-8">
-              <div class="mb-8">
-                <h3 class="text-2xl mb-2 font-semibold">Good morning, Alex</h3>
-                <p class="text-foreground/60">Ready to continue your learning journey?</p>
+            <div class="col-span-12 md:col-span-9 p-4 md:p-8">
+              <div class="mb-6">
+                <h3 class="text-xl md:text-2xl mb-2 font-semibold">Good morning, Alex</h3>
+                <p class="text-foreground/60 text-sm md:text-base">Ready to continue your learning journey?</p>
               </div>
 
-              <div class="grid grid-cols-2 gap-6">
-                <div class="p-6 bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20">
-                  <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
-                    <div class="w-6 h-6 bg-primary rounded-lg"></div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                <div class="p-4 md:p-6 bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20">
+                  <div class="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-3 md:mb-4">
+                    <div class="w-5 h-5 md:w-6 md:h-6 bg-primary rounded-lg"></div>
                   </div>
-                  <h4 class="text-lg mb-2 font-semibold">Biology Quiz</h4>
-                  <p class="text-sm text-foreground/60 mb-4">15 questions • 20 min</p>
+                  <h4 class="text-base md:text-lg mb-1 md:mb-2 font-semibold">Biology Quiz</h4>
+                  <p class="text-xs md:text-sm text-foreground/60 mb-3 md:mb-4">15 questions • 20 min</p>
                   <button class="w-full px-4 py-2 bg-primary text-white rounded-xl text-sm hover:opacity-90 transition-opacity">Start Quiz</button>
                 </div>
 
-                <div class="p-6 bg-gradient-to-br from-purple-500/5 to-purple-500/10 rounded-2xl border border-purple-500/20">
-                  <div class="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4">
-                    <div class="w-6 h-6 bg-purple-500 rounded-lg"></div>
+                <div class="p-4 md:p-6 bg-gradient-to-br from-purple-500/5 to-purple-500/10 rounded-2xl border border-purple-500/20">
+                  <div class="w-10 h-10 md:w-12 md:h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-3 md:mb-4">
+                    <div class="w-5 h-5 md:w-6 md:h-6 bg-purple-500 rounded-lg"></div>
                   </div>
-                  <h4 class="text-lg mb-2 font-semibold">Chemistry Flash</h4>
-                  <p class="text-sm text-foreground/60 mb-4">48 cards • Practice</p>
+                  <h4 class="text-base md:text-lg mb-1 md:mb-2 font-semibold">Chemistry Flash</h4>
+                  <p class="text-xs md:text-sm text-foreground/60 mb-3 md:mb-4">48 cards • Practice</p>
                   <button class="w-full px-4 py-2 bg-white border border-border rounded-xl text-sm hover:bg-muted transition-colors">Review Cards</button>
                 </div>
 
-                <div class="col-span-2 p-6 bg-gradient-to-br from-cyan-500/5 to-cyan-500/10 rounded-2xl border border-cyan-500/20">
+                <div class="col-span-1 sm:col-span-2 p-4 md:p-6 bg-gradient-to-br from-cyan-500/5 to-cyan-500/10 rounded-2xl border border-cyan-500/20">
                   <div class="flex items-center gap-3 mb-4">
                     <div class="w-10 h-10 bg-cyan-500/10 rounded-full flex items-center justify-center">
                       <i data-lucide="message-circle" class="text-cyan-500" style="font-size:1.25rem"></i>
