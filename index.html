@@ -2785,10 +2785,11 @@ const flashS = {
   emptyWrap: { maxWidth: 480, minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
 };
 
-function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes' }) {
+function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = false }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const total = questions.length;
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(autoStart);
+  const autoStartHandled = useRef(false);
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [selected, setSelected] = useState(null);
@@ -2841,6 +2842,13 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
 
   useEffect(() => () => stopTimer(), []);
   useEffect(() => {
+    if (autoStart && !autoStartHandled.current) {
+      autoStartHandled.current = true;
+      setIdx(0); setCorrect(0); setSelected(null); setPendingIdx(null); setDone(false);
+      resultSavedRef.current = false; userAnswers.current = [];
+      setTimeout(startTimer, 0);
+      return;
+    }
     resetAll();
   }, [subject, title, questions]);
   useEffect(() => {
@@ -3103,7 +3111,7 @@ function QuizReview({ run, onBack, darkMode }) {
       )}
       {questions.map((q, qi) => {
         const userIdx = answers[qi] ?? -1;
-        const correctIdx = q.options.findIndex(o => o.correct);
+        const correctIdx = q.correct;
         const isCorrect = userIdx === correctIdx;
         return (
           <div key={qi} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -3112,7 +3120,7 @@ function QuizReview({ run, onBack, darkMode }) {
               <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: 'var(--ink)', lineHeight: 1.4 }}>{q.q}</p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 34 }}>
-              {q.options.map((o, oi) => {
+              {q.options.map((optText, oi) => {
                 const isUser = oi === userIdx;
                 const isRight = oi === correctIdx;
                 let bg = 'transparent', border = '1.5px solid var(--border)', color = 'var(--ink)';
@@ -3121,7 +3129,7 @@ function QuizReview({ run, onBack, darkMode }) {
                 return (
                   <div key={oi} style={{ display: 'flex', gap: 8, alignItems: 'center', background: bg, border, borderRadius: 10, padding: '8px 12px' }}>
                     <span style={{ fontWeight: 700, fontSize: 12, opacity: 0.6, flexShrink: 0 }}>{String.fromCharCode(65 + oi)}</span>
-                    <span style={{ fontSize: 13, color, flex: 1 }}>{o.text}</span>
+                    <span style={{ fontSize: 13, color, flex: 1 }}>{optText}</span>
                     {isRight && <span style={{ fontSize: 11, fontWeight: 700, color: '#166534', flexShrink: 0 }}>✓ Corretta</span>}
                     {isUser && !isRight && <span style={{ fontSize: 11, fontWeight: 700, color: '#991B1B', flexShrink: 0 }}>Tua risposta</span>}
                   </div>
@@ -3197,6 +3205,7 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
         darkMode={darkMode}
         onQuizComplete={handleQuizComplete}
         backTo="quiz"
+        autoStart={!!activeDeck._autoStart}
       />
     );
   }
@@ -3295,7 +3304,22 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
                       style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--gray)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
                       Review
                     </button>
-                    <button onClick={() => startQuiz({ examId: run.examId, chapterId: run.chapterId, numQ: run.numQ })}
+                    <button onClick={() => {
+                      const exam = exams.find(e => e.id === run.examId);
+                      setActiveDeck({
+                        noteId: run.chapterId === 'all' ? run.examId : run.chapterId,
+                        subject: exam?.subject || '',
+                        title: run.chapterName || run.examName || '',
+                        questions: run.questions && run.questions.length > 0 ? run.questions : (() => {
+                          const qs = run.chapterId === 'all'
+                            ? (exam?.chapters || []).flatMap(c => c.questions || [])
+                            : (exam?.chapters.find(c => c.id === run.chapterId)?.questions || []);
+                          return qs.slice(0, run.numQ);
+                        })(),
+                        _meta: { examId: run.examId, examName: run.examName, chapterId: run.chapterId, chapterName: run.chapterName, numQ: run.numQ },
+                        _autoStart: true,
+                      });
+                    }}
                       style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
                       Try again
                     </button>
