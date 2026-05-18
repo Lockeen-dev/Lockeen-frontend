@@ -4652,34 +4652,42 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     closeModal();
   };
 
-  const [editEv, setEditEv]     = useState(null);  // { key, idx }
+  const [editEv, setEditEv]     = useState(null);
   const [editForm, setEditForm] = useState(null);
+  const editFormRef             = useRef(null);
+
+  const setEditFormSync = (val) => {
+    const next = typeof val === 'function' ? val(editFormRef.current) : val;
+    editFormRef.current = next;
+    setEditForm(next);
+  };
 
   const openEditEvent = (key, idx) => {
     const ev = (events[key] || [])[idx];
     if (!ev) return;
     setEditEv({ key, idx });
-    setEditForm({
+    setEditFormSync({
       name: ev.name || '', time: ev.time || '09:00', dur: ev.dur || '1h',
       cat: ev.cat || 'study', noteId: ev.noteId || null,
-      notes: ev.notes || '', materials: ev.materials || [],
+      notes: ev.notes || '', materials: (ev.materials || []).map(m => typeof m === 'string' ? m : (m.url || '')),
       completed: !!ev.completed,
     });
   };
-  const closeEditEvent = () => { setEditEv(null); setEditForm(null); };
+  const closeEditEvent = () => { setEditEv(null); setEditFormSync(null); };
 
   const saveEditEvent = () => {
-    if (!editEv || !editForm) return;
+    const f = editFormRef.current;
+    if (!editEv || !f) return;
     const { key, idx } = editEv;
-    const noteSubject = editForm.cat === 'study' && editForm.noteId
-      ? Object.keys(SUBJECT_NOTE_MAP).find(s => SUBJECT_NOTE_MAP[s].noteId === editForm.noteId) || null : null;
+    const noteSubject = f.cat === 'study' && f.noteId
+      ? Object.keys(SUBJECT_NOTE_MAP).find(s => SUBJECT_NOTE_MAP[s].noteId === f.noteId) || null : null;
     const noteInfo = noteSubject ? SUBJECT_NOTE_MAP[noteSubject] : null;
     const updated = {
-      name: editForm.name, time: editForm.time, dur: editForm.dur, cat: editForm.cat,
-      noteId: editForm.cat === 'study' ? editForm.noteId : null,
+      name: f.name, time: f.time, dur: f.dur, cat: f.cat,
+      noteId: f.cat === 'study' ? f.noteId : null,
       noteColor: noteInfo?.color || null, noteBg: noteInfo?.bg || null,
       noteText: noteInfo?.text || null, noteSubject,
-      notes: editForm.notes, materials: editForm.materials, completed: editForm.completed,
+      notes: f.notes, materials: f.materials, completed: f.completed,
     };
     setEvents(prev => ({ ...prev, [key]: (prev[key] || []).map((e, i) => i === idx ? updated : e) }));
     closeEditEvent();
@@ -4691,9 +4699,9 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     closeEditEvent();
   };
 
-  const addMaterial = () => setEditForm(f => ({ ...f, materials: [...f.materials, { title:'', url:'' }] }));
-  const updateMaterial = (i, patch) => setEditForm(f => ({ ...f, materials: f.materials.map((m, j) => j === i ? { ...m, ...patch } : m) }));
-  const removeMaterial = (i) => setEditForm(f => ({ ...f, materials: f.materials.filter((_, j) => j !== i) }));
+  const addMaterial    = ()        => setEditFormSync(f => ({ ...f, materials: [...f.materials, ''] }));
+  const updateMaterial = (i, url) => setEditFormSync(f => ({ ...f, materials: f.materials.map((m, j) => j === i ? url : m) }));
+  const removeMaterial = (i)      => setEditFormSync(f => ({ ...f, materials: f.materials.filter((_, j) => j !== i) }));
 
   const handleEvClick = (ev, key, idx) => { openEditEvent(key, idx); };
 
@@ -4918,7 +4926,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     const cat = LIFE_CATS.find(c => c.id === f.cat);
     const noteInfo = f.noteId ? Object.values(SUBJECT_NOTE_MAP).find(v => v.noteId === f.noteId) : null;
     const saveBg = noteInfo ? noteInfo.color : cat?.color;
-    const upd = (patch) => setEditForm(prev => ({ ...prev, ...patch }));
+    const upd = (patch) => setEditFormSync(prev => ({ ...prev, ...patch }));
     return (
       <div style={calS.overlay} onClick={closeEditEvent}>
         <div style={{ ...calS.modal, maxHeight:'88vh', overflowY:'auto' }} onClick={e => e.stopPropagation()}>
@@ -4982,12 +4990,10 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
             <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:8 }}>
               {f.materials.map((m, i) => (
                 <div key={i} style={{ display:'flex', gap:6 }}>
-                  <input value={m.title} onChange={e => updateMaterial(i, { title: e.target.value })}
-                    placeholder="Titolo" style={{ ...calS.modalInput, flex:1 }} />
-                  <input value={m.url} onChange={e => updateMaterial(i, { url: e.target.value })}
-                    placeholder="https://… o /file" style={{ ...calS.modalInput, flex:2 }} />
+                  <input value={m} onChange={e => updateMaterial(i, e.target.value)}
+                    placeholder="https://… oppure nome file / link" style={{ ...calS.modalInput, flex:1 }} />
                   <button onClick={() => removeMaterial(i)}
-                    style={{ width:36, borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--gray)', cursor:'pointer' }}><Trash size={13} /></button>
+                    style={{ width:36, borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--gray)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}><Trash size={13} /></button>
                 </div>
               ))}
               <button onClick={addMaterial}
