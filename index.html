@@ -1379,7 +1379,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
             {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} />}
             {tab === 'flashcards' && (flashLanding
-              ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} />
+              ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} exams={exams} />
               : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} />
             )}
             {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={darkMode} />}
@@ -2140,6 +2140,55 @@ const literatureQuestions = [
   { q: 'The Romantic movement emphasized:', options: ['Reason and order', 'Nature, emotion, and the individual', 'Classical forms', 'Urban industrial life'], correct: 1, explanation: 'Romanticism celebrated nature, emotion, and imagination.' },
 ];
 
+const geneticsCards = [
+  { q: 'What is a gene?', a: 'A segment of DNA that encodes a specific protein or functional RNA.' },
+  { q: 'Genotype vs phenotype?', a: 'Genotype = genetic makeup; phenotype = observable trait expressed by that genotype.' },
+  { q: 'What is Mendelian inheritance?', a: 'Traits governed by dominant/recessive alleles that assort independently during meiosis.' },
+  { q: 'What is a mutation?', a: 'A change in DNA sequence — can be point, frameshift, insertion, or deletion.' },
+  { q: 'What is meiosis?', a: 'Cell division producing gametes with half the chromosome number (haploid).' },
+  { q: 'What is co-dominance?', a: 'Both alleles are fully expressed simultaneously (e.g., AB blood type).' },
+];
+const chemistryCards = [
+  { q: 'What is an SN2 reaction?', a: 'Bimolecular nucleophilic substitution — nucleophile attacks from the back in one concerted step, inverting stereochemistry.' },
+  { q: "Markovnikov's rule?", a: 'In electrophilic addition, H adds to the less substituted carbon of the alkene.' },
+  { q: 'What is a nucleophile?', a: 'Electron-rich species that donates electrons to an electrophile to form a bond.' },
+  { q: 'What are alkanes?', a: 'Saturated hydrocarbons with only C–C single bonds. Formula: CₙH₂ₙ₊₂.' },
+  { q: 'SN1 vs SN2?', a: 'SN1: two-step, carbocation intermediate, rate depends only on substrate. SN2: concerted, rate depends on both substrate and nucleophile.' },
+  { q: 'What does H₂/Pd do to alkenes?', a: 'Hydrogenation — reduces the double bond to a single bond, converting alkene to alkane.' },
+];
+const mathCards = [
+  { q: 'Integration by parts formula?', a: '∫u dv = uv − ∫v du. Use when integrand is a product of two functions.' },
+  { q: 'Ratio test for convergence?', a: 'Series converges if lim|aₙ₊₁/aₙ| < 1, diverges if > 1, inconclusive if = 1.' },
+  { q: '∫eˣ dx = ?', a: 'eˣ + C. The exponential is its own derivative and antiderivative.' },
+  { q: 'Power rule for integration?', a: '∫xⁿ dx = xⁿ⁺¹/(n+1) + C, valid for n ≠ −1.' },
+  { q: 'What is a convergent series?', a: 'A series whose sequence of partial sums approaches a finite limit as n → ∞.' },
+  { q: '∫₀¹ eˣ dx = ?', a: 'e − 1. Evaluate [eˣ]₀¹ = e¹ − e⁰ = e − 1.' },
+];
+const historyCards = [
+  { q: 'When did WWII begin?', a: 'September 1, 1939 — Germany invaded Poland.' },
+  { q: 'What was the Molotov–Ribbentrop Pact?', a: 'Non-aggression pact between Nazi Germany and the Soviet Union, signed August 1939.' },
+  { q: 'What was Operation Barbarossa?', a: "Germany's invasion of the Soviet Union, launched June 22, 1941." },
+  { q: 'Significance of Battle of Midway?', a: 'June 1942 naval battle — US destroyed 4 Japanese carriers, turning the Pacific tide.' },
+  { q: 'When was D-Day?', a: 'June 6, 1944 — Allied amphibious assault on Normandy beaches.' },
+  { q: 'When did WWII end?', a: 'May 8, 1945 (V-E Day in Europe); September 2, 1945 (V-J Day, Japan surrenders).' },
+];
+const physicsCards = [
+  { q: 'What does the double-slit experiment prove?', a: 'Wave-particle duality — particles create interference patterns, showing wave behavior.' },
+  { q: 'What does the Schrödinger equation describe?', a: "Evolution of a quantum system's wave function over time." },
+  { q: 'Heisenberg uncertainty principle?', a: 'Δx · Δp ≥ ℏ/2 — position and momentum cannot both be simultaneously precise.' },
+  { q: 'de Broglie wavelength formula?', a: 'λ = h/p — all matter has wave properties; wavelength inversely proportional to momentum.' },
+  { q: 'What is wave-particle duality?', a: 'Quantum objects behave as waves (interference) or particles (discrete detection) depending on measurement.' },
+  { q: 'What is quantization?', a: 'Energy, angular momentum, and other properties come in discrete packets (quanta), not continuous values.' },
+];
+const literatureCards = [
+  { q: "Central theme of Hamlet?", a: "Revenge and moral corruption — Hamlet's paralysis in seeking revenge leads to collective tragedy." },
+  { q: '"To be or not to be" — what does it contemplate?', a: 'Whether to endure suffering passively or act — a meditation on existence, death, and the cost of inaction.' },
+  { q: 'Wordsworth — which movement?', a: 'Romanticism — emphasized nature, individual emotion, and imagination over Enlightenment reason.' },
+  { q: 'Who wrote "Ode to a Nightingale"?', a: 'John Keats, 1819. Explores beauty, mortality, and the escape into imagination.' },
+  { q: 'Core values of Romanticism?', a: 'Nature, emotion, imagination, the sublime, and individual experience over classical forms.' },
+  { q: 'What is a soliloquy?', a: "A dramatic monologue where a character speaks thoughts aloud alone on stage (e.g., Hamlet's famous speeches)." },
+];
+
 function makeSampleChapter(id, title, updated, pages, files, idx, cards = [], questions = []) {
   const i = idx % PALETTE_CYCLE.length;
   return { id, title, updated, pages, files: files || 1, color: PALETTE_CYCLE[i], dot: DOT_CYCLE[i], cards, questions };
@@ -2174,28 +2223,28 @@ function GradeValue({ value, color, size = 20 }) {
 
 const seedExams = [
   { id: 1, name: 'Biology 2024',       subject: 'Biology',    date: '2026-06-24', targetGrade: 27, updated: '2h ago',     chapters: [
-    makeSampleChapter(101, 'Cellular Respiration', '2h ago', 12, 1, 0, cellularRespirationCards, cellularRespirationQuestions),
-    makeSampleChapter(102, 'Genetics Basics',      '3 days ago', 18, 2, 1, [], cellularRespirationQuestions),
+    makeSampleChapter(101, 'Cellular Respiration', '2h ago',     12, 1, 0, cellularRespirationCards, cellularRespirationQuestions),
+    makeSampleChapter(102, 'Genetics Basics',      '3 days ago', 18, 2, 1, geneticsCards,            cellularRespirationQuestions),
   ]},
   { id: 2, name: 'Organic Chemistry',  subject: 'Chemistry',  date: '2026-07-08', targetGrade: 25, updated: '1 day ago',  chapters: [
-    makeSampleChapter(201, 'Reaction Mechanisms', '1 day ago',  22, 2, 1, [], chemistryQuestions),
-    makeSampleChapter(202, 'Alkanes & Alkenes',   '4 days ago', 14, 1, 2, [], chemistryQuestions),
+    makeSampleChapter(201, 'Reaction Mechanisms', '1 day ago',  22, 2, 1, chemistryCards, chemistryQuestions),
+    makeSampleChapter(202, 'Alkanes & Alkenes',   '4 days ago', 14, 1, 2, chemistryCards, chemistryQuestions),
   ]},
   { id: 3, name: 'Calculus II',        subject: 'Math',       date: '2026-06-15', targetGrade: 28, updated: '3 days ago', chapters: [
-    makeSampleChapter(301, 'Integration Techniques', '3 days ago', 28, 3, 2, [], mathQuestions),
-    makeSampleChapter(302, 'Series & Sequences',     '1 week ago', 20, 2, 3, [], mathQuestions),
+    makeSampleChapter(301, 'Integration Techniques', '3 days ago', 28, 3, 2, mathCards, mathQuestions),
+    makeSampleChapter(302, 'Series & Sequences',     '1 week ago', 20, 2, 3, mathCards, mathQuestions),
   ]},
   { id: 4, name: 'World War II',       subject: 'History',    date: '2026-06-24', targetGrade: 24, updated: '5 days ago', chapters: [
-    makeSampleChapter(401, 'Causes & Outbreak', '5 days ago', 16, 1, 3, [], historyQuestions),
-    makeSampleChapter(402, 'Pacific Theater',   '1 week ago', 22, 2, 4, [], historyQuestions),
+    makeSampleChapter(401, 'Causes & Outbreak', '5 days ago', 16, 1, 3, historyCards, historyQuestions),
+    makeSampleChapter(402, 'Pacific Theater',   '1 week ago', 22, 2, 4, historyCards, historyQuestions),
   ]},
   { id: 5, name: 'Quantum Physics',    subject: 'Physics',    date: '2026-07-22', targetGrade: 27, updated: '1 week ago', chapters: [
-    makeSampleChapter(501, 'Wave-Particle Duality',  '1 week ago',  24, 2, 4, [], physicsQuestions),
-    makeSampleChapter(502, 'Schrödinger Equation',   '2 weeks ago', 30, 3, 5, [], physicsQuestions),
+    makeSampleChapter(501, 'Wave-Particle Duality',  '1 week ago',  24, 2, 4, physicsCards, physicsQuestions),
+    makeSampleChapter(502, 'Schrödinger Equation',   '2 weeks ago', 30, 3, 5, physicsCards, physicsQuestions),
   ]},
   { id: 6, name: 'English Literature', subject: 'Literature', date: '2026-05-29', targetGrade: 24, updated: '2 weeks ago', chapters: [
-    makeSampleChapter(601, 'Shakespeare — Hamlet', '2 weeks ago', 26, 2, 5, [], literatureQuestions),
-    makeSampleChapter(602, 'Romantic Poetry',      '3 weeks ago', 18, 1, 0, [], literatureQuestions),
+    makeSampleChapter(601, 'Shakespeare — Hamlet', '2 weeks ago', 26, 2, 5, literatureCards, literatureQuestions),
+    makeSampleChapter(602, 'Romantic Poetry',      '3 weeks ago', 18, 1, 0, literatureCards, literatureQuestions),
   ]},
 ];
 
@@ -2550,58 +2599,107 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
   );
 }
 
-function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode }) {
-  const fmtDate = (ts) => {
-    const d = new Date(ts);
-    return d.toLocaleDateString('it-IT', { day:'numeric', month:'short' });
-  };
-  const fmtScore = (s) => s >= 80 ? { label: '🏆 ' + s + '%', color: '#10B981' } : s >= 60 ? { label: '👍 ' + s + '%', color: '#F59E0B' } : { label: '📖 ' + s + '%', color: '#EF4444' };
+function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [] }) {
+  const [selectedExamId, setSelectedExamId] = useState(exams[0]?.id ?? null);
+  const selectedExam = exams.find(e => e.id === selectedExamId);
+
+  const fmtDate = (ts) => new Date(ts).toLocaleDateString('it-IT', { day:'numeric', month:'short' });
+  const fmtScore = (s) => s >= 80 ? { label: s + '%', color: '#10B981' } : s >= 60 ? { label: s + '%', color: '#F59E0B' } : { label: s + '%', color: '#EF4444' };
+
+  const sL = { fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.08em', color:'var(--gray)', marginBottom:10 };
 
   return (
-    <div>
-      <div style={{ marginBottom:24 }}>
-        <h2 style={homeS.h1}>Flashcards</h2>
-        <p style={homeS.sub}>Rivedi i tuoi mazzi recenti o esplora per materia</p>
+    <div style={{ maxWidth:620, display:'flex', flexDirection:'column', gap:28 }}>
+
+      {/* Header */}
+      <div>
+        <h2 style={{ margin:'0 0 4px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>Flashcards</h2>
+        <p style={{ margin:0, color:'var(--gray)', fontSize:14 }}>Rivedi i tuoi mazzi recenti o esplora per materia</p>
       </div>
 
-      {recentDecks.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'48px 24px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:20 }}>
-          <div style={{ fontSize:48, marginBottom:16 }}>🃏</div>
-          <h3 style={{ margin:'0 0 8px', fontSize:18, fontWeight:700, color:'var(--ink)' }}>Nessuna sessione recente</h3>
-          <p style={{ color:'var(--gray)', fontSize:14, marginBottom:20 }}>Vai su My Exams per iniziare una sessione di flashcard</p>
-          <button onClick={() => setTab('notes')} style={{ padding:'11px 24px', borderRadius:12, background:'var(--indigo)', color:'#fff', fontWeight:700, fontSize:14, border:'none', cursor:'pointer' }}>
-            Vai a My Exams
-          </button>
-        </div>
-      ) : (
+      {/* Exam selector */}
+      {exams.length > 0 && (
         <div>
-          <h3 style={{ margin:'0 0 14px', fontSize:14, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Sessioni recenti</h3>
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            {recentDecks.map((deck, i) => {
-              const sc = deck.lastScore != null ? fmtScore(deck.lastScore) : null;
+          <div style={sL}>Esame</div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+            {exams.map(exam => {
+              const active = exam.id === selectedExamId;
+              const pal = getSubjectPalette(exam.subject, {}, darkMode);
               return (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, cursor:'pointer' }}
-                  onClick={() => onOpenDeck(deck)}>
-                  <div style={{ width:44, height:44, borderRadius:12, background:'var(--lavender)', display:'grid', placeItems:'center', flexShrink:0 }}>
-                    <span style={{ fontSize:22 }}>🃏</span>
+                <button key={exam.id} onClick={() => setSelectedExamId(exam.id)}
+                  style={{ padding:'7px 16px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.bg : 'var(--surface)', color: active ? pal.text : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
+                  {exam.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Chapter list */}
+      {selectedExam && (
+        <div>
+          <div style={sL}>Capitoli — {selectedExam.name}</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {selectedExam.chapters.map(ch => {
+              const pal = getSubjectPalette(selectedExam.subject, {}, darkMode);
+              const cardCount = (ch.cards || []).length;
+              const hasCards = cardCount > 0;
+              return (
+                <div key={ch.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, opacity: hasCards ? 1 : 0.5 }}>
+                  <div style={{ width:42, height:42, borderRadius:12, background: pal.bg, display:'grid', placeItems:'center', flexShrink:0 }}>
+                    <span style={{ fontSize:20 }}>🃏</span>
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deck.title}</div>
-                    <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>{deck.subject} · {(deck.cards||[]).length} carte · {deck.ts ? fmtDate(deck.ts) : ''}</div>
+                    <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ch.title}</div>
+                    <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>
+                      {hasCards ? `${cardCount} carte · ${selectedExam.subject}` : 'Nessuna flashcard — carica i file in My Exams'}
+                    </div>
                   </div>
-                  {sc && <span style={{ fontSize:13, fontWeight:700, color:sc.color, flexShrink:0 }}>{sc.label}</span>}
-                  <button onClick={e => { e.stopPropagation(); onOpenDeck(deck); }}
-                    style={{ padding:'8px 16px', borderRadius:10, background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:13, border:'none', cursor:'pointer', flexShrink:0 }}>
-                    Rivedi
+                  <button
+                    disabled={!hasCards}
+                    onClick={() => onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: ch.cards })}
+                    style={{ padding:'8px 18px', borderRadius:10, background: hasCards ? pal.dot : 'var(--border)', color:'#fff', fontWeight:600, fontSize:13, border:'none', cursor: hasCards ? 'pointer' : 'not-allowed', flexShrink:0 }}>
+                    Studia
                   </button>
                 </div>
               );
             })}
           </div>
-          <div style={{ marginTop:20, textAlign:'center' }}>
-            <button onClick={() => setTab('notes')} style={{ padding:'10px 24px', borderRadius:12, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer' }}>
-              + Nuova sessione da My Exams
-            </button>
+        </div>
+      )}
+
+      {/* Divider + recent sessions */}
+      {recentDecks.length > 0 && (
+        <div>
+          <div style={{ height:1, background:'var(--border)', marginBottom:20 }} />
+          <div style={sL}>Sessioni recenti</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {recentDecks.map((deck, i) => {
+              const sc = deck.lastScore != null ? fmtScore(deck.lastScore) : null;
+              const pal = getSubjectPalette(deck.subject, {}, darkMode);
+              return (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, cursor:'pointer' }}
+                  onClick={() => onOpenDeck(deck)}>
+                  <div style={{ width:38, height:38, borderRadius:10, background: pal.bg, display:'grid', placeItems:'center', flexShrink:0 }}>
+                    <span style={{ fontSize:18 }}>🃏</span>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deck.title}</div>
+                    <div style={{ fontSize:12, color:'var(--gray)', marginTop:1 }}>{deck.subject} · {(deck.cards||[]).length} carte{deck.ts ? ' · ' + fmtDate(deck.ts) : ''}</div>
+                  </div>
+                  {sc && (
+                    <div style={{ flexShrink:0, textAlign:'right' }}>
+                      <span style={{ fontSize:13, fontWeight:800, color:sc.color }}>{sc.label}</span>
+                    </div>
+                  )}
+                  <button onClick={e => { e.stopPropagation(); onOpenDeck(deck); }}
+                    style={{ padding:'7px 14px', borderRadius:9, background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:12, border:'none', cursor:'pointer', flexShrink:0 }}>
+                    Rivedi
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
