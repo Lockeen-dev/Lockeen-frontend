@@ -4632,6 +4632,13 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const closeDayDetail = () => setDayDetailKey(null);
   const toggleCat = (id) => setActiveCats(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   const deleteEvent = (key, idx) => setEvents(ev => ({ ...ev, [key]: ev[key].filter((_, i) => i !== idx) }));
+  const reorderEvent = (key, fromIdx, toIdx) => setEvents(prev => {
+    const arr = [...(prev[key] || [])];
+    if (fromIdx < 0 || fromIdx >= arr.length || toIdx < 0 || toIdx >= arr.length || fromIdx === toIdx) return prev;
+    const [m] = arr.splice(fromIdx, 1);
+    arr.splice(toIdx, 0, m);
+    return { ...prev, [key]: arr };
+  });
 
   const selectSubject = (subject) => {
     const info = SUBJECT_NOTE_MAP[subject];
@@ -4658,6 +4665,11 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
 
   const [editEv, setEditEv]     = useState(null);
   const [editForm, setEditForm] = useState(null);
+  const [fileDragOver, setFileDragOver] = useState(false);
+  const fileInputRef = useRef(null);
+  const fileIdRef    = useRef(1);
+  const [reorderDragIdx, setReorderDragIdx] = useState(null);
+  const [reorderOverIdx, setReorderOverIdx] = useState(null);
 
   const openEditEvent = (key, idx) => {
     const ev = (events[key] || [])[idx];
@@ -4667,6 +4679,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
       cat: ev.cat || 'study', noteId: ev.noteId || null,
       notes: ev.notes || '',
       materials: (ev.materials || []).map(m => typeof m === 'string' ? m : (m && m.url) || ''),
+      files: (ev.files || []).map(f => ({ ...f })),
       completed: !!ev.completed,
     });
     setEditEv({ key, idx });
@@ -4687,6 +4700,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
       noteText: noteInfo?.text || null, noteSubject,
       notes: f.notes,
       materials: (f.materials || []).filter(m => m && m.trim()),
+      files: f.files || [],
       completed: f.completed,
     };
     setEvents(prev => ({ ...prev, [key]: (prev[key] || []).map((e, i) => i === idx ? updated : e) }));
@@ -4702,6 +4716,22 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const addMaterial    = ()       => setEditForm(f => f ? ({ ...f, materials: [...(f.materials||[]), ''] }) : f);
   const updateMaterial = (i, url) => setEditForm(f => f ? ({ ...f, materials: (f.materials||[]).map((m, j) => j === i ? url : m) }) : f);
   const removeMaterial = (i)      => setEditForm(f => f ? ({ ...f, materials: (f.materials||[]).filter((_, j) => j !== i) }) : f);
+
+  const addEditFiles = (list) => {
+    const arr = Array.from(list || []);
+    if (!arr.length) return;
+    setEditForm(f => {
+      if (!f) return f;
+      const next = [...(f.files || [])];
+      arr.forEach(file => next.push({ id: fileIdRef.current++, name: file.name, size: file.size }));
+      return { ...f, files: next };
+    });
+  };
+  const removeEditFile = (id) => setEditForm(f => f ? ({ ...f, files: (f.files||[]).filter(x => x.id !== id) }) : f);
+  const onFileDrop = (e) => { e.preventDefault(); setFileDragOver(false); if (e.dataTransfer && e.dataTransfer.files) addEditFiles(e.dataTransfer.files); };
+  const onFilePick = (e) => { addEditFiles(e.target.files); e.target.value = ''; };
+  const browseFiles = () => fileInputRef.current && fileInputRef.current.click();
+  const fmtFileSize = (b) => { if (!b) return ''; if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1) + ' KB'; return (b/1048576).toFixed(1) + ' MB'; };
 
   const handleEvClick = (ev, key, idx) => { openEditEvent(key, idx); };
 
@@ -5002,6 +5032,33 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
               </button>
             </div>
           </div>
+          <div style={{ marginBottom:16 }}>
+            <label style={calS.modalLabel}>File allegati</label>
+            <div
+              onDragOver={e => { e.preventDefault(); setFileDragOver(true); }}
+              onDragLeave={() => setFileDragOver(false)}
+              onDrop={onFileDrop}
+              style={{ marginTop:8, padding:'16px', border:`1.5px dashed ${fileDragOver ? 'var(--indigo)' : 'var(--border)'}`, borderRadius:12, background: fileDragOver ? 'var(--lavender)' : 'transparent', textAlign:'center', cursor:'pointer', transition:'background .15s, border-color .15s' }}
+              onClick={browseFiles}>
+              <div style={{ fontSize:22, marginBottom:4 }}>📤</div>
+              <div style={{ fontSize:13, fontWeight:600, color:'var(--ink)', marginBottom:2 }}>Trascina i file qui</div>
+              <div style={{ fontSize:11, color:'var(--gray)' }}>oppure clicca per selezionare</div>
+              <input ref={fileInputRef} type="file" multiple onChange={onFilePick} style={{ display:'none' }} />
+            </div>
+            {f.files && f.files.length > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:8 }}>
+                {f.files.map(file => (
+                  <div key={file.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background:'var(--sidebar-bg)', border:'1px solid var(--border)', borderRadius:8 }}>
+                    <span style={{ fontSize:14 }}>📄</span>
+                    <div style={{ flex:1, minWidth:0, fontSize:12, fontWeight:600, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={file.name}>{file.name}</div>
+                    <span style={{ fontSize:11, color:'var(--gray)', flexShrink:0 }}>{fmtFileSize(file.size)}</span>
+                    <button onClick={() => removeEditFile(file.id)}
+                      style={{ width:24, height:24, borderRadius:6, border:'none', background:'transparent', color:'var(--gray)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Trash size={12} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div style={{ display:'flex', gap:10, justifyContent:'space-between', marginTop:20 }}>
             <button onClick={deleteEditEvent}
               style={{ padding:'10px 16px', borderRadius:999, border:'1px solid #EF4444', background:'transparent', color:'#EF4444', fontWeight:600, fontSize:13, cursor:'pointer' }}>
@@ -5109,19 +5166,33 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
                   const color = ev.noteId ? ev.noteColor : cat?.color;
                   const text = ev.noteId ? ev.noteText : cat?.text;
                   const origIdx = (events[key]||[]).indexOf(ev);
+                  const isDragging = reorderDragIdx === origIdx;
+                  const isDropTarget = reorderOverIdx === origIdx && reorderDragIdx !== null && reorderDragIdx !== origIdx;
+                  const totalAttach = (ev.materials ? ev.materials.length : 0) + (ev.files ? ev.files.length : 0);
                   return (
                     <div key={idx}
-                      onClick={() => { closeDayDetail(); openEditEvent(key, origIdx); }}
-                      style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderRadius:10, background:bg, border:`1px solid ${color}33`, marginBottom:8, opacity: ev.completed ? 0.55 : 1, cursor:'pointer' }}>
+                      draggable
+                      onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(origIdx)); setReorderDragIdx(origIdx); }}
+                      onDragEnd={() => { setReorderDragIdx(null); setReorderOverIdx(null); }}
+                      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (reorderOverIdx !== origIdx) setReorderOverIdx(origIdx); }}
+                      onDrop={e => {
+                        e.preventDefault();
+                        const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                        setReorderDragIdx(null); setReorderOverIdx(null);
+                        if (!isNaN(from) && from !== origIdx) reorderEvent(key, from, origIdx);
+                      }}
+                      onClick={() => { if (reorderDragIdx !== null) return; closeDayDetail(); openEditEvent(key, origIdx); }}
+                      style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, background:bg, border:isDropTarget ? `1.5px dashed ${color}` : `1px solid ${color}33`, marginBottom:8, opacity: isDragging ? 0.4 : (ev.completed ? 0.55 : 1), cursor:'pointer' }}>
+                      <span style={{ color:text||'var(--gray)', opacity:.5, fontSize:14, lineHeight:1, cursor:'grab', userSelect:'none', flexShrink:0 }}>⋮⋮</span>
                       <div style={{ width:4, alignSelf:'stretch', borderRadius:999, background:color, flexShrink:0 }} />
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:13, fontWeight:600, color:text||'var(--ink)', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textDecoration: ev.completed ? 'line-through' : 'none' }}>{ev.name}</div>
                         <div style={{ fontSize:11, color:text||'var(--gray)', opacity:.7, display:'flex', gap:8 }}>
                           <span>🕐 {ev.time}</span><span>⏱ {ev.dur}</span>
-                          {(ev.materials && ev.materials.length > 0) && <span>📎 {ev.materials.length}</span>}
+                          {totalAttach > 0 && <span>📎 {totalAttach}</span>}
                         </div>
                       </div>
-                      <button onClick={e => { e.stopPropagation(); deleteEvent(key, origIdx); }} style={{ color:'var(--gray-2)', padding:4, borderRadius:6, border:'none', background:'transparent', cursor:'pointer', opacity:.6, flexShrink:0 }}><Trash size={13} /></button>
+                      <button onClick={e => { e.stopPropagation(); deleteEvent(key, origIdx); }} style={{ color:'var(--gray-2)', padding:4, borderRadius:6, border:'none', background:'transparent', cursor:'pointer', opacity:.6, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}><Trash size={13} /></button>
                     </div>
                   );
                 })}
