@@ -680,6 +680,7 @@ function CalendarView({ setTab, setSelectedNoteId }) {
   const [modalDur, setModalDur]   = useState('1h');
   const [dragSrc, setDragSrc]     = useState(null);  // { key, idx }
   const [dragOver, setDragOver]   = useState(null);  // day key
+  const didDragRef                = React.useRef(false);
 
   const navPrev = () => {
     if (view === 'week') { setWeekStart(d => addDays(d, -7)); }
@@ -851,11 +852,12 @@ function CalendarView({ setTab, setSelectedNoteId }) {
           return (
             <div key={i}
               style={{ ...calS.monthCell, ...(isToday ? calS.monthCellToday : {}), ...(isDragTarget ? calS.monthCellDragOver : {}), opacity: isCurrentMonth ? 1 : 0.35, cursor: isCurrentMonth ? 'pointer' : 'default' }}
-              onClick={() => isCurrentMonth && openModal(key)}
+              onClick={() => { if (didDragRef.current) { didDragRef.current = false; return; } isCurrentMonth && openModal(key); }}
               onDragOver={e => { if (!isCurrentMonth) return; e.preventDefault(); setDragOver(key); }}
-              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }}
+              onDragLeave={e => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }}
               onDrop={e => {
                 e.preventDefault();
+                didDragRef.current = true;
                 setDragOver(null);
                 if (dragSrc && isCurrentMonth) moveEvent(dragSrc.key, dragSrc.idx, key);
                 setDragSrc(null);
@@ -870,7 +872,7 @@ function CalendarView({ setTab, setSelectedNoteId }) {
                   return (
                     <div key={origIdx}
                       draggable
-                      onDragStart={e => { e.stopPropagation(); setDragSrc({ key, idx: origIdx }); }}
+                      onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragSrc({ key, idx: origIdx }); }}
                       onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
                       style={{ ...calS.monthPill, background: ev.noteId ? ev.noteColor : cat?.color, cursor:'grab' }}>
                       {ev.name}
