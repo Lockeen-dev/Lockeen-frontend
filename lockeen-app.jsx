@@ -678,8 +678,7 @@ function CalendarView({ setTab, setSelectedNoteId }) {
   const [modalName, setModalName] = useState('');
   const [modalTime, setModalTime] = useState('09:00');
   const [modalDur, setModalDur]   = useState('1h');
-  const dragSrcRef                = React.useRef(null);  // { key, idx }
-  const [dragOver, setDragOver]   = useState(null);  // day key
+  const [dragOver, setDragOver]   = useState(null);
   const didDragRef                = React.useRef(false);
 
   const navPrev = () => {
@@ -847,35 +846,38 @@ function CalendarView({ setTab, setSelectedNoteId }) {
           const key = dayKey(day);
           const isCurrentMonth = day.getMonth() === viewMonth;
           const isToday = dayKey(day) === dayKey(today);
-          const isDragTarget = dragOver === key && dragSrcRef.current && dragSrcRef.current.key !== key;
           const dayEvs = (events[key] || []).filter(ev => activeCats.has(ev.cat));
           return (
             <div key={i}
-              style={{ ...calS.monthCell, ...(isToday ? calS.monthCellToday : {}), ...(isDragTarget ? calS.monthCellDragOver : {}), opacity: isCurrentMonth ? 1 : 0.35, cursor: isCurrentMonth ? 'pointer' : 'default' }}
+              style={{ ...calS.monthCell, ...(isToday ? calS.monthCellToday : {}), ...(dragOver === key ? calS.monthCellDragOver : {}), opacity: isCurrentMonth ? 1 : 0.35, cursor: isCurrentMonth ? 'pointer' : 'default' }}
               onClick={() => { if (didDragRef.current) { didDragRef.current = false; return; } isCurrentMonth && openModal(key); }}
-              onDragOver={e => { if (!isCurrentMonth) return; e.preventDefault(); setDragOver(key); }}
-              onDragLeave={e => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }}
+              onDragOver={e => { if (!isCurrentMonth) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver(key); }}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }}
               onDrop={e => {
                 e.preventDefault();
-                didDragRef.current = true;
                 setDragOver(null);
-                const src = dragSrcRef.current;
-                if (src && isCurrentMonth) moveEvent(src.key, src.idx, key);
-                dragSrcRef.current = null;
+                try {
+                  const src = JSON.parse(e.dataTransfer.getData('text/plain'));
+                  if (src && src.key !== key && isCurrentMonth) {
+                    didDragRef.current = true;
+                    moveEvent(src.key, src.idx, key);
+                  }
+                } catch (_) {}
               }}>
               <span style={{ ...calS.monthDayNum, ...(isToday ? calS.monthDayToday : {}) }}>{day.getDate()}</span>
               <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:3 }}>
-                {(events[key] || []).map((ev, origIdx) => {
-                  if (!activeCats.has(ev.cat)) return null;
+                {dayEvs.slice(0, 2).map((ev, visIdx) => {
+                  const origIdx = (events[key] || []).indexOf(ev);
                   const cat = LIFE_CATS.find(c => c.id === ev.cat);
-                  const visibleIdx = (events[key] || []).filter((e2, i) => i < origIdx && activeCats.has(e2.cat)).length;
-                  if (visibleIdx >= 2) return null;
                   return (
-                    <div key={origIdx}
+                    <div key={visIdx}
                       draggable
-                      onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; dragSrcRef.current = { key, idx: origIdx }; }}
-                      onDragEnd={() => { dragSrcRef.current = null; setDragOver(null); }}
-                      style={{ ...calS.monthPill, background: ev.noteId ? ev.noteColor : cat?.color, cursor:'grab' }}>
+                      onDragStart={e => {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', JSON.stringify({ key, idx: origIdx }));
+                      }}
+                      onDragEnd={() => setDragOver(null)}
+                      style={{ ...calS.monthPill, background: ev.noteId ? ev.noteColor : cat?.color, cursor: 'grab' }}>
                       {ev.name}
                     </div>
                   );
