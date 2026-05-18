@@ -128,6 +128,36 @@
       display: none !important;
     }
   }
+  .mobile-menu-panel {
+    position: fixed;
+    top: 80px;
+    left: 16px;
+    right: 16px;
+    z-index: 60;
+    background: rgba(255,255,255,.98);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: 0 24px 60px -24px rgba(15,16,53,.35);
+    padding: 12px;
+    display: none;
+  }
+  .mobile-menu-panel.open { display: block; }
+  .mobile-menu-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 14px;
+    border-radius: 14px;
+    color: #070B2D;
+    font-weight: 650;
+  }
+  .mobile-menu-link:hover { background: #F7F8FC; }
+  [data-theme="dark"] .mobile-menu-panel {
+    background: rgba(15,23,42,.98);
+    border-color: #334155;
+  }
+  [data-theme="dark"] .mobile-menu-link { color: #f1f5f9; }
+  [data-theme="dark"] .mobile-menu-link:hover { background: rgba(30,41,59,.8); }
   [data-theme="dark"] nav.fixed { background: rgba(15,23,42,.85) !important; }
   [data-theme="dark"] .gradient-hero-bg { opacity: .10 !important; }
   [data-theme="dark"] .hero-blob { opacity: .10; }
@@ -183,10 +213,25 @@
         <button onclick="window.openAuth && window.openAuth('signup')" class="px-6 py-2.5 bg-primary text-white rounded-full hover:opacity-90 transition-opacity shadow-primary-soft font-medium">Start Free</button>
       </div>
 
-      <button class="md:hidden p-2" aria-label="Menu"><i data-lucide="menu" class="text-2xl"></i></button>
+      <button id="mobile-menu-toggle" class="md:hidden p-2" aria-label="Menu" aria-expanded="false" aria-controls="mobile-menu-panel">
+        <i data-lucide="menu" class="text-2xl"></i>
+      </button>
     </div>
   </div>
 </nav>
+
+<div id="mobile-menu-panel" class="mobile-menu-panel md:hidden" aria-hidden="true">
+  <div class="flex flex-col">
+    <a href="#features" class="mobile-menu-link">Features <i data-lucide="arrow-right" style="font-size:1rem"></i></a>
+    <a href="#product" class="mobile-menu-link">Product <i data-lucide="arrow-right" style="font-size:1rem"></i></a>
+    <a href="#pricing" class="mobile-menu-link">Pricing <i data-lucide="arrow-right" style="font-size:1rem"></i></a>
+    <a href="#community" class="mobile-menu-link">Community <i data-lucide="arrow-right" style="font-size:1rem"></i></a>
+    <div class="grid grid-cols-1 gap-2 pt-3 mt-2 border-t border-border">
+      <button onclick="window.openAuth && window.openAuth('signin')" class="w-full px-5 py-3 rounded-xl text-foreground/80 bg-muted font-semibold">Sign In</button>
+      <button onclick="window.openAuth && window.openAuth('signup')" class="w-full px-5 py-3 rounded-xl bg-primary text-white font-semibold shadow-primary-soft">Start Free</button>
+    </div>
+  </div>
+</div>
 
 <main class="min-h-screen bg-white">
 
@@ -937,6 +982,36 @@
 
   // Boot icons
   lucide.createIcons();
+
+  const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+  const mobileMenuPanel = document.getElementById('mobile-menu-panel');
+  function closeMobileMenu() {
+    if (!mobileMenuPanel || !mobileMenuToggle) return;
+    mobileMenuPanel.classList.remove('open');
+    mobileMenuPanel.setAttribute('aria-hidden', 'true');
+    mobileMenuToggle.setAttribute('aria-expanded', 'false');
+  }
+  function toggleMobileMenu() {
+    if (!mobileMenuPanel || !mobileMenuToggle) return;
+    const open = !mobileMenuPanel.classList.contains('open');
+    mobileMenuPanel.classList.toggle('open', open);
+    mobileMenuPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    mobileMenuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  mobileMenuToggle?.addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleMobileMenu();
+  });
+  mobileMenuPanel?.querySelectorAll('a, button').forEach(function(el) {
+    el.addEventListener('click', closeMobileMenu);
+  });
+  document.addEventListener('click', function(e) {
+    if (!mobileMenuPanel || !mobileMenuToggle) return;
+    if (!mobileMenuPanel.contains(e.target) && !mobileMenuToggle.contains(e.target)) closeMobileMenu();
+  });
+  window.addEventListener('resize', function() {
+    if (window.innerWidth >= 768) closeMobileMenu();
+  });
 </script>
 
 </div><!-- /#page-landing -->
