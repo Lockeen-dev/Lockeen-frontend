@@ -4658,31 +4658,25 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
 
   const [editEv, setEditEv]     = useState(null);
   const [editForm, setEditForm] = useState(null);
-  const editFormRef             = useRef(null);
-
-  const setEditFormSync = (val) => {
-    const next = typeof val === 'function' ? val(editFormRef.current) : val;
-    editFormRef.current = next;
-    setEditForm(next);
-  };
 
   const openEditEvent = (key, idx) => {
     const ev = (events[key] || [])[idx];
     if (!ev) return;
-    setEditEv({ key, idx });
-    setEditFormSync({
+    setEditForm({
       name: ev.name || '', time: ev.time || '09:00', dur: ev.dur || '1h',
       cat: ev.cat || 'study', noteId: ev.noteId || null,
-      notes: ev.notes || '', materials: (ev.materials || []).map(m => typeof m === 'string' ? m : (m.url || '')),
+      notes: ev.notes || '',
+      materials: (ev.materials || []).map(m => typeof m === 'string' ? m : (m && m.url) || ''),
       completed: !!ev.completed,
     });
+    setEditEv({ key, idx });
   };
-  const closeEditEvent = () => { setEditEv(null); setEditFormSync(null); };
+  const closeEditEvent = () => { setEditEv(null); setEditForm(null); };
 
   const saveEditEvent = () => {
-    const f = editFormRef.current;
-    if (!editEv || !f) return;
+    if (!editEv || !editForm) return;
     const { key, idx } = editEv;
+    const f = editForm;
     const noteSubject = f.cat === 'study' && f.noteId
       ? Object.keys(SUBJECT_NOTE_MAP).find(s => SUBJECT_NOTE_MAP[s].noteId === f.noteId) || null : null;
     const noteInfo = noteSubject ? SUBJECT_NOTE_MAP[noteSubject] : null;
@@ -4691,7 +4685,9 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
       noteId: f.cat === 'study' ? f.noteId : null,
       noteColor: noteInfo?.color || null, noteBg: noteInfo?.bg || null,
       noteText: noteInfo?.text || null, noteSubject,
-      notes: f.notes, materials: f.materials, completed: f.completed,
+      notes: f.notes,
+      materials: (f.materials || []).filter(m => m && m.trim()),
+      completed: f.completed,
     };
     setEvents(prev => ({ ...prev, [key]: (prev[key] || []).map((e, i) => i === idx ? updated : e) }));
     closeEditEvent();
@@ -4703,9 +4699,9 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     closeEditEvent();
   };
 
-  const addMaterial    = ()        => setEditFormSync(f => ({ ...f, materials: [...f.materials, ''] }));
-  const updateMaterial = (i, url) => setEditFormSync(f => ({ ...f, materials: f.materials.map((m, j) => j === i ? url : m) }));
-  const removeMaterial = (i)      => setEditFormSync(f => ({ ...f, materials: f.materials.filter((_, j) => j !== i) }));
+  const addMaterial    = ()       => setEditForm(f => f ? ({ ...f, materials: [...(f.materials||[]), ''] }) : f);
+  const updateMaterial = (i, url) => setEditForm(f => f ? ({ ...f, materials: (f.materials||[]).map((m, j) => j === i ? url : m) }) : f);
+  const removeMaterial = (i)      => setEditForm(f => f ? ({ ...f, materials: (f.materials||[]).filter((_, j) => j !== i) }) : f);
 
   const handleEvClick = (ev, key, idx) => { openEditEvent(key, idx); };
 
@@ -4930,7 +4926,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     const cat = LIFE_CATS.find(c => c.id === f.cat);
     const noteInfo = f.noteId ? Object.values(SUBJECT_NOTE_MAP).find(v => v.noteId === f.noteId) : null;
     const saveBg = noteInfo ? noteInfo.color : cat?.color;
-    const upd = (patch) => setEditFormSync(prev => ({ ...prev, ...patch }));
+    const upd = (patch) => setEditForm(prev => prev ? ({ ...prev, ...patch }) : prev);
     return (
       <div style={calS.overlay} onClick={closeEditEvent}>
         <div style={{ ...calS.modal, maxHeight:'88vh', overflowY:'auto' }} onClick={e => e.stopPropagation()}>
