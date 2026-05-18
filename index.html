@@ -1436,7 +1436,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
         </div>
       </div>
       {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
-      {plannerOpen && <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} initialNoteId={plannerNoteId} />}
+      {plannerOpen && <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} initialNoteId={plannerNoteId} existingEvents={calEvents} />}
       {isMobile && <BottomNav tab={tab} setTab={handleSetTab} />}
     </div>
   );
@@ -4521,8 +4521,8 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     e.preventDefault(); e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     const cat   = LIFE_CATS.find(c => c.id === ev.cat);
-    const color = ev.noteId ? ev.noteColor : (cat?.color || 'var(--indigo)');
-    const bg    = ev.noteId ? ev.noteBg    : (cat?.bg    || 'var(--lavender)');
+    const color = ev.noteColor || (cat?.color || 'var(--indigo)');
+    const bg    = ev.noteBg    || (cat?.bg    || 'var(--lavender)');
     const evH   = Math.max(CAL_HOUR_H * 0.45, durToMins(ev.dur || '30m') / 60 * CAL_HOUR_H) - 2;
     dragMeta.current = { active:true, ev, fromKey:key, fromIdx:idx, color, bg, evH,
       offsetY: e.clientY - rect.top, offsetX: e.clientX - rect.left,
@@ -4824,8 +4824,8 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
                   {/* Absolute events */}
                   {dayEvs.map((ev, idx) => {
                     const cat   = LIFE_CATS.find(c => c.id === ev.cat);
-                    const color = ev.noteId ? ev.noteColor : (cat?.color || 'var(--indigo)');
-                    const bg    = ev.noteId ? ev.noteBg    : (cat?.bg    || 'var(--lavender)');
+                    const color = ev.noteColor || (cat?.color || 'var(--indigo)');
+                    const bg    = ev.noteBg    || (cat?.bg    || 'var(--lavender)');
                     const top   = timeToY(ev.time);
                     const h     = durToH(ev.dur);
                     return (
@@ -4881,7 +4881,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
                   const isDragging = monthDrag && monthDrag.fromKey === key && monthDrag.ev === ev;
                   return <div key={idx}
                     onMouseDown={e => startMonthDrag(e, ev, key, origIdx)}
-                    style={{ ...calS.monthPill, background:ev.noteId?ev.noteColor:cat?.color, opacity:isDragging?0.3:(ev.completed?0.5:1), textDecoration:ev.completed?'line-through':'none', cursor:'grab', userSelect:'none' }}>{ev.name}</div>;
+                    style={{ ...calS.monthPill, background:ev.noteColor||cat?.color, opacity:isDragging?0.3:(ev.completed?0.5:1), textDecoration:ev.completed?'line-through':'none', cursor:'grab', userSelect:'none' }}>{ev.name}</div>;
                 })}
                 {dayEvs.length > 2 && <div style={calS.monthMore}>+{dayEvs.length-2} more</div>}
               </div>
@@ -4890,7 +4890,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
         })}
       </div>
       {monthDrag && monthDrag.started !== false && (
-        <div style={{ position:'fixed', left:monthDrag.ghostX+8, top:monthDrag.ghostY+8, pointerEvents:'none', zIndex:9999, background: monthDrag.ev.noteId ? monthDrag.ev.noteColor : (LIFE_CATS.find(c => c.id === monthDrag.ev.cat)?.color || 'var(--indigo)'), color:'#fff', fontSize:10, fontWeight:600, padding:'4px 8px', borderRadius:4, boxShadow:'0 4px 12px rgba(0,0,0,.2)' }}>
+        <div style={{ position:'fixed', left:monthDrag.ghostX+8, top:monthDrag.ghostY+8, pointerEvents:'none', zIndex:9999, background: monthDrag.ev.noteColor || (LIFE_CATS.find(c => c.id === monthDrag.ev.cat)?.color || 'var(--indigo)'), color:'#fff', fontSize:10, fontWeight:600, padding:'4px 8px', borderRadius:4, boxShadow:'0 4px 12px rgba(0,0,0,.2)' }}>
           {monthDrag.ev.name}
         </div>
       )}
@@ -5162,9 +5162,9 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
                   <div style={{ textAlign:'center', padding:'32px 0', color:'var(--gray)', fontSize:13 }}>Nessuna attività — aggiungine una!</div>
                 ) : dayEvs.map((ev, idx) => {
                   const cat = LIFE_CATS.find(c => c.id === ev.cat);
-                  const bg = ev.noteId ? ev.noteBg : cat?.bg;
-                  const color = ev.noteId ? ev.noteColor : cat?.color;
-                  const text = ev.noteId ? ev.noteText : cat?.text;
+                  const bg = ev.noteBg || cat?.bg;
+                  const color = ev.noteColor || cat?.color;
+                  const text = ev.noteText || cat?.text;
                   const origIdx = (events[key]||[]).indexOf(ev);
                   const isDragging = reorderDragIdx === origIdx;
                   const isDropTarget = reorderOverIdx === origIdx && reorderDragIdx !== null && reorderDragIdx !== origIdx;
@@ -5271,7 +5271,7 @@ const calS = {
 
 
 /* ===================== AI STUDY PLANNER ===================== */
-function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId }) {
+function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents }) {
   const SUBJECTS_LIST = ['Biology','Chemistry','History','Math','Economics','Literature'];
   const TECH_PRESETS  = ['Pomodoro 25/5','Pomodoro 50/10','Blocchi 1h','Blocchi 2h','Blocchi 3h'];
   const TECH_DUR      = { 'Pomodoro 25/5':25, 'Pomodoro 50/10':50, 'Blocchi 1h':60, 'Blocchi 2h':120, 'Blocchi 3h':180 };
@@ -5349,16 +5349,29 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId }) {
     const DAY_N = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
     const MON_N = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+    const timeToMins = (t) => { const [h,m] = (t||'00:00').split(':').map(Number); return h*60 + m; };
+    const overlaps = (aS, aE, bS, bE) => aS < bE && aE > bS;
+
     const days = []; let sIdx = 0; const cur = new Date(start);
     while (cur < endDate) {
       const d = new Date(cur);
       const dayLabel = `${DAY_N[d.getDay()]} ${MON_N[d.getMonth()]} ${d.getDate()}`;
       const dateKey = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+      const existing = (existingEvents && existingEvents[dateKey]) || [];
+      const existingBlocks = existing.map(ev => {
+        const s = timeToMins(ev.time); return { s, e: s + (durToMins(ev.dur) || 30) };
+      });
       const sessions = [];
-      for (let i = 0; i < nSess; i++) {
+      for (const slot of allSlots) {
+        if (sessions.length >= nSess) break;
+        const sMin = timeToMins(slot); const eMin = sMin + durM;
+        const conflict =
+          existingBlocks.some(b => overlaps(sMin, eMin, b.s, b.e)) ||
+          sessions.some(s => { const a = timeToMins(s.time); return overlaps(sMin, eMin, a, a + durM); });
+        if (conflict) continue;
         const subj = subjects[sIdx % subjects.length]; sIdx++;
         const col = SUBJECT_COLORS[subj] || EXTRA_SUBJECT_COLORS.Other;
-        sessions.push({ time: allSlots[i], name: `${subj} — ${techName}`,
+        sessions.push({ time: slot, name: `${subj} — ${techName}`,
           dur: durLabel(durM), color: col.dot, bg: col.bg, text: col.text, subject: subj, dateKey });
       }
       const tm = sessions.length * durM;
@@ -5379,9 +5392,14 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId }) {
     const eventsToAdd = [];
     plan.forEach(day => day.sessions.forEach(s => {
       const col = SUBJECT_COLORS[s.subject] || EXTRA_SUBJECT_COLORS.Other;
+      const nm  = SUBJECT_NOTE_MAP[s.subject];
       eventsToAdd.push({ dateKey: s.dateKey, event: {
         name: s.name, time: s.time, dur: s.dur, cat:'study',
-        noteId:null, noteColor:col.dot, noteBg:col.bg, noteText:col.text, noteSubject:s.subject,
+        noteId: nm ? nm.noteId : null,
+        noteColor: (nm && nm.color) || col.dot,
+        noteBg:    (nm && nm.bg)    || col.bg,
+        noteText:  (nm && nm.text)  || col.text,
+        noteSubject: s.subject,
       }});
     }));
     setAdded(true);
