@@ -1236,8 +1236,44 @@ const authS = {
 };
 
 /* ===================== DASHBOARD SHELL ===================== */
+function useIsMobile() {
+  const [w, setW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  useEffect(() => {
+    const h = () => setW(window.innerWidth);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return w < 768;
+}
+
+function BottomNav({ tab, setTab }) {
+  const items = [
+    { id: 'dashboard',  label: 'Home',    Icon: ZapSolid },
+    { id: 'notes',      label: 'Esami',   Icon: LockeenLogo },
+    { id: 'flashcards', label: 'Flash',   Icon: Layers },
+    { id: 'quiz',       label: 'Quiz',    Icon: Sparkles },
+    { id: 'analytics',  label: 'Stats',   Icon: BarChart3 },
+  ];
+  return (
+    <nav style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:1000, background:'var(--surface)', borderTop:'1px solid var(--border)', display:'flex', paddingBottom:'env(safe-area-inset-bottom, 0px)' }}>
+      {items.map(({ id, label, Icon: I }) => {
+        const active = id === tab;
+        return (
+          <button key={id} onClick={() => setTab(id)}
+            style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2, border:'none', background:'none', padding:'8px 0 6px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor:'pointer', minHeight:56 }}>
+            <I size={20} />
+            <span style={{ fontSize:10, fontWeight:600, lineHeight:1 }}>{label}</span>
+            {active && <span style={{ position:'absolute', bottom:0, width:24, height:3, borderRadius:999, background:'var(--indigo)', marginTop:2 }} />}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 function Dashboard({ user, onLogout, darkMode, toggleDark }) {
   const [tab, setTab] = useState('dashboard');
+  const isMobile = useIsMobile();
   const [exams, setExams] = useState(seedExams);
   const [activeExamId, setActiveExamId] = useState(null);
   const [themeSpin, setThemeSpin] = useState(0);
@@ -1338,10 +1374,12 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
     setTab('quiz');
   };
 
+  const handleSetTab = (t) => { if (t !== 'notes') setActiveExamId(null); if (t === 'quiz') setQuizDeck(null); setTab(t); };
+
   return (
-    <div style={shellS.wrap}>
+    <div style={{ ...shellS.wrap, padding: isMobile ? '12px 0 80px' : '24px 24px 48px' }}>
       {/* Header bar */}
-      <header style={shellS.header}>
+      <header style={{ ...shellS.header, padding: isMobile ? '0 12px 12px' : 0 }}>
         <div style={shellS.headerInner}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 36, height: 36, background: '#3730E8', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1350,24 +1388,22 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
             <span style={shellS.brand}>Lockeen</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button style={shellS.iconBtn} aria-label="Notifications"><Bell size={18} /></button>
+            {!isMobile && <button style={shellS.iconBtn} aria-label="Notifications"><Bell size={18} /></button>}
             <button
               onClick={() => { setThemeSpin((n) => n + 1); toggleDark(); }}
-              style={{
-                ...shellS.themeBtn,
-                background: darkMode ? '#1e293b' : '#fff',
-              }}
+              style={{ ...shellS.themeBtn, background: darkMode ? '#1e293b' : '#fff' }}
               aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              title={darkMode ? 'Light mode' : 'Dark mode'}
             >
               <span key={themeSpin} style={{ ...shellS.themeIcon, animation: themeSpin ? 'spin-once .4s ease' : 'none' }}>
                 {darkMode ? <Moon size={18} /> : <Sun size={18} />}
               </span>
             </button>
             <div style={shellS.avatar}>{user.name?.[0]?.toUpperCase() || 'A'}</div>
-            <button onClick={onLogout} style={shellS.signoutBtn} title="Sign out">
-              <LogOut size={16} /> <span style={{ marginLeft: 6 }}>Sign out</span>
-            </button>
+            {!isMobile && (
+              <button onClick={onLogout} style={shellS.signoutBtn} title="Sign out">
+                <LogOut size={16} /> <span style={{ marginLeft: 6 }}>Sign out</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -1379,11 +1415,13 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
           ...shellS.outerCard,
           background: darkMode ? '#1e293b' : '#fff',
           boxShadow: darkMode ? '0 30px 60px -30px rgba(0,0,0,.5)' : '0 30px 60px -30px rgba(55,48,232,.25)',
+          borderRadius: isMobile ? 0 : 24,
+          border: isMobile ? 'none' : '2px solid var(--indigo)',
         }}
       >
-        <div style={shellS.grid}>
-          <Sidebar tab={tab} setTab={(t) => { if (t !== 'notes') setActiveExamId(null); if (t === 'quiz') setQuizDeck(null); setTab(t); }} />
-          <div style={shellS.main}>
+        <div style={{ ...shellS.grid, gridTemplateColumns: isMobile ? '1fr' : '220px 1fr' }}>
+          {!isMobile && <Sidebar tab={tab} setTab={handleSetTab} />}
+          <div style={{ ...shellS.main, padding: isMobile ? '16px 14px' : '32px 36px' }}>
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
             {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} />}
             {tab === 'flashcards' && (flashLanding
@@ -1397,8 +1435,9 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
           </div>
         </div>
       </div>
-      <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />
+      {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
       {plannerOpen && <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} initialNoteId={plannerNoteId} />}
+      {isMobile && <BottomNav tab={tab} setTab={handleSetTab} />}
     </div>
   );
 }
@@ -1837,6 +1876,7 @@ const mockDashboard = {
 };
 
 function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEvents, onMarkEventDone, onStartTimer }) {
+  const isMobile = useIsMobile();
   const todayKey = dayKey(new Date());
   const todayEvents = (calEvents && calEvents[todayKey]) || [];
   const [checked, setChecked] = React.useState({});
@@ -1922,7 +1962,7 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
 
       {/* Task del giorno */}
       <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>📅 Task del giorno</h3></div>
-      <div style={{ ...homeS.cardsRow, marginBottom: 24 }}>
+      <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', marginBottom: 24 }}>
         {mockDashboard.todayTasks.map(task => (
           <div key={task.id} style={{ ...homeS.bigCard, background:'var(--surface)' }}>
             <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:8 }}>
@@ -1943,7 +1983,7 @@ function DashboardHome({ user, setTab, openQuiz, onOpenPlanner, darkMode, calEve
 
       {/* Consigliati oggi */}
       <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>⭐ Consigliati oggi</h3></div>
-      <div style={{ ...homeS.cardsRow, marginBottom: 24 }}>
+      <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', marginBottom: 24 }}>
         <div style={{ ...homeS.bigCard, background: 'var(--bigcard-bio)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
             <div style={{ ...homeS.dot, background: 'var(--indigo)' }} />
@@ -3767,7 +3807,7 @@ const dateS = {
 };
 
 const examsS = {
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 },
   backBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, padding: '7px 14px 7px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
   subjectBadge: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: 'var(--ink)' },
   empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '48px 20px', background: 'var(--sidebar-bg)', border: '1px dashed var(--border)', borderRadius: 18, color: 'var(--gray)', textAlign: 'center' },
