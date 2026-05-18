@@ -995,6 +995,8 @@ const Trend       = (p) => <Icon {...p}><polyline points="22 7 13.5 15.5 8.5 10.
 const Clock       = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Icon>;
 const Flame       = (p) => <Icon {...p}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></Icon>;
 const Trophy      = (p) => <Icon {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></Icon>;
+const Pencil      = (p) => <Icon {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></Icon>;
+const Trash2      = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></Icon>;
 const Google      = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
     <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/>
@@ -2257,6 +2259,18 @@ const seedExams = [
 function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {} }) {
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [editingExam, setEditingExam] = useState(null);
+  const [deletingExam, setDeletingExam] = useState(null);
+
+  const handleDeleteExam = (id) => {
+    setExams(prev => prev.filter(e => e.id !== id));
+    setDeletingExam(null);
+  };
+
+  const handleEditExam = (id, changes) => {
+    setExams(prev => prev.map(e => e.id === id ? { ...e, ...changes } : e));
+    setEditingExam(null);
+  };
 
   const activeExam = exams.find((x) => x.id === activeId);
 
@@ -2298,6 +2312,21 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
           <button onClick={() => onOpenPlanner && onOpenPlanner(null)} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', background:'var(--indigo)', color:'#fff', borderRadius:10, fontSize:13, fontWeight:500, border:'none', cursor:'pointer' }}><Brain size={14} /> Study Plan</button>
         </div>
       </div>
+
+      {deletingExam && (
+        <DeleteExamModal
+          exam={deletingExam}
+          onClose={() => setDeletingExam(null)}
+          onConfirm={() => handleDeleteExam(deletingExam.id)}
+        />
+      )}
+      {editingExam && (
+        <EditExamModal
+          exam={editingExam}
+          onClose={() => setEditingExam(null)}
+          onSave={(changes) => handleEditExam(editingExam.id, changes)}
+        />
+      )}
 
       {showCreate && (
         <CreateExamModal
@@ -2346,7 +2375,19 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
                 })()}
               </div>
               <div style={{ padding: 18 }}>
-                <h3 style={notesS.title}>{x.name}</h3>
+                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, marginBottom:4 }}>
+                  <h3 style={{ ...notesS.title, margin:0, flex:1 }}>{x.name}</h3>
+                  <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+                    <button title="Modifica" onClick={() => setEditingExam(x)}
+                      style={{ width:28, height:28, borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--gray)', cursor:'pointer', display:'grid', placeItems:'center' }}>
+                      <Pencil size={13} />
+                    </button>
+                    <button title="Elimina" onClick={() => setDeletingExam(x)}
+                      style={{ width:28, height:28, borderRadius:8, border:'1.5px solid #FCA5A5', background:'#FEF2F2', color:'#EF4444', cursor:'pointer', display:'grid', placeItems:'center' }}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
                 <p style={notesS.meta}>
                   {x.chapters.length} {x.chapters.length === 1 ? 'chapter' : 'chapters'}
                 </p>
@@ -3476,6 +3517,110 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function DeleteExamModal({ exam, onClose, onConfirm }) {
+  return (
+    <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ ...uploadS.card, maxWidth:400, textAlign:'center' }}>
+        <div style={{ width:52, height:52, borderRadius:999, background:'#FEE2E2', display:'grid', placeItems:'center', margin:'0 auto 16px' }}>
+          <Trash2 size={22} color="#EF4444" />
+        </div>
+        <h3 style={{ margin:'0 0 8px', fontSize:18, fontWeight:700, color:'var(--ink)' }}>Elimina esame</h3>
+        <p style={{ margin:'0 0 6px', color:'var(--gray)', fontSize:14 }}>Stai per eliminare:</p>
+        <p style={{ margin:'0 0 20px', fontWeight:700, fontSize:15, color:'var(--ink)' }}>"{exam.name}"</p>
+        <p style={{ margin:'0 0 24px', color:'var(--gray)', fontSize:13 }}>Questa azione è irreversibile. Tutti i capitoli e i dati dell'esame saranno persi.</p>
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={onClose} style={{ flex:1, padding:'11px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor:'pointer' }}>
+            Annulla
+          </button>
+          <button onClick={onConfirm} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:'#EF4444', color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer' }}>
+            Elimina
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditExamModal({ exam, onClose, onSave }) {
+  const [name, setName] = useState(exam.name || '');
+  const [targetGrade, setTargetGrade] = useState(exam.targetGrade || 27);
+  const parsedDate = exam.date ? new Date(exam.date + 'T12:00:00') : new Date();
+  const [day, setDay]     = useState(parsedDate.getDate());
+  const [month, setMonth] = useState(parsedDate.getMonth() + 1);
+  const [year, setYear]   = useState(parsedDate.getFullYear());
+
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const years  = [2025, 2026, 2027, 2028];
+  const pad    = (n) => (n < 10 ? '0' + n : '' + n);
+  const palette = getSubjectPalette(exam.subject, {}, false);
+  const targetPct = ((targetGrade - 18) / 12) * 100;
+
+  const submit = (e) => {
+    if (e) e.preventDefault();
+    if (!name.trim()) return;
+    const lastDay = new Date(year, month, 0).getDate();
+    const safeDay = Math.min(Number(day), lastDay);
+    onSave({ name: name.trim(), date: `${year}-${pad(month)}-${pad(safeDay)}`, targetGrade });
+  };
+
+  return (
+    <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <form onSubmit={submit} style={{ ...uploadS.card, maxWidth:440 }}>
+        <button type="button" onClick={onClose} style={uploadS.closeBtn}><XIcon size={16} /></button>
+        <h3 style={uploadS.title}>Modifica esame</h3>
+
+        <div style={uploadS.field}>
+          <label style={uploadS.label}>Nome esame</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} style={uploadS.input} autoFocus />
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={dateS.label}>Data esame</label>
+          <div style={dateS.row}>
+            <select value={day} onChange={(e) => setDay(Number(e.target.value))} style={dateS.select}>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={dateS.select}>
+              {months.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={dateS.select}>
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={dateS.label}>Voto target 🎯</label>
+          <div style={gradeS.sliderRow}>
+            <div style={gradeS.sliderValue}>
+              <GradeValue value={targetGrade} color={palette.dot} size={26} />
+            </div>
+            <div style={gradeS.sliderTrackCol}>
+              <input type="range" className="grade-range" min="18" max="30" step="1" value={targetGrade}
+                onChange={(e) => setTargetGrade(Number(e.target.value))}
+                style={{ ...gradeS.range, '--grade-color': palette.dot, accentColor: palette.dot, background: `linear-gradient(90deg, ${palette.dot} 0%, ${palette.dot} ${targetPct}%, var(--border) ${targetPct}%, var(--border) 100%)` }} />
+              <div style={gradeS.ticks}>
+                {[18, 21, 24, 27, 30].map((t) => (
+                  <span key={t} style={{ color: targetGrade === t ? palette.dot : 'var(--gray-2)', fontWeight: targetGrade === t ? 800 : 500 }}>{t}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display:'flex', gap:10, marginTop:8 }}>
+          <button type="button" onClick={onClose} style={{ flex:1, padding:'11px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor:'pointer' }}>
+            Annulla
+          </button>
+          <button type="submit" disabled={!name.trim()} style={{ flex:2, padding:'11px', borderRadius:12, border:'none', background: name.trim() ? 'var(--indigo)' : '#CBD5E1', color:'#fff', fontWeight:700, fontSize:14, cursor: name.trim() ? 'pointer' : 'not-allowed' }}>
+            Salva modifiche
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
