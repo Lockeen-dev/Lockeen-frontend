@@ -2297,6 +2297,7 @@ const seedExams = [
 ];
 
 function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {} }) {
+  const isMobile = useIsMobile();
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editingExam, setEditingExam] = useState(null);
@@ -2338,18 +2339,20 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
 
   return (
     <div>
-      <div style={notesS.headRow}>
-        <div>
-          <h2 style={homeS.h1}>My Exams</h2>
-          <p style={homeS.sub}>Your exams and study materials</p>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={notesS.search}>
-            <Search size={16} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search exams…" style={notesS.searchInput} />
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={homeS.h1}>My Exams</h2>
+            <p style={homeS.sub}>Your exams and study materials</p>
           </div>
-          <button style={notesS.newBtn} onClick={() => setShowCreate(true)}><Plus size={16} /> New Exam</button>
-          <button onClick={() => onOpenPlanner && onOpenPlanner(null)} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', background:'var(--indigo)', color:'#fff', borderRadius:10, fontSize:13, fontWeight:500, border:'none', cursor:'pointer' }}><Brain size={14} /> Study Plan</button>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button style={notesS.newBtn} onClick={() => setShowCreate(true)}><Plus size={16} /> New Exam</button>
+            {!isMobile && <button onClick={() => onOpenPlanner && onOpenPlanner(null)} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', background:'var(--indigo)', color:'#fff', borderRadius:10, fontSize:13, fontWeight:500, border:'none', cursor:'pointer' }}><Brain size={14} /> Study Plan</button>}
+          </div>
+        </div>
+        <div style={{ ...notesS.search, marginTop: 14, width: '100%', boxSizing: 'border-box' }}>
+          <Search size={16} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search exams…" style={{ ...notesS.searchInput, width: '100%' }} />
         </div>
       </div>
 
@@ -4174,6 +4177,7 @@ const subjects = [
 ];
 
 function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab }) {
+  const isMobile = useIsMobile();
   const maxMin = Math.max(...weekData.map(d => d.mins), 1);
   const totalMin = weekData.reduce((a, b) => a + b.mins, 0);
   const trackedNotes = notes && notes.length ? notes : seedExams;
@@ -4194,7 +4198,7 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab }) {
         <p style={homeS.sub}>Track your study habits and progress across subjects</p>
       </div>
 
-      <div style={analS.statsGrid}>
+      <div style={{ ...analS.statsGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)' }}>
         {stats.map(s => {
           const I = s.Icon;
           return (
@@ -4209,7 +4213,7 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab }) {
         })}
       </div>
 
-      <div style={analS.row}>
+      <div style={{ ...analS.row, gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr' }}>
         <div style={analS.chartCard}>
           <div style={analS.cardHeader}>
             <div>
