@@ -2801,6 +2801,7 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
   const timerID = useRef(null);
   const [done, setDone] = useState(false);
   const resultSavedRef = useRef(false);
+  const userAnswers = useRef([]);
 
   const stopTimer = () => {
     if (timerID.current) {
@@ -2822,6 +2823,20 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
     setDifficulty('medium');
     setDone(false);
     resultSavedRef.current = false;
+    userAnswers.current = [];
+  };
+
+  const restartQuiz = () => {
+    stopTimer();
+    setIdx(0);
+    setCorrect(0);
+    setSelected(null);
+    setPendingIdx(null);
+    setDone(false);
+    resultSavedRef.current = false;
+    userAnswers.current = [];
+    setStarted(true);
+    setTimeout(startTimer, 0);
   };
 
   useEffect(() => () => stopTimer(), []);
@@ -2831,7 +2846,7 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
   useEffect(() => {
     if (!done || !total || resultSavedRef.current) return;
     resultSavedRef.current = true;
-    onQuizComplete && onQuizComplete(noteId, Math.round((correct / total) * 100));
+    onQuizComplete && onQuizComplete(noteId, Math.round((correct / total) * 100), [...userAnswers.current]);
   }, [done, total, correct, noteId, onQuizComplete]);
 
   const startTimer = () => {
@@ -2864,6 +2879,7 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
     if (selected !== null || pendingIdx !== null) return;
     setPendingIdx(i);
     stopTimer();
+    userAnswers.current[idx] = i;
     setTimeout(() => {
       setSelected(i);
       setPendingIdx(null);
@@ -2954,9 +2970,9 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
           <div style={{ ...quizS.scoreFraction, color: palette.text }}>{correct}/{total}</div>
         </div>
         <h2 style={quizS.resultTitle}>{resultTitle}</h2>
-        <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
+        <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border, alignSelf: 'center' }}>{subject}</span>
         <div style={quizS.resultActions}>
-          <button onClick={resetAll} style={{ ...quizS.tryAgainBtn, background: palette.dot }}>Try again</button>
+          <button onClick={restartQuiz} style={{ ...quizS.tryAgainBtn, background: palette.dot }}>Try again</button>
           <button onClick={() => setTab(backTo)} style={quizS.backBtn}>Back to Study</button>
         </div>
       </div>
@@ -3070,11 +3086,61 @@ const quizS = {
   backBtn: { padding: '12px 18px', borderRadius: 999, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 },
 };
 
+function QuizReview({ run, onBack, darkMode }) {
+  const { questions = [], answers = [], chapterName, examName, score } = run;
+  const sc = score >= 80 ? '#10B981' : score >= 60 ? '#F59E0B' : '#EF4444';
+  return (
+    <div style={{ maxWidth: 580, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 10px', borderRadius: 8, color: 'var(--gray)', fontSize: 20, lineHeight: 1 }}>←</button>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>Review · {chapterName || examName}</h2>
+          <span style={{ fontSize: 13, fontWeight: 700, color: sc }}>{score}%</span>
+        </div>
+      </div>
+      {questions.length === 0 && (
+        <p style={{ color: 'var(--gray)', textAlign: 'center', marginTop: 40 }}>Nessuna domanda salvata per questo quiz.</p>
+      )}
+      {questions.map((q, qi) => {
+        const userIdx = answers[qi] ?? -1;
+        const correctIdx = q.options.findIndex(o => o.correct);
+        const isCorrect = userIdx === correctIdx;
+        return (
+          <div key={qi} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <span style={{ flexShrink: 0, width: 24, height: 24, borderRadius: 999, background: isCorrect ? '#DCFCE7' : '#FEE2E2', color: isCorrect ? '#166534' : '#991B1B', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700 }}>{isCorrect ? '✓' : '✗'}</span>
+              <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: 'var(--ink)', lineHeight: 1.4 }}>{q.q}</p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 34 }}>
+              {q.options.map((o, oi) => {
+                const isUser = oi === userIdx;
+                const isRight = oi === correctIdx;
+                let bg = 'transparent', border = '1.5px solid var(--border)', color = 'var(--ink)';
+                if (isRight) { bg = '#DCFCE7'; border = '1.5px solid #86EFAC'; color = '#166534'; }
+                else if (isUser && !isRight) { bg = '#FEE2E2'; border = '1.5px solid #FCA5A5'; color = '#991B1B'; }
+                return (
+                  <div key={oi} style={{ display: 'flex', gap: 8, alignItems: 'center', background: bg, border, borderRadius: 10, padding: '8px 12px' }}>
+                    <span style={{ fontWeight: 700, fontSize: 12, opacity: 0.6, flexShrink: 0 }}>{String.fromCharCode(65 + oi)}</span>
+                    <span style={{ fontSize: 13, color, flex: 1 }}>{o.text}</span>
+                    {isRight && <span style={{ fontSize: 11, fontWeight: 700, color: '#166534', flexShrink: 0 }}>✓ Corretta</span>}
+                    {isUser && !isRight && <span style={{ fontSize: 11, fontWeight: 700, color: '#991B1B', flexShrink: 0 }}>Tua risposta</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
   const [selectedExamId, setSelectedExamId] = useState(exams[0]?.id ?? null);
   const [selectedChapterId, setSelectedChapterId] = useState('all');
   const [numQ, setNumQ] = useState(10);
   const [activeDeck, setActiveDeck] = useState(deck && deck.questions && deck.questions.length > 0 ? deck : null);
+  const [reviewRun, setReviewRun] = useState(null);
 
   const selectedExam = exams.find(e => e.id === selectedExamId);
 
@@ -3106,11 +3172,19 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
     });
   };
 
-  const handleQuizComplete = (noteId, scorePct) => {
-    onQuizComplete(noteId, scorePct, activeDeck?._meta || null);
+  const handleQuizComplete = (noteId, scorePct, answers) => {
+    onQuizComplete(noteId, scorePct, {
+      ...(activeDeck?._meta || {}),
+      questions: activeDeck?.questions || [],
+      answers: answers || [],
+    });
   };
 
   const filteredRuns = quizRuns.filter(r => r.examId === selectedExamId);
+
+  if (reviewRun) {
+    return <QuizReview run={reviewRun} onBack={() => setReviewRun(null)} darkMode={darkMode} />;
+  }
 
   if (activeDeck) {
     return (
@@ -3171,25 +3245,26 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
           </div>
         )}
 
-        {/* Number of questions */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={sL}>Domande</span>
-            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--indigo)' }}>{maxQ > 0 ? effectiveNumQ : 0}</span>
+        {/* Number of questions — hidden when no questions available */}
+        {maxQ > 0 && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={sL}>Domande</span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--indigo)' }}>{effectiveNumQ}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[5, 10, 15, 20].map(n => {
+                const disabled = n > maxQ;
+                return (
+                  <button key={n} onClick={() => !disabled && setNumQ(n)} disabled={disabled}
+                    style={{ flex: 1, padding: '9px 4px', borderRadius: 10, border: `1.5px solid ${numQ === n && !disabled ? 'var(--indigo)' : 'var(--border)'}`, background: numQ === n && !disabled ? '#EEF2FF' : 'var(--surface)', fontWeight: 700, fontSize: 13, color: numQ === n && !disabled ? 'var(--indigo)' : 'var(--gray)', opacity: disabled ? 0.35 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {[5, 10, 15, 20].map(n => {
-              const disabled = maxQ > 0 && n > maxQ;
-              return (
-                <button key={n} onClick={() => !disabled && setNumQ(n)} disabled={disabled}
-                  style={{ flex: 1, padding: '9px 4px', borderRadius: 10, border: `1.5px solid ${numQ === n && !disabled ? 'var(--indigo)' : 'var(--border)'}`, background: numQ === n && !disabled ? '#EEF2FF' : 'var(--surface)', fontWeight: 700, fontSize: 13, color: numQ === n && !disabled ? 'var(--indigo)' : 'var(--gray)', opacity: disabled ? 0.35 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>
-                  {n}
-                </button>
-              );
-            })}
-          </div>
-          {maxQ === 0 && <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--gray)' }}>Nessuna domanda disponibile per questa selezione</p>}
-        </div>
+        )}
 
         {/* Start Quiz */}
         <button onClick={() => startQuiz()} disabled={maxQ === 0}
@@ -3216,7 +3291,7 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
                     <div style={{ fontSize: 12, color: 'var(--gray)', marginTop: 2 }}>{run.numQ} domande · {run.date}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button onClick={() => alert('Review coming soon')}
+                    <button onClick={() => setReviewRun(run)}
                       style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--gray)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
                       Review
                     </button>
