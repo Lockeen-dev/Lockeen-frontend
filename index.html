@@ -1510,7 +1510,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark }) {
           {!isMobile && <Sidebar tab={tab} setTab={handleSetTab} />}
           <div style={{ ...shellS.main, padding: isMobile ? '16px 14px' : '32px 36px' }}>
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
-            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} />}
+            {tab === 'notes'     && <NotesView exams={exams} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
             {tab === 'flashcards' && (flashLanding
               ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} exams={exams} />
               : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} />
@@ -2387,7 +2387,7 @@ const seedExams = [
   ]},
 ];
 
-function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {} }) {
+function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
   const isMobile = useIsMobile();
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -2423,7 +2423,23 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
         return { ...x, chapters: [newChapter, ...x.chapters], updated: 'Just now' };
       }));
     };
-    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} />;
+    const onEditChapter = ({ chapterId, newTitle }) => {
+      const cleanTitle = (newTitle || '').trim();
+      if (!cleanTitle) return;
+      setExams((prev) => prev.map((x) => x.id !== activeId ? x : ({
+        ...x,
+        chapters: x.chapters.map((c) => c.id === chapterId ? { ...c, title: cleanTitle, updated: 'Just now' } : c),
+        updated: 'Just now',
+      })));
+    };
+    const onDeleteChapter = (chapterId) => {
+      setExams((prev) => prev.map((x) => x.id !== activeId ? x : ({
+        ...x,
+        chapters: x.chapters.filter((c) => c.id !== chapterId),
+        updated: 'Just now',
+      })));
+    };
+    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
   }
 
   const filtered = exams.filter((x) => (x.name + ' ' + (x.subject || '')).toLowerCase().includes(q.toLowerCase()));
@@ -2547,10 +2563,13 @@ function NotesView({ exams, setExams, activeId, setActiveId, onOpenFlashcards, o
   );
 }
 
-function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {} }) {
+function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
   const [q, setQ] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const [readinessView, setReadinessView] = useState('exam');
+  const [editingChapter, setEditingChapter] = useState(null);
+  const examRuns = quizRuns.filter(r => r.examId === exam.id).slice(0, 5);
+  const examFlashDecks = recentFlashDecks.filter(d => d.noteId === exam.id).slice(0, 5);
   const palette = getSubjectPalette(exam.subject, exam, darkMode);
   const filtered = exam.chapters.filter((c) => c.title.toLowerCase().includes(q.toLowerCase()));
   const chapterKey = (chapter) => String(chapter.id ?? chapter.name ?? chapter.title);
@@ -2672,9 +2691,17 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
       ) : (
         <div style={examsS.grid}>
           {filtered.map((n) => (
-            <div key={n.id} style={notesS.card}>
-              <div style={{ ...notesS.cover, background: n.color }}>
+            <div key={n.id} style={{ ...notesS.card, position: 'relative' }}>
+              <div style={{ ...notesS.cover, background: n.color, position: 'relative' }}>
                 <div style={{ ...notesS.coverDot, background: n.dot }} />
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setEditingChapter(n); }}
+                  title="Edit chapter"
+                  style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,.9)', border: '1px solid var(--border)', cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--ink)' }}
+                >
+                  <Pencil size={12} />
+                </button>
               </div>
               <div style={{ padding: 18 }}>
                 <h3 style={notesS.title}>{n.title}</h3>
@@ -2691,6 +2718,70 @@ function ExamDetail({ exam, onBack, onAddChapter, onOpenFlashcards, onOpenQuiz, 
             </div>
           ))}
         </div>
+      )}
+
+      {/* Recent activity: quizzes done + flashcard decks for this exam */}
+      {(examRuns.length > 0 || examFlashDecks.length > 0) && (
+        <section style={{ marginTop: 24, padding: 20, borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>🎯 Recent Activity</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Recent Quizzes</p>
+              {examRuns.length === 0 ? (
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--gray-2)' }}>No quizzes yet for this exam.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {examRuns.map((r) => (
+                    <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.1)' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{r.score}%</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.chapterName || 'Quiz'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--gray)' }}>{r.date} • {(r.questions || []).length} questions</div>
+                      </div>
+                      <button
+                        onClick={() => onOpenQuiz && onOpenQuiz({ noteId: exam.id, subject: exam.subject, title: r.chapterName || 'Quiz', questions: r.questions || [] })}
+                        style={{ padding: '6px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--indigo)', cursor: 'pointer', flexShrink: 0 }}
+                      >Retake</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Generated Flashcards</p>
+              {examFlashDecks.length === 0 ? (
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--gray-2)' }}>No flashcard decks yet for this exam.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {examFlashDecks.map((d) => (
+                    <div key={d.ts} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, background: '#F5F3FF', border: '1px solid rgba(139,92,246,.15)' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--purple)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <Layers size={16} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--gray)' }}>{(d.cards || []).length} cards{typeof d.lastScore === 'number' ? ` • ${d.lastScore}% mastered` : ''}</div>
+                      </div>
+                      <button
+                        onClick={() => onOpenFlashcards && onOpenFlashcards({ noteId: exam.id, subject: exam.subject, title: d.title, cards: d.cards || [] })}
+                        style={{ padding: '6px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--purple)', cursor: 'pointer', flexShrink: 0 }}
+                      >Open</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {editingChapter && (
+        <EditChapterModal
+          chapter={editingChapter}
+          onClose={() => setEditingChapter(null)}
+          onSave={(newTitle) => { onEditChapter && onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
+          onDelete={() => { onDeleteChapter && onDeleteChapter(editingChapter.id); setEditingChapter(null); }}
+        />
       )}
       <section style={examS.readinessCard}>
         <div style={examS.readinessHead}>
@@ -4110,6 +4201,45 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
           >
             {uploading ? 'Uploading…' : 'Upload & Generate (' + files.length + ' ' + (files.length === 1 ? 'file' : 'files') + ')'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditChapterModal({ chapter, onClose, onSave, onDelete }) {
+  const [title, setTitle] = useState(chapter.title || '');
+  const [confirmDel, setConfirmDel] = useState(false);
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,16,53,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', borderRadius: 18, padding: 24, boxShadow: '0 20px 60px -20px rgba(15,16,53,.4)' }}>
+        <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>Edit Chapter</h3>
+        <p style={{ margin: '0 0 16px', fontSize: 12, color: 'var(--gray)' }}>Rename or remove this chapter.</p>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Chapter title</label>
+        <input
+          autoFocus
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g. Cellular Respiration"
+          style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '1px solid var(--border)', fontSize: 14, color: 'var(--ink)', background: 'var(--surface)', boxSizing: 'border-box', marginBottom: 18 }}
+        />
+        {confirmDel ? (
+          <div style={{ padding: 12, background: '#FEE2E2', borderRadius: 12, marginBottom: 14 }}>
+            <p style={{ margin: '0 0 10px', fontSize: 12, color: '#991B1B', fontWeight: 600 }}>Delete this chapter? This cannot be undone.</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={onDelete} style={{ padding: '8px 14px', borderRadius: 8, background: '#EF4444', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>Yes, delete</button>
+              <button onClick={() => setConfirmDel(false)} style={{ padding: '8px 14px', borderRadius: 8, background: 'transparent', color: '#991B1B', border: '1px solid #FCA5A5', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        ) : null}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+          <button onClick={() => setConfirmDel(true)} style={{ padding: '10px 14px', borderRadius: 10, background: 'transparent', color: '#EF4444', border: '1px solid #FCA5A5', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Trash size={13} /> Delete
+          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => onSave(title)} disabled={!title.trim()} style={{ padding: '10px 16px', borderRadius: 10, background: 'var(--indigo)', border: 'none', color: '#fff', fontWeight: 600, fontSize: 13, cursor: title.trim() ? 'pointer' : 'not-allowed', opacity: title.trim() ? 1 : .5 }}>Save</button>
+          </div>
         </div>
       </div>
     </div>
