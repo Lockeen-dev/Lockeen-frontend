@@ -3269,35 +3269,54 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   );
 }
 
+const SUBJECT_EMOJI = {
+  Biology: '🧬', Chemistry: '⚗️', Math: '📐', History: '📜',
+  Literature: '📖', Physics: '⚛️', Economics: '📊', default: '📚'
+};
+
+function SubjectIcon({ subject, size = 44, radius = 12, dot }) {
+  const emoji = SUBJECT_EMOJI[subject] || SUBJECT_EMOJI.default;
+  return (
+    <div style={{ width:size, height:size, borderRadius:radius, background: dot + '18', border:`1.5px solid ${dot}30`, display:'grid', placeItems:'center', flexShrink:0 }}>
+      <span style={{ fontSize: size * 0.42, lineHeight:1 }}>{emoji}</span>
+    </div>
+  );
+}
+
 function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [] }) {
+  const isMobile = useIsMobile();
   const [selectedExamId, setSelectedExamId] = useState(exams[0]?.id ?? null);
   const selectedExam = exams.find(e => e.id === selectedExamId);
 
   const fmtDate = (ts) => new Date(ts).toLocaleDateString('it-IT', { day:'numeric', month:'short' });
-  const fmtScore = (s) => s >= 80 ? { label: s + '%', color: '#10B981' } : s >= 60 ? { label: s + '%', color: '#F59E0B' } : { label: s + '%', color: '#EF4444' };
+  const fmtScore = (s) => s >= 80 ? { label: s + '%', color: '#10B981', bg:'#ECFDF5' } : s >= 60 ? { label: s + '%', color: '#F59E0B', bg:'#FFFBEB' } : { label: s + '%', color: '#EF4444', bg:'#FEF2F2' };
 
-  const sL = { fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.08em', color:'var(--gray)', marginBottom:10 };
+  const sL = { fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.08em', color:'var(--gray)', marginBottom:12 };
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:28 }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:28, maxWidth:860 }}>
 
       {/* Header */}
-      <div>
-        <h2 style={{ margin:'0 0 4px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>Flashcards</h2>
-        <p style={{ margin:0, color:'var(--gray)', fontSize:14 }}>Rivedi i tuoi mazzi recenti o esplora per materia</p>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+        <div>
+          <h2 style={{ margin:'0 0 4px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>Flashcards</h2>
+          <p style={{ margin:0, color:'var(--gray)', fontSize:14 }}>Rivedi i tuoi mazzi o studia per capitolo</p>
+        </div>
       </div>
 
       {/* Exam selector */}
       {exams.length > 0 && (
         <div>
-          <div style={sL}>Esame</div>
+          <div style={sL}>Scegli esame</div>
           <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
               const pal = getSubjectPalette(exam.subject, {}, darkMode);
+              const emoji = SUBJECT_EMOJI[exam.subject] || SUBJECT_EMOJI.default;
               return (
                 <button key={exam.id} onClick={() => setSelectedExamId(exam.id)}
-                  style={{ padding:'7px 16px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.dot : 'var(--surface)', color: active ? '#fff' : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
+                  style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.dot : 'var(--surface)', color: active ? '#fff' : 'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
+                  <span style={{ fontSize:14 }}>{emoji}</span>
                   {exam.name}
                 </button>
               );
@@ -3306,11 +3325,11 @@ function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [
         </div>
       )}
 
-      {/* Chapter list — 2-col grid */}
+      {/* Chapter cards */}
       {selectedExam && (
         <div>
           <div style={sL}>Capitoli — {selectedExam.name}</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:10 }}>
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap:12 }}>
             {selectedExam.chapters.map(ch => {
               const pal = getSubjectPalette(selectedExam.subject, {}, darkMode);
               const cardCount = (ch.cards || []).length;
@@ -3318,31 +3337,45 @@ function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [
               const recentDeck = recentDecks.find(d => d.title === ch.title);
               const lastScore = recentDeck?.lastScore ?? null;
               const scoreStyle = lastScore != null ? fmtScore(lastScore) : null;
+              const studied = lastScore != null;
               return (
-                <div key={ch.id} style={{ display:'flex', flexDirection:'column', gap:10, padding:'16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, opacity: hasCards ? 1 : 0.5 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                    <div style={{ width:44, height:44, borderRadius:12, background: pal.dot, display:'grid', placeItems:'center', flexShrink:0 }}>
-                      <span style={{ fontSize:17, fontWeight:900, color:'#fff', fontFamily:'system-ui' }}>{(selectedExam.subject || 'X')[0]}</span>
-                    </div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ch.title}</div>
-                      <div style={{ fontSize:12, color:'var(--gray)', marginTop:1 }}>
-                        {hasCards ? `${cardCount} carte` : 'Nessuna flashcard'}
+                <div key={ch.id}
+                  onClick={() => hasCards && onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: ch.cards })}
+                  style={{ display:'flex', flexDirection:'column', gap:0, background:'var(--surface)', border:`1.5px solid ${studied ? pal.dot + '40' : 'var(--border)'}`, borderRadius:18, overflow:'hidden', opacity: hasCards ? 1 : 0.5, cursor: hasCards ? 'pointer' : 'default', transition:'box-shadow .15s, border-color .15s' }}
+                  onMouseEnter={e => { if (hasCards) e.currentTarget.style.boxShadow='0 4px 20px rgba(55,48,232,.1)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow='none'; }}>
+
+                  {/* Card top: colored band */}
+                  <div style={{ height:6, background: pal.dot, opacity: studied ? 1 : 0.3 }} />
+
+                  <div style={{ padding:'16px 18px', display:'flex', flexDirection:'column', gap:12, flex:1 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                      <SubjectIcon subject={selectedExam.subject} size={44} radius={12} dot={pal.dot} />
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ch.title}</div>
+                        <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>
+                          {hasCards ? `${cardCount} carte` : 'Nessuna flashcard'}
+                        </div>
                       </div>
+                      {scoreStyle && (
+                        <span style={{ fontSize:12, fontWeight:700, color:scoreStyle.color, background:scoreStyle.bg, padding:'3px 8px', borderRadius:999, flexShrink:0 }}>
+                          {scoreStyle.label}
+                        </span>
+                      )}
                     </div>
-                    {scoreStyle && <span style={{ fontSize:13, fontWeight:800, color:scoreStyle.color, flexShrink:0 }}>{scoreStyle.label}</span>}
-                  </div>
-                  {lastScore != null && (
+
+                    {/* Progress bar */}
                     <div style={{ height:4, borderRadius:999, background:'var(--border)', overflow:'hidden' }}>
-                      <div style={{ height:'100%', width:`${lastScore}%`, background: lastScore >= 80 ? '#10B981' : lastScore >= 60 ? '#F59E0B' : '#EF4444', borderRadius:999, transition:'width .4s' }} />
+                      <div style={{ height:'100%', width: studied ? `${lastScore}%` : '0%', background: !studied ? pal.dot : lastScore >= 80 ? '#10B981' : lastScore >= 60 ? '#F59E0B' : '#EF4444', borderRadius:999, transition:'width .5s ease' }} />
                     </div>
-                  )}
-                  <button
-                    disabled={!hasCards}
-                    onClick={() => onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: ch.cards })}
-                    style={{ width:'100%', padding:'9px', borderRadius:10, background: hasCards ? pal.dot : 'var(--border)', color:'#fff', fontWeight:600, fontSize:13, border:'none', cursor: hasCards ? 'pointer' : 'not-allowed' }}>
-                    {lastScore != null ? 'Rivedi' : 'Studia'}
-                  </button>
+
+                    <button
+                      disabled={!hasCards}
+                      onClick={e => { e.stopPropagation(); if(hasCards) onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: ch.cards }); }}
+                      style={{ width:'100%', padding:'10px', borderRadius:12, background: hasCards ? pal.dot : 'var(--border)', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor: hasCards ? 'pointer' : 'not-allowed', letterSpacing:'.01em' }}>
+                      {studied ? '🔄 Rivedi' : '▶ Studia'}
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -3350,7 +3383,7 @@ function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [
         </div>
       )}
 
-      {/* Divider + recent sessions */}
+      {/* Recent sessions */}
       {recentDecks.length > 0 && (
         <div>
           <div style={{ height:1, background:'var(--border)', marginBottom:20 }} />
@@ -3360,22 +3393,19 @@ function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [
               const sc = deck.lastScore != null ? fmtScore(deck.lastScore) : null;
               const pal = getSubjectPalette(deck.subject, {}, darkMode);
               return (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, cursor:'pointer' }}
-                  onClick={() => onOpenDeck(deck)}>
-                  <div style={{ width:38, height:38, borderRadius:10, background: pal.dot, display:'grid', placeItems:'center', flexShrink:0 }}>
-                    <span style={{ fontSize:14, fontWeight:900, color:'#fff', fontFamily:'system-ui' }}>{(deck.subject || 'X')[0]}</span>
-                  </div>
+                <div key={i}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, cursor:'pointer', transition:'border-color .15s' }}
+                  onClick={() => onOpenDeck(deck)}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = pal.dot + '60'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+                  <SubjectIcon subject={deck.subject} size={40} radius={10} dot={pal.dot} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deck.title}</div>
                     <div style={{ fontSize:12, color:'var(--gray)', marginTop:1 }}>{deck.subject} · {(deck.cards||[]).length} carte{deck.ts ? ' · ' + fmtDate(deck.ts) : ''}</div>
                   </div>
-                  {sc && (
-                    <div style={{ flexShrink:0, textAlign:'right' }}>
-                      <span style={{ fontSize:13, fontWeight:800, color:sc.color }}>{sc.label}</span>
-                    </div>
-                  )}
+                  {sc && <span style={{ fontSize:12, fontWeight:700, color:sc.color, background:sc.bg, padding:'3px 9px', borderRadius:999, flexShrink:0 }}>{sc.label}</span>}
                   <button onClick={e => { e.stopPropagation(); onOpenDeck(deck); }}
-                    style={{ padding:'7px 14px', borderRadius:9, background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:12, border:'none', cursor:'pointer', flexShrink:0 }}>
+                    style={{ padding:'7px 16px', borderRadius:10, background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:12, border:'none', cursor:'pointer', flexShrink:0 }}>
                     Rivedi
                   </button>
                 </div>
