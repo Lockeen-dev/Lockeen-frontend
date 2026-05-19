@@ -4319,13 +4319,13 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
             <div style={divider} />
             <div style={{ padding:'20px 22px' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                <div style={secLabel}>Avvio rapido</div>
-                <span style={{ fontSize:11, color:'var(--gray)' }}>inizia subito senza configurare</span>
+                <div style={secLabel}>Difficoltà domande</div>
+                <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>filtro AI disponibile presto</span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
                 {DIFF.map(d => (
                   <button key={d.id}
-                    onClick={() => startQuiz({ _autoStart:true, _difficulty:d.id })}
+                    onClick={() => startQuiz({ _autoStart:false, _difficulty:d.id })}
                     style={{ padding:'14px 6px', borderRadius:14, border:`1.5px solid var(--border)`, background:'var(--surface)', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'all .15s' }}
                     onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = d.color; el.style.background = d.bg; }}
                     onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.background = 'var(--surface)'; }}>
