@@ -4698,7 +4698,7 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab }) {
 
       <div style={gradeS.section}>
         <div style={gradeS.sectionHead}>
-          <h3 style={gradeS.sectionTitle}>🎯 Grade Predictor</h3>
+          <h3 style={gradeS.sectionTitle}>Grade Predictor</h3>
           <p style={gradeS.sectionSub}>Previsione basata sui tuoi quiz e flashcard</p>
         </div>
         <div style={gradeS.grid}>
@@ -4736,16 +4736,16 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab }) {
   const gradeText = (v) => v;
 
   let messageStyle = gradeS.msgEmpty;
-  let message = '📝 Fai il primo quiz per vedere la previsione del voto.';
+  let message = 'Fai il primo quiz per vedere la previsione del voto.';
   if (allScores.length > 0 && gap > 4) {
     messageStyle = gradeS.msgWarn;
-    message = `⚠️ Sei a ${gap} punti dall'obiettivo. Fai più quiz per migliorare la previsione.`;
+    message = `Sei a ${gap} punti dall'obiettivo. Fai più quiz per migliorare la previsione.`;
   } else if (allScores.length > 0 && gap > 0) {
     messageStyle = gradeS.msgAlmost;
-    message = `💪 Quasi lì! Ti mancano solo ${gap} punti. Continua così.`;
+    message = `Quasi lì. Ti mancano ${gap} punti. Continua così.`;
   } else if (allScores.length > 0 && gap <= 0) {
     messageStyle = gradeS.msgGood;
-    message = '🎉 Sei sulla strada giusta! Al ritmo attuale puoi raggiungere il tuo obiettivo.';
+    message = 'Sei sulla strada giusta. Al ritmo attuale puoi raggiungere il tuo obiettivo.';
   }
 
   return (
@@ -4760,22 +4760,22 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab }) {
 
       <div style={gradeS.barWrap}>
         <div style={gradeS.track} />
-        <div style={{ ...gradeS.fill, background: palette.dot, width: `${predPct}%` }} />
+        <div style={{ ...gradeS.fill, width: `${predPct}%` }} />
         {onTarget ? (
-          <div style={{ ...gradeS.point, left: `${targetPct}%`, background: '#10B981' }}>
-            <span style={{ ...gradeS.pointLabel, color: '#065F46', width: 80, left: -31 }}>🎯 On target!</span>
+          <div style={{ ...gradeS.point, ...gradeS.pointGood, left: `${targetPct}%` }}>
+            <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelGood, width: 60, left: -22 }}>On target</span>
           </div>
         ) : overlap ? (
-          <div style={{ ...gradeS.point, left: `${targetPct}%`, background: '#F59E0B', borderColor: palette.dot, zIndex: 3 }}>
-            <span style={{ ...gradeS.pointLabel, color: '#92400E' }}>{gradeText(targetGrade)}</span>
+          <div style={{ ...gradeS.point, ...gradeS.pointTarget, left: `${targetPct}%`, zIndex: 3 }}>
+            <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelTarget }}>{gradeText(targetGrade)}</span>
           </div>
         ) : (
           <React.Fragment>
-            <div style={{ ...gradeS.point, left: `${predPct}%`, background: palette.dot, zIndex: 2 }}>
-              <span style={{ ...gradeS.pointLabel, color: palette.dot }}>{gradeText(predictedGrade)}</span>
+            <div style={{ ...gradeS.point, ...gradeS.pointPred, left: `${predPct}%`, zIndex: 2 }}>
+              <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelPred }}>{gradeText(predictedGrade)}</span>
             </div>
-            <div style={{ ...gradeS.point, left: `${targetPct}%`, background: '#F59E0B', zIndex: 3 }}>
-              <span style={{ ...gradeS.pointLabel, color: '#92400E' }}>{gradeText(targetGrade)}</span>
+            <div style={{ ...gradeS.point, ...gradeS.pointTarget, left: `${targetPct}%`, zIndex: 3 }}>
+              <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelTarget }}>{gradeText(targetGrade)}</span>
             </div>
           </React.Fragment>
         )}
@@ -4785,15 +4785,15 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab }) {
 
       <div style={gradeS.nums}>
         <div>
-          <div style={{ ...gradeS.num, color: palette.dot }}>{gradeText(predictedGrade)}</div>
+          <div style={{ ...gradeS.num, ...gradeS.numPred }}>{gradeText(predictedGrade)}</div>
           <div style={gradeS.numLabel}>Previsione attuale</div>
         </div>
         <div>
-          <div style={{ ...gradeS.num, color: '#F59E0B' }}>{gradeText(targetGrade)}</div>
+          <div style={{ ...gradeS.num, ...gradeS.numTarget }}>{gradeText(targetGrade)}</div>
           <div style={gradeS.numLabel}>Il tuo obiettivo</div>
         </div>
         <div>
-          <div style={{ ...gradeS.num, color: gap > 0 ? '#EF4444' : '#10B981' }}>{gap > 0 ? `-${gap}` : `+${Math.abs(gap)}`}</div>
+          <div style={{ ...gradeS.num, color: gap > 0 ? '#B91C1C' : '#047857' }}>{gap > 0 ? `-${gap}` : `+${Math.abs(gap)}`}</div>
           <div style={gradeS.numLabel}>Punti da recuperare</div>
         </div>
       </div>
@@ -4815,30 +4815,38 @@ const gradeS = {
   cardTargetLabel: { fontSize: 11, color: 'var(--gray)', fontWeight: 700 },
   section: { marginTop: 22 },
   sectionHead: { marginBottom: 16 },
-  sectionTitle: { margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' },
+  sectionTitle: { margin: 0, fontSize: 16, fontWeight: 750, color: 'var(--ink)' },
   sectionSub: { margin: '4px 0 0', fontSize: 13, color: 'var(--gray)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 },
-  card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 18 },
+  card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, boxShadow: '0 10px 28px -26px rgba(15,16,53,.28)' },
   cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 18 },
   noteName: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--ink)', minWidth: 0 },
-  noteDot: { width: 9, height: 9, borderRadius: 999, flexShrink: 0 },
+  noteDot: { width: 8, height: 8, borderRadius: 999, flexShrink: 0, opacity: .85 },
   examDate: { fontSize: 12, color: 'var(--gray)', whiteSpace: 'nowrap' },
   barWrap: { position: 'relative', height: 48, marginBottom: 12 },
-  track: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '100%', height: 8, background: 'var(--border)', borderRadius: 999 },
-  fill: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: 8, borderRadius: 999 },
-  point: { position: 'absolute', top: '50%', transform: 'translate(-50%,-50%)', width: 18, height: 18, borderRadius: '50%', border: '3px solid var(--surface)', boxShadow: '0 2px 6px rgba(0,0,0,.25)' },
+  track: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '100%', height: 7, background: 'var(--chart-track)', borderRadius: 999 },
+  fill: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', height: 7, borderRadius: 999, background: 'linear-gradient(90deg, var(--indigo), var(--indigo-2))' },
+  point: { position: 'absolute', top: '50%', transform: 'translate(-50%,-50%)', width: 16, height: 16, borderRadius: '50%', border: '3px solid var(--surface)', boxShadow: '0 6px 14px rgba(15,16,53,.14)' },
+  pointPred: { background: 'var(--indigo)' },
+  pointTarget: { background: 'var(--surface)', borderColor: '#9CA3AF' },
+  pointGood: { background: '#10B981' },
   pointLabel: { position: 'absolute', top: -20, left: -3, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' },
+  pointLabelPred: { color: 'var(--indigo)' },
+  pointLabelTarget: { color: 'var(--gray)' },
+  pointLabelGood: { color: '#047857' },
   minLabel: { position: 'absolute', left: 0, bottom: 0, fontSize: 9, color: 'var(--gray-2)' },
   maxLabel: { position: 'absolute', right: 0, bottom: 0, fontSize: 9, color: 'var(--gray-2)' },
   nums: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 },
   num: { fontSize: 20, fontWeight: 800, lineHeight: 1 },
+  numPred: { color: 'var(--ink)' },
+  numTarget: { color: 'var(--gray)' },
   numLabel: { marginTop: 4, fontSize: 10, color: 'var(--gray)', lineHeight: 1.25 },
   message: { borderRadius: 10, padding: '10px 12px', fontSize: 12, lineHeight: 1.5, border: '1px solid var(--border)', marginBottom: 8 },
   msgEmpty: { background: 'var(--sidebar-bg)', borderColor: 'var(--border)', color: 'var(--gray)' },
-  msgWarn: { background: 'var(--msg-warn-bg)', borderColor: 'var(--msg-warn-border)', color: 'var(--msg-warn-text)' },
-  msgAlmost: { background: 'var(--msg-almost-bg)', borderColor: 'var(--msg-almost-border)', color: 'var(--msg-almost-text)' },
-  msgGood: { background: 'var(--msg-good-bg)', borderColor: 'var(--msg-good-border)', color: 'var(--msg-good-text)' },
-  quizBtn: { width: '100%', marginTop: 8, padding: '10px 12px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--indigo)', color: 'var(--indigo)', fontSize: 12, fontWeight: 700 },
+  msgWarn: { background: 'var(--sidebar-bg)', borderColor: 'var(--border)', color: 'var(--ink)' },
+  msgAlmost: { background: 'var(--sidebar-bg)', borderColor: 'var(--border)', color: 'var(--ink)' },
+  msgGood: { background: 'var(--sidebar-bg)', borderColor: 'var(--border)', color: 'var(--ink)' },
+  quizBtn: { width: '100%', marginTop: 8, padding: '10px 12px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 12, fontWeight: 700 },
 };
 
 const analS = {
