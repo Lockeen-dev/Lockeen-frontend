@@ -25,15 +25,11 @@
       },
     };
   </script>
-<style id="lockeen-translate-hide">
-  .goog-te-banner-frame.skiptranslate,
-  .goog-te-gadget,
-  #google_translate_element,
-  body > .skiptranslate {
-    display: none !important;
-  }
-  body { top: 0 !important; }
-</style>
+  <style>
+    #modal-content h3 { font-size: 1.25rem; font-weight: 700; color: #070B2D; margin: 1.5rem 0 0.75rem; }
+    #modal-content p  { color: rgba(7,11,45,0.75); margin-bottom: 1rem; line-height: 1.8; }
+    #modal-content strong { color: #070B2D; font-weight: 600; }
+  </style>
 </head>
 <body class="font-sans bg-white text-foreground antialiased">
 
@@ -87,12 +83,13 @@
           <p class="text-xl text-[#070B2D]/60 leading-relaxed mb-8">
             Research, product updates, and learning science — straight from the people building Lockeen.
           </p>
-          <!-- search bar (cosmetic) -->
+          <!-- search bar -->
           <div class="relative max-w-md">
             <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#070B2D]/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
             <input
+              id="search-input"
               type="text"
               placeholder="Search articles..."
               class="w-full pl-12 pr-4 py-3.5 rounded-full border border-[#E5E7EB] bg-[#F7F8FC] text-[#070B2D] placeholder-[#070B2D]/30 focus:outline-none focus:border-[#2F2BFF]/40 focus:ring-2 focus:ring-[#2F2BFF]/10 transition-all text-sm"
@@ -106,11 +103,11 @@
     <section class="sticky top-20 z-40 bg-white border-b border-[#E5E7EB]">
       <div class="max-w-7xl mx-auto px-6 lg:px-8">
         <div class="flex items-center gap-2 overflow-x-auto py-4 scrollbar-none" style="scrollbar-width:none;">
-          <button class="flex-none px-5 py-2 rounded-full bg-[#2F2BFF] text-white text-sm font-medium transition-colors whitespace-nowrap">All</button>
-          <button class="flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">AI &amp; Learning</button>
-          <button class="flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">Study Tips</button>
-          <button class="flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">Product</button>
-          <button class="flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">Research</button>
+          <button data-cat="All"          class="cat-btn flex-none px-5 py-2 rounded-full bg-[#2F2BFF] text-white text-sm font-medium transition-colors whitespace-nowrap">All</button>
+          <button data-cat="AI &amp; Learning" class="cat-btn flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">AI &amp; Learning</button>
+          <button data-cat="Study Tips"   class="cat-btn flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">Study Tips</button>
+          <button data-cat="Product"      class="cat-btn flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">Product</button>
+          <button data-cat="Research"     class="cat-btn flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">Research</button>
         </div>
       </div>
     </section>
@@ -119,28 +116,28 @@
     <section class="py-12 bg-[#F7F8FC]">
       <div class="max-w-7xl mx-auto px-6 lg:px-8">
         <p class="text-xs font-semibold uppercase tracking-widest text-[#070B2D]/40 mb-6">Featured</p>
-        <a href="#" class="group block rounded-3xl overflow-hidden relative" style="background:linear-gradient(135deg,#070B2D 0%,#1a1760 55%,#2F2BFF 100%);min-height:400px;">
+        <div id="featured-card" onclick="openArticle(1)" style="cursor:pointer;" class="group block rounded-3xl overflow-hidden relative" style="background:linear-gradient(135deg,#070B2D 0%,#1a1760 55%,#2F2BFF 100%);min-height:400px;">
           <!-- decorative elements -->
           <div class="absolute top-0 right-0 w-96 h-96 rounded-full opacity-20 blur-3xl" style="background:radial-gradient(circle,#7C78FF,transparent);transform:translate(20%,-20%);"></div>
           <div class="absolute bottom-0 left-0 w-64 h-64 rounded-full opacity-15 blur-3xl" style="background:radial-gradient(circle,#2F2BFF,transparent);transform:translate(-20%,20%);"></div>
           <!-- grid pattern -->
           <div class="absolute inset-0 opacity-[0.04]" style="background-image:linear-gradient(white 1px,transparent 1px),linear-gradient(90deg,white 1px,transparent 1px);background-size:40px 40px;"></div>
 
-          <div class="relative p-10 md:p-14 flex flex-col md:flex-row items-start gap-10">
+          <div class="relative p-10 md:p-14 flex flex-col md:flex-row items-start gap-10" style="background:linear-gradient(135deg,#070B2D 0%,#1a1760 55%,#2F2BFF 100%);min-height:400px;">
             <div class="flex-1">
-              <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#2F2BFF]/40 text-[#A5B4FC] mb-6">AI &amp; Learning</span>
-              <h2 class="text-3xl md:text-4xl font-bold text-white leading-tight mb-4 group-hover:text-white/90 transition-colors">
+              <span id="feat-cat" class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#2F2BFF]/40 text-[#A5B4FC] mb-6">AI &amp; Learning</span>
+              <h2 id="feat-title" class="text-3xl md:text-4xl font-bold text-white leading-tight mb-4 group-hover:text-white/90 transition-colors">
                 How AI is transforming the way students study
               </h2>
-              <p class="text-white/60 text-lg leading-relaxed mb-8 max-w-xl">
-                From personalized flashcards to real-time concept mapping, artificial intelligence is fundamentally reshaping how the next generation of learners absorbs and retains knowledge. We break down what the research says — and what it means for you.
+              <p id="feat-excerpt" class="text-white/60 text-lg leading-relaxed mb-8 max-w-xl">
+                From personalized flashcards to real-time concept mapping, artificial intelligence is fundamentally reshaping how the next generation of learners absorbs and retains knowledge.
               </p>
               <div class="flex items-center justify-between flex-wrap gap-4">
                 <div class="flex items-center gap-3">
-                  <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-none" style="background:linear-gradient(135deg,#2F2BFF,#7C78FF);">MR</div>
+                  <div id="feat-author-initials" class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-none" style="background:linear-gradient(135deg,#2F2BFF,#7C78FF);">MR</div>
                   <div>
-                    <p class="text-white text-sm font-medium">Marco R.</p>
-                    <p class="text-white/40 text-xs">May 14, 2026 · 8 min read</p>
+                    <p id="feat-author-name" class="text-white text-sm font-medium">Marco R.</p>
+                    <p id="feat-meta" class="text-white/40 text-xs">May 14, 2026 · 8 min read</p>
                   </div>
                 </div>
                 <span class="inline-flex items-center gap-1.5 text-white font-semibold text-sm group-hover:gap-3 transition-all">
@@ -150,166 +147,39 @@
               </div>
             </div>
           </div>
-        </a>
+        </div>
       </div>
     </section>
 
     <!-- ARTICLE GRID -->
     <section class="py-12 bg-[#F7F8FC]">
       <div class="max-w-7xl mx-auto px-6 lg:px-8">
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-
-          <!-- Article 2 -->
-          <a href="#" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
-            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">Study Tips</span>
-            <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">
-              5 proven techniques to memorize faster
-            </h3>
-            <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">
-              Not all memorization strategies are created equal. These five evidence-backed techniques will help you lock in information faster and keep it for longer.
-            </p>
-            <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#7C3AED,#C084FC);">SL</div>
-                <div>
-                  <p class="text-xs font-medium text-[#070B2D]">Sofia L.</p>
-                  <p class="text-xs text-[#070B2D]/40">May 10, 2026 · 5 min</p>
-                </div>
-              </div>
-              <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
-                Read <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
-              </span>
-            </div>
-          </a>
-
-          <!-- Article 3 -->
-          <a href="#" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
-            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">Product</span>
-            <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">
-              Introducing Lockeen 2.0: smarter, faster, better
-            </h3>
-            <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">
-              Today we're shipping the biggest update in Lockeen's history. New AI engine, redesigned workspace, and a batch of features students asked for.
-            </p>
-            <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#059669,#34D399);">DT</div>
-                <div>
-                  <p class="text-xs font-medium text-[#070B2D]">Dev Team</p>
-                  <p class="text-xs text-[#070B2D]/40">May 7, 2026 · 4 min</p>
-                </div>
-              </div>
-              <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
-                Read <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
-              </span>
-            </div>
-          </a>
-
-          <!-- Article 4 -->
-          <a href="#" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
-            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">Research</span>
-            <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">
-              The science behind spaced repetition
-            </h3>
-            <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">
-              Decades of cognitive research point to one clear winner for long-term retention. Here's how spaced repetition works — and why Lockeen is built around it.
-            </p>
-            <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#DC2626,#FB923C);">CB</div>
-                <div>
-                  <p class="text-xs font-medium text-[#070B2D]">Dr. Chiara B.</p>
-                  <p class="text-xs text-[#070B2D]/40">Apr 29, 2026 · 9 min</p>
-                </div>
-              </div>
-              <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
-                Read <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
-              </span>
-            </div>
-          </a>
-
-          <!-- Article 5 -->
-          <a href="#" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
-            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">Study Tips</span>
-            <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">
-              How to build a study routine that actually sticks
-            </h3>
-            <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">
-              Most study routines fail within a week. We looked at what separates the ones that last — and it's not about discipline, it's about design.
-            </p>
-            <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#2F2BFF,#7C78FF);">AM</div>
-                <div>
-                  <p class="text-xs font-medium text-[#070B2D]">Alex M.</p>
-                  <p class="text-xs text-[#070B2D]/40">Apr 22, 2026 · 6 min</p>
-                </div>
-              </div>
-              <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
-                Read <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
-              </span>
-            </div>
-          </a>
-
-          <!-- Article 6 -->
-          <a href="#" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
-            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">AI &amp; Learning</span>
-            <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">
-              Why students at top universities are switching to AI tools
-            </h3>
-            <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">
-              Students at MIT, Oxford, and Bocconi are quietly replacing their old study habits with AI-powered workflows. We spoke to a dozen of them to find out why.
-            </p>
-            <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#7C3AED,#C084FC);">SL</div>
-                <div>
-                  <p class="text-xs font-medium text-[#070B2D]">Sofia L.</p>
-                  <p class="text-xs text-[#070B2D]/40">Apr 15, 2026 · 7 min</p>
-                </div>
-              </div>
-              <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
-                Read <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
-              </span>
-            </div>
-          </a>
-
-          <!-- Newsletter CTA card -->
-          <div class="rounded-2xl p-7 flex flex-col justify-between relative overflow-hidden" style="background:linear-gradient(135deg,#070B2D,#1a1760);">
-            <div class="absolute top-0 right-0 w-32 h-32 rounded-full opacity-20 blur-2xl" style="background:radial-gradient(circle,#7C78FF,transparent);transform:translate(30%,-30%);"></div>
-            <div>
-              <div class="w-10 h-10 rounded-xl bg-[#2F2BFF]/30 flex items-center justify-center mb-5">
-                <svg class="w-5 h-5 text-[#7C78FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                </svg>
-              </div>
-              <h3 class="text-lg font-bold text-white mb-2">Stay in the loop</h3>
-              <p class="text-sm text-white/60 leading-relaxed mb-6">New articles, research drops, and product updates — delivered weekly. No spam.</p>
-            </div>
-            <div class="flex flex-col gap-2">
-              <input
-                type="email"
-                placeholder="your@email.com"
-                class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:border-[#7C78FF] text-sm transition-colors"
-              />
-              <button class="w-full px-4 py-3 rounded-xl bg-[#2F2BFF] text-white text-sm font-semibold hover:opacity-90 transition-opacity">
-                Subscribe
-              </button>
-            </div>
-          </div>
-
-        </div>
+        <div id="article-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+        <div id="no-results" class="hidden text-center py-12 text-[#070B2D]/40 text-lg font-medium">No articles found.</div>
       </div>
     </section>
 
     <!-- LOAD MORE -->
     <section class="pb-20 bg-[#F7F8FC]">
       <div class="max-w-7xl mx-auto px-6 lg:px-8 text-center">
-        <button class="px-8 py-3.5 border border-[#E5E7EB] bg-white text-[#070B2D]/70 rounded-full font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors text-sm">
+        <button id="load-more-btn" class="hidden px-8 py-3.5 border border-[#E5E7EB] bg-white text-[#070B2D]/70 rounded-full font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors text-sm">
           Load more articles
         </button>
       </div>
     </section>
+
+    <!-- ARTICLE MODAL -->
+    <div id="article-modal" class="hidden fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/60 backdrop-blur-sm p-4 md:p-8">
+      <div class="relative bg-white rounded-3xl w-full max-w-3xl my-8 shadow-2xl">
+        <!-- close / back -->
+        <button onclick="closeModal()" class="flex items-center gap-2 text-sm font-medium text-[#070B2D]/60 hover:text-[#070B2D] transition-colors px-6 pt-6">
+          &#8592; Back to Blog
+        </button>
+        <div id="modal-content" class="px-8 md:px-12 pb-12 pt-6">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </div>
 
   </main>
 
@@ -394,71 +264,466 @@
 </footer>
 
 <script>
-(function(){
-  var SUPPORTED_LANGS = ['en','it','de','es','fr','pt'];
-  function safeLang(lang) { return SUPPORTED_LANGS.indexOf(lang) >= 0 ? lang : 'en'; }
-  function readCookie(name) {
-    return document.cookie.split('; ').find(function(row){ return row.indexOf(name + '=') === 0; })?.split('=')[1] || '';
+// ─── DATA ───────────────────────────────────────────────────────────────────
+const ARTICLES = [
+  {
+    id: 1,
+    category: 'AI & Learning',
+    title: 'How AI is transforming the way students study',
+    excerpt: 'From personalized flashcards to real-time concept mapping, artificial intelligence is fundamentally reshaping how the next generation of learners absorbs and retains knowledge.',
+    body: `<p>Artificial intelligence has quietly become one of the most powerful tools in a student's arsenal. From personalized flashcard schedules to AI tutors that explain concepts in real time, the technology is fundamentally reshaping how people learn.</p>
+    <h3>Personalization at scale</h3>
+    <p>Traditional education is one-size-fits-all. A classroom of 30 students receives the same lecture, the same pace, the same examples. AI changes this by adapting to each learner individually — identifying weak spots, adjusting difficulty, and surfacing content at the optimal moment for retention.</p>
+    <p>Spaced repetition algorithms, powered by machine learning models trained on millions of study sessions, can now predict with remarkable accuracy when you're about to forget a piece of information — and show it to you just before that moment arrives.</p>
+    <h3>Real-time concept mapping</h3>
+    <p>Beyond flashcards, AI is enabling entirely new study formats. Tools like Lockeen's AI Tutor can take a dense research paper and produce an interactive concept map in seconds — showing you how ideas relate, where the key arguments sit, and which sections are most relevant to your exam.</p>
+    <h3>What the research says</h3>
+    <p>A 2025 study from the University of Cambridge found that students using AI-assisted study tools improved their exam scores by an average of 23% over a single semester. More importantly, they reported spending 40% less time on passive re-reading — one of the least effective study strategies.</p>
+    <p>The future of studying isn't about working harder. It's about working smarter — and AI is making that possible for every student, regardless of background or resources.</p>`,
+    author: 'Marco R.',
+    authorInitials: 'MR',
+    authorGradient: 'linear-gradient(135deg,#2F2BFF,#7C78FF)',
+    date: 'May 14, 2026',
+    readTime: '8 min read',
+    featured: true
+  },
+  {
+    id: 2,
+    category: 'Study Tips',
+    title: '5 proven techniques to memorize faster',
+    excerpt: 'Not all memorization strategies are created equal. These five evidence-backed techniques will help you lock in information faster and keep it for longer.',
+    body: `<p>Memorization gets a bad reputation. Critics call it rote learning, a relic of outdated education. But the truth is that building a strong knowledge base — facts, vocabulary, formulas, dates — is the foundation of deeper understanding. The question isn't whether to memorize, but how.</p>
+    <h3>1. Spaced repetition</h3>
+    <p>Instead of cramming, review material at increasing intervals. After learning something new, review it after 1 day, then 3 days, then 1 week, then 2 weeks. Each review strengthens the memory trace. Apps like Lockeen automate this scheduling for you.</p>
+    <h3>2. Active recall</h3>
+    <p>Don't re-read — test yourself. Close the book and try to recall what you just read. This forces your brain to actively retrieve information, which strengthens the memory far more than passive review.</p>
+    <h3>3. The elaborative interrogation technique</h3>
+    <p>Ask yourself "why?" and "how?" about everything you learn. When you connect new information to existing knowledge, you create more retrieval pathways — making it easier to remember later.</p>
+    <h3>4. The method of loci</h3>
+    <p>Visualize a familiar place (your home, a route you walk daily) and mentally place the items you need to remember at specific locations. When you need to recall them, mentally walk through the space.</p>
+    <h3>5. Interleaving</h3>
+    <p>Mix up different subjects or problem types within a single study session instead of blocking by topic. It feels harder, but the research consistently shows better long-term retention.</p>`,
+    author: 'Sofia L.',
+    authorInitials: 'SL',
+    authorGradient: 'linear-gradient(135deg,#7C3AED,#C084FC)',
+    date: 'May 10, 2026',
+    readTime: '5 min read',
+    featured: false
+  },
+  {
+    id: 3,
+    category: 'Product',
+    title: 'Introducing Lockeen 2.0: smarter, faster, better',
+    excerpt: "Today we're shipping the biggest update in Lockeen's history. New AI engine, redesigned workspace, and a batch of features students asked for.",
+    body: `<p>When we launched Lockeen, our goal was simple: build the study tool we wished we'd had as students. Today, with Lockeen 2.0, we're taking that vision further than we ever imagined possible.</p>
+    <h3>A new AI engine</h3>
+    <p>At the heart of 2.0 is a completely rebuilt AI engine. It's faster, more accurate, and — crucially — it understands context better. When you ask your AI Tutor a question, it now considers your entire study history, your upcoming exams, and your known weak spots before responding.</p>
+    <h3>Redesigned workspace</h3>
+    <p>We've completely redesigned the dashboard based on feedback from over 10,000 students. Everything is where you expect it. The new sidebar adapts to your most-used features. Dark mode is finally here and it's beautiful.</p>
+    <h3>New features</h3>
+    <p><strong>Smart Study Planner</strong> — tell Lockeen your exam dates and it builds a personalized study schedule automatically, adjusting as you make progress.</p>
+    <p><strong>PDF Import</strong> — upload any PDF and Lockeen will extract key concepts, generate flashcards, and create a quiz — in seconds.</p>
+    <p><strong>Collaborative Decks</strong> — study with friends by sharing flashcard decks. Changes sync in real time.</p>
+    <h3>Available now</h3>
+    <p>Lockeen 2.0 is rolling out to all users today. Pro subscribers get early access to Smart Study Planner and PDF Import. We can't wait to see how you use it.</p>`,
+    author: 'Dev Team',
+    authorInitials: 'DT',
+    authorGradient: 'linear-gradient(135deg,#059669,#34D399)',
+    date: 'May 7, 2026',
+    readTime: '4 min read',
+    featured: false
+  },
+  {
+    id: 4,
+    category: 'Research',
+    title: 'The science behind spaced repetition',
+    excerpt: "Decades of cognitive research point to one clear winner for long-term retention. Here's how spaced repetition works — and why Lockeen is built around it.",
+    body: `<p>Of all the study techniques that cognitive science has validated over the past century, spaced repetition stands out as perhaps the most powerful and most consistently underutilized. Understanding why it works can help you use it more effectively.</p>
+    <h3>The forgetting curve</h3>
+    <p>In 1885, German psychologist Hermann Ebbinghaus conducted a series of experiments on his own memory, documenting what he called the "forgetting curve." His findings showed that memory decays rapidly at first — losing about 50% of new information within an hour — before leveling off.</p>
+    <p>The key insight: memory can be "reset" by reviewing material. Each review resets the forgetting curve, and — crucially — makes the decay slower next time around.</p>
+    <h3>The spacing effect</h3>
+    <p>The spacing effect, first described by Ebbinghaus and replicated hundreds of times since, shows that distributing practice over time is far more effective than massing it together (cramming). Two hours of study spread over four days produces dramatically better retention than two hours in a single session.</p>
+    <h3>How Lockeen implements it</h3>
+    <p>Lockeen uses a variant of the SM-2 algorithm to schedule reviews. Every time you answer a flashcard, the algorithm adjusts: correct answers push the next review further into the future; incorrect answers bring it closer. Over time, your review schedule becomes highly personalized — spending more time on what you find difficult, less on what you know well.</p>
+    <p>The result is maximum retention per hour of study. It's not magic — it's decades of cognitive science, automated.</p>`,
+    author: 'Dr. Chiara B.',
+    authorInitials: 'CB',
+    authorGradient: 'linear-gradient(135deg,#DC2626,#FB923C)',
+    date: 'Apr 29, 2026',
+    readTime: '9 min read',
+    featured: false
+  },
+  {
+    id: 5,
+    category: 'Study Tips',
+    title: 'How to build a study routine that actually sticks',
+    excerpt: "Most study routines fail within a week. We looked at what separates the ones that last — and it's not about discipline, it's about design.",
+    body: `<p>Every semester, millions of students start with the best of intentions. They write out color-coded schedules, set ambitious daily study goals, and commit to transforming their habits. By week two, most have given up.</p>
+    <p>The failure isn't about willpower. It's about design. Here's what works.</p>
+    <h3>Start smaller than you think</h3>
+    <p>The most common mistake is setting a target that's too ambitious. "Study 4 hours a day" sounds impressive but is unsustainable for most people. Start with 25 minutes. Master that. Then expand.</p>
+    <h3>Anchor to existing habits</h3>
+    <p>Don't try to carve new time from thin air. Attach your study session to something you already do every day — after your morning coffee, before dinner, immediately after class. "After I make coffee, I open Lockeen" is far more likely to stick than "I study at 9am."</p>
+    <h3>Reduce friction to zero</h3>
+    <p>The harder it is to start, the less likely you are to do it. Keep your study materials always open and ready. Set up your workspace the night before. Put your phone in another room before you sit down.</p>
+    <h3>Track streaks, not hours</h3>
+    <p>Consistency beats intensity. A 20-minute session every day for a month is worth more than a 5-hour binge once a week. Track your study streak in Lockeen — the visual feedback of an unbroken chain is a surprisingly powerful motivator.</p>
+    <h3>Plan for failure</h3>
+    <p>You will miss a day. That's fine. The rule: never miss twice in a row. One missed session is an accident. Two is the start of a new (bad) habit.</p>`,
+    author: 'Alex M.',
+    authorInitials: 'AM',
+    authorGradient: 'linear-gradient(135deg,#2F2BFF,#7C78FF)',
+    date: 'Apr 22, 2026',
+    readTime: '6 min read',
+    featured: false
+  },
+  {
+    id: 6,
+    category: 'AI & Learning',
+    title: 'Why students at top universities are switching to AI tools',
+    excerpt: 'Students at MIT, Oxford, and Bocconi are quietly replacing their old study habits with AI-powered workflows. We spoke to a dozen of them to find out why.',
+    body: `<p>Walk through the libraries at MIT, Oxford, or Bocconi today and you'll notice something different. Students aren't just reading and highlighting anymore. They're querying AI tutors, generating custom flashcard decks from lecture slides, and using AI to explain complex concepts in plain language.</p>
+    <h3>The shift is happening quietly</h3>
+    <p>Most of the students we spoke to didn't announce a decision to switch to AI tools. It happened gradually. One student discovered that Lockeen's AI could explain a tricky economics concept better than their textbook. Another found that AI-generated quiz questions helped them spot gaps in their understanding before an exam.</p>
+    <h3>What they're using it for</h3>
+    <p>The most common use cases: simplifying complex readings (67% of respondents), generating practice questions (58%), and getting instant feedback on their understanding (52%). Very few — just 12% — reported using AI to write essays or complete assignments. The tools are being used for learning, not shortcuts.</p>
+    <h3>Why it works at elite institutions</h3>
+    <p>Counterintuitively, AI study tools may be most valuable at the most demanding universities. The sheer volume of material at places like Oxford means students need to process and retain information faster than ever. AI acts as a force multiplier — letting students cover more ground without sacrificing depth.</p>
+    <p>"I use Lockeen for every lecture," said one second-year student at Bocconi. "It turns an hour of notes into a 15-minute review session. I understand the material better and I have more time for everything else."</p>`,
+    author: 'Sofia L.',
+    authorInitials: 'SL',
+    authorGradient: 'linear-gradient(135deg,#7C3AED,#C084FC)',
+    date: 'Apr 15, 2026',
+    readTime: '7 min read',
+    featured: false
+  },
+  {
+    id: 7,
+    category: 'Research',
+    title: 'What cognitive science tells us about procrastination',
+    excerpt: "Procrastination isn't a time-management problem — it's an emotion-regulation problem. Understanding this changes how you fix it.",
+    body: `<p>For decades, procrastination was treated as a productivity problem — a failure of time management, planning, or discipline. The solution was always more structure: better schedules, tighter deadlines, stronger willpower.</p>
+    <p>It didn't work. Rates of procrastination haven't declined. If anything, they've increased. The reason: we were solving the wrong problem.</p>
+    <h3>The real cause</h3>
+    <p>A growing body of research, led by psychologists like Timothy Pychyl and Fuschia Sirois, shows that procrastination is fundamentally an emotion-regulation problem. We avoid tasks not because we're lazy, but because the tasks make us feel bad — anxious, bored, overwhelmed, inadequate — and avoidance provides temporary relief.</p>
+    <h3>The self-compassion finding</h3>
+    <p>One of the counterintuitive findings of this research: self-criticism makes procrastination worse. Students who beat themselves up after procrastinating were more likely to procrastinate again on the next task. In contrast, students who practiced self-compassion — acknowledging the lapse without judgment — procrastinated less.</p>
+    <h3>Practical implications</h3>
+    <p>If procrastination is about avoiding negative emotions, the solution is to address the emotion, not just the behavior. This means: identifying what specifically makes a task feel aversive, breaking tasks down to reduce overwhelm, and building in small rewards that make starting feel less threatening.</p>
+    <p>Lockeen's study planner is designed with this in mind. Tasks are broken into small, completable chunks. Progress is visible and celebrated. The goal is to make starting feel easy — because starting is the hardest part.</p>`,
+    author: 'Dr. Chiara B.',
+    authorInitials: 'CB',
+    authorGradient: 'linear-gradient(135deg,#DC2626,#FB923C)',
+    date: 'Apr 8, 2026',
+    readTime: '8 min read',
+    featured: false
+  },
+  {
+    id: 8,
+    category: 'Study Tips',
+    title: 'How to ace your exams with active recall',
+    excerpt: "Active recall is the single most effective study technique validated by cognitive science. Here's a practical guide to using it.",
+    body: `<p>If you could only use one study technique, it should be active recall. Decades of research — including a landmark 2011 meta-analysis in Science — show that testing yourself on material produces dramatically better retention than re-reading, summarizing, or creating concept maps.</p>
+    <h3>What is active recall?</h3>
+    <p>Active recall means trying to retrieve information from memory without looking at the source material. Instead of reading your notes, you close them and try to remember what they said. Instead of re-reading a chapter, you try to explain it from memory.</p>
+    <h3>Why it works</h3>
+    <p>The act of retrieval strengthens memory. Every time you successfully recall something, you make it easier to recall in the future. Cognitive scientists call this the "testing effect" — and it's one of the most robust findings in all of memory research.</p>
+    <h3>How to practice it</h3>
+    <p><strong>Flashcards</strong> — the classic active recall tool. See a question, try to recall the answer, then check. Lockeen automates the scheduling so you see cards at optimal intervals.</p>
+    <p><strong>Practice tests</strong> — find past exam papers and work through them under timed conditions. Don't just read the questions — actually answer them.</p>
+    <p><strong>The blank page technique</strong> — after studying a topic, take a blank page and write everything you remember about it. Then check your notes and fill in the gaps.</p>
+    <p><strong>Teach it</strong> — explaining a concept to someone else (or even to yourself out loud) forces active retrieval and reveals gaps in understanding immediately.</p>`,
+    author: 'Marco R.',
+    authorInitials: 'MR',
+    authorGradient: 'linear-gradient(135deg,#2F2BFF,#7C78FF)',
+    date: 'Mar 30, 2026',
+    readTime: '6 min read',
+    featured: false
+  },
+  {
+    id: 9,
+    category: 'Product',
+    title: "Lockeen's new Calendar: plan your semester in minutes",
+    excerpt: "We built the study calendar we always wanted — one that actually understands how students think about time.",
+    body: `<p>Every student needs a calendar. But most calendar apps are built for work schedules — meetings, deadlines, appointments. They don't understand the rhythms of student life: exam periods, study sessions, reading weeks, assignment deadlines.</p>
+    <p>Today we're launching Lockeen Calendar — designed from the ground up for how students actually plan.</p>
+    <h3>Exam-first planning</h3>
+    <p>Start by adding your exam dates. Lockeen Calendar works backwards from there, automatically suggesting study blocks based on the difficulty of each subject, your current knowledge level (measured by your flashcard performance), and how much time you have available.</p>
+    <h3>Smart load balancing</h3>
+    <p>Exam season often means multiple exams in the same week. Lockeen Calendar detects conflicts and redistributes your study sessions to prevent last-minute cramming. It knows that spacing study over weeks is more effective than concentrating it in days.</p>
+    <h3>Integrated with your study tools</h3>
+    <p>When Lockeen Calendar schedules a "Biology review" session, it links directly to your Biology flashcard deck and recommended quiz. One tap and you're studying — no need to navigate around the app.</p>
+    <h3>Available now</h3>
+    <p>Lockeen Calendar is available to all users today. Pro subscribers get access to AI-powered scheduling recommendations. Set up your semester in the app and tell us what you think.</p>`,
+    author: 'Dev Team',
+    authorInitials: 'DT',
+    authorGradient: 'linear-gradient(135deg,#059669,#34D399)',
+    date: 'Mar 20, 2026',
+    readTime: '4 min read',
+    featured: false
+  },
+  {
+    id: 10,
+    category: 'Research',
+    title: 'The optimal study session length (according to science)',
+    excerpt: "How long should you study before taking a break? The answer might surprise you — and it's not 25 minutes.",
+    body: `<p>The Pomodoro Technique — 25 minutes of focused work followed by a 5-minute break — has become one of the most widely used productivity systems in the world. But is 25 minutes actually the optimal study session length? The research suggests the answer is more nuanced.</p>
+    <h3>What the research shows</h3>
+    <p>Studies on sustained attention consistently find that focus begins to degrade after 20-50 minutes of continuous work on a single task, with significant individual variation. The degradation isn't dramatic — you don't suddenly become unable to study — but errors increase and retention decreases.</p>
+    <p>A 2016 study from the University of Illinois found that brief breaks — even just a few seconds of mental disengagement — can significantly reduce the decline in performance over long tasks.</p>
+    <h3>But it's not just about length</h3>
+    <p>The quality of breaks matters as much as their frequency. Scrolling social media doesn't count as a real break — it continues to consume cognitive resources. True breaks involve looking away from screens, moving your body, or simply letting your mind wander.</p>
+    <h3>The practical recommendation</h3>
+    <p>For most students, study blocks of 45-90 minutes with genuine 10-15 minute breaks work better than shorter Pomodoros — particularly for deep, complex material that requires building mental context. Reserve shorter sessions for flashcard review and active recall practice, where the task itself provides natural variation.</p>`,
+    author: 'Dr. Chiara B.',
+    authorInitials: 'CB',
+    authorGradient: 'linear-gradient(135deg,#DC2626,#FB923C)',
+    date: 'Mar 12, 2026',
+    readTime: '7 min read',
+    featured: false
+  },
+  {
+    id: 11,
+    category: 'Study Tips',
+    title: 'Building better flashcards: a practical guide',
+    excerpt: "Most flashcards are badly designed — too long, too passive, too easy. Here's how to make cards that actually work.",
+    body: `<p>Flashcards are one of the most powerful study tools available — when used correctly. The problem is that most people make flashcards badly, and then wonder why they don't work.</p>
+    <h3>The minimum information principle</h3>
+    <p>Each flashcard should test exactly one piece of information. Not two, not three — one. If you find yourself writing a card that requires a long answer to get right, split it into multiple cards.</p>
+    <p>Bad: "What are the four causes of World War I and what were their effects?"</p>
+    <p>Good: "What does MAIN stand for in the causes of WWI?" (Answer: Militarism, Alliances, Imperialism, Nationalism)</p>
+    <h3>Use cloze deletions</h3>
+    <p>Cloze deletion cards — where a word or phrase is removed from a sentence — are often more effective than standard question/answer format. "The Treaty of _____ ended World War I" is easier to create and tests knowledge in context.</p>
+    <h3>Add images when possible</h3>
+    <p>Visual information is encoded differently from verbal information and is often retained better. If you're learning anatomy, biology, geography, or any visual subject, include diagrams.</p>
+    <h3>Write cards in your own words</h3>
+    <p>Copying text from a textbook onto a flashcard is lazy and ineffective. Rewriting in your own words forces you to process the information — and tests whether you actually understand it, not just recognize it.</p>
+    <h3>Review soon after creation</h3>
+    <p>The optimal time to do your first review of a new card is 1-24 hours after creating it. Waiting longer means you'll have forgotten more and the first review will be less efficient.</p>`,
+    author: 'Alex M.',
+    authorInitials: 'AM',
+    authorGradient: 'linear-gradient(135deg,#2F2BFF,#7C78FF)',
+    date: 'Mar 5, 2026',
+    readTime: '5 min read',
+    featured: false
+  },
+  {
+    id: 12,
+    category: 'AI & Learning',
+    title: 'AI tutors vs. human tutors: an honest comparison',
+    excerpt: 'AI tutors are getting very good. But are they better than human tutors? The answer depends on what you need.',
+    body: `<p>Five years ago, the idea of an AI tutor that could meaningfully help a student was science fiction. Today, AI tutors are helping millions of students worldwide — and the technology is improving rapidly. So how do they compare to the real thing?</p>
+    <h3>Where AI tutors win</h3>
+    <p><strong>Availability</strong> — an AI tutor is available at 2am, on weekends, during exam week. No scheduling, no waiting, no cancellations.</p>
+    <p><strong>Patience</strong> — AI tutors don't get frustrated when you ask the same question for the fifth time. They'll explain a concept 20 different ways until one clicks.</p>
+    <p><strong>Cost</strong> — a quality human tutor costs €50-150 per hour. AI tutoring costs a fraction of that, or nothing at all.</p>
+    <p><strong>Breadth</strong> — AI tutors can help across virtually any subject without switching between specialists.</p>
+    <h3>Where human tutors still lead</h3>
+    <p><strong>Motivation and accountability</strong> — the social dimension of human tutoring is powerful. Students work harder when a real person is watching and encouraging them.</p>
+    <p><strong>Nuanced explanation</strong> — for highly specialized or cutting-edge topics, experienced human tutors still have an edge. They can draw on professional experience that no AI has yet.</p>
+    <p><strong>Emotional support</strong> — exam anxiety, imposter syndrome, burnout. Human tutors can recognize and address these in ways AI cannot replicate.</p>
+    <h3>The verdict</h3>
+    <p>The best approach for most students isn't either/or. Use an AI tutor — like Lockeen's — for the 80% of your questions that are factual and conceptual. Reserve time with a human tutor for the 20% that require deeper mentorship, motivation, or specialized expertise.</p>`,
+    author: 'Marco R.',
+    authorInitials: 'MR',
+    authorGradient: 'linear-gradient(135deg,#2F2BFF,#7C78FF)',
+    date: 'Feb 25, 2026',
+    readTime: '8 min read',
+    featured: false
   }
-  function writeCookie(name, value, days) {
-    var exp = days ? '; expires=' + new Date(Date.now() + days * 864e5).toUTCString() : '';
-    var base = name + '=' + value + exp + '; path=/';
-    document.cookie = base;
-    if (location.hostname && location.hostname.indexOf('.') > -1) {
-      document.cookie = base + '; domain=.' + location.hostname.replace(/^www\./, '');
-    }
-  }
-  function clearCookie(name) {
-    writeCookie(name, '', -1);
-  }
-  function setTranslateCookie(lang) {
-    var next = lang === 'en' ? '' : '/en/' + lang;
-    var current = decodeURIComponent(readCookie('googtrans'));
-    if (next && current === next) return false;
-    if (!next && !current) return false;
-    if (next) writeCookie('googtrans', encodeURIComponent(next), 365);
-    else clearCookie('googtrans');
-    return true;
-  }
-  function syncSelectors(lang) {
-    document.querySelectorAll('.js-lang-select').forEach(function(sel){ sel.value = lang; });
-  }
-  window.lockeenApplyGlobalLanguage = function(lang) {
-    var next = safeLang(lang);
-    localStorage.setItem('lockeen-lang', next);
-    document.documentElement.lang = next;
-    syncSelectors(next);
-    var changed = setTranslateCookie(next);
-    if (changed) setTimeout(function(){ window.location.reload(); }, 80);
-  };
-  window.googleTranslateElementInit = function() {
-    new google.translate.TranslateElement({
-      pageLanguage: 'en',
-      includedLanguages: SUPPORTED_LANGS.join(','),
-      autoDisplay: false
-    }, 'google_translate_element');
-    syncSelectors(safeLang(localStorage.getItem('lockeen-lang') || 'en'));
-  };
-  document.addEventListener('DOMContentLoaded', function() {
-    var saved = safeLang(localStorage.getItem('lockeen-lang') || 'en');
-    document.documentElement.lang = saved;
-    syncSelectors(saved);
-    document.querySelectorAll('.js-lang-select').forEach(function(sel) {
-      sel.addEventListener('change', function(e) {
-        if (window.setLockeenLanguage) window.setLockeenLanguage(e.target.value);
-        else window.lockeenApplyGlobalLanguage(e.target.value);
-      });
-    });
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const PAGE_SIZE = 6;
+const LOAD_MORE_SIZE = 3;
+
+let activeCategory = 'All';
+let searchQuery = '';
+let visibleCount = PAGE_SIZE;
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function getFiltered() {
+  return ARTICLES.slice(1).filter(a => {
+    const matchCat = activeCategory === 'All' || a.category === activeCategory;
+    const matchSearch = !searchQuery ||
+      a.title.toLowerCase().includes(searchQuery) ||
+      a.excerpt.toLowerCase().includes(searchQuery);
+    return matchCat && matchSearch;
   });
-  var div = document.createElement('div');
-  div.id = 'google_translate_element';
-  div.style.display = 'none';
-  document.body.appendChild(div);
-  var s = document.createElement('script');
-  s.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-  s.async = true;
-  document.body.appendChild(s);
-})();
+}
+
+// ─── RENDER: FEATURED ────────────────────────────────────────────────────────
+function renderFeatured() {
+  const a = ARTICLES[0];
+  document.getElementById('feat-cat').textContent = a.category;
+  document.getElementById('feat-title').textContent = a.title;
+  document.getElementById('feat-excerpt').textContent = a.excerpt;
+  document.getElementById('feat-author-initials').textContent = a.authorInitials;
+  document.getElementById('feat-author-initials').style.background = a.authorGradient;
+  document.getElementById('feat-author-name').textContent = a.author;
+  document.getElementById('feat-meta').textContent = a.date + ' · ' + a.readTime;
+}
+
+// ─── RENDER: GRID ────────────────────────────────────────────────────────────
+function renderGrid() {
+  const filtered = getFiltered();
+  const visible = filtered.slice(0, visibleCount);
+  const grid = document.getElementById('article-grid');
+  const noResults = document.getElementById('no-results');
+  const loadMoreBtn = document.getElementById('load-more-btn');
+
+  // Newsletter CTA card HTML (always injected as the 6th slot when enough cards)
+  const newsletterCard = `
+    <div class="rounded-2xl p-7 flex flex-col justify-between relative overflow-hidden" style="background:linear-gradient(135deg,#070B2D,#1a1760);">
+      <div class="absolute top-0 right-0 w-32 h-32 rounded-full opacity-20 blur-2xl" style="background:radial-gradient(circle,#7C78FF,transparent);transform:translate(30%,-30%);"></div>
+      <div>
+        <div class="w-10 h-10 rounded-xl bg-[#2F2BFF]/30 flex items-center justify-center mb-5">
+          <svg class="w-5 h-5 text-[#7C78FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">Stay in the loop</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-6">New articles, research drops, and product updates — delivered weekly. No spam.</p>
+      </div>
+      <div class="flex flex-col gap-2">
+        <input type="email" placeholder="your@email.com" class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:border-[#7C78FF] text-sm transition-colors" />
+        <button class="w-full px-4 py-3 rounded-xl bg-[#2F2BFF] text-white text-sm font-semibold hover:opacity-90 transition-opacity">Subscribe</button>
+      </div>
+    </div>`;
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '';
+    noResults.classList.remove('hidden');
+    loadMoreBtn.classList.add('hidden');
+    return;
+  }
+
+  noResults.classList.add('hidden');
+
+  // Build card HTML for each visible article
+  let html = visible.map(a => `
+    <div onclick="openArticle(${a.id})" style="cursor:pointer;" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
+      <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">${escapeHtml(a.category)}</span>
+      <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">${escapeHtml(a.title)}</h3>
+      <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">${escapeHtml(a.excerpt)}</p>
+      <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-none" style="background:${a.authorGradient}">${escapeHtml(a.authorInitials)}</div>
+          <div>
+            <p class="text-xs font-medium text-[#070B2D]">${escapeHtml(a.author)}</p>
+            <p class="text-xs text-[#070B2D]/40">${escapeHtml(a.date)} · ${escapeHtml(a.readTime)}</p>
+          </div>
+        </div>
+        <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
+          Read &#8594;
+        </span>
+      </div>
+    </div>`).join('');
+
+  // Inject newsletter card after the first PAGE_SIZE articles when no search/filter narrows things
+  // Always append at the end of visible set when visibleCount <= PAGE_SIZE and we have >= 5 articles
+  if (visibleCount <= PAGE_SIZE && filtered.length >= 5) {
+    html += newsletterCard;
+  }
+
+  grid.innerHTML = html;
+
+  // Show/hide load more
+  if (visibleCount < filtered.length) {
+    loadMoreBtn.classList.remove('hidden');
+  } else {
+    loadMoreBtn.classList.add('hidden');
+  }
+}
+
+function renderAll() {
+  renderFeatured();
+  renderGrid();
+}
+
+// ─── MODAL ───────────────────────────────────────────────────────────────────
+function openArticle(id) {
+  const article = ARTICLES.find(a => a.id === id);
+  if (!article) return;
+
+  document.getElementById('modal-content').innerHTML = `
+    <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-6">${escapeHtml(article.category)}</span>
+    <h1 style="font-size:1.75rem;font-weight:800;color:#070B2D;line-height:1.25;margin-bottom:1.5rem;">${escapeHtml(article.title)}</h1>
+    <div style="display:flex;align-items:center;gap:0.75rem;padding-bottom:2rem;margin-bottom:2rem;border-bottom:1px solid #E5E7EB;">
+      <div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.875rem;font-weight:700;flex-shrink:0;background:${article.authorGradient}">${escapeHtml(article.authorInitials)}</div>
+      <div>
+        <p style="font-weight:600;color:#070B2D;font-size:0.875rem;margin:0 0 2px;">${escapeHtml(article.author)}</p>
+        <p style="font-size:0.75rem;color:rgba(7,11,45,0.4);margin:0;">${escapeHtml(article.date)} · ${escapeHtml(article.readTime)}</p>
+      </div>
+    </div>
+    <div style="font-size:1.05rem;line-height:1.8;">
+      ${article.body}
+    </div>
+  `;
+
+  document.getElementById('article-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('article-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+// ─── CATEGORY TABS ───────────────────────────────────────────────────────────
+function updateCatButtons() {
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    const cat = btn.dataset.cat;
+    // decode HTML entities in data-cat for comparison
+    const catDecoded = cat.replace(/&amp;/g, '&');
+    if (catDecoded === activeCategory) {
+      btn.className = 'cat-btn flex-none px-5 py-2 rounded-full bg-[#2F2BFF] text-white text-sm font-medium transition-colors whitespace-nowrap';
+    } else {
+      btn.className = 'cat-btn flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap';
+    }
+  });
+}
+
+// ─── EVENT LISTENERS ─────────────────────────────────────────────────────────
+document.getElementById('search-input').addEventListener('input', e => {
+  searchQuery = e.target.value.toLowerCase().trim();
+  visibleCount = PAGE_SIZE;
+  renderGrid();
+});
+
+document.querySelectorAll('.cat-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    // decode &amp; back to & for category matching
+    activeCategory = btn.dataset.cat.replace(/&amp;/g, '&');
+    visibleCount = PAGE_SIZE;
+    updateCatButtons();
+    renderGrid();
+  });
+});
+
+document.getElementById('load-more-btn').addEventListener('click', () => {
+  visibleCount += LOAD_MORE_SIZE;
+  renderGrid();
+});
+
+// Close modal on overlay click
+document.getElementById('article-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('article-modal')) closeModal();
+});
+
+// Close modal on ESC
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+renderAll();
 </script>
+
 </body>
 </html>
