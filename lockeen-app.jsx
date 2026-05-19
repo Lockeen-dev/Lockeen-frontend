@@ -39,6 +39,11 @@ const Google      = ({ size = 18 }) => (
 const Brain       = (p) => <Icon {...p}><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></Icon>;
 const CalendarIcon = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Icon>;
 const Trash       = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></Icon>;
+const XIcon       = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
+const ChevLeft    = (p) => <Icon {...p}><polyline points="15 18 9 12 15 6"/></Icon>;
+const ChevRight   = (p) => <Icon {...p}><polyline points="9 18 15 12 9 6"/></Icon>;
+const FilePDF     = (p) => <Icon {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h1.5a1.5 1.5 0 0 1 0 3H9v-3z"/><path d="M14 16h1"/><path d="M14 13h1"/></Icon>;
+const RotateCW    = (p) => <Icon {...p}><polyline points="23 4 23 10 17 10"/><path d="M20.5 16a9 9 0 1 1-2.8-9.4L23 10"/></Icon>;
 
 /* ===================== LIFE CATEGORIES ===================== */
 const LIFE_CATS = [
@@ -214,6 +219,12 @@ const authS = {
 function Dashboard({ user, onLogout }) {
   const [tab, setTab] = useState('dashboard');
   const [selectedNoteId, setSelectedNoteId] = useState(null);
+  const [pdfNote, setPdfNote] = useState(null);
+  const [flashNote, setFlashNote] = useState(null);
+  const [quizSetupOpen, setQuizSetupOpen] = useState(false);
+
+  const collapsed = tab === 'tutor';
+
   return (
     <div style={shellS.wrap}>
       <header style={shellS.header}>
@@ -232,17 +243,20 @@ function Dashboard({ user, onLogout }) {
         </div>
       </header>
       <div style={shellS.outerCard}>
-        <div style={shellS.grid}>
-          <Sidebar tab={tab} setTab={setTab} />
+        <div style={{ ...shellS.grid, gridTemplateColumns: collapsed ? '58px 1fr' : '220px 1fr', transition: 'grid-template-columns .2s ease' }}>
+          <Sidebar tab={tab} setTab={setTab} collapsed={collapsed} />
           <div style={shellS.main}>
             {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} />}
-            {tab === 'notes'     && <NotesView selectedNoteId={selectedNoteId} setSelectedNoteId={setSelectedNoteId} />}
+            {tab === 'notes'     && <NotesView selectedNoteId={selectedNoteId} setSelectedNoteId={setSelectedNoteId} onViewPDF={setPdfNote} onFlashcards={setFlashNote} onQuiz={() => setQuizSetupOpen(true)} />}
             {tab === 'calendar'  && <CalendarView setTab={setTab} setSelectedNoteId={setSelectedNoteId} />}
             {tab === 'tutor'     && <TutorView />}
             {tab === 'analytics' && <AnalyticsView />}
           </div>
         </div>
       </div>
+      {pdfNote    && <PDFModal note={pdfNote} onClose={() => setPdfNote(null)} />}
+      {flashNote  && <FlashcardsModal note={flashNote} onClose={() => setFlashNote(null)} />}
+      {quizSetupOpen && <QuizSetupModal onClose={() => setQuizSetupOpen(false)} />}
     </div>
   );
 }
@@ -262,7 +276,7 @@ const shellS = {
 };
 
 /* ===================== SIDEBAR ===================== */
-function Sidebar({ tab, setTab }) {
+function Sidebar({ tab, setTab, collapsed }) {
   const items = [
     { id: 'dashboard', label: 'Dashboard', Icon: ZapSolid },
     { id: 'notes',     label: 'My Notes',  Icon: BookOpen  },
@@ -271,25 +285,28 @@ function Sidebar({ tab, setTab }) {
     { id: 'analytics', label: 'Analytics', Icon: BarChart3 },
   ];
   return (
-    <aside style={sideS.wrap}>
+    <aside style={{ ...sideS.wrap, padding: collapsed ? '24px 10px' : '24px 16px', overflow: 'hidden' }}>
       <nav style={sideS.nav}>
         {items.map(({ id, label, Icon: I }) => {
           const active = id === tab;
           return (
-            <button key={id} onClick={() => setTab(id)} style={{ ...sideS.item, ...(active ? sideS.itemActive : null) }}>
+            <button key={id} onClick={() => setTab(id)} title={collapsed ? label : undefined}
+              style={{ ...sideS.item, justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '11px' : '11px 14px', ...(active ? sideS.itemActive : null) }}>
               <I size={18} sw={active ? 0 : 1.8} />
-              <span>{label}</span>
+              {!collapsed && <span>{label}</span>}
             </button>
           );
         })}
       </nav>
-      <div style={sideS.goalCard}>
-        <div style={sideS.goalLabel}>Weekly Goal</div>
-        <div style={sideS.goalValue}>78%</div>
-        <div style={sideS.goalBarTrack}>
-          <div style={sideS.goalBarFill} />
+      {!collapsed && (
+        <div style={sideS.goalCard}>
+          <div style={sideS.goalLabel}>Weekly Goal</div>
+          <div style={sideS.goalValue}>78%</div>
+          <div style={sideS.goalBarTrack}>
+            <div style={sideS.goalBarFill} />
+          </div>
         </div>
-      </div>
+      )}
     </aside>
   );
 }
@@ -379,7 +396,211 @@ const seedNotes = [
   { id: 6, title: 'Shakespeare — Hamlet',         subject: 'Literature', updated: '3 weeks ago', pages: 22, color: '#FEE2E2', dot: '#EF4444' },
 ];
 
-function NotesView({ selectedNoteId, setSelectedNoteId }) {
+const FLASHCARDS = {
+  1: [
+    { front: 'What is ATP?', back: 'Adenosine triphosphate — the cell\'s energy currency, produced during respiration.' },
+    { front: 'Three stages of cellular respiration?', back: 'Glycolysis → Krebs cycle → Electron transport chain.' },
+    { front: 'What is NAD⁺?', back: 'Electron carrier that accepts H⁺ ions, becoming NADH during respiration.' },
+    { front: 'Net ATP from glycolysis?', back: '2 ATP molecules (from one glucose).' },
+  ],
+  2: [
+    { front: 'What is a functional group?', back: 'Atom/group that determines chemical properties of organic molecules (e.g. –OH, –COOH).' },
+    { front: 'Define isomerism', back: 'Compounds sharing the same molecular formula but different structural arrangements.' },
+    { front: 'What is a hydrocarbon?', back: 'Compound containing only carbon and hydrogen atoms.' },
+  ],
+  3: [
+    { front: 'When did WWII begin?', back: 'September 1, 1939 — Germany invaded Poland.' },
+    { front: 'What was the Holocaust?', back: 'Nazi genocide of ~6 million Jews and millions of others, 1941–1945.' },
+    { front: 'When did WWII end?', back: 'September 2, 1945 — Japan\'s formal surrender on USS Missouri.' },
+    { front: 'What was D-Day?', back: 'June 6, 1944 — Allied invasion of Normandy, France (Operation Overlord).' },
+  ],
+  4: [
+    { front: 'Define derivative', back: 'The rate of change of a function — slope of the tangent at any point.' },
+    { front: 'Power rule?', back: 'd/dx[xⁿ] = n·xⁿ⁻¹' },
+    { front: 'Chain rule?', back: 'd/dx[f(g(x))] = f\'(g(x))·g\'(x)' },
+  ],
+  5: [
+    { front: 'What is GDP?', back: 'Gross Domestic Product — total value of goods/services produced in a country in a year.' },
+    { front: 'Define inflation', back: 'Sustained increase in the general price level over time.' },
+    { front: 'What is fiscal policy?', back: 'Government use of spending and taxation to influence the economy.' },
+  ],
+  6: [
+    { front: 'Who wrote Hamlet?', back: 'William Shakespeare, c. 1600–1601.' },
+    { front: 'To be or not to be — what soliloquy?', back: 'Act 3, Scene 1 — Hamlet contemplates existence and suicide.' },
+    { front: 'What is a soliloquy?', back: 'A dramatic speech where a character speaks thoughts aloud, alone on stage.' },
+  ],
+};
+
+/* ===================== PDF MODAL ===================== */
+function PDFModal({ note, onClose }) {
+  const [page, setPage] = useState(1);
+  const total = note.pages;
+  return (
+    <div style={modalOverlay} onClick={onClose}>
+      <div style={{ ...modalCard, maxWidth: 680, height: 560, display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <FilePDF size={20} style={{ color: '#EF4444' }} />
+            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{note.title}.pdf</span>
+          </div>
+          <button onClick={onClose} style={iconCloseBtn}><XIcon size={16} /></button>
+        </div>
+        <div style={{ flex: 1, background: '#E5E7EB', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+          <div style={{ background: '#fff', width: '72%', height: '90%', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,.18)', padding: '32px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>Page {page} of {total}</div>
+            <div style={{ height: 14, background: '#E5E7EB', borderRadius: 4, width: '80%' }} />
+            <div style={{ height: 14, background: '#E5E7EB', borderRadius: 4, width: '95%' }} />
+            <div style={{ height: 14, background: '#E5E7EB', borderRadius: 4, width: '60%' }} />
+            <div style={{ height: 10, background: '#F3F4F6', borderRadius: 4, width: '100%', marginTop: 8 }} />
+            <div style={{ height: 10, background: '#F3F4F6', borderRadius: 4, width: '88%' }} />
+            <div style={{ height: 10, background: '#F3F4F6', borderRadius: 4, width: '92%' }} />
+            <div style={{ height: 10, background: '#F3F4F6', borderRadius: 4, width: '76%' }} />
+            <div style={{ height: 80, background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, marginTop: 12 }} />
+            <div style={{ height: 10, background: '#F3F4F6', borderRadius: 4, width: '85%', marginTop: 10 }} />
+            <div style={{ height: 10, background: '#F3F4F6', borderRadius: 4, width: '70%' }} />
+            <div style={{ height: 10, background: '#F3F4F6', borderRadius: 4, width: '55%' }} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 14 }}>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+            style={{ ...navPillBtn, opacity: page === 1 ? 0.35 : 1 }}><ChevLeft size={16} /></button>
+          <span style={{ fontSize: 13, color: 'var(--gray)', fontWeight: 600 }}>{page} / {total}</span>
+          <button onClick={() => setPage(p => Math.min(total, p + 1))} disabled={page === total}
+            style={{ ...navPillBtn, opacity: page === total ? 0.35 : 1 }}><ChevRight size={16} /></button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===================== FLASHCARDS MODAL ===================== */
+function FlashcardsModal({ note, onClose }) {
+  const cards = FLASHCARDS[note.id] || [{ front: 'No flashcards yet', back: 'Add cards to this note.' }];
+  const [idx, setIdx] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [seen, setSeen] = useState(new Set());
+
+  const goNext = () => {
+    setSeen(s => new Set([...s, idx]));
+    setFlipped(false);
+    setTimeout(() => setIdx(i => Math.min(cards.length - 1, i + 1)), flipped ? 0 : 0);
+  };
+  const goPrev = () => { setFlipped(false); setIdx(i => Math.max(0, i - 1)); };
+  const allSeen = seen.size >= cards.length || (seen.size >= cards.length - 1 && seen.has(idx));
+  const card = cards[idx];
+
+  return (
+    <div style={modalOverlay} onClick={onClose}>
+      <div style={{ ...modalCard, maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>Flashcards — {note.title}</span>
+            <div style={{ fontSize: 12, color: 'var(--gray)', marginTop: 2 }}>{idx + 1} of {cards.length} · {cards.length - seen.size - (seen.has(idx) ? 0 : 1)} remaining</div>
+          </div>
+          <button onClick={onClose} style={iconCloseBtn}><XIcon size={16} /></button>
+        </div>
+        <div onClick={() => { setFlipped(f => !f); if (!flipped) setSeen(s => new Set([...s, idx])); }}
+          style={{ background: flipped ? 'var(--indigo)' : '#F6F8FF', border: '2px solid var(--border)', borderRadius: 18, minHeight: 180, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 28px', cursor: 'pointer', transition: 'background .25s', gap: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: flipped ? 'rgba(255,255,255,.6)' : 'var(--gray)' }}>
+            {flipped ? 'ANSWER' : 'QUESTION — tap to reveal'}
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: flipped ? '#fff' : 'var(--ink)', textAlign: 'center', lineHeight: 1.4 }}>
+            {flipped ? card.back : card.front}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 }}>
+          <button onClick={goPrev} disabled={idx === 0} style={{ ...navPillBtn, opacity: idx === 0 ? 0.35 : 1 }}><ChevLeft size={16} /> Prev</button>
+          <div style={{ display: 'flex', gap: 5 }}>
+            {cards.map((_, i) => (
+              <div key={i} style={{ width: 8, height: 8, borderRadius: 999, background: seen.has(i) || i === idx ? 'var(--indigo)' : '#E5E7EB', transition: 'background .2s' }} />
+            ))}
+          </div>
+          {idx < cards.length - 1
+            ? <button onClick={goNext} style={navPillBtn}>Next <ChevRight size={16} /></button>
+            : <button onClick={onClose} disabled={!allSeen}
+                style={{ ...navPillBtn, background: allSeen ? 'var(--indigo)' : '#E5E7EB', color: allSeen ? '#fff' : 'var(--gray)', opacity: 1 }}>
+                Done ✓
+              </button>
+          }
+        </div>
+        {!allSeen && idx === cards.length - 1 && (
+          <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--gray)', marginTop: 10 }}>Review all cards to continue</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ===================== QUIZ SETUP MODAL ===================== */
+function QuizSetupModal({ onClose }) {
+  const [selected, setSelected] = useState(new Set([seedNotes[0].id]));
+  const [optionsPerQ, setOptionsPerQ] = useState(4);
+
+  const toggle = (id) => setSelected(s => {
+    const n = new Set(s);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  });
+
+  const start = () => {
+    if (selected.size === 0) return;
+    const names = seedNotes.filter(n => selected.has(n.id)).map(n => n.title).join(', ');
+    alert(`Quiz started!\n\nChapters: ${names}\nOptions per question: ${optionsPerQ}`);
+    onClose();
+  };
+
+  return (
+    <div style={modalOverlay} onClick={onClose}>
+      <div style={{ ...modalCard, maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>Generate Quiz</span>
+          <button onClick={onClose} style={iconCloseBtn}><XIcon size={16} /></button>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <label style={qsLabel}>Select chapters</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+            {seedNotes.map(n => (
+              <label key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: `1.5px solid ${selected.has(n.id) ? 'var(--indigo)' : 'var(--border)'}`, background: selected.has(n.id) ? 'var(--lavender)' : '#fff', cursor: 'pointer', transition: 'all .15s' }}>
+                <input type="checkbox" checked={selected.has(n.id)} onChange={() => toggle(n.id)} style={{ accentColor: 'var(--indigo)', width: 16, height: 16 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{n.title}</div>
+                  <div style={{ fontSize: 11, color: 'var(--gray)' }}>{n.subject}</div>
+                </div>
+                <div style={{ width: 10, height: 10, borderRadius: 999, background: n.dot }} />
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 24 }}>
+          <label style={qsLabel}>Options per question</label>
+          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+            {[2, 3, 4].map(n => (
+              <button key={n} onClick={() => setOptionsPerQ(n)}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `1.5px solid ${optionsPerQ === n ? 'var(--indigo)' : 'var(--border)'}`, background: optionsPerQ === n ? 'var(--indigo)' : '#fff', color: optionsPerQ === n ? '#fff' : 'var(--ink)', fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'all .15s' }}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={start} disabled={selected.size === 0}
+          style={{ width: '100%', padding: '13px 0', borderRadius: 12, background: selected.size > 0 ? 'var(--indigo)' : '#E5E7EB', color: selected.size > 0 ? '#fff' : 'var(--gray)', fontWeight: 700, fontSize: 15, border: 'none', cursor: selected.size > 0 ? 'pointer' : 'not-allowed', transition: 'all .15s' }}>
+          Start Quiz → {selected.size > 0 && `(${selected.size} chapter${selected.size > 1 ? 's' : ''})`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const modalOverlay = { position: 'fixed', inset: 0, background: 'rgba(15,16,53,.45)', display: 'grid', placeItems: 'center', zIndex: 200, padding: 24 };
+const modalCard = { background: '#fff', borderRadius: 22, padding: 28, width: '100%', boxShadow: '0 24px 64px -16px rgba(15,16,53,.25)' };
+const iconCloseBtn = { width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: '#fff', color: 'var(--gray)', display: 'grid', placeItems: 'center', cursor: 'pointer' };
+const navPillBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 999, border: '1px solid var(--border)', background: '#fff', color: 'var(--ink)', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
+const qsLabel = { fontSize: 12, fontWeight: 700, color: 'var(--ink)', letterSpacing: '0.01em' };
+
+function NotesView({ selectedNoteId, setSelectedNoteId, onViewPDF, onFlashcards, onQuiz }) {
   const [q, setQ] = useState('');
   const [highlightId, setHighlightId] = useState(null);
   const noteRefs = useRef({});
@@ -418,15 +639,18 @@ function NotesView({ selectedNoteId, setSelectedNoteId }) {
             <div style={{ ...notesS.cover, background: n.color }}>
               <div style={{ ...notesS.coverDot, background: n.dot }} />
               <span style={notesS.subjectChip}>{n.subject}</span>
+              <button style={notesS.pdfBtn} onClick={() => onViewPDF(n)} title="View PDF">
+                <FilePDF size={13} />
+              </button>
             </div>
             <div style={{ padding: 18 }}>
               <h3 style={notesS.title}>{n.title}</h3>
               <p style={notesS.meta}>{n.pages} pages • Updated {n.updated}</p>
               <div style={notesS.actions}>
-                <button style={notesS.primarySmall} onClick={() => alert(`Generating quiz for "${n.title}"…`)}>
-                  <Sparkles size={14} /> Generate Quiz
+                <button style={notesS.primarySmall} onClick={onQuiz}>
+                  <Sparkles size={14} /> Quiz
                 </button>
-                <button style={notesS.ghostSmall} onClick={() => alert(`Opening flashcards for "${n.title}"…`)}>
+                <button style={notesS.ghostSmall} onClick={() => onFlashcards(n)}>
                   <Layers size={14} /> Flashcards
                 </button>
               </div>
@@ -447,7 +671,8 @@ const notesS = {
   card: { background: '#fff', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', transition: 'border-color .2s, box-shadow .2s' },
   cover: { height: 100, position: 'relative', display: 'grid', placeItems: 'center' },
   coverDot: { width: 36, height: 36, borderRadius: 12 },
-  subjectChip: { position: 'absolute', top: 12, right: 12, fontSize: 11, fontWeight: 700, padding: '4px 10px', background: 'rgba(255,255,255,.8)', borderRadius: 999, color: 'var(--ink)' },
+  subjectChip: { position: 'absolute', top: 12, right: 44, fontSize: 11, fontWeight: 700, padding: '4px 10px', background: 'rgba(255,255,255,.8)', borderRadius: 999, color: 'var(--ink)' },
+  pdfBtn: { position: 'absolute', top: 10, right: 10, width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,.85)', border: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', color: '#EF4444' },
   title: { margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
   meta: { margin: '0 0 14px', color: 'var(--gray)', fontSize: 12 },
   actions: { display: 'flex', gap: 8 },
