@@ -349,36 +349,73 @@
       <div class="relative mx-auto max-w-5xl">
         <div class="relative bg-gradient-to-br from-white to-muted rounded-3xl border border-border shadow-2xl p-8 backdrop-blur-sm">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="p-6 rounded-2xl border border-border/50 bg-gradient-to-br from-primary/5 to-primary/10">
-              <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-                <div class="w-6 h-6 bg-primary rounded-lg"></div>
+
+            <!-- Card 1: Quiz -->
+            <div class="p-5 rounded-2xl border border-border/50 bg-gradient-to-br from-primary/5 to-primary/10 flex flex-col gap-3">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="w-8 h-8 bg-primary/15 rounded-xl flex items-center justify-center text-base">⚡</div>
+                <span class="text-xs font-bold text-primary uppercase tracking-wide">AI Quiz</span>
               </div>
-              <div class="text-left">
-                <div class="h-3 bg-primary/20 rounded-full w-24 mb-2"></div>
-                <div class="h-2 bg-primary/10 rounded-full w-full mb-1"></div>
-                <div class="h-2 bg-primary/10 rounded-full w-3/4"></div>
+              <div class="text-xs font-semibold text-foreground leading-snug">Where does glycolysis occur in the cell?</div>
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium" style="background:rgba(16,185,129,.12);color:#065F46;border:1px solid rgba(16,185,129,.25);">
+                  <span class="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style="background:#10B981;color:#fff">✓</span> Cytoplasm
+                </div>
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/60 text-foreground/50 border border-border/40">
+                  <span class="w-4 h-4 rounded-full border border-border/60 flex items-center justify-center text-[9px]">B</span> Mitochondria
+                </div>
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/60 text-foreground/50 border border-border/40">
+                  <span class="w-4 h-4 rounded-full border border-border/60 flex items-center justify-center text-[9px]">C</span> Nucleus
+                </div>
               </div>
-            </div>
-            <div class="p-6 rounded-2xl border border-border/50 bg-gradient-to-br from-purple-500/5 to-purple-500/10">
-              <div class="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-4">
-                <div class="w-6 h-6 bg-purple-500 rounded-lg"></div>
-              </div>
-              <div class="text-left">
-                <div class="h-3 bg-purple-500/20 rounded-full w-20 mb-2"></div>
-                <div class="h-2 bg-purple-500/10 rounded-full w-full mb-1"></div>
-                <div class="h-2 bg-purple-500/10 rounded-full w-2/3"></div>
-              </div>
-            </div>
-            <div class="p-6 rounded-2xl border border-border/50 bg-gradient-to-br from-cyan-500/5 to-cyan-500/10">
-              <div class="w-12 h-12 bg-cyan-500/10 rounded-2xl flex items-center justify-center mb-4">
-                <div class="w-6 h-6 bg-cyan-500 rounded-lg"></div>
-              </div>
-              <div class="text-left">
-                <div class="h-3 bg-cyan-500/20 rounded-full w-28 mb-2"></div>
-                <div class="h-2 bg-cyan-500/10 rounded-full w-full mb-1"></div>
-                <div class="h-2 bg-cyan-500/10 rounded-full w-4/5"></div>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-[10px] text-foreground/40">Question 3 of 10</span>
+                <div class="flex gap-0.5">
+                  <div class="w-8 h-1 rounded-full bg-primary"></div>
+                  <div class="w-8 h-1 rounded-full bg-primary"></div>
+                  <div class="w-8 h-1 rounded-full bg-primary/30"></div>
+                </div>
               </div>
             </div>
+
+            <!-- Card 2: Flashcard -->
+            <div class="p-5 rounded-2xl border border-border/50 bg-gradient-to-br from-purple-500/5 to-purple-500/10 flex flex-col gap-3">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="w-8 h-8 bg-purple-500/15 rounded-xl flex items-center justify-center text-base">🃏</div>
+                <span class="text-xs font-bold text-purple-600 uppercase tracking-wide">Flashcards</span>
+              </div>
+              <div class="rounded-xl p-4 text-center flex-1" style="background:linear-gradient(135deg,rgba(139,92,246,.1),rgba(109,40,217,.06));border:1px solid rgba(139,92,246,.2);">
+                <div class="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-2">Biochemistry · Card 4/18</div>
+                <div class="text-xs font-semibold text-foreground leading-snug mb-3">What is the role of ATP synthase?</div>
+                <div class="h-px bg-purple-200/50 mb-3"></div>
+                <div class="text-[11px] text-foreground/65 leading-relaxed">Catalyzes ATP synthesis from ADP + Pᵢ using the proton gradient across the inner mitochondrial membrane.</div>
+              </div>
+              <div class="flex gap-2">
+                <div class="flex-1 py-1.5 rounded-lg text-[10px] font-bold text-center" style="background:rgba(239,68,68,.1);color:#DC2626;border:1px solid rgba(239,68,68,.2);">✗ Again</div>
+                <div class="flex-1 py-1.5 rounded-lg text-[10px] font-bold text-center" style="background:rgba(16,185,129,.1);color:#065F46;border:1px solid rgba(16,185,129,.2);">✓ Got it</div>
+              </div>
+            </div>
+
+            <!-- Card 3: AI Tutor -->
+            <div class="p-5 rounded-2xl border border-border/50 bg-gradient-to-br from-cyan-500/5 to-cyan-500/10 flex flex-col gap-2.5">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="w-8 h-8 bg-cyan-500/15 rounded-xl flex items-center justify-center text-base">🤖</div>
+                <span class="text-xs font-bold text-cyan-600 uppercase tracking-wide">AI Tutor</span>
+              </div>
+              <div class="flex gap-2 items-start">
+                <div class="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[9px] shrink-0 mt-0.5">👤</div>
+                <div class="px-3 py-2 rounded-xl rounded-tl-sm text-[11px] leading-relaxed text-foreground/70" style="background:rgba(0,0,0,.05)">Why does the Krebs cycle happen in the mitochondria?</div>
+              </div>
+              <div class="flex gap-2 items-start">
+                <div class="w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center text-[9px] shrink-0 mt-0.5" style="color:#fff">AI</div>
+                <div class="px-3 py-2 rounded-xl rounded-tl-sm text-[11px] leading-relaxed text-foreground/80" style="background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.2)">The enzymes needed for the Krebs cycle are located in the <span class="font-semibold text-cyan-700">mitochondrial matrix</span>, where acetyl-CoA is also delivered from glycolysis. 🔬</div>
+              </div>
+              <div class="flex items-center gap-2 mt-1 px-3 py-2 rounded-xl border border-border/40 bg-white/50">
+                <span class="text-[10px] text-foreground/30 flex-1">Ask anything about your notes…</span>
+                <div class="w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center" style="color:#fff;font-size:9px">→</div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
