@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Press – Lockeen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#2F2BFF',
+            foreground: '#070B2D',
+            muted: '#F7F8FC',
+            border: '#E5E7EB',
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+</head>
+<body class="font-sans text-foreground bg-white antialiased">
+
+  <!-- NAV -->
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#E5E7EB]">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        <a href="/" class="flex items-center gap-3">
+          <div style="width:36px;height:36px;background:#3730E8;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+            <img src="Lockeen-2.png" alt="Lockeen" style="width:58px;height:58px;max-width:none;" />
+          </div>
+          <span class="text-2xl font-bold" style="color:#432bff">Lockeen</span>
+        </a>
+        <div class="hidden md:flex items-center gap-8">
+          <a href="/#features" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Features</a>
+          <a href="/#pricing" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Pricing</a>
+          <a href="/blog.html" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Blog</a>
+        </div>
+        <div class="hidden md:flex items-center gap-4">
+          <a href="/" class="px-5 py-2.5 text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Sign In</a>
+          <a href="/" class="px-6 py-2.5 bg-[#2F2BFF] text-white rounded-full hover:opacity-90 transition-opacity font-medium">Start Free</a>
+        </div>
+        <button id="mob-toggle" class="md:hidden p-2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="mob-menu" class="hidden md:hidden border-t border-[#E5E7EB] bg-white px-6 py-4 space-y-3">
+      <a href="/#features" class="block text-[#070B2D]/70">Features</a>
+      <a href="/#pricing" class="block text-[#070B2D]/70">Pricing</a>
+      <a href="/blog.html" class="block text-[#070B2D]/70">Blog</a>
+      <a href="/" class="block mt-4 px-6 py-2.5 bg-[#2F2BFF] text-white rounded-full text-center font-medium">Start Free</a>
+    </div>
+  </nav>
+  <script>
+    document.getElementById('mob-toggle').addEventListener('click', () => {
+      document.getElementById('mob-menu').classList.toggle('hidden');
+    });
+  </script>
+
+  <main class="pt-20">
+
+    <!-- HERO -->
+    <section class="py-20 bg-[#F7F8FC] border-b border-[#E5E7EB]">
+      <div class="max-w-3xl mx-auto px-6 lg:px-8 text-center">
+        <span class="inline-block px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest mb-6" style="background:#EEF0FF; color:#2F2BFF; border: 1px solid #d6d4ff;">
+          Press &amp; Media
+        </span>
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-foreground mb-5 leading-tight">
+          Lockeen in the news
+        </h1>
+        <p class="text-lg text-[#070B2D]/60 max-w-xl mx-auto">
+          Resources for journalists and media professionals. For press inquiries, contact <a href="mailto:press@lockeen.app" class="text-[#2F2BFF] hover:underline">press@lockeen.app</a>.
+        </p>
+      </div>
+    </section>
+
+    <!-- STATS BAR -->
+    <section class="border-b border-[#E5E7EB] bg-white">
+      <div class="max-w-4xl mx-auto px-6 lg:px-8 py-12">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
+          <div>
+            <p class="text-4xl font-extrabold text-[#2F2BFF] mb-1">500K+</p>
+            <p class="text-sm text-[#070B2D]/60 font-medium">Students</p>
+          </div>
+          <div class="sm:border-x border-[#E5E7EB]">
+            <p class="text-4xl font-extrabold text-[#2F2BFF] mb-1">10M+</p>
+            <p class="text-sm text-[#070B2D]/60 font-medium">Sessions</p>
+          </div>
+          <div>
+            <p class="text-4xl font-extrabold text-[#2F2BFF] mb-1">50+</p>
+            <p class="text-sm text-[#070B2D]/60 font-medium">Countries</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRESS COVERAGE -->
+    <section class="py-20 bg-white">
+      <div class="max-w-5xl mx-auto px-6 lg:px-8">
+        <h2 class="text-2xl font-bold text-foreground mb-10">Recent coverage</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <!-- TechCrunch -->
+          <div class="border border-[#E5E7EB] rounded-2xl p-6 hover:shadow-md hover:border-[#2F2BFF]/30 transition-all duration-200 flex flex-col justify-between gap-6">
+            <div>
+              <div class="flex items-center gap-2 mb-4">
+                <span class="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full" style="background:#fff3e0; color:#e65c00;">TechCrunch</span>
+              </div>
+              <h3 class="text-base font-semibold text-foreground leading-snug mb-2">
+                "Lockeen's AI tutor is the study companion millions of students have been waiting for"
+              </h3>
+              <p class="text-sm text-[#070B2D]/50">March 14, 2026</p>
+            </div>
+            <a href="#" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#2F2BFF] hover:underline">
+              Read article <span aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <!-- The Guardian -->
+          <div class="border border-[#E5E7EB] rounded-2xl p-6 hover:shadow-md hover:border-[#2F2BFF]/30 transition-all duration-200 flex flex-col justify-between gap-6">
+            <div>
+              <div class="flex items-center gap-2 mb-4">
+                <span class="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full" style="background:#e8f5e9; color:#2e7d32;">The Guardian</span>
+              </div>
+              <h3 class="text-base font-semibold text-foreground leading-snug mb-2">
+                "How AI startups like Lockeen are reshaping the way a generation learns"
+              </h3>
+              <p class="text-sm text-[#070B2D]/50">February 28, 2026</p>
+            </div>
+            <a href="#" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#2F2BFF] hover:underline">
+              Read article <span aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <!-- Forbes -->
+          <div class="border border-[#E5E7EB] rounded-2xl p-6 hover:shadow-md hover:border-[#2F2BFF]/30 transition-all duration-200 flex flex-col justify-between gap-6">
+            <div>
+              <div class="flex items-center gap-2 mb-4">
+                <span class="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full" style="background:#e3f2fd; color:#1565c0;">Forbes</span>
+              </div>
+              <h3 class="text-base font-semibold text-foreground leading-snug mb-2">
+                "Lockeen raises $12M to put an AI study coach in every student's pocket"
+              </h3>
+              <p class="text-sm text-[#070B2D]/50">January 9, 2026</p>
+            </div>
+            <a href="#" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#2F2BFF] hover:underline">
+              Read article <span aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <!-- Wired -->
+          <div class="border border-[#E5E7EB] rounded-2xl p-6 hover:shadow-md hover:border-[#2F2BFF]/30 transition-all duration-200 flex flex-col justify-between gap-6">
+            <div>
+              <div class="flex items-center gap-2 mb-4">
+                <span class="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full" style="background:#f3e5f5; color:#6a1b9a;">Wired</span>
+              </div>
+              <h3 class="text-base font-semibold text-foreground leading-snug mb-2">
+                "The EdTech tools quietly outperforming traditional tutoring — Lockeen leads the pack"
+              </h3>
+              <p class="text-sm text-[#070B2D]/50">December 3, 2025</p>
+            </div>
+            <a href="#" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#2F2BFF] hover:underline">
+              Read article <span aria-hidden="true">→</span>
+            </a>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- PRESS KIT -->
+    <section class="py-20 bg-[#F7F8FC] border-t border-[#E5E7EB]">
+      <div class="max-w-4xl mx-auto px-6 lg:px-8">
+        <h2 class="text-2xl font-bold text-foreground mb-3">Press kit</h2>
+        <p class="text-[#070B2D]/60 mb-10">Everything you need to cover Lockeen accurately and beautifully.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-14">
+
+          <!-- Brand Assets -->
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl p-6 flex flex-col gap-4">
+            <div class="w-10 h-10 rounded-xl bg-[#EEF0FF] flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2F2BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-foreground mb-1">Brand Assets</h3>
+              <p class="text-sm text-[#070B2D]/60">Logos, color palettes, typography guidelines, and usage rules.</p>
+            </div>
+            <a href="#" class="mt-auto inline-flex items-center gap-2 px-5 py-2.5 bg-[#2F2BFF] text-white text-sm font-semibold rounded-full hover:opacity-90 transition-opacity w-fit">
+              Download Kit
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+            </a>
+          </div>
+
+          <!-- Media Contact -->
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl p-6 flex flex-col gap-4">
+            <div class="w-10 h-10 rounded-xl bg-[#EEF0FF] flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2F2BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-foreground mb-1">Media Contact</h3>
+              <p class="text-sm text-[#070B2D]/60">For interview requests, embargo briefings, and media inquiries.</p>
+            </div>
+            <div class="mt-auto flex items-center gap-3">
+              <code class="flex-1 px-4 py-2.5 bg-[#F7F8FC] border border-[#E5E7EB] rounded-xl text-sm text-foreground font-mono select-all">press@lockeen.app</code>
+              <button id="copy-btn" onclick="navigator.clipboard.writeText('press@lockeen.app').then(()=>{const b=document.getElementById('copy-btn');b.textContent='Copied!';setTimeout(()=>{b.textContent='Copy';},2000)})" class="px-4 py-2.5 border border-[#E5E7EB] rounded-xl text-sm font-medium text-[#070B2D]/70 hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-all whitespace-nowrap">Copy</button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- BOILERPLATE -->
+        <div>
+          <h3 class="text-base font-semibold text-foreground mb-3">About Lockeen — standard boilerplate</h3>
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl p-6">
+            <p class="text-sm text-[#070B2D]/70 leading-relaxed">
+              Lockeen is an AI-powered study platform that helps students learn faster and retain more. Founded in 2024, Lockeen combines adaptive flashcards, intelligent note summarization, and a conversational AI tutor to create a personalized learning experience for every student. With over 500,000 active users across 50+ countries and 10 million study sessions completed, Lockeen is one of the fastest-growing EdTech platforms globally. Lockeen is privately held and headquartered remotely, with team members across Europe and North America. For more information, visit <a href="https://lockeen.app" class="text-[#2F2BFF] hover:underline">lockeen.app</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-[#070B2D] text-white">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8 py-16">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-10 mb-12">
+        <div class="col-span-2">
+          <div class="flex items-center gap-3 mb-4">
+            <div style="width:36px;height:36px;background:#3730E8;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+              <img src="Lockeen-2.png" alt="Lockeen" style="width:58px;height:58px;max-width:none;" />
+            </div>
+            <span class="text-xl font-bold">Lockeen</span>
+          </div>
+          <p class="text-white/60 text-sm max-w-xs">The AI-powered workspace for smarter studying.</p>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/50">Company</h4>
+          <ul class="space-y-3 text-sm">
+            <li><a href="/about.html" class="text-white/70 hover:text-white transition-colors">About</a></li>
+            <li><a href="/blog.html" class="text-white/70 hover:text-white transition-colors">Blog</a></li>
+            <li><a href="/careers.html" class="text-white/70 hover:text-white transition-colors">Careers</a></li>
+            <li><a href="/press.html" class="text-white/70 hover:text-white transition-colors">Press</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/50">Product</h4>
+          <ul class="space-y-3 text-sm">
+            <li><a href="/#features" class="text-white/70 hover:text-white transition-colors">Features</a></li>
+            <li><a href="/#pricing" class="text-white/70 hover:text-white transition-colors">Pricing</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/50">Legal</h4>
+          <ul class="space-y-3 text-sm">
+            <li><a href="/privacy.html" class="text-white/70 hover:text-white transition-colors">Privacy</a></li>
+            <li><a href="/terms.html" class="text-white/70 hover:text-white transition-colors">Terms</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-white/50">
+        <p>© 2026 Lockeen. All rights reserved.</p>
+        <div class="flex gap-6">
+          <a href="/privacy.html" class="hover:text-white transition-colors">Privacy</a>
+          <a href="/terms.html" class="hover:text-white transition-colors">Terms</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

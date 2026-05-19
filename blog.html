@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blog — Lockeen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#2F2BFF', dark: '#070B2D', light: '#F7F8FC' },
+            primary: '#2F2BFF',
+            'primary-foreground': '#ffffff',
+            foreground: '#070B2D',
+            muted: '#F7F8FC',
+            border: '#E5E7EB',
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+</head>
+<body class="font-sans bg-white text-foreground antialiased">
+
+  <!-- NAV -->
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#E5E7EB]">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        <a href="/" class="flex items-center gap-3">
+          <div style="width:36px;height:36px;background:#3730E8;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+            <img src="Lockeen-2.png" alt="Lockeen" style="width:58px;height:58px;max-width:none;" />
+          </div>
+          <span class="text-2xl font-bold" style="color:#432bff">Lockeen</span>
+        </a>
+        <div class="hidden md:flex items-center gap-8">
+          <a href="/#features" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Features</a>
+          <a href="/#pricing" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Pricing</a>
+          <a href="/blog.html" class="text-[#070B2D] font-medium transition-colors">Blog</a>
+        </div>
+        <div class="hidden md:flex items-center gap-4">
+          <a href="/" class="px-5 py-2.5 text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Sign In</a>
+          <a href="/" class="px-6 py-2.5 bg-[#2F2BFF] text-white rounded-full hover:opacity-90 transition-opacity font-medium">Start Free</a>
+        </div>
+        <button id="mob-toggle" class="md:hidden p-2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="mob-menu" class="hidden md:hidden border-t border-[#E5E7EB] bg-white px-6 py-4 space-y-3">
+      <a href="/#features" class="block text-[#070B2D]/70">Features</a>
+      <a href="/#pricing" class="block text-[#070B2D]/70">Pricing</a>
+      <a href="/blog.html" class="block text-[#070B2D]/70">Blog</a>
+      <a href="/" class="block mt-4 px-6 py-2.5 bg-[#2F2BFF] text-white rounded-full text-center font-medium">Start Free</a>
+    </div>
+  </nav>
+  <script>
+    document.getElementById('mob-toggle').addEventListener('click', () => {
+      document.getElementById('mob-menu').classList.toggle('hidden');
+    });
+  </script>
+
+  <main class="pt-20">
+
+    <!-- HERO -->
+    <section class="pt-16 pb-12 bg-white">
+      <div class="max-w-7xl mx-auto px-6 lg:px-8">
+        <div class="max-w-2xl">
+          <p class="text-sm font-semibold uppercase tracking-widest text-[#2F2BFF] mb-4">From the Lockeen team</p>
+          <h1 class="text-5xl md:text-6xl font-bold tracking-tight text-[#070B2D] leading-[1.1] mb-5">
+            Ideas worth<br />studying.
+          </h1>
+          <p class="text-xl text-[#070B2D]/60 leading-relaxed mb-8">
+            Research, product updates, and learning science — straight from the people building Lockeen.
+          </p>
+          <!-- search bar (cosmetic) -->
+          <div class="relative max-w-md">
+            <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#070B2D]/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search articles..."
+              class="w-full pl-12 pr-4 py-3.5 rounded-full border border-[#E5E7EB] bg-[#F7F8FC] text-[#070B2D] placeholder-[#070B2D]/30 focus:outline-none focus:border-[#2F2BFF]/40 focus:ring-2 focus:ring-[#2F2BFF]/10 transition-all text-sm"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CATEGORIES FILTER -->
+    <section class="sticky top-20 z-40 bg-white border-b border-[#E5E7EB]">
+      <div class="max-w-7xl mx-auto px-6 lg:px-8">
+        <div class="flex items-center gap-2 overflow-x-auto py-4 scrollbar-none" style="scrollbar-width:none;">
+          <button class="flex-none px-5 py-2 rounded-full bg-[#2F2BFF] text-white text-sm font-medium transition-colors whitespace-nowrap">All</button>
+          <button class="flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">AI &amp; Learning</button>
+          <button class="flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">Study Tips</button>
+          <button class="flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">Product</button>
+          <button class="flex-none px-5 py-2 rounded-full border border-[#E5E7EB] text-[#070B2D]/60 text-sm font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors whitespace-nowrap">Research</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURED ARTICLE -->
+    <section class="py-12 bg-[#F7F8FC]">
+      <div class="max-w-7xl mx-auto px-6 lg:px-8">
+        <p class="text-xs font-semibold uppercase tracking-widest text-[#070B2D]/40 mb-6">Featured</p>
+        <a href="#" class="group block rounded-3xl overflow-hidden relative" style="background:linear-gradient(135deg,#070B2D 0%,#1a1760 55%,#2F2BFF 100%);min-height:400px;">
+          <!-- decorative elements -->
+          <div class="absolute top-0 right-0 w-96 h-96 rounded-full opacity-20 blur-3xl" style="background:radial-gradient(circle,#7C78FF,transparent);transform:translate(20%,-20%);"></div>
+          <div class="absolute bottom-0 left-0 w-64 h-64 rounded-full opacity-15 blur-3xl" style="background:radial-gradient(circle,#2F2BFF,transparent);transform:translate(-20%,20%);"></div>
+          <!-- grid pattern -->
+          <div class="absolute inset-0 opacity-[0.04]" style="background-image:linear-gradient(white 1px,transparent 1px),linear-gradient(90deg,white 1px,transparent 1px);background-size:40px 40px;"></div>
+
+          <div class="relative p-10 md:p-14 flex flex-col md:flex-row items-start gap-10">
+            <div class="flex-1">
+              <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#2F2BFF]/40 text-[#A5B4FC] mb-6">AI &amp; Learning</span>
+              <h2 class="text-3xl md:text-4xl font-bold text-white leading-tight mb-4 group-hover:text-white/90 transition-colors">
+                How AI is transforming the way students study
+              </h2>
+              <p class="text-white/60 text-lg leading-relaxed mb-8 max-w-xl">
+                From personalized flashcards to real-time concept mapping, artificial intelligence is fundamentally reshaping how the next generation of learners absorbs and retains knowledge. We break down what the research says — and what it means for you.
+              </p>
+              <div class="flex items-center justify-between flex-wrap gap-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-none" style="background:linear-gradient(135deg,#2F2BFF,#7C78FF);">MR</div>
+                  <div>
+                    <p class="text-white text-sm font-medium">Marco R.</p>
+                    <p class="text-white/40 text-xs">May 14, 2026 · 8 min read</p>
+                  </div>
+                </div>
+                <span class="inline-flex items-center gap-1.5 text-white font-semibold text-sm group-hover:gap-3 transition-all">
+                  Read article
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+                </span>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- ARTICLE GRID -->
+    <section class="py-12 bg-[#F7F8FC]">
+      <div class="max-w-7xl mx-auto px-6 lg:px-8">
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+          <!-- Article 2 -->
+          <a href="#" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
+            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">Study Tips</span>
+            <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">
+              5 proven techniques to memorize faster
+            </h3>
+            <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">
+              Not all memorization strategies are created equal. These five evidence-backed techniques will help you lock in information faster and keep it for longer.
+            </p>
+            <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#7C3AED,#C084FC);">SL</div>
+                <div>
+                  <p class="text-xs font-medium text-[#070B2D]">Sofia L.</p>
+                  <p class="text-xs text-[#070B2D]/40">May 10, 2026 · 5 min</p>
+                </div>
+              </div>
+              <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
+                Read <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+              </span>
+            </div>
+          </a>
+
+          <!-- Article 3 -->
+          <a href="#" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
+            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">Product</span>
+            <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">
+              Introducing Lockeen 2.0: smarter, faster, better
+            </h3>
+            <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">
+              Today we're shipping the biggest update in Lockeen's history. New AI engine, redesigned workspace, and a batch of features students asked for.
+            </p>
+            <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#059669,#34D399);">DT</div>
+                <div>
+                  <p class="text-xs font-medium text-[#070B2D]">Dev Team</p>
+                  <p class="text-xs text-[#070B2D]/40">May 7, 2026 · 4 min</p>
+                </div>
+              </div>
+              <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
+                Read <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+              </span>
+            </div>
+          </a>
+
+          <!-- Article 4 -->
+          <a href="#" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
+            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">Research</span>
+            <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">
+              The science behind spaced repetition
+            </h3>
+            <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">
+              Decades of cognitive research point to one clear winner for long-term retention. Here's how spaced repetition works — and why Lockeen is built around it.
+            </p>
+            <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#DC2626,#FB923C);">CB</div>
+                <div>
+                  <p class="text-xs font-medium text-[#070B2D]">Dr. Chiara B.</p>
+                  <p class="text-xs text-[#070B2D]/40">Apr 29, 2026 · 9 min</p>
+                </div>
+              </div>
+              <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
+                Read <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+              </span>
+            </div>
+          </a>
+
+          <!-- Article 5 -->
+          <a href="#" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
+            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">Study Tips</span>
+            <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">
+              How to build a study routine that actually sticks
+            </h3>
+            <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">
+              Most study routines fail within a week. We looked at what separates the ones that last — and it's not about discipline, it's about design.
+            </p>
+            <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#2F2BFF,#7C78FF);">AM</div>
+                <div>
+                  <p class="text-xs font-medium text-[#070B2D]">Alex M.</p>
+                  <p class="text-xs text-[#070B2D]/40">Apr 22, 2026 · 6 min</p>
+                </div>
+              </div>
+              <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
+                Read <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+              </span>
+            </div>
+          </a>
+
+          <!-- Article 6 -->
+          <a href="#" class="group bg-white rounded-2xl border border-[#E5E7EB] p-7 hover:border-[#2F2BFF]/30 hover:shadow-lg hover:shadow-[#2F2BFF]/5 transition-all flex flex-col">
+            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F8FC] text-[#2F2BFF] border border-[#2F2BFF]/20 mb-5 self-start">AI &amp; Learning</span>
+            <h3 class="text-lg font-bold text-[#070B2D] leading-snug mb-3 group-hover:text-[#2F2BFF] transition-colors">
+              Why students at top universities are switching to AI tools
+            </h3>
+            <p class="text-sm text-[#070B2D]/55 leading-relaxed line-clamp-2 mb-6 flex-1">
+              Students at MIT, Oxford, and Bocconi are quietly replacing their old study habits with AI-powered workflows. We spoke to a dozen of them to find out why.
+            </p>
+            <div class="flex items-center justify-between mt-auto pt-4 border-t border-[#E5E7EB]">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#7C3AED,#C084FC);">SL</div>
+                <div>
+                  <p class="text-xs font-medium text-[#070B2D]">Sofia L.</p>
+                  <p class="text-xs text-[#070B2D]/40">Apr 15, 2026 · 7 min</p>
+                </div>
+              </div>
+              <span class="text-[#2F2BFF] text-sm font-semibold group-hover:gap-2 inline-flex items-center gap-1 transition-all">
+                Read <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+              </span>
+            </div>
+          </a>
+
+          <!-- Newsletter CTA card -->
+          <div class="rounded-2xl p-7 flex flex-col justify-between relative overflow-hidden" style="background:linear-gradient(135deg,#070B2D,#1a1760);">
+            <div class="absolute top-0 right-0 w-32 h-32 rounded-full opacity-20 blur-2xl" style="background:radial-gradient(circle,#7C78FF,transparent);transform:translate(30%,-30%);"></div>
+            <div>
+              <div class="w-10 h-10 rounded-xl bg-[#2F2BFF]/30 flex items-center justify-center mb-5">
+                <svg class="w-5 h-5 text-[#7C78FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+              </div>
+              <h3 class="text-lg font-bold text-white mb-2">Stay in the loop</h3>
+              <p class="text-sm text-white/60 leading-relaxed mb-6">New articles, research drops, and product updates — delivered weekly. No spam.</p>
+            </div>
+            <div class="flex flex-col gap-2">
+              <input
+                type="email"
+                placeholder="your@email.com"
+                class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:border-[#7C78FF] text-sm transition-colors"
+              />
+              <button class="w-full px-4 py-3 rounded-xl bg-[#2F2BFF] text-white text-sm font-semibold hover:opacity-90 transition-opacity">
+                Subscribe
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- LOAD MORE -->
+    <section class="pb-20 bg-[#F7F8FC]">
+      <div class="max-w-7xl mx-auto px-6 lg:px-8 text-center">
+        <button class="px-8 py-3.5 border border-[#E5E7EB] bg-white text-[#070B2D]/70 rounded-full font-medium hover:border-[#2F2BFF]/40 hover:text-[#2F2BFF] transition-colors text-sm">
+          Load more articles
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-[#070B2D] text-white">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8 py-16">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-10 mb-12">
+        <div class="col-span-2">
+          <div class="flex items-center gap-3 mb-4">
+            <div style="width:36px;height:36px;background:#3730E8;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+              <img src="Lockeen-2.png" alt="Lockeen" style="width:58px;height:58px;max-width:none;" />
+            </div>
+            <span class="text-xl font-bold">Lockeen</span>
+          </div>
+          <p class="text-white/60 text-sm max-w-xs">The AI-powered workspace for smarter studying.</p>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/50">Company</h4>
+          <ul class="space-y-3 text-sm">
+            <li><a href="/about.html" class="text-white/70 hover:text-white transition-colors">About</a></li>
+            <li><a href="/blog.html" class="text-white/70 hover:text-white transition-colors">Blog</a></li>
+            <li><a href="/careers.html" class="text-white/70 hover:text-white transition-colors">Careers</a></li>
+            <li><a href="/press.html" class="text-white/70 hover:text-white transition-colors">Press</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/50">Product</h4>
+          <ul class="space-y-3 text-sm">
+            <li><a href="/#features" class="text-white/70 hover:text-white transition-colors">Features</a></li>
+            <li><a href="/#pricing" class="text-white/70 hover:text-white transition-colors">Pricing</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/50">Legal</h4>
+          <ul class="space-y-3 text-sm">
+            <li><a href="/privacy.html" class="text-white/70 hover:text-white transition-colors">Privacy</a></li>
+            <li><a href="/terms.html" class="text-white/70 hover:text-white transition-colors">Terms</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-white/50">
+        <p>© 2026 Lockeen. All rights reserved.</p>
+        <div class="flex gap-6">
+          <a href="/privacy.html" class="hover:text-white transition-colors">Privacy</a>
+          <a href="/terms.html" class="hover:text-white transition-colors">Terms</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

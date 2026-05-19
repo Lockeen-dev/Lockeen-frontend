@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Careers – Lockeen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#2F2BFF',
+            foreground: '#070B2D',
+            muted: '#F7F8FC',
+            border: '#E5E7EB',
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+</head>
+<body class="font-sans text-foreground bg-white antialiased">
+
+  <!-- NAV -->
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#E5E7EB]">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        <a href="/" class="flex items-center gap-3">
+          <div style="width:36px;height:36px;background:#3730E8;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+            <img src="Lockeen-2.png" alt="Lockeen" style="width:58px;height:58px;max-width:none;" />
+          </div>
+          <span class="text-2xl font-bold" style="color:#432bff">Lockeen</span>
+        </a>
+        <div class="hidden md:flex items-center gap-8">
+          <a href="/#features" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Features</a>
+          <a href="/#pricing" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Pricing</a>
+          <a href="/blog.html" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Blog</a>
+        </div>
+        <div class="hidden md:flex items-center gap-4">
+          <a href="/" class="px-5 py-2.5 text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Sign In</a>
+          <a href="/" class="px-6 py-2.5 bg-[#2F2BFF] text-white rounded-full hover:opacity-90 transition-opacity font-medium">Start Free</a>
+        </div>
+        <button id="mob-toggle" class="md:hidden p-2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="mob-menu" class="hidden md:hidden border-t border-[#E5E7EB] bg-white px-6 py-4 space-y-3">
+      <a href="/#features" class="block text-[#070B2D]/70">Features</a>
+      <a href="/#pricing" class="block text-[#070B2D]/70">Pricing</a>
+      <a href="/blog.html" class="block text-[#070B2D]/70">Blog</a>
+      <a href="/" class="block mt-4 px-6 py-2.5 bg-[#2F2BFF] text-white rounded-full text-center font-medium">Start Free</a>
+    </div>
+  </nav>
+  <script>
+    document.getElementById('mob-toggle').addEventListener('click', () => {
+      document.getElementById('mob-menu').classList.toggle('hidden');
+    });
+  </script>
+
+  <main class="pt-20">
+
+    <!-- HERO -->
+    <section style="background: linear-gradient(135deg, #070B2D 0%, #1a1060 100%);" class="relative overflow-hidden">
+      <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 30% 50%, #2F2BFF 0%, transparent 60%), radial-gradient(circle at 75% 20%, #7c78ff 0%, transparent 50%);"></div>
+      <div class="relative max-w-7xl mx-auto px-6 lg:px-8 py-28 text-center">
+        <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-8" style="background: rgba(47,43,255,0.25); color: #a5a3ff; border: 1px solid rgba(47,43,255,0.4);">
+          <span class="w-2 h-2 rounded-full bg-[#a5a3ff] animate-pulse"></span>
+          We're hiring
+        </span>
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-6 leading-tight">
+          Build the future<br/>of learning
+        </h1>
+        <p class="text-lg text-white/60 max-w-xl mx-auto mb-10">
+          Join a small team with a big mission. We're making studying smarter, faster, and more human — for students everywhere.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="#positions" class="px-8 py-3.5 bg-[#2F2BFF] text-white rounded-full font-semibold hover:opacity-90 transition-opacity text-base">
+            View open roles
+          </a>
+          <a href="mailto:careers@lockeen.app" class="px-8 py-3.5 rounded-full font-semibold text-white/80 hover:text-white transition-colors text-base" style="border: 1px solid rgba(255,255,255,0.2);">
+            Open application
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- CULTURE -->
+    <section class="py-20 bg-[#F7F8FC]">
+      <div class="max-w-7xl mx-auto px-6 lg:px-8">
+        <div class="text-center mb-14">
+          <h2 class="text-3xl font-bold text-foreground mb-3">How we work</h2>
+          <p class="text-[#070B2D]/60 max-w-lg mx-auto">Our culture is built around focus, craft, and genuine care for the students we serve.</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-white rounded-2xl border border-[#E5E7EB] p-8">
+            <div class="text-3xl mb-4">🚀</div>
+            <h3 class="text-lg font-semibold text-foreground mb-2">Move fast</h3>
+            <p class="text-[#070B2D]/60 text-sm leading-relaxed">We ship often and learn quickly. Small teams, short cycles, and real feedback from real students.</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-[#E5E7EB] p-8">
+            <div class="text-3xl mb-4">🎓</div>
+            <h3 class="text-lg font-semibold text-foreground mb-2">Student-obsessed</h3>
+            <p class="text-[#070B2D]/60 text-sm leading-relaxed">Every decision starts with the student. We build what genuinely helps, not what just looks good.</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-[#E5E7EB] p-8">
+            <div class="text-3xl mb-4">🌍</div>
+            <h3 class="text-lg font-semibold text-foreground mb-2">Work from anywhere</h3>
+            <p class="text-[#070B2D]/60 text-sm leading-relaxed">We're fully remote and async-first. Great work can happen anywhere, and we trust you to make it happen.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OPEN POSITIONS -->
+    <section id="positions" class="py-20 bg-white">
+      <div class="max-w-4xl mx-auto px-6 lg:px-8">
+        <div class="text-center mb-14">
+          <h2 class="text-3xl font-bold text-foreground mb-3">Open positions</h2>
+          <p class="text-[#070B2D]/60">All roles are fully remote unless noted otherwise.</p>
+        </div>
+        <div class="space-y-4">
+
+          <!-- Job card -->
+          <div class="group border border-[#E5E7EB] rounded-2xl p-6 hover:border-[#2F2BFF]/40 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-foreground mb-2">Senior Frontend Engineer</h3>
+              <div class="flex flex-wrap gap-2 mb-3">
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-[#F7F8FC] text-[#070B2D]/70 border border-[#E5E7EB]">Remote</span>
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-[#F7F8FC] text-[#070B2D]/70 border border-[#E5E7EB]">Full-time</span>
+              </div>
+              <p class="text-sm text-[#070B2D]/60">Build beautiful, fast interfaces that students love.</p>
+            </div>
+            <a href="mailto:careers@lockeen.app?subject=Application: Senior Frontend Engineer" class="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-[#2F2BFF] border border-[#2F2BFF]/30 bg-[#2F2BFF]/5 hover:bg-[#2F2BFF] hover:text-white transition-all">
+              Apply <span aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <div class="group border border-[#E5E7EB] rounded-2xl p-6 hover:border-[#2F2BFF]/40 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-foreground mb-2">ML / AI Engineer</h3>
+              <div class="flex flex-wrap gap-2 mb-3">
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-[#F7F8FC] text-[#070B2D]/70 border border-[#E5E7EB]">Remote</span>
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-[#F7F8FC] text-[#070B2D]/70 border border-[#E5E7EB]">Full-time</span>
+              </div>
+              <p class="text-sm text-[#070B2D]/60">Train and fine-tune models that power our AI tutor.</p>
+            </div>
+            <a href="mailto:careers@lockeen.app?subject=Application: ML / AI Engineer" class="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-[#2F2BFF] border border-[#2F2BFF]/30 bg-[#2F2BFF]/5 hover:bg-[#2F2BFF] hover:text-white transition-all">
+              Apply <span aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <div class="group border border-[#E5E7EB] rounded-2xl p-6 hover:border-[#2F2BFF]/40 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-foreground mb-2">Product Designer</h3>
+              <div class="flex flex-wrap gap-2 mb-3">
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-[#F7F8FC] text-[#070B2D]/70 border border-[#E5E7EB]">Remote</span>
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-[#F7F8FC] text-[#070B2D]/70 border border-[#E5E7EB]">Full-time</span>
+              </div>
+              <p class="text-sm text-[#070B2D]/60">Design delightful experiences across web and mobile.</p>
+            </div>
+            <a href="mailto:careers@lockeen.app?subject=Application: Product Designer" class="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-[#2F2BFF] border border-[#2F2BFF]/30 bg-[#2F2BFF]/5 hover:bg-[#2F2BFF] hover:text-white transition-all">
+              Apply <span aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <div class="group border border-[#E5E7EB] rounded-2xl p-6 hover:border-[#2F2BFF]/40 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-foreground mb-2">Growth Marketing Manager</h3>
+              <div class="flex flex-wrap gap-2 mb-3">
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-[#F7F8FC] text-[#070B2D]/70 border border-[#E5E7EB]">Remote</span>
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-[#F7F8FC] text-[#070B2D]/70 border border-[#E5E7EB]">Full-time</span>
+              </div>
+              <p class="text-sm text-[#070B2D]/60">Own our go-to-market strategy and user acquisition.</p>
+            </div>
+            <a href="mailto:careers@lockeen.app?subject=Application: Growth Marketing Manager" class="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-[#2F2BFF] border border-[#2F2BFF]/30 bg-[#2F2BFF]/5 hover:bg-[#2F2BFF] hover:text-white transition-all">
+              Apply <span aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <div class="group border border-[#E5E7EB] rounded-2xl p-6 hover:border-[#2F2BFF]/40 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-foreground mb-2">Student Ambassador</h3>
+              <div class="flex flex-wrap gap-2 mb-3">
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-[#F7F8FC] text-[#070B2D]/70 border border-[#E5E7EB]">Flexible</span>
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-[#F7F8FC] text-[#070B2D]/70 border border-[#E5E7EB]">Part-time</span>
+              </div>
+              <p class="text-sm text-[#070B2D]/60">Represent Lockeen at your university and grow our community.</p>
+            </div>
+            <a href="mailto:careers@lockeen.app?subject=Application: Student Ambassador" class="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-[#2F2BFF] border border-[#2F2BFF]/30 bg-[#2F2BFF]/5 hover:bg-[#2F2BFF] hover:text-white transition-all">
+              Apply <span aria-hidden="true">→</span>
+            </a>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- OPEN APPLICATION CTA -->
+    <section class="py-20 bg-[#F7F8FC]">
+      <div class="max-w-2xl mx-auto px-6 lg:px-8 text-center">
+        <h2 class="text-2xl font-bold text-foreground mb-3">Don't see your role?</h2>
+        <p class="text-[#070B2D]/60 mb-8">Send us an open application. If you're exceptional, we'll find a way to work together.</p>
+        <a href="mailto:careers@lockeen.app?subject=Open Application" class="inline-flex items-center gap-2 px-8 py-3.5 bg-[#2F2BFF] text-white rounded-full font-semibold hover:opacity-90 transition-opacity">
+          Send open application
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-[#070B2D] text-white">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8 py-16">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-10 mb-12">
+        <div class="col-span-2">
+          <div class="flex items-center gap-3 mb-4">
+            <div style="width:36px;height:36px;background:#3730E8;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+              <img src="Lockeen-2.png" alt="Lockeen" style="width:58px;height:58px;max-width:none;" />
+            </div>
+            <span class="text-xl font-bold">Lockeen</span>
+          </div>
+          <p class="text-white/60 text-sm max-w-xs">The AI-powered workspace for smarter studying.</p>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/50">Company</h4>
+          <ul class="space-y-3 text-sm">
+            <li><a href="/about.html" class="text-white/70 hover:text-white transition-colors">About</a></li>
+            <li><a href="/blog.html" class="text-white/70 hover:text-white transition-colors">Blog</a></li>
+            <li><a href="/careers.html" class="text-white/70 hover:text-white transition-colors">Careers</a></li>
+            <li><a href="/press.html" class="text-white/70 hover:text-white transition-colors">Press</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/50">Product</h4>
+          <ul class="space-y-3 text-sm">
+            <li><a href="/#features" class="text-white/70 hover:text-white transition-colors">Features</a></li>
+            <li><a href="/#pricing" class="text-white/70 hover:text-white transition-colors">Pricing</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/50">Legal</h4>
+          <ul class="space-y-3 text-sm">
+            <li><a href="/privacy.html" class="text-white/70 hover:text-white transition-colors">Privacy</a></li>
+            <li><a href="/terms.html" class="text-white/70 hover:text-white transition-colors">Terms</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-white/50">
+        <p>© 2026 Lockeen. All rights reserved.</p>
+        <div class="flex gap-6">
+          <a href="/privacy.html" class="hover:text-white transition-colors">Privacy</a>
+          <a href="/terms.html" class="hover:text-white transition-colors">Terms</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
