@@ -1610,7 +1610,9 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
     { id: 3, text: 'Tip: use the Study Planner in Calendar to schedule sessions.', ts: Date.now() - 3600000, read: false, type: 'plan' },
   ]);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notifRef = useRef(null);
+  const profileRef = useRef(null);
 
   useEffect(() => {
     function closePanel(e) {
@@ -1621,6 +1623,16 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
       return () => document.removeEventListener('mousedown', closePanel);
     }
   }, [showNotifPanel]);
+
+  useEffect(() => {
+    function closeProfile(e) {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setShowProfileMenu(false);
+    }
+    if (showProfileMenu) {
+      document.addEventListener('mousedown', closeProfile);
+      return () => document.removeEventListener('mousedown', closeProfile);
+    }
+  }, [showProfileMenu]);
 
   function addNotification(text, type) {
     setNotifications(prev => [{ id: Date.now() + Math.random(), text, ts: Date.now(), read: false, type: type || 'info' }, ...prev].slice(0, 40));
@@ -1814,7 +1826,31 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
                 {darkMode ? <Moon size={18} /> : <Sun size={18} />}
               </span>
             </button>
-            <div style={shellS.avatar}>{user.name?.[0]?.toUpperCase() || 'A'}</div>
+            <div ref={profileRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  if (!isMobile) return;
+                  e.stopPropagation();
+                  setShowProfileMenu(p => !p);
+                }}
+                style={{ ...shellS.avatar, border: 'none', cursor: isMobile ? 'pointer' : 'default' }}
+                aria-label="Profile menu"
+              >
+                {user.name?.[0]?.toUpperCase() || 'A'}
+              </button>
+              {isMobile && showProfileMenu && (
+                <div style={{ position: 'absolute', top: 48, right: 0, minWidth: 170, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 16px 40px -12px rgba(15,16,53,.25)', padding: 8, zIndex: 9999 }}>
+                  <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', marginBottom: 6 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{user.name || 'Alex'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--gray)', marginTop: 2 }}>{user.email || 'alex@lockeen.com'}</div>
+                  </div>
+                  <button onClick={onLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
+                    <LogOut size={15} /> {tt(lang, 'signOut')}
+                  </button>
+                </div>
+              )}
+            </div>
             {!isMobile && (
               <button onClick={onLogout} style={shellS.signoutBtn} title="Sign out">
                 <LogOut size={16} /> <span style={{ marginLeft: 6 }}>{tt(lang, 'signOut')}</span>
@@ -4625,6 +4661,7 @@ const SEED_MSGS = [
 ];
 
 function TutorView() {
+  const isMobile = useIsMobile();
   const [sessions, setSessions] = useState([
     { id: 1, title: 'Calculus — Derivatives', date: 'Today', msgs: SEED_MSGS },
     { id: 2, title: 'Photosynthesis overview', date: 'Yesterday', msgs: [
@@ -4643,11 +4680,13 @@ function TutorView() {
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const [files, setFiles] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const fileRef = useRef(null);
   const endRef = useRef(null);
   const replyIdx = useRef(0);
 
   useEffect(() => { endRef.current?.scrollTo({ top: endRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, typing]);
+  useEffect(() => { if (!isMobile) setHistoryOpen(true); else setHistoryOpen(false); }, [isMobile]);
 
   const send = () => {
     const text = input.trim();
@@ -4682,20 +4721,33 @@ function TutorView() {
     setSessions(prev => [{ id, title: 'New conversation', date: dateStr, msgs: init }, ...prev]);
     setActiveId(id);
     setMsgs(init);
+    if (isMobile) setHistoryOpen(false);
   };
 
   const switchSession = (s) => {
     setActiveId(s.id);
     setMsgs(s.msgs);
     setFiles([]);
+    if (isMobile) setHistoryOpen(false);
   };
 
   const suggestions = ['Explain Newton\'s laws', 'Help me with quadratic equations', 'Summarize photosynthesis', 'Quiz me on WWII'];
 
   return (
-    <div style={{ display: 'flex', gap: 0, minHeight: 560 }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 0, minHeight: isMobile ? 'calc(100vh - 190px)' : 560 }}>
       {/* Chat history sidebar */}
-      <div style={{ width: 176, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', paddingRight: 12 }}>
+      {(!isMobile || historyOpen) && <div style={{
+        width: isMobile ? '100%' : 176,
+        flexShrink: 0,
+        borderRight: isMobile ? 'none' : '1px solid var(--border)',
+        borderBottom: isMobile ? '1px solid var(--border)' : 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        paddingRight: isMobile ? 0 : 12,
+        paddingBottom: isMobile ? 12 : 0,
+        marginBottom: isMobile ? 14 : 0,
+        maxHeight: isMobile ? 220 : 'none',
+      }}>
         <button onClick={newChat} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '9px 12px', borderRadius: 10, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 12, border: 'none', cursor: 'pointer', marginBottom: 12 }}>
           <Plus size={13} /> New chat
         </button>
@@ -4708,10 +4760,10 @@ function TutorView() {
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Chat area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingLeft: 20, minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingLeft: isMobile ? 0 : 20, minWidth: 0 }}>
         <div style={tutorS.head}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={tutorS.avatar}><Brain size={18} /></div>
@@ -4722,6 +4774,11 @@ function TutorView() {
               </p>
             </div>
           </div>
+          {isMobile && (
+            <button onClick={() => setHistoryOpen(p => !p)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 999, border: '1px solid var(--border)', background: historyOpen ? 'var(--lavender)' : 'var(--surface)', color: historyOpen ? 'var(--indigo)' : 'var(--ink)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              <MsgCircle size={14} /> History
+            </button>
+          )}
         </div>
 
         <div ref={endRef} style={tutorS.thread}>
