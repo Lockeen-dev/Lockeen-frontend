@@ -3607,7 +3607,7 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
   const initDiff = DIFF_OPTIONS.find(d => d.id === initialDifficulty) ? initialDifficulty : 'medium';
   const initSecs = DIFF_OPTIONS.find(d => d.id === initDiff)?.secs || 30;
   const [difficulty, setDifficulty] = useState(initDiff);
-  const [timerOn, setTimerOn] = useState(false);
+  const [timerOn, setTimerOn] = useState(autoStart && !!initialDifficulty);
   const [timerSecs, setTimerSecs] = useState(initSecs);
   const [timerVal, setTimerVal] = useState(initSecs);
   const timerID = useRef(null);
