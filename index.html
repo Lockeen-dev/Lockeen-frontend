@@ -1417,10 +1417,10 @@
 </div><!-- /#page-landing -->
 
 <!-- ============ DASHBOARD HOST ============ -->
-<div id="page-app" class="page" style="display:none"></div>
+<div id="page-app" class="page notranslate" translate="no" style="display:none"></div>
 
 <!-- ============ REACT MOUNT ============ -->
-<div id="react-root"></div>
+<div id="react-root" class="notranslate" translate="no"></div>
 
 <!-- ============ VIEW SWITCHING ============ -->
 <script>
@@ -1513,12 +1513,12 @@ const GripDots = (p) => <Icon {...p} viewBox="0 0 12 12" sw={0} fill="currentCol
 const Coins    = (p) => <Icon {...p}><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><line x1="16.71" y1="13.88" x2="13.83" y2="17.29"/></Icon>;
 
 const LANG_OPTIONS = [
-  { value:'en', label:'English', flag:'🇬🇧' },
-  { value:'it', label:'Italiano', flag:'🇮🇹' },
-  { value:'de', label:'Deutsch', flag:'🇩🇪' },
-  { value:'es', label:'Español', flag:'🇪🇸' },
-  { value:'fr', label:'Français', flag:'🇫🇷' },
-  { value:'pt', label:'Português', flag:'🇵🇹' },
+  { value:'en', label:'EN', flag:'🇬🇧' },
+  { value:'it', label:'IT', flag:'🇮🇹' },
+  { value:'de', label:'DE', flag:'🇩🇪' },
+  { value:'es', label:'ES', flag:'🇪🇸' },
+  { value:'fr', label:'FR', flag:'🇫🇷' },
+  { value:'pt', label:'PT', flag:'🇵🇹' },
 ];
 const UI_T = {
   en: { home:'Home', exams:'Exams', flash:'Flash', flashcards:'Flashcards', quiz:'Quiz', stats:'Stats', dashboard:'Dashboard', myExams:'My Exams', calendar:'Calendar', aiTutor:'AI Tutor', analytics:'Analytics', goodMorning:'Good morning', ready:'Ready to continue your learning journey?', todaySchedule:'Today schedule', dailyTasks:'Daily tasks', recommended:'Recommended today', openCalendar:'Open Calendar', examSub:'Your exams and study materials', newExam:'New Exam', studyPlan:'Study Plan', searchExams:'Search exams...', signOut:'Sign out' },
@@ -1534,10 +1534,11 @@ function LanguageSelect({ lang, onChange, compact = false }) {
     <select
       className={'lang-select dashboard-lang-select' + (compact ? ' compact' : '')}
       aria-label="Language"
+      translate="no"
       value={lang}
       onChange={(e) => onChange(e.target.value)}
     >
-      {LANG_OPTIONS.map(l => <option key={l.value} value={l.value}>{l.flag} {l.label}</option>)}
+      {LANG_OPTIONS.map(l => <option key={l.value} value={l.value} translate="no">{l.flag} {l.label}</option>)}
     </select>
   );
 }
