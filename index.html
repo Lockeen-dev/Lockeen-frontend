@@ -6522,7 +6522,12 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
     setErrors(e => ({ ...e, tech: null }));
   };
   const toggleTime = (id) => {
-    setSelTimes(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelTimes(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.size === 1 && n.has('morning') && hoursVal > 4) setHoursVal(4);
+      return n;
+    });
     setErrors(e => ({ ...e, time: null }));
   };
   const onCustomChange = (v) => {
@@ -6536,6 +6541,7 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
     if (selSubjects.size === 0) errs.subjects = 'Seleziona almeno una materia';
     if (selTechniques.size === 0 && !customTech.trim()) errs.tech = 'Seleziona o scrivi una tecnica';
     if (selTimes.size === 0) errs.time = 'Seleziona almeno un orario';
+    if (hoursVal >= 8 && selTimes.size < 2) errs.time = 'Per 8h+ seleziona almeno 2 fasce orarie';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -6682,7 +6688,11 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
                 </div>
                 <div style={{ flex:1 }}>
                   <input type="range" min="1" max="8" step="0.5" value={hoursVal}
-                    onChange={e => setHoursVal(Number(e.target.value))}
+                    onChange={e => {
+                      let val = Number(e.target.value);
+                      if (val > 4 && selTimes.size === 1 && selTimes.has('morning')) val = 4;
+                      setHoursVal(val);
+                    }}
                     style={{ width:'100%', height:4, borderRadius:999, cursor:'pointer', outline:'none', appearance:'none',
                       background:`linear-gradient(to right, var(--indigo) ${sliderPct}%, var(--border) ${sliderPct}%)` }} />
                   <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
@@ -6690,6 +6700,11 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
                       <span key={n} style={{ fontSize:10, color:'var(--gray)' }}>{n}h</span>
                     ))}
                   </div>
+                  {selTimes.size === 1 && selTimes.has('morning') && (
+                    <div style={{ marginTop:6, display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:999, background:'#FEF3C7', border:'1px solid #F59E0B', fontSize:11, fontWeight:700, color:'#92400E' }}>
+                      ⚠️ Mattina max 4h
+                    </div>
+                  )}
                 </div>
               </div>
               <style>{`
