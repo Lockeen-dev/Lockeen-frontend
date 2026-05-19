@@ -1215,44 +1215,126 @@
     </div>
   `).join('');
 
-  // Pricing data
-  const plans = [
-    { name: 'Free', price: '$0', period: 'forever', description: 'Perfect for trying out Lockeen',
-      features: ['5 AI quiz generations per month','50 flashcards','Basic AI tutor access','Calendar planning','Progress tracking'],
-      cta: 'Get Started', popular: false },
-    { name: 'Pro', price: '$12', period: 'per month', description: 'For serious students',
-      features: ['Unlimited AI quiz generations','Unlimited flashcards','Advanced AI tutor with priority','Study Arena competitions','Advanced analytics','Export & sharing','Mobile app access','Priority support'],
-      cta: 'Start Free Trial', popular: true },
-    { name: 'Teams', price: '$8', period: 'per student/month', description: 'For schools and study groups',
-      features: ['Everything in Pro','Dedicated workspace','Team analytics dashboard','Custom study materials','Admin controls','Bulk user management','API access','Dedicated support'],
-      cta: 'Contact Sales', popular: false },
-  ];
-  document.getElementById('pricing-grid').innerHTML = plans.map(p => `
-    <div class="relative p-8 bg-white rounded-3xl border-2 transition-all duration-300 ${p.popular ? 'border-primary shadow-2xl shadow-primary/20 scale-105' : 'border-border hover:border-primary/30 hover:shadow-xl'}">
-      ${p.popular ? `
-        <div class="absolute -top-4 left-1/2 -translate-x-1/2">
-          <div class="px-4 py-1.5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold">Most Popular</div>
-        </div>` : ''}
-      <div class="mb-8">
-        <h3 class="text-2xl mb-2 font-semibold">${p.name}</h3>
-        <p class="text-foreground/60 mb-6">${p.description}</p>
-        <div class="flex items-baseline gap-1 mb-1">
-          <span class="text-5xl font-bold">${p.price}</span>
-          <span class="text-foreground/60">/${p.period}</span>
+  // Pricing i18n
+  const PRICING_I18N = {
+    en: {
+      popular: 'Most Popular',
+      plans: [
+        { name: 'Free',  price: '$0',  period: 'forever',           description: 'Perfect for trying out Lockeen',
+          features: ['5 AI quiz generations per month','50 flashcards','Basic AI tutor access','Calendar planning','Progress tracking'],
+          cta: 'Get Started', popular: false },
+        { name: 'Pro',   price: '$12', period: 'per month',          description: 'For serious students',
+          features: ['Unlimited AI quiz generations','Unlimited flashcards','Advanced AI tutor with priority','Study Arena competitions','Advanced analytics','Export & sharing','Mobile app access','Priority support'],
+          cta: 'Start Free Trial', popular: true },
+        { name: 'Teams', price: '$8',  period: 'per student/month',  description: 'For schools and study groups',
+          features: ['Everything in Pro','Dedicated workspace','Team analytics dashboard','Custom study materials','Admin controls','Bulk user management','API access','Dedicated support'],
+          cta: 'Contact Sales', popular: false },
+      ],
+    },
+    it: {
+      popular: 'Più Popolare',
+      plans: [
+        { name: 'Free',  price: '$0',  period: 'per sempre',              description: 'Perfetto per provare Lockeen',
+          features: ['5 quiz AI al mese','50 flashcard','Accesso base AI Tutor','Pianificazione calendario','Monitoraggio progressi'],
+          cta: 'Inizia gratis', popular: false },
+        { name: 'Pro',   price: '$12', period: 'al mese',                 description: 'Per studenti seri',
+          features: ['Quiz AI illimitati','Flashcard illimitate','AI Tutor avanzato con priorità','Competizioni Study Arena','Analytics avanzate','Esporta e condividi','Accesso app mobile','Supporto prioritario'],
+          cta: 'Inizia la prova gratuita', popular: true },
+        { name: 'Teams', price: '$8',  period: 'per studente/mese',       description: 'Per scuole e gruppi di studio',
+          features: ['Tutto il piano Pro','Spazio di lavoro dedicato','Dashboard analytics del team','Materiali di studio personalizzati','Controlli amministratore','Gestione utenti in blocco','Accesso API','Supporto dedicato'],
+          cta: 'Contatta il team', popular: false },
+      ],
+    },
+    de: {
+      popular: 'Beliebteste',
+      plans: [
+        { name: 'Free',  price: '$0',  period: 'für immer',               description: 'Perfekt zum Ausprobieren',
+          features: ['5 KI-Quiz-Generierungen/Monat','50 Karteikarten','Basis KI-Tutor','Kalenderplanung','Fortschrittsverfolgung'],
+          cta: 'Loslegen', popular: false },
+        { name: 'Pro',   price: '$12', period: 'pro Monat',               description: 'Für ernsthafte Studierende',
+          features: ['Unbegrenzte KI-Quiz','Unbegrenzte Karteikarten','Erweiterter KI-Tutor mit Priorität','Study Arena','Erweiterte Analytics','Export & Teilen','Mobile App','Prioritäts-Support'],
+          cta: 'Kostenlos testen', popular: true },
+        { name: 'Teams', price: '$8',  period: 'pro Student/Monat',       description: 'Für Schulen und Lerngruppen',
+          features: ['Alles aus Pro','Dedizierter Arbeitsbereich','Team-Analytics','Benutzerdefinierte Materialien','Admin-Kontrolle','Massenverwaltung','API-Zugang','Dedizierter Support'],
+          cta: 'Vertrieb kontaktieren', popular: false },
+      ],
+    },
+    es: {
+      popular: 'Más Popular',
+      plans: [
+        { name: 'Free',  price: '$0',  period: 'para siempre',            description: 'Perfecto para probar Lockeen',
+          features: ['5 quizzes IA al mes','50 tarjetas','Acceso básico al tutor IA','Planificación calendario','Seguimiento de progreso'],
+          cta: 'Comenzar gratis', popular: false },
+        { name: 'Pro',   price: '$12', period: 'al mes',                  description: 'Para estudiantes serios',
+          features: ['Quizzes IA ilimitados','Tarjetas ilimitadas','Tutor IA avanzado con prioridad','Competiciones Study Arena','Analytics avanzadas','Exportar y compartir','App móvil','Soporte prioritario'],
+          cta: 'Prueba gratuita', popular: true },
+        { name: 'Teams', price: '$8',  period: 'por estudiante/mes',      description: 'Para escuelas y grupos de estudio',
+          features: ['Todo el plan Pro','Espacio de trabajo dedicado','Dashboard de analytics','Materiales personalizados','Controles de administrador','Gestión masiva','Acceso API','Soporte dedicado'],
+          cta: 'Contactar ventas', popular: false },
+      ],
+    },
+    fr: {
+      popular: 'Le Plus Populaire',
+      plans: [
+        { name: 'Free',  price: '$0',  period: 'pour toujours',           description: 'Parfait pour essayer Lockeen',
+          features: ['5 quiz IA par mois','50 flashcards','Accès tuteur IA basique','Planification calendrier','Suivi des progrès'],
+          cta: 'Commencer', popular: false },
+        { name: 'Pro',   price: '$12', period: 'par mois',                description: 'Pour les étudiants sérieux',
+          features: ['Quiz IA illimités','Flashcards illimitées','Tuteur IA avancé prioritaire','Compétitions Study Arena','Analytics avancées','Export & partage','App mobile','Support prioritaire'],
+          cta: 'Essai gratuit', popular: true },
+        { name: 'Teams', price: '$8',  period: 'par étudiant/mois',       description: 'Pour écoles et groupes d\'étude',
+          features: ['Tout le plan Pro','Espace de travail dédié','Dashboard analytique','Matériaux personnalisés','Contrôles admin','Gestion en masse','Accès API','Support dédié'],
+          cta: 'Contacter', popular: false },
+      ],
+    },
+    pt: {
+      popular: 'Mais Popular',
+      plans: [
+        { name: 'Free',  price: '$0',  period: 'para sempre',             description: 'Perfeito para experimentar',
+          features: ['5 quiz IA por mês','50 flashcards','Acesso básico ao tutor IA','Planeamento calendário','Acompanhamento de progresso'],
+          cta: 'Começar grátis', popular: false },
+        { name: 'Pro',   price: '$12', period: 'por mês',                 description: 'Para estudantes sérios',
+          features: ['Quiz IA ilimitados','Flashcards ilimitadas','Tutor IA avançado prioritário','Competições Study Arena','Analytics avançadas','Exportar e partilhar','App móvel','Suporte prioritário'],
+          cta: 'Teste gratuito', popular: true },
+        { name: 'Teams', price: '$8',  period: 'por estudante/mês',       description: 'Para escolas e grupos de estudo',
+          features: ['Tudo do plano Pro','Espaço de trabalho dedicado','Dashboard de analytics','Materiais personalizados','Controlos de administrador','Gestão em massa','Acesso API','Suporte dedicado'],
+          cta: 'Contactar vendas', popular: false },
+      ],
+    },
+  };
+
+  function renderPricingGrid(lang) {
+    const safeLang = PRICING_I18N[lang] ? lang : 'en';
+    const { plans, popular: popularLabel } = PRICING_I18N[safeLang];
+    document.getElementById('pricing-grid').innerHTML = plans.map(p => `
+      <div class="relative p-8 bg-white rounded-3xl border-2 transition-all duration-300 ${p.popular ? 'border-primary shadow-2xl shadow-primary/20 scale-105' : 'border-border hover:border-primary/30 hover:shadow-xl'}">
+        ${p.popular ? `
+          <div class="absolute -top-4 left-1/2 -translate-x-1/2">
+            <div class="px-4 py-1.5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold">${popularLabel}</div>
+          </div>` : ''}
+        <div class="mb-8">
+          <h3 class="text-2xl mb-2 font-semibold">${p.name}</h3>
+          <p class="text-foreground/60 mb-6">${p.description}</p>
+          <div class="flex items-baseline gap-1 mb-1">
+            <span class="text-5xl font-bold">${p.price}</span>
+            <span class="text-foreground/60">/${p.period}</span>
+          </div>
+        </div>
+        <button class="w-full py-3.5 rounded-xl mb-8 transition-all font-medium ${p.popular ? 'bg-primary text-white shadow-primary-lg hover:shadow-primary-xl' : 'bg-muted text-foreground hover:bg-border'}">${p.cta}</button>
+        <div class="space-y-4">
+          ${p.features.map(feat => `
+            <div class="flex items-start gap-3">
+              <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${p.popular ? 'bg-primary/10' : 'bg-muted'}">
+                <i data-lucide="check" class="${p.popular ? 'text-primary' : 'text-foreground/60'}" style="font-size:0.875rem"></i>
+              </div>
+              <span class="text-foreground/80">${feat}</span>
+            </div>`).join('')}
         </div>
       </div>
-      <button class="w-full py-3.5 rounded-xl mb-8 transition-all font-medium ${p.popular ? 'bg-primary text-white shadow-primary-lg hover:shadow-primary-xl' : 'bg-muted text-foreground hover:bg-border'}">${p.cta}</button>
-      <div class="space-y-4">
-        ${p.features.map(feat => `
-          <div class="flex items-start gap-3">
-            <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${p.popular ? 'bg-primary/10' : 'bg-muted'}">
-              <i data-lucide="check" class="${p.popular ? 'text-primary' : 'text-foreground/60'}" style="font-size:0.875rem"></i>
-            </div>
-            <span class="text-foreground/80">${feat}</span>
-          </div>`).join('')}
-      </div>
-    </div>
-  `).join('');
+    `).join('');
+    lucide.createIcons();
+  }
+  renderPricingGrid(localStorage.getItem('lockeen-lang') || 'en');
 
   const LOCKEEN_LANGS = {
     en: { flag:'🇬🇧', label:'English' },
@@ -1323,6 +1405,7 @@
   }
   window.setLockeenLanguage = function(lang) {
     applyLockeenLanguage(lang);
+    renderPricingGrid(lang);
     if (window.lockeenApplyGlobalLanguage) window.lockeenApplyGlobalLanguage(lang);
     window.dispatchEvent(new CustomEvent('lockeen-language', { detail: { lang } }));
   };
