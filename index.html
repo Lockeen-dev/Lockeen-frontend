@@ -1897,6 +1897,7 @@ function BottomNav({ tab, setTab, lang = 'en' }) {
 
 function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangChange }) {
   const [tab, setTab] = useState('dashboard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isMobile = useIsMobile();
   const [notifications, setNotifications] = useState([
     { id: 1, text: 'Welcome to Lockeen! Bell shows your activity here.', ts: Date.now() - 60000, read: false, type: 'info' },
@@ -2040,7 +2041,12 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
     setTab('quiz');
   };
 
-  const handleSetTab = (t) => { if (t !== 'notes') setActiveExamId(null); if (t === 'quiz') setQuizDeck(null); setTab(t); };
+  const handleSetTab = (t) => {
+    if (t !== 'notes') setActiveExamId(null);
+    if (t === 'quiz') setQuizDeck(null);
+    if (t === 'tutor') setSidebarCollapsed(true);
+    setTab(t);
+  };
 
   return (
     <div style={{ ...shellS.wrap, padding: isMobile ? '12px 0 80px' : '24px 24px 48px' }}>
@@ -2165,8 +2171,8 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
           border: isMobile ? 'none' : '2px solid var(--indigo)',
         }}
       >
-        <div style={{ ...shellS.grid, gridTemplateColumns: isMobile ? '1fr' : (tab === 'tutor' ? '58px 1fr' : '220px 1fr'), transition: 'grid-template-columns .2s ease' }}>
-          {!isMobile && <Sidebar tab={tab} setTab={handleSetTab} lang={lang} collapsed={tab === 'tutor'} />}
+        <div style={{ ...shellS.grid, gridTemplateColumns: isMobile ? '1fr' : sidebarCollapsed ? '76px 1fr' : '220px 1fr', transition: 'grid-template-columns .2s ease' }}>
+          {!isMobile && <Sidebar tab={tab} setTab={handleSetTab} lang={lang} collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed(v => !v)} />}
           <div style={{ ...shellS.main, padding: isMobile ? '16px 14px' : '32px 36px' }}>
             {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
             {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
@@ -2562,7 +2568,7 @@ const timerS = {
 };
 
 /* ===================== SIDEBAR ===================== */
-function Sidebar({ tab, setTab, lang = 'en', collapsed = false }) {
+function Sidebar({ tab, setTab, lang = 'en', collapsed = false, onToggleCollapsed }) {
   const items = [
     { id: 'dashboard', label: tt(lang, 'dashboard'), Icon: ZapSolid },
     { id: 'notes',     label: tt(lang, 'myExams'),  Icon: BookOpen },
@@ -2574,11 +2580,28 @@ function Sidebar({ tab, setTab, lang = 'en', collapsed = false }) {
   ];
   return (
     <aside style={{ ...sideS.wrap, ...(collapsed ? sideS.wrapCollapsed : null) }}>
-      <nav style={sideS.nav}>
+      <div>
+        <div style={{ ...sideS.topRow, justifyContent: collapsed ? 'center' : 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            style={sideS.collapseBtn}
+          >
+            {collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
+          </button>
+        </div>
+        <nav style={{ ...sideS.nav, ...(collapsed ? sideS.navCollapsed : null) }}>
         {items.map(({ id, label, Icon: I }) => {
           const active = id === tab;
           return (
-            <button key={id} onClick={() => setTab(id)} title={collapsed ? label : undefined} style={{ ...sideS.item, ...(collapsed ? sideS.itemCollapsed : null), ...(active ? sideS.itemActive : null) }}>
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              title={collapsed ? label : undefined}
+              style={{ ...sideS.item, ...(collapsed ? sideS.itemCollapsed : null), ...(active ? sideS.itemActive : null), ...(active && collapsed ? sideS.itemCollapsedActive : null) }}
+            >
               <span style={{ display: 'inline-flex', alignItems: 'center', color: active ? '#ffffff' : '#6B7280' }}>
                 <I size={18} muted={!active} />
               </span>
@@ -2586,7 +2609,8 @@ function Sidebar({ tab, setTab, lang = 'en', collapsed = false }) {
             </button>
           );
         })}
-      </nav>
+        </nav>
+      </div>
 
       {!collapsed && <div style={sideS.goalCard}>
         <div style={sideS.goalLabel}>Weekly Goal</div>
@@ -2600,12 +2624,16 @@ function Sidebar({ tab, setTab, lang = 'en', collapsed = false }) {
 }
 
 const sideS = {
-  wrap: { background: 'var(--sidebar-bg)', borderRight: '1px solid var(--border)', padding: '24px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'hidden', transition: 'width .2s ease, padding .2s ease' },
-  wrapCollapsed: { padding: '24px 8px', alignItems: 'center' },
+  wrap: { background: 'var(--sidebar-bg)', borderRight: '1px solid var(--border)', padding: '18px 16px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'hidden', transition: 'width .2s ease, padding .2s ease' },
+  wrapCollapsed: { padding: '18px 10px 24px', alignItems: 'center' },
+  topRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 },
+  collapseBtn: { width: 36, height: 36, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--gray)', display: 'grid', placeItems: 'center', cursor: 'pointer' },
   nav: { display: 'flex', flexDirection: 'column', gap: 6 },
+  navCollapsed: { alignItems: 'center' },
   item: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 999, color: 'var(--gray)', fontWeight: 600, fontSize: 14, textAlign: 'left' },
-  itemCollapsed: { width: 42, height: 42, padding: 0, justifyContent: 'center', gap: 0 },
+  itemCollapsed: { width: 46, height: 46, justifyContent: 'center', padding: 0, borderRadius: 16, gap: 0 },
   itemActive: { background: 'var(--indigo)', color: '#fff', boxShadow: '0 8px 22px -10px rgba(55,48,232,.6)' },
+  itemCollapsedActive: { boxShadow: '0 8px 22px -10px rgba(55,48,232,.65), 0 0 0 3px rgba(55,48,232,.12)' },
   goalCard: { background: 'var(--lavender)', borderRadius: 16, padding: 16, marginTop: 24 },
   goalLabel: { fontSize: 12, color: 'var(--gray)', fontWeight: 600 },
   goalValue: { fontSize: 26, fontWeight: 800, color: 'var(--indigo)', marginTop: 4, marginBottom: 10, letterSpacing: '-0.02em' },
