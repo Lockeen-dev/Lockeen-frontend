@@ -3539,7 +3539,7 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
   const [correct, setCorrect] = useState(0);
   const [selected, setSelected] = useState(null);
   const [pendingIdx, setPendingIdx] = useState(null);
-  const DIFF_OPTIONS = [{id:'easy',label:'Easy',emoji:'🟢',secs:60},{id:'medium',label:'Medium',emoji:'🟡',secs:30},{id:'hard',label:'Hard',emoji:'🔴',secs:20},{id:'extreme',label:'Extreme',emoji:'💀',secs:10}];
+  const DIFF_OPTIONS = [{id:'easy',label:'Easy',color:'#10B981',secs:60},{id:'medium',label:'Medium',color:'#F59E0B',secs:30},{id:'hard',label:'Hard',color:'#EF4444',secs:20},{id:'extreme',label:'Extreme',color:'#64748B',secs:10}];
   const initDiff = DIFF_OPTIONS.find(d => d.id === initialDifficulty) ? initialDifficulty : 'medium';
   const initSecs = DIFF_OPTIONS.find(d => d.id === initDiff)?.secs || 30;
   const [difficulty, setDifficulty] = useState(initDiff);
@@ -3678,8 +3678,8 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
           <div style={{ display:'flex', gap:8 }}>
             {DIFF_OPTIONS.map(d => (
               <button key={d.id} onClick={() => { setDifficulty(d.id); setTimerSecs(d.secs); setTimerVal(d.secs); }}
-                style={{ flex:1, padding:'10px 6px', borderRadius:12, border:`2px solid ${difficulty===d.id?palette.dot:'var(--border)'}`, background:difficulty===d.id?palette.bg:'var(--surface)', color:difficulty===d.id?palette.text:'var(--gray)', fontWeight:700, fontSize:11, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                <span style={{fontSize:16}}>{d.emoji}</span>
+                style={{ flex:1, padding:'10px 6px', borderRadius:12, border:`2px solid ${difficulty===d.id?d.color:'var(--border)'}`, background:difficulty===d.id?d.color+'18':'var(--surface)', color:difficulty===d.id?d.color:'var(--gray)', fontWeight:700, fontSize:11, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:5, transition:'all .15s' }}>
+                <div style={{ width:10, height:10, borderRadius:'50%', background:d.color, flexShrink:0 }} />
                 <span>{d.label}</span>
                 <span style={{fontSize:10, opacity:.7}}>{d.secs}s</span>
               </button>
@@ -4039,10 +4039,12 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
           <div>
             <div style={{ ...sL, marginBottom:10 }}>Avvio rapido</div>
             <div style={{ display:'flex', gap:8 }}>
-              {[{id:'easy',emoji:'🟢',label:'Easy'},{id:'medium',emoji:'🟡',label:'Medium'},{id:'hard',emoji:'🔴',label:'Hard'},{id:'extreme',emoji:'💀',label:'Extreme'}].map(d => (
+              {[{id:'easy',label:'Easy',color:'#10B981'},{id:'medium',label:'Medium',color:'#F59E0B'},{id:'hard',label:'Hard',color:'#EF4444'},{id:'extreme',label:'Extreme',color:'#64748B'}].map(d => (
                 <button key={d.id} onClick={() => startQuiz({ _autoStart: true, _difficulty: d.id })}
-                  style={{ flex:1, padding:'10px 4px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', fontWeight:600, fontSize:12, color:'var(--gray)', cursor:'pointer', textAlign:'center', lineHeight:1.4 }}>
-                  <div style={{ fontSize:20, marginBottom:2 }}>{d.emoji}</div>
+                  style={{ flex:1, padding:'12px 4px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', fontWeight:600, fontSize:12, color:'var(--gray)', cursor:'pointer', textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center', gap:6, transition:'border-color .15s, background .15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = d.color; e.currentTarget.style.background = d.color+'12'; e.currentTarget.style.color = d.color; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.color = 'var(--gray)'; }}>
+                  <div style={{ width:10, height:10, borderRadius:'50%', background:d.color }} />
                   <div>{d.label}</div>
                 </button>
               ))}
