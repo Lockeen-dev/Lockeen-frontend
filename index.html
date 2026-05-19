@@ -176,8 +176,11 @@
   }
   .lang-select-compact {
     min-width: 80px;
-    padding: 10px 30px 10px 12px;
-    background-position: calc(100% - 16px) 50%, calc(100% - 10px) 50%;
+    padding: 8px 28px 8px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 10px;
+    box-shadow: none;
   }
   .mobile-menu-lang { width: 100%; margin-bottom: 10px; }
   .dashboard-lang-select {
@@ -1055,19 +1058,43 @@
 <!-- ============ PRICING ============ -->
 <section id="pricing" class="py-24 lg:py-32 bg-gradient-to-br from-muted/50 to-white">
   <div class="max-w-7xl mx-auto px-6 lg:px-8">
-    <div class="text-center max-w-3xl mx-auto mb-20">
-      <h2 class="text-4xl md:text-5xl lg:text-6xl mb-6 font-bold" style="line-height:1.1">
+    <div class="text-center max-w-3xl mx-auto mb-10">
+      <h2 class="text-4xl md:text-5xl lg:text-6xl mb-4 font-bold" style="line-height:1.1">
         Simple, <span class="gradient-text">transparent pricing</span>
       </h2>
-      <p class="text-xl text-foreground/70" style="line-height:1.6">
-        Choose the plan that fits your learning journey
+      <p class="text-lg text-foreground/60" style="line-height:1.6">
+        Two plans. No hidden fees.
       </p>
     </div>
 
-    <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto" id="pricing-grid"></div>
+    <!-- Billing toggle -->
+    <div class="flex items-center justify-center gap-3 mb-12">
+      <span id="billing-monthly-label" class="text-sm font-semibold text-foreground">Monthly</span>
+      <button id="billing-toggle" onclick="window.toggleBilling && window.toggleBilling()" aria-pressed="false"
+        style="width:48px;height:26px;borderRadius:999px;background:#3730E8;border:none;position:relative;cursor:pointer;transition:background .2s;outline:none;" aria-label="Toggle annual billing">
+        <span id="billing-toggle-knob" style="position:absolute;top:3px;left:3px;width:20px;height:20px;borderRadius:999px;background:#fff;transition:transform .2s;display:block;"></span>
+      </button>
+      <span id="billing-annual-label" class="text-sm font-medium text-foreground/50">Annual <span class="text-xs font-bold text-emerald-600 ml-1">–20%</span></span>
+    </div>
 
-    <div class="text-center mt-16">
-      <p class="text-foreground/60">All plans include a 14-day free trial. No credit card required.</p>
+    <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto" id="pricing-grid"></div>
+
+    <!-- Teams row -->
+    <div class="max-w-4xl mx-auto mt-6">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 px-7 py-5 rounded-2xl border border-border bg-white">
+        <div>
+          <span class="font-semibold text-foreground">For schools &amp; teams</span>
+          <span class="ml-3 text-foreground/60 text-sm">Volume pricing from <strong>$6</strong>/student/mo · dedicated workspace · admin controls</span>
+        </div>
+        <button onclick="window.openAuth && window.openAuth('signup')"
+          class="px-5 py-2.5 rounded-full border border-border text-foreground/80 font-medium text-sm hover:bg-muted transition-colors whitespace-nowrap">
+          Contact Sales →
+        </button>
+      </div>
+    </div>
+
+    <div class="text-center mt-8">
+      <p class="text-foreground/50 text-sm">14-day free trial · No credit card required · Cancel anytime</p>
     </div>
   </div>
 </section>
@@ -1220,127 +1247,58 @@
     </div>
   `).join('');
 
-  // Pricing i18n
-  const PRICING_I18N = {
-    en: {
-      popular: 'Most Popular',
-      plans: [
-        { name: 'Free',  price: '$0',  period: 'forever',           description: 'Perfect for trying out Lockeen',
-          features: ['5 AI quiz generations per month','50 flashcards','Basic AI tutor access','Calendar planning','Progress tracking'],
-          cta: 'Get Started', popular: false },
-        { name: 'Pro',   price: '$12', period: 'per month',          description: 'For serious students',
-          features: ['Unlimited AI quiz generations','Unlimited flashcards','Advanced AI tutor with priority','Study Arena competitions','Advanced analytics','Export & sharing','Mobile app access','Priority support'],
-          cta: 'Start Free Trial', popular: true },
-        { name: 'Teams', price: '$8',  period: 'per student/month',  description: 'For schools and study groups',
-          features: ['Everything in Pro','Dedicated workspace','Team analytics dashboard','Custom study materials','Admin controls','Bulk user management','API access','Dedicated support'],
-          cta: 'Contact Sales', popular: false },
-      ],
-    },
-    it: {
-      popular: 'Più Popolare',
-      plans: [
-        { name: 'Free',  price: '$0',  period: 'per sempre',              description: 'Perfetto per provare Lockeen',
-          features: ['5 quiz AI al mese','50 flashcard','Accesso base AI Tutor','Pianificazione calendario','Monitoraggio progressi'],
-          cta: 'Inizia gratis', popular: false },
-        { name: 'Pro',   price: '$12', period: 'al mese',                 description: 'Per studenti seri',
-          features: ['Quiz AI illimitati','Flashcard illimitate','AI Tutor avanzato con priorità','Competizioni Study Arena','Analytics avanzate','Esporta e condividi','Accesso app mobile','Supporto prioritario'],
-          cta: 'Inizia la prova gratuita', popular: true },
-        { name: 'Teams', price: '$8',  period: 'per studente/mese',       description: 'Per scuole e gruppi di studio',
-          features: ['Tutto il piano Pro','Spazio di lavoro dedicato','Dashboard analytics del team','Materiali di studio personalizzati','Controlli amministratore','Gestione utenti in blocco','Accesso API','Supporto dedicato'],
-          cta: 'Contatta il team', popular: false },
-      ],
-    },
-    de: {
-      popular: 'Beliebteste',
-      plans: [
-        { name: 'Free',  price: '$0',  period: 'für immer',               description: 'Perfekt zum Ausprobieren',
-          features: ['5 KI-Quiz-Generierungen/Monat','50 Karteikarten','Basis KI-Tutor','Kalenderplanung','Fortschrittsverfolgung'],
-          cta: 'Loslegen', popular: false },
-        { name: 'Pro',   price: '$12', period: 'pro Monat',               description: 'Für ernsthafte Studierende',
-          features: ['Unbegrenzte KI-Quiz','Unbegrenzte Karteikarten','Erweiterter KI-Tutor mit Priorität','Study Arena','Erweiterte Analytics','Export & Teilen','Mobile App','Prioritäts-Support'],
-          cta: 'Kostenlos testen', popular: true },
-        { name: 'Teams', price: '$8',  period: 'pro Student/Monat',       description: 'Für Schulen und Lerngruppen',
-          features: ['Alles aus Pro','Dedizierter Arbeitsbereich','Team-Analytics','Benutzerdefinierte Materialien','Admin-Kontrolle','Massenverwaltung','API-Zugang','Dedizierter Support'],
-          cta: 'Vertrieb kontaktieren', popular: false },
-      ],
-    },
-    es: {
-      popular: 'Más Popular',
-      plans: [
-        { name: 'Free',  price: '$0',  period: 'para siempre',            description: 'Perfecto para probar Lockeen',
-          features: ['5 quizzes IA al mes','50 tarjetas','Acceso básico al tutor IA','Planificación calendario','Seguimiento de progreso'],
-          cta: 'Comenzar gratis', popular: false },
-        { name: 'Pro',   price: '$12', period: 'al mes',                  description: 'Para estudiantes serios',
-          features: ['Quizzes IA ilimitados','Tarjetas ilimitadas','Tutor IA avanzado con prioridad','Competiciones Study Arena','Analytics avanzadas','Exportar y compartir','App móvil','Soporte prioritario'],
-          cta: 'Prueba gratuita', popular: true },
-        { name: 'Teams', price: '$8',  period: 'por estudiante/mes',      description: 'Para escuelas y grupos de estudio',
-          features: ['Todo el plan Pro','Espacio de trabajo dedicado','Dashboard de analytics','Materiales personalizados','Controles de administrador','Gestión masiva','Acceso API','Soporte dedicado'],
-          cta: 'Contactar ventas', popular: false },
-      ],
-    },
-    fr: {
-      popular: 'Le Plus Populaire',
-      plans: [
-        { name: 'Free',  price: '$0',  period: 'pour toujours',           description: 'Parfait pour essayer Lockeen',
-          features: ['5 quiz IA par mois','50 flashcards','Accès tuteur IA basique','Planification calendrier','Suivi des progrès'],
-          cta: 'Commencer', popular: false },
-        { name: 'Pro',   price: '$12', period: 'par mois',                description: 'Pour les étudiants sérieux',
-          features: ['Quiz IA illimités','Flashcards illimitées','Tuteur IA avancé prioritaire','Compétitions Study Arena','Analytics avancées','Export & partage','App mobile','Support prioritaire'],
-          cta: 'Essai gratuit', popular: true },
-        { name: 'Teams', price: '$8',  period: 'par étudiant/mois',       description: 'Pour écoles et groupes d\'étude',
-          features: ['Tout le plan Pro','Espace de travail dédié','Dashboard analytique','Matériaux personnalisés','Contrôles admin','Gestion en masse','Accès API','Support dédié'],
-          cta: 'Contacter', popular: false },
-      ],
-    },
-    pt: {
-      popular: 'Mais Popular',
-      plans: [
-        { name: 'Free',  price: '$0',  period: 'para sempre',             description: 'Perfeito para experimentar',
-          features: ['5 quiz IA por mês','50 flashcards','Acesso básico ao tutor IA','Planeamento calendário','Acompanhamento de progresso'],
-          cta: 'Começar grátis', popular: false },
-        { name: 'Pro',   price: '$12', period: 'por mês',                 description: 'Para estudantes sérios',
-          features: ['Quiz IA ilimitados','Flashcards ilimitadas','Tutor IA avançado prioritário','Competições Study Arena','Analytics avançadas','Exportar e partilhar','App móvel','Suporte prioritário'],
-          cta: 'Teste gratuito', popular: true },
-        { name: 'Teams', price: '$8',  period: 'por estudante/mês',       description: 'Para escolas e grupos de estudo',
-          features: ['Tudo do plano Pro','Espaço de trabalho dedicado','Dashboard de analytics','Materiais personalizados','Controlos de administrador','Gestão em massa','Acesso API','Suporte dedicado'],
-          cta: 'Contactar vendas', popular: false },
-      ],
-    },
-  };
+  // Pricing data — simplified 2-plan layout
+  let billingAnnual = false;
+  const plans = [
+    { name: 'Free', monthlyPrice: '$0', annualPrice: '$0', period: 'forever',
+      features: ['5 AI quiz generations/mo','50 flashcards','AI Tutor access','Calendar & progress tracking'],
+      cta: 'Get Started Free', popular: false },
+    { name: 'Pro', monthlyPrice: '$12', annualPrice: '$10', period: '/mo',
+      features: ['Unlimited quizzes & flashcards','Advanced AI Tutor (priority)','Analytics & Study Arena','Export, sharing & mobile app'],
+      cta: 'Start Free Trial', popular: true },
+  ];
 
-  function renderPricingGrid(lang) {
-    const safeLang = PRICING_I18N[lang] ? lang : 'en';
-    const { plans, popular: popularLabel } = PRICING_I18N[safeLang];
-    document.getElementById('pricing-grid').innerHTML = plans.map(p => `
-      <div class="relative p-8 bg-white rounded-3xl border-2 transition-all duration-300 ${p.popular ? 'border-primary shadow-2xl shadow-primary/20 scale-105' : 'border-border hover:border-primary/30 hover:shadow-xl'}">
-        ${p.popular ? `
-          <div class="absolute -top-4 left-1/2 -translate-x-1/2">
-            <div class="px-4 py-1.5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold">${popularLabel}</div>
-          </div>` : ''}
-        <div class="mb-8">
-          <h3 class="text-2xl mb-2 font-semibold">${p.name}</h3>
-          <p class="text-foreground/60 mb-6">${p.description}</p>
-          <div class="flex items-baseline gap-1 mb-1">
-            <span class="text-5xl font-bold">${p.price}</span>
-            <span class="text-foreground/60">/${p.period}</span>
-          </div>
-        </div>
-        <button class="w-full py-3.5 rounded-xl mb-8 transition-all font-medium ${p.popular ? 'bg-primary text-white shadow-primary-lg hover:shadow-primary-xl' : 'bg-muted text-foreground hover:bg-border'}">${p.cta}</button>
-        <div class="space-y-4">
-          ${p.features.map(feat => `
-            <div class="flex items-start gap-3">
-              <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${p.popular ? 'bg-primary/10' : 'bg-muted'}">
-                <i data-lucide="check" class="${p.popular ? 'text-primary' : 'text-foreground/60'}" style="font-size:0.875rem"></i>
-              </div>
-              <span class="text-foreground/80">${feat}</span>
-            </div>`).join('')}
+  function renderPricing() {
+    document.getElementById('pricing-grid').innerHTML = plans.map(p => {
+      const price = billingAnnual ? p.annualPrice : p.monthlyPrice;
+      const period = p.period === 'forever' ? 'forever' : (billingAnnual ? '/mo, billed annually' : '/mo');
+      return `
+    <div class="relative p-8 bg-white rounded-3xl border-2 transition-all duration-300 ${p.popular ? 'border-primary shadow-2xl shadow-primary/20' : 'border-border hover:border-primary/30 hover:shadow-lg'}">
+      ${p.popular ? `<div class="absolute -top-4 left-1/2 -translate-x-1/2"><div class="px-4 py-1.5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold">Most Popular</div></div>` : ''}
+      <div class="mb-6">
+        <h3 class="text-2xl mb-1 font-bold">${p.name}</h3>
+        <div class="flex items-baseline gap-1 mt-4 mb-1">
+          <span class="text-5xl font-bold">${price}</span>
+          <span class="text-foreground/50 text-sm">${period}</span>
         </div>
       </div>
-    `).join('');
-    lucide.createIcons();
+      <button onclick="window.openAuth && window.openAuth('signup')" class="w-full py-3 rounded-xl mb-6 transition-all font-semibold text-sm ${p.popular ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-foreground hover:bg-border'}">${p.cta}</button>
+      <div class="space-y-3">
+        ${p.features.map(feat => `
+          <div class="flex items-center gap-3">
+            <div class="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center ${p.popular ? 'bg-primary/10' : 'bg-muted'}">
+              <i data-lucide="check" class="${p.popular ? 'text-primary' : 'text-foreground/60'}" style="font-size:0.7rem"></i>
+            </div>
+            <span class="text-sm text-foreground/80">${feat}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+    }).join('');
+    if (window.lucide) lucide.createIcons();
   }
-  renderPricingGrid(localStorage.getItem('lockeen-lang') || 'en');
 
+  window.toggleBilling = function() {
+    billingAnnual = !billingAnnual;
+    const knob = document.getElementById('billing-toggle-knob');
+    const annLabel = document.getElementById('billing-annual-label');
+    const monLabel = document.getElementById('billing-monthly-label');
+    if (knob) knob.style.transform = billingAnnual ? 'translateX(22px)' : 'translateX(0)';
+    if (annLabel) annLabel.style.opacity = billingAnnual ? '1' : '0.5';
+    if (monLabel) monLabel.style.opacity = billingAnnual ? '0.5' : '1';
+    renderPricing();
+  };
+
+  renderPricing();
   const LOCKEEN_LANGS = {
     en: { flag:'🇬🇧', label:'English' },
     it: { flag:'🇮🇹', label:'Italiano' },
@@ -3342,60 +3300,29 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         </div>
       )}
 
-      {/* Recent activity: quizzes done + flashcard decks for this exam */}
-      {(examRuns.length > 0 || examFlashDecks.length > 0) && (
-        <section style={{ marginTop: 24, padding: 20, borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>🎯 Recent Activity</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Recent Quizzes</p>
-              {examRuns.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 12, color: 'var(--gray-2)' }}>No quizzes yet for this exam.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {examRuns.map((r) => (
-                    <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.1)' }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{r.score}%</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.chapterName || 'Quiz'}</div>
-                        <div style={{ fontSize: 11, color: 'var(--gray)' }}>{r.date} • {(r.questions || []).length} questions</div>
-                      </div>
-                      <button
-                        onClick={() => onOpenQuiz && onOpenQuiz({ noteId: exam.id, subject: exam.subject, title: r.chapterName || 'Quiz', questions: r.questions || [] })}
-                        style={{ padding: '6px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--indigo)', cursor: 'pointer', flexShrink: 0 }}
-                      >Retake</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Generated Flashcards</p>
-              {examFlashDecks.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 12, color: 'var(--gray-2)' }}>No flashcard decks yet for this exam.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {examFlashDecks.map((d) => (
-                    <div key={d.ts} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, background: '#F5F3FF', border: '1px solid rgba(139,92,246,.15)' }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--purple)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                        <Layers size={16} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</div>
-                        <div style={{ fontSize: 11, color: 'var(--gray)' }}>{(d.cards || []).length} cards{typeof d.lastScore === 'number' ? ` • ${d.lastScore}% mastered` : ''}</div>
-                      </div>
-                      <button
-                        onClick={() => onOpenFlashcards && onOpenFlashcards({ noteId: exam.id, subject: exam.subject, title: d.title, cards: d.cards || [] })}
-                        style={{ padding: '6px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--purple)', cursor: 'pointer', flexShrink: 0 }}
-                      >Open</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Aggregate stats: avg quiz score + flashcard session count */}
+      {(examRuns.length > 0 || examFlashDecks.length > 0) && (() => {
+        const avgScore = examRuns.length > 0 ? Math.round(examRuns.reduce((s, r) => s + r.score, 0) / examRuns.length) : null;
+        const flashSessions = examFlashDecks.length;
+        return (
+          <section style={{ marginTop: 24, padding: '16px 20px', borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', gap: 12 }}>
+            {avgScore !== null && (
+              <div style={{ flex: 1, padding: '14px 18px', borderRadius: 14, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.12)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--indigo)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Avg quiz score</span>
+                <span style={{ fontSize: 28, fontWeight: 800, color: 'var(--indigo)', letterSpacing: '-0.02em', lineHeight: 1 }}>{avgScore}%</span>
+                <span style={{ fontSize: 11, color: 'var(--gray)' }}>{examRuns.length} quiz{examRuns.length !== 1 ? 'zes' : ''} completed</span>
+              </div>
+            )}
+            {flashSessions > 0 && (
+              <div style={{ flex: 1, padding: '14px 18px', borderRadius: 14, background: '#F5F3FF', border: '1px solid rgba(139,92,246,.15)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--purple)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Flashcard sessions</span>
+                <span style={{ fontSize: 28, fontWeight: 800, color: 'var(--purple)', letterSpacing: '-0.02em', lineHeight: 1 }}>{flashSessions}</span>
+                <span style={{ fontSize: 11, color: 'var(--gray)' }}>deck{flashSessions !== 1 ? 's' : ''} completed</span>
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       {editingChapter && (
         <EditChapterModal
