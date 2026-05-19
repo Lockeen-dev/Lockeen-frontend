@@ -1064,7 +1064,7 @@
         Simple, <span class="gradient-text">transparent pricing</span>
       </h2>
       <p class="text-lg text-foreground/60" style="line-height:1.6">
-        Two plans. No hidden fees.
+        Three plans. No hidden fees.
       </p>
     </div>
 
@@ -1078,10 +1078,10 @@
       <span id="billing-annual-label" class="text-sm font-medium text-foreground/50">Annual <span class="text-xs font-bold text-emerald-600 ml-1">–20%</span></span>
     </div>
 
-    <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto" id="pricing-grid"></div>
+    <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto" id="pricing-grid"></div>
 
     <!-- Teams row -->
-    <div class="max-w-4xl mx-auto mt-6">
+    <div class="max-w-6xl mx-auto mt-6">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4 px-7 py-5 rounded-2xl border border-border bg-white">
         <div>
           <span class="font-semibold text-foreground">For schools &amp; teams</span>
@@ -1314,12 +1314,15 @@
     { name: 'Pro', monthlyPrice: '$12', annualPrice: '$10', period: '/mo',
       features: ['Unlimited quizzes & flashcards','Advanced AI Tutor (priority)','Analytics & Study Arena','Export, sharing & mobile app'],
       cta: 'Start Free Trial', popular: true },
+    { name: 'Lifetime', monthlyPrice: '$130', annualPrice: '$130', period: 'one-time', oneTime: true,
+      features: ['Pay once, use forever','All Pro features included','No recurring subscription','Future updates included'],
+      cta: 'Get Lifetime', popular: false },
   ];
 
   function renderPricing() {
     document.getElementById('pricing-grid').innerHTML = plans.map(p => {
       const price = billingAnnual ? p.annualPrice : p.monthlyPrice;
-      const period = p.period === 'forever' ? 'forever' : (billingAnnual ? '/mo, billed annually' : '/mo');
+      const period = p.period === 'forever' ? 'forever' : (p.oneTime ? 'one-time' : (billingAnnual ? '/mo, billed annually' : '/mo'));
       return `
     <div class="relative p-8 bg-white rounded-3xl border-2 transition-all duration-300 ${p.popular ? 'border-primary shadow-2xl shadow-primary/20' : 'border-border hover:border-primary/30 hover:shadow-lg'}">
       ${p.popular ? `<div class="absolute -top-4 left-1/2 -translate-x-1/2"><div class="px-4 py-1.5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold">Most Popular</div></div>` : ''}
