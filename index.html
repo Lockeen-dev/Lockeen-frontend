@@ -3221,6 +3221,18 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                 })()}
               </div>
               <div style={{ padding: 18 }}>
+                {x.priority && (() => {
+                  const p = x.priority;
+                  const pColor = p <= 2 ? '#10B981' : p === 3 ? '#F59E0B' : '#EF4444';
+                  const pBg = p <= 2 ? '#D1FAE5' : p === 3 ? '#FEF3C7' : '#FEE2E2';
+                  const pLabels = ['','Bassa','Media','Alta','Molto Alta','Critica'];
+                  return (
+                    <div style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:8, background:pBg, border:`1px solid ${pColor}30`, marginBottom:8 }}>
+                      <span style={{ width:6, height:6, borderRadius:'50%', background:pColor, flexShrink:0 }} />
+                      <span style={{ fontSize:10, fontWeight:700, color:pColor, lineHeight:1 }}>{pLabels[p]}</span>
+                    </div>
+                  );
+                })()}
                 <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, marginBottom:4 }}>
                   <h3 style={{ ...notesS.title, margin:0, flex:1 }}>{x.name}</h3>
                   <div style={{ display:'flex', gap:4, flexShrink:0 }}>
@@ -4816,6 +4828,7 @@ function CreateExamModal({ onClose, onCreate }) {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear]   = useState(today.getFullYear());
   const [emojiOverride, setEmojiOverride] = useState(null);
+  const [priority, setPriority] = useState(3);
 
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years  = [2025, 2026, 2027, 2028];
@@ -4840,6 +4853,7 @@ function CreateExamModal({ onClose, onCreate }) {
       date: iso,
       updated: 'Just now',
       targetGrade,
+      priority,
       emoji: displayEmoji,
       color: subjectPalette.bg,
       dot: subjectPalette.dot,
@@ -4871,6 +4885,18 @@ function CreateExamModal({ onClose, onCreate }) {
           {!emojiOverride && name.trim() && (
             <div style={{ fontSize:11, color:'var(--gray)', marginTop:4 }}>Emoji rilevata automaticamente · clicca per cambiare</div>
           )}
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={uploadS.label}>Priorità</label>
+          <div style={{ display:'flex', gap:6 }}>
+            {[{v:1,label:'Bassa'},{v:2,label:'Media'},{v:3,label:'Alta'},{v:4,label:'Molto Alta'},{v:5,label:'Critica'}].map(({ v, label }) => (
+              <button key={v} type="button" onClick={() => setPriority(v)}
+                style={{ flex:1, padding:'7px 4px', borderRadius:10, border:`1.5px solid ${priority === v ? 'var(--indigo)' : 'var(--border)'}`, background: priority === v ? 'var(--indigo)' : 'var(--surface)', color: priority === v ? '#fff' : 'var(--gray)', fontWeight:700, fontSize:11, cursor:'pointer', transition:'all .12s' }}>
+                {v} {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div style={uploadS.field}>
