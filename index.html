@@ -3147,6 +3147,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [showUpload, setShowUpload] = useState(false);
   const [readinessView, setReadinessView] = useState('exam');
   const [editingChapter, setEditingChapter] = useState(null);
+  const [pdfChapter, setPdfChapter] = useState(null);
   const examRuns = quizRuns.filter(r => r.examId === exam.id).slice(0, 5);
   const examFlashDecks = recentFlashDecks.filter(d => d.noteId === exam.id).slice(0, 5);
   const palette = getSubjectPalette(exam.subject, exam, darkMode);
@@ -3277,9 +3278,17 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setEditingChapter(n); }}
                   title="Edit chapter"
-                  style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,.9)', border: '1px solid var(--border)', cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--ink)' }}
+                  style={{ position: 'absolute', top: 10, right: 48, width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,.9)', border: '1px solid var(--border)', cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--ink)' }}
                 >
                   <Pencil size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setPdfChapter(n); }}
+                  title="Open PDF"
+                  style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 8, background: '#FEF2F2', border: '1px solid #FCA5A5', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#DC2626', fontSize: 14 }}
+                >
+                  📄
                 </button>
               </div>
               <div style={{ padding: 18 }}>
@@ -3329,6 +3338,12 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           onClose={() => setEditingChapter(null)}
           onSave={(newTitle) => { onEditChapter && onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
           onDelete={() => { onDeleteChapter && onDeleteChapter(editingChapter.id); setEditingChapter(null); }}
+        />
+      )}
+      {pdfChapter && (
+        <PDFModal
+          chapter={pdfChapter}
+          onClose={() => setPdfChapter(null)}
         />
       )}
       <section style={examS.readinessCard}>
@@ -3415,6 +3430,98 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+function PDFModal({ chapter, onClose }) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, chapter.pages || 8);
+  const title = chapter.title || chapter.name || 'Chapter';
+
+  useEffect(() => {
+    setPage(1);
+  }, [chapter.id]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1200,
+        display: 'grid',
+        placeItems: 'center',
+        padding: 18,
+        background: 'rgba(15,16,53,.45)'
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 'min(660px, 94vw)',
+          height: 'min(520px, 86vh)',
+          background: '#fff',
+          border: '1px solid var(--border)',
+          borderRadius: 20,
+          boxShadow: '0 24px 80px rgba(15,16,53,.25)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+            <div style={{ fontSize: 12, color: 'var(--gray)', marginTop: 2 }}>chapter.pdf</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            title="Close PDF"
+            style={{ width: 30, height: 30, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--gray)', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 18, lineHeight: 1 }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ flex: 1, background: '#E5E7EB', display: 'grid', placeItems: 'center', minHeight: 0 }}>
+          <div style={{ width: '72%', height: '90%', borderRadius: 6, background: '#fff', boxShadow: '0 12px 32px rgba(15,16,53,.18)', padding: 26, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ width: '42%', height: 14, borderRadius: 999, background: '#D1D5DB', marginBottom: 8 }} />
+            <div style={{ width: '100%', height: 8, borderRadius: 999, background: '#E5E7EB' }} />
+            <div style={{ width: '94%', height: 8, borderRadius: 999, background: '#E5E7EB' }} />
+            <div style={{ width: '88%', height: 8, borderRadius: 999, background: '#E5E7EB' }} />
+            <div style={{ width: '100%', height: 8, borderRadius: 999, background: '#E5E7EB', marginTop: 10 }} />
+            <div style={{ width: '76%', height: 8, borderRadius: 999, background: '#E5E7EB' }} />
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'end', marginTop: 14 }}>
+              <div style={{ height: '72%', borderRadius: 8, background: '#F3F4F6' }} />
+              <div style={{ height: '54%', borderRadius: 8, background: '#F3F4F6' }} />
+            </div>
+            <div style={{ width: '62%', height: 8, borderRadius: 999, background: '#E5E7EB' }} />
+            <div style={{ width: '84%', height: 8, borderRadius: 999, background: '#E5E7EB' }} />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '12px 18px', borderTop: '1px solid var(--border)' }}>
+          <button
+            type="button"
+            disabled={page === 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            style={{ width: 32, height: 32, borderRadius: 999, border: '1px solid var(--border)', background: page === 1 ? '#F3F4F6' : '#fff', color: page === 1 ? 'var(--gray-2)' : 'var(--ink)', cursor: page === 1 ? 'default' : 'pointer', fontSize: 20 }}
+          >
+            ‹
+          </button>
+          <div style={{ minWidth: 74, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{page} / {totalPages}</div>
+          <button
+            type="button"
+            disabled={page === totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            style={{ width: 32, height: 32, borderRadius: 999, border: '1px solid var(--border)', background: page === totalPages ? '#F3F4F6' : '#fff', color: page === totalPages ? 'var(--gray-2)' : 'var(--ink)', cursor: page === totalPages ? 'default' : 'pointer', fontSize: 20 }}
+          >
+            ›
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -3628,14 +3735,18 @@ function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFl
   const [correct, setCorrect] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [answered, setAnswered] = useState([]);
+  const [seen, setSeen] = useState(() => new Set([0]));
   const [done, setDone] = useState(false);
   const resultSavedRef = useRef(false);
+
+  const allSeen = seen.size >= total;
 
   const reset = () => {
     setIdx(0);
     setCorrect(0);
     setFlipped(false);
     setAnswered([]);
+    setSeen(new Set([0]));
     setDone(false);
     resultSavedRef.current = false;
   };
@@ -3667,6 +3778,7 @@ function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFl
 
   const goTo = (nextIdx) => {
     if (nextIdx < 0 || nextIdx >= total) return;
+    setSeen(prev => new Set([...prev, idx, nextIdx]));
     setIdx(nextIdx);
     setFlipped(answered[nextIdx] !== undefined);
   };
@@ -3676,14 +3788,15 @@ function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFl
     const nextAnswered = [...answered];
     nextAnswered[idx] = known;
     setAnswered(nextAnswered);
+    setSeen(prev => new Set([...prev, idx]));
     if (known) setCorrect((c) => c + 1);
     setTimeout(() => {
-      if (idx === total - 1) {
-        setDone(true);
-      } else {
+      if (idx < total - 1) {
+        setSeen(prev => new Set([...prev, idx + 1]));
         setIdx((i) => i + 1);
         setFlipped(false);
       }
+      // no auto-done — user must click Completa
     }, 350);
   };
 
@@ -3757,6 +3870,19 @@ function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFl
           <ChevronRight size={16} />
         </button>
       </div>
+
+      {!allSeen && (
+        <p style={{ textAlign:'center', fontSize:12, color:'var(--gray)', margin:0 }}>
+          Rivedi tutte le carte per continuare · {seen.size}/{total}
+        </p>
+      )}
+
+      <button
+        onClick={() => setDone(true)}
+        disabled={!allSeen}
+        style={{ width:'100%', borderRadius:14, padding:'14px 16px', fontWeight:700, fontSize:15, border:'none', cursor: allSeen ? 'pointer' : 'not-allowed', background: allSeen ? `linear-gradient(135deg, ${palette.dot} 0%, ${palette.dot}cc 100%)` : 'var(--border)', color: allSeen ? '#fff' : 'var(--gray)', opacity: allSeen ? 1 : 0.5, transition:'all .2s', boxShadow: allSeen ? `0 4px 14px ${palette.dot}44` : 'none' }}>
+        {allSeen ? '✓ Completa' : `Completa (${seen.size}/${total} carte viste)`}
+      </button>
     </div>
   );
 }
