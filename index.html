@@ -1227,26 +1227,83 @@
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
   // Features data
-  const features = [
-    { icon: 'zap',            title: 'AI Quiz Generator',  desc: 'Upload notes and instantly generate comprehensive quizzes tailored to your content.', bg: 'bg-primary/10',        ic: 'text-primary' },
-    { icon: 'brain',          title: 'Smart Flashcards',   desc: 'AI-powered flashcards that adapt to your learning pace and identify weak areas.',     bg: 'bg-purple-500/10',     ic: 'text-purple-500' },
-    { icon: 'message-square', title: 'AI Tutor',           desc: 'Ask questions and get instant, personalized explanations in any subject.',            bg: 'bg-cyan-500/10',       ic: 'text-cyan-500' },
-    { icon: 'calendar',       title: 'Exam Calendar',      desc: 'Schedule your exams, set deadlines, and never miss an important date with your personal study calendar.', bg: 'bg-primary/10',        ic: 'text-primary' },
-    { icon: 'file-text',      title: 'Smart Summaries',    desc: 'Get concise, AI-generated summaries of lengthy materials in seconds.',                bg: 'bg-orange-500/10',     ic: 'text-orange-500' },
-    { icon: 'trending-up',    title: 'Progress Tracking',  desc: 'Visualize your improvement with detailed analytics and insights.',                    bg: 'bg-pink-500/10',       ic: 'text-pink-500' },
+  const featureBase = [
+    { icon: 'zap',            bg: 'bg-primary/10',        ic: 'text-primary' },
+    { icon: 'brain',          bg: 'bg-purple-500/10',     ic: 'text-purple-500' },
+    { icon: 'message-square', bg: 'bg-cyan-500/10',       ic: 'text-cyan-500' },
+    { icon: 'calendar',       bg: 'bg-primary/10',        ic: 'text-primary' },
+    { icon: 'file-text',      bg: 'bg-orange-500/10',     ic: 'text-orange-500' },
+    { icon: 'trending-up',    bg: 'bg-pink-500/10',       ic: 'text-pink-500' },
   ];
-  document.getElementById('features-grid').innerHTML = features.map(f => `
-    <div class="group relative p-8 bg-gradient-to-br from-white to-muted rounded-3xl border border-border hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
-      <div class="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/0 group-hover:from-primary/5 group-hover:to-primary/0 rounded-3xl transition-all duration-300"></div>
-      <div class="relative">
-        <div class="w-14 h-14 ${f.bg} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-          <i data-lucide="${f.icon}" class="${f.ic}" style="font-size:1.75rem"></i>
+  const featureCopy = {
+    en: [
+      ['AI Quiz Generator', 'Upload notes and instantly generate comprehensive quizzes tailored to your content.'],
+      ['Smart Flashcards', 'AI-powered flashcards that adapt to your learning pace and identify weak areas.'],
+      ['AI Tutor', 'Ask questions and get instant, personalized explanations in any subject.'],
+      ['Exam Calendar', 'Schedule your exams, set deadlines, and never miss an important date with your personal study calendar.'],
+      ['Smart Summaries', 'Get concise, AI-generated summaries of lengthy materials in seconds.'],
+      ['Progress Tracking', 'Visualize your improvement with detailed analytics and insights.'],
+    ],
+    it: [
+      ['Generatore quiz AI', 'Carica gli appunti e genera subito quiz completi, adattati ai tuoi contenuti.'],
+      ['Flashcard intelligenti', 'Flashcard AI che si adattano al tuo ritmo e trovano le aree deboli.'],
+      ['Tutor AI', 'Fai domande e ricevi spiegazioni immediate e personalizzate in ogni materia.'],
+      ['Calendario esami', 'Organizza esami e scadenze, senza perdere date importanti nel tuo calendario studio.'],
+      ['Riassunti intelligenti', 'Ottieni riassunti AI chiari e brevi di materiali lunghi in pochi secondi.'],
+      ['Monitoraggio progressi', 'Visualizza i tuoi miglioramenti con analytics e insight dettagliati.'],
+    ],
+    de: [
+      ['KI-Quizgenerator', 'Lade Notizen hoch und erstelle sofort umfassende Quizze passend zu deinem Material.'],
+      ['Smarte Karteikarten', 'KI-Karteikarten passen sich deinem Lerntempo an und erkennen Schwachstellen.'],
+      ['KI-Tutor', 'Stelle Fragen und erhalte sofort persönliche Erklärungen in jedem Fach.'],
+      ['Prüfungskalender', 'Plane Prüfungen und Deadlines, damit du keine wichtigen Termine verpasst.'],
+      ['Smarte Zusammenfassungen', 'Erhalte kurze KI-Zusammenfassungen langer Materialien in Sekunden.'],
+      ['Fortschrittstracking', 'Sieh deinen Fortschritt mit detaillierten Analysen und Insights.'],
+    ],
+    es: [
+      ['Generador de quizzes IA', 'Sube apuntes y genera quizzes completos adaptados a tu contenido.'],
+      ['Flashcards inteligentes', 'Flashcards con IA que se adaptan a tu ritmo y detectan puntos débiles.'],
+      ['Tutor IA', 'Haz preguntas y recibe explicaciones instantáneas y personalizadas en cualquier materia.'],
+      ['Calendario de exámenes', 'Programa exámenes y fechas límite sin perder ninguna fecha importante.'],
+      ['Resúmenes inteligentes', 'Obtén resúmenes claros generados por IA de materiales largos en segundos.'],
+      ['Seguimiento del progreso', 'Visualiza tu mejora con analíticas e insights detallados.'],
+    ],
+    fr: [
+      ['Générateur de quiz IA', 'Importe tes notes et génère des quiz complets adaptés à ton contenu.'],
+      ['Flashcards intelligentes', 'Des flashcards IA qui s’adaptent à ton rythme et détectent tes points faibles.'],
+      ['Tuteur IA', 'Pose des questions et reçois des explications instantanées et personnalisées.'],
+      ['Calendrier d’examens', 'Planifie examens et échéances sans manquer de date importante.'],
+      ['Résumés intelligents', 'Obtiens des résumés IA clairs de longs documents en quelques secondes.'],
+      ['Suivi des progrès', 'Visualise tes progrès avec des analyses et insights détaillés.'],
+    ],
+    pt: [
+      ['Gerador de quizzes IA', 'Envia apontamentos e gera quizzes completos adaptados ao teu conteúdo.'],
+      ['Flashcards inteligentes', 'Flashcards com IA que se adaptam ao teu ritmo e identificam pontos fracos.'],
+      ['Tutor IA', 'Faz perguntas e recebe explicações imediatas e personalizadas em qualquer matéria.'],
+      ['Calendário de exames', 'Agenda exames e prazos sem perder datas importantes.'],
+      ['Resumos inteligentes', 'Obtém resumos claros gerados por IA de materiais longos em segundos.'],
+      ['Acompanhamento de progresso', 'Visualiza a tua evolução com analytics e insights detalhados.'],
+    ],
+  };
+  function renderFeatures(lang) {
+    const copy = featureCopy[lang] || featureCopy.en;
+    document.getElementById('features-grid').innerHTML = featureBase.map((f, i) => {
+      const title = copy[i][0];
+      const desc = copy[i][1];
+      return `
+      <div class="group relative p-8 bg-gradient-to-br from-white to-muted rounded-3xl border border-border hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
+        <div class="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/0 group-hover:from-primary/5 group-hover:to-primary/0 rounded-3xl transition-all duration-300"></div>
+        <div class="relative">
+          <div class="w-14 h-14 ${f.bg} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+            <i data-lucide="${f.icon}" class="${f.ic}" style="font-size:1.75rem"></i>
+          </div>
+          <h3 class="text-xl mb-3 font-semibold">${title}</h3>
+          <p class="text-foreground/70" style="line-height:1.6">${desc}</p>
         </div>
-        <h3 class="text-xl mb-3 font-semibold">${f.title}</h3>
-        <p class="text-foreground/70" style="line-height:1.6">${f.desc}</p>
-      </div>
-    </div>
-  `).join('');
+      </div>`;
+    }).join('');
+    if (window.lucide) lucide.createIcons();
+  }
 
   // Pricing data — simplified 2-plan layout
   let billingAnnual = false;
@@ -1365,10 +1422,11 @@
       const html = dict[el.getAttribute('data-i18n-html')];
       if (html) el.innerHTML = html;
     });
+    renderFeatures(safeLang);
   }
   window.setLockeenLanguage = function(lang) {
     applyLockeenLanguage(lang);
-    renderPricingGrid(lang);
+    renderPricing();
     if (window.lockeenApplyGlobalLanguage) window.lockeenApplyGlobalLanguage(lang);
     window.dispatchEvent(new CustomEvent('lockeen-language', { detail: { lang } }));
   };
