@@ -3053,7 +3053,6 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <button style={notesS.newBtn} onClick={() => setShowCreate(true)}><Plus size={16} /> {tt(lang, 'newExam')}</button>
-            {!isMobile && <button onClick={() => onOpenPlanner && onOpenPlanner(null)} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', background:'var(--indigo)', color:'#fff', borderRadius:10, fontSize:13, fontWeight:500, border:'none', cursor:'pointer' }}><Brain size={14} /> {tt(lang, 'studyPlan')}</button>}
           </div>
         </div>
         <div style={{ ...notesS.search, marginTop: 14, width: '100%', boxSizing: 'border-box' }}>
