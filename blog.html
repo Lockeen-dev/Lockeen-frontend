@@ -625,11 +625,8 @@ function renderGrid() {
       </div>
     </div>`).join('');
 
-  // Inject newsletter card after the first PAGE_SIZE articles when no search/filter narrows things
-  // Always append at the end of visible set when visibleCount <= PAGE_SIZE and we have >= 5 articles
-  if (visibleCount <= PAGE_SIZE && filtered.length >= 5) {
-    html += newsletterCard;
-  }
+  // Newsletter card always appended at end of visible articles
+  html += newsletterCard;
 
   grid.innerHTML = html;
 
