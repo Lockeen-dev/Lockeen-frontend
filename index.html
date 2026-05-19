@@ -3431,6 +3431,21 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
                     <Layers size={14} /> Flashcards
                   </button>
                 </div>
+                {(() => {
+                  const chRuns = quizRuns.filter(r => String(r.chapterId) === String(n.id));
+                  const lastRun = chRuns[0];
+                  if (!lastRun) return null;
+                  const sc = lastRun.score >= 80 ? '#10B981' : lastRun.score >= 60 ? '#F59E0B' : '#EF4444';
+                  return (
+                    <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: `${sc}12`, border: `1px solid ${sc}30`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: sc, lineHeight: 1 }}>{lastRun.score}%</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>Ultimo quiz</div>
+                        <div style={{ fontSize: 10, color: 'var(--gray)' }}>{lastRun.numQ} domande · {lastRun.date}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))}
@@ -3536,25 +3551,52 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       {(() => {
         const qh = quizHistory[exam.id] || [];
         const fh = flashHistory[exam.id] || [];
-        if (qh.length === 0 && fh.length === 0) return null;
-        const avg = (arr) => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
-        const last = (arr) => arr.length ? arr[arr.length-1] : null;
-        const badge = (arr, label) => (
-          <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14 }}>
-            <span style={{ fontSize:20 }}>{label === 'Quiz' ? '🧠' : '🃏'}</span>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>{label}</div>
-              <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>{arr.length} sessioni · Media {avg(arr)}% · Ultima {last(arr)}%</div>
-            </div>
-            <div style={{ fontSize:18, fontWeight:800, color: avg(arr) >= 80 ? '#10B981' : avg(arr) >= 60 ? '#F59E0B' : '#EF4444' }}>{avg(arr)}%</div>
-          </div>
-        );
+        const avgQ = qh.length ? Math.round(qh.reduce((a,b)=>a+b,0)/qh.length) : null;
+        const avgQColor = avgQ !== null ? (avgQ >= 80 ? '#10B981' : avgQ >= 60 ? '#F59E0B' : '#EF4444') : null;
+        const flashCount = fh.length;
         return (
           <div style={{ marginTop:28 }}>
             <h3 style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Storico attività</h3>
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {qh.length > 0 && badge(qh, 'Quiz')}
-              {fh.length > 0 && badge(fh, 'Flashcard')}
+            <div style={{ display:'flex', gap:10 }}>
+              {avgQ !== null ? (
+                <div style={{ flex:1, padding:'14px 16px', borderRadius:14, background:'var(--surface)', border:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12 }}>
+                  <span style={{ fontSize:20 }}>🧠</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>Quiz</div>
+                    <div style={{ fontSize:11, color:'var(--gray)', marginTop:2 }}>{qh.length} sessioni completate</div>
+                  </div>
+                  <div style={{ fontSize:20, fontWeight:800, color:avgQColor }}>{avgQ}%</div>
+                </div>
+              ) : (
+                <div style={{ flex:1, padding:'14px 16px', borderRadius:14, background:'var(--surface)', border:'1.5px dashed var(--border)', display:'flex', alignItems:'center', gap:12 }}>
+                  <span style={{ fontSize:20 }}>🧠</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12, color:'var(--gray)' }}>Nessun quiz ancora</div>
+                  </div>
+                  <button style={notesS.primarySmall} onClick={() => onOpenQuiz && onOpenQuiz({ noteId: exam.id, subject: exam.subject, title: exam.name, questions: (exam.chapters||[]).flatMap(c=>c.questions||[]) })}>
+                    <Sparkles size={13} /> Genera Quiz
+                  </button>
+                </div>
+              )}
+              {flashCount > 0 ? (
+                <div style={{ flex:1, padding:'14px 16px', borderRadius:14, background:'var(--surface)', border:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12 }}>
+                  <span style={{ fontSize:20 }}>🃏</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>Flashcard</div>
+                    <div style={{ fontSize:11, color:'var(--gray)', marginTop:2 }}>{flashCount} sessioni completate</div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ flex:1, padding:'14px 16px', borderRadius:14, background:'var(--surface)', border:'1.5px dashed var(--border)', display:'flex', alignItems:'center', gap:12 }}>
+                  <span style={{ fontSize:20 }}>🃏</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12, color:'var(--gray)' }}>Nessuna flashcard ancora</div>
+                  </div>
+                  <button style={notesS.ghostSmall} onClick={() => onOpenFlashcards && onOpenFlashcards({ noteId: exam.id, subject: exam.subject, title: exam.name, cards: (exam.chapters||[]).flatMap(c=>c.cards||[]) })}>
+                    <Layers size={13} /> Flashcard
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
