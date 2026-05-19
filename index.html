@@ -4024,30 +4024,45 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
     );
   }
 
-  const sL = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--gray)', marginBottom: 8 };
-  const pill = (active) => ({
-    padding: '7px 14px', borderRadius: 999,
-    border: `1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`,
-    background: active ? '#EEF2FF' : 'var(--surface)',
-    color: active ? 'var(--indigo)' : 'var(--gray)',
-    fontWeight: 600, fontSize: 13, cursor: 'pointer',
-  });
+  const isMobile = useIsMobile();
+  const DIFF = [
+    { id:'easy',    label:'Easy',    color:'#10B981', bg:'#ECFDF5', secs:60, desc:'60s / dom.' },
+    { id:'medium',  label:'Medium',  color:'#F59E0B', bg:'#FFFBEB', secs:30, desc:'30s / dom.' },
+    { id:'hard',    label:'Hard',    color:'#EF4444', bg:'#FEF2F2', secs:20, desc:'20s / dom.' },
+    { id:'extreme', label:'Extreme', color:'#64748B', bg:'#F8FAFC', secs:10, desc:'10s / dom.' },
+  ];
+
+  const secLabel = { fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.1em', color:'var(--gray-2)', marginBottom:10 };
+  const divider = { height:1, background:'var(--border)', margin:'0' };
 
   return (
-    <div>
-      <div style={{ maxWidth: 580, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 22 }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Quiz</h2>
+    <div style={{ maxWidth: 600, margin: '0 auto' }}>
 
-        {/* Exam selector */}
+      {/* Page header */}
+      <div style={{ marginBottom:24, display:'flex', alignItems:'flex-end', justifyContent:'space-between' }}>
         <div>
-          <div style={sL}>Esame</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <h2 style={{ margin:'0 0 3px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>Quiz</h2>
+          <p style={{ margin:0, fontSize:13, color:'var(--gray)' }}>
+            {selectedExam ? `${selectedExam.name} · ${maxQ > 0 ? effectiveNumQ + ' domande' : 'nessuna domanda'}` : 'Configura il tuo quiz'}
+          </p>
+        </div>
+      </div>
+
+      {/* Config card */}
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:22, overflow:'hidden', boxShadow:'0 2px 16px rgba(0,0,0,.04)', marginBottom:14 }}>
+
+        {/* 1 — Exam */}
+        <div style={{ padding:'20px 22px' }}>
+          <div style={secLabel}>Esame</div>
+          <div style={{ display:'flex', gap:8, overflowX:'auto', scrollbarWidth:'none', paddingBottom:2, WebkitOverflowScrolling:'touch' }}>
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
               const pal = getSubjectPalette(exam.subject, {}, darkMode);
+              const emoji = SUBJECT_EMOJI?.[exam.subject] || '📚';
               return (
                 <button key={exam.id} onClick={() => { setSelectedExamId(exam.id); setSelectedChapterId('all'); }}
-                  style={{ padding: '7px 14px', borderRadius: 999, border: `1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.bg : 'var(--surface)', color: active ? pal.text : 'var(--gray)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                  style={{ flexShrink:0, display:'inline-flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.bg : 'var(--surface)', color: active ? pal.text : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s', whiteSpace:'nowrap' }}>
+                  <span style={{ fontSize:13 }}>{emoji}</span>
                   {exam.name}
                 </button>
               );
@@ -4055,74 +4070,94 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
           </div>
         </div>
 
-        {/* Chapter selector */}
+        {/* 2 — Chapter */}
         {selectedExam && (
-          <div>
-            <div style={sL}>Capitolo</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <button onClick={() => setSelectedChapterId('all')} style={pill(selectedChapterId === 'all')}>
-                Intero esame <span style={{ opacity:0.55, fontSize:11 }}>· {selectedExam.chapters.flatMap(c => c.questions || []).length}</span>
-              </button>
-              {selectedExam.chapters.map(ch => (
-                <button key={ch.id} onClick={() => setSelectedChapterId(ch.id)} style={pill(selectedChapterId === ch.id)}>
-                  {ch.title} <span style={{ opacity:0.55, fontSize:11 }}>· {(ch.questions||[]).length}</span>
-                </button>
-              ))}
+          <>
+            <div style={divider} />
+            <div style={{ padding:'20px 22px' }}>
+              <div style={secLabel}>Capitolo</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+                {[{ id:'all', title:'Intero esame', qCount: selectedExam.chapters.flatMap(c => c.questions||[]).length }, ...selectedExam.chapters.map(ch => ({ id:ch.id, title:ch.title, qCount:(ch.questions||[]).length }))].map(ch => {
+                  const active = selectedChapterId === ch.id;
+                  return (
+                    <button key={ch.id} onClick={() => setSelectedChapterId(ch.id)}
+                      style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'7px 13px', borderRadius:999, border:`1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`, background: active ? 'var(--lavender)' : 'var(--surface)', color: active ? 'var(--indigo)' : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
+                      {ch.title}
+                      <span style={{ background: active ? 'var(--indigo)' : 'var(--border)', color: active ? '#fff' : 'var(--gray)', fontSize:10, fontWeight:800, borderRadius:999, padding:'1px 6px', lineHeight:1.5 }}>
+                        {ch.qCount}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </>
         )}
 
-        {/* Number of questions — hidden when no questions available */}
+        {/* 3 — Question count */}
         {maxQ > 0 && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={sL}>Domande</span>
-              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--indigo)' }}>{effectiveNumQ}</span>
+          <>
+            <div style={divider} />
+            <div style={{ padding:'20px 22px' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                <div style={secLabel}>Domande</div>
+                <span style={{ fontSize:12, color:'var(--gray)', fontWeight:500 }}>
+                  {maxQ < 20 && `Max disponibili: ${maxQ}`}
+                </span>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
+                {[5,10,15,20].map(n => {
+                  const disabled = n > maxQ;
+                  const active = numQ === n && !disabled;
+                  return (
+                    <button key={n} onClick={() => !disabled && setNumQ(n)} disabled={disabled}
+                      style={{ padding:'12px 4px', borderRadius:12, border:`1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`, background: active ? 'var(--lavender)' : 'var(--surface)', fontWeight:800, fontSize:18, color: active ? 'var(--indigo)' : disabled ? 'var(--border)' : 'var(--gray)', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                      {n}
+                      <span style={{ fontSize:9, fontWeight:600, color: active ? 'var(--indigo)' : 'var(--gray-2)', opacity: disabled ? 0 : 0.7 }}>dom.</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {[5, 10, 15, 20].map(n => {
-                const disabled = n > maxQ;
-                return (
-                  <button key={n} onClick={() => !disabled && setNumQ(n)} disabled={disabled}
-                    style={{ flex: 1, padding: '9px 4px', borderRadius: 10, border: `1.5px solid ${numQ === n && !disabled ? 'var(--indigo)' : 'var(--border)'}`, background: numQ === n && !disabled ? '#EEF2FF' : 'var(--surface)', fontWeight: 700, fontSize: 13, color: numQ === n && !disabled ? 'var(--indigo)' : 'var(--gray)', opacity: disabled ? 0.35 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>
-                    {n}
+          </>
+        )}
+
+        {/* 4 — Quick start */}
+        {maxQ > 0 && (
+          <>
+            <div style={divider} />
+            <div style={{ padding:'20px 22px' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                <div style={secLabel}>Avvio rapido</div>
+                <span style={{ fontSize:11, color:'var(--gray)' }}>inizia subito senza configurare</span>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
+                {DIFF.map(d => (
+                  <button key={d.id}
+                    onClick={() => startQuiz({ _autoStart:true, _difficulty:d.id })}
+                    style={{ padding:'14px 6px', borderRadius:14, border:`1.5px solid var(--border)`, background:'var(--surface)', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'all .15s' }}
+                    onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = d.color; el.style.background = d.bg; }}
+                    onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.background = 'var(--surface)'; }}>
+                    <div style={{ width:12, height:12, borderRadius:'50%', background:d.color, boxShadow:`0 0 0 3px ${d.color}25` }} />
+                    <div style={{ fontSize:12, fontWeight:700, color:'var(--ink)', lineHeight:1 }}>{d.label}</div>
+                    <div style={{ fontSize:10, color:'var(--gray)', fontWeight:500 }}>{d.desc}</div>
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
-
-        {/* Domande hint */}
-        {maxQ > 0 && maxQ < 20 && (
-          <p style={{ margin:'-10px 0 0', fontSize:11, color:'var(--gray)', textAlign:'right' }}>Max {maxQ} domande disponibili</p>
-        )}
-
-        {/* Difficulty quick-start */}
-        {maxQ > 0 && (
-          <div>
-            <div style={{ ...sL, marginBottom:10 }}>Avvio rapido</div>
-            <div style={{ display:'flex', gap:8 }}>
-              {[{id:'easy',label:'Easy',color:'#10B981'},{id:'medium',label:'Medium',color:'#F59E0B'},{id:'hard',label:'Hard',color:'#EF4444'},{id:'extreme',label:'Extreme',color:'#64748B'}].map(d => (
-                <button key={d.id} onClick={() => startQuiz({ _autoStart: true, _difficulty: d.id })}
-                  style={{ flex:1, padding:'12px 4px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', fontWeight:600, fontSize:12, color:'var(--gray)', cursor:'pointer', textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center', gap:6, transition:'border-color .15s, background .15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = d.color; e.currentTarget.style.background = d.color+'12'; e.currentTarget.style.color = d.color; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.color = 'var(--gray)'; }}>
-                  <div style={{ width:10, height:10, borderRadius:'50%', background:d.color }} />
-                  <div>{d.label}</div>
-                </button>
-              ))}
-            </div>
-            <p style={{ fontSize:11, color:'var(--gray)', margin:'6px 0 0', textAlign:'center' }}>Avvio immediato senza configurazione</p>
-          </div>
-        )}
-
-        {/* Start Quiz */}
-        <button onClick={() => startQuiz()} disabled={maxQ === 0}
-          style={{ width: '100%', borderRadius: 14, padding: '15px 16px', background: maxQ > 0 ? 'var(--indigo)' : '#CBD5E1', color: '#fff', fontWeight: 700, fontSize: 15, cursor: maxQ > 0 ? 'pointer' : 'not-allowed' }}>
-          Inizia Quiz
-        </button>
       </div>
+
+      {/* Start button */}
+      <button onClick={() => startQuiz()} disabled={maxQ === 0}
+        style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 ? 'linear-gradient(135deg, var(--indigo) 0%, #5B53F0 100%)' : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 ? '0 4px 16px rgba(55,48,232,.35)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
+        onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.9'; }}
+        onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}>
+        Inizia Quiz
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
+    </div>
 
       {/* Past quiz runs */}
       {filteredRuns.length > 0 && (
