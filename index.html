@@ -3997,10 +3997,10 @@ const flashS = {
   emptyWrap: { maxWidth: 480, minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
 };
 
-function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = false, initialDifficulty = 'medium' }) {
+function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = true, initialDifficulty = 'medium', timerOn: initialTimerOn = false, timerSecs: initialTimerSecs = 30 }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const total = questions.length;
-  const [started, setStarted] = useState(autoStart);
+  const [started, setStarted] = useState(true);
   const autoStartHandled = useRef(false);
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -4008,9 +4008,9 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
   const [pendingIdx, setPendingIdx] = useState(null);
   const DIFF_OPTIONS = [{id:'easy',label:'Easy',color:'#10B981',secs:60},{id:'medium',label:'Medium',color:'#F59E0B',secs:30},{id:'hard',label:'Hard',color:'#EF4444',secs:20},{id:'extreme',label:'Extreme',color:'#64748B',secs:10}];
   const initDiff = DIFF_OPTIONS.find(d => d.id === initialDifficulty) ? initialDifficulty : 'medium';
-  const initSecs = DIFF_OPTIONS.find(d => d.id === initDiff)?.secs || 30;
+  const initSecs = Math.max(5, Math.min(300, Number(initialTimerSecs) || (DIFF_OPTIONS.find(d => d.id === initDiff)?.secs || 30)));
   const [difficulty, setDifficulty] = useState(initDiff);
-  const [timerOn, setTimerOn] = useState(autoStart && !!initialDifficulty);
+  const [timerOn, setTimerOn] = useState(!!initialTimerOn);
   const [timerSecs, setTimerSecs] = useState(initSecs);
   const [timerVal, setTimerVal] = useState(initSecs);
   const timerID = useRef(null);
@@ -4027,15 +4027,15 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
 
   const resetAll = () => {
     stopTimer();
-    setStarted(false);
+    setStarted(true);
     setIdx(0);
     setCorrect(0);
     setSelected(null);
     setPendingIdx(null);
-    setTimerOn(false);
-    setTimerSecs(30);
-    setTimerVal(30);
-    setDifficulty('medium');
+    setTimerOn(!!initialTimerOn);
+    setTimerSecs(initSecs);
+    setTimerVal(initSecs);
+    setDifficulty(initDiff);
     setDone(false);
     resultSavedRef.current = false;
     userAnswers.current = [];
@@ -4055,6 +4055,12 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
   };
 
   useEffect(() => () => stopTimer(), []);
+  useEffect(() => {
+    setDifficulty(initDiff);
+    setTimerOn(!!initialTimerOn);
+    setTimerSecs(initSecs);
+    setTimerVal(initSecs);
+  }, [initDiff, initialTimerOn, initSecs]);
   useEffect(() => {
     if (autoStart && !autoStartHandled.current) {
       autoStartHandled.current = true;
@@ -4088,16 +4094,6 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
     }, 1000);
   };
 
-  const startQuiz = () => {
-    setStarted(true);
-    setIdx(0);
-    setCorrect(0);
-    setSelected(null);
-    setPendingIdx(null);
-    setDone(false);
-    setTimeout(startTimer, 0);
-  };
-
   const handleSelect = (i) => {
     if (selected !== null || pendingIdx !== null) return;
     setPendingIdx(i);
@@ -4129,58 +4125,6 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
         <h2 style={quizS.resultTitle}>No quiz yet</h2>
         <p style={quizS.resultSub}>{title}</p>
         <button onClick={() => setTab(backTo)} style={quizS.backBtn}>Back to Study</button>
-      </div>
-    );
-  }
-
-  if (!started) {
-    return (
-      <div style={quizS.startWrap}>
-        <div style={quizS.startHead}>
-          <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
-          <h2 style={quizS.startTitle}>{title}</h2>
-          <p style={quizS.startSub}>{total} questions · {subject}</p>
-        </div>
-        <div style={{ marginBottom:16 }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:'var(--gray)', letterSpacing:'0.05em', textTransform:'uppercase' }}>Difficoltà domande</div>
-            <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>filtro AI disponibile presto</span>
-          </div>
-          <div style={{ display:'flex', gap:8 }}>
-            {DIFF_OPTIONS.map(d => (
-              <button key={d.id} onClick={() => setDifficulty(d.id)}
-                style={{ flex:1, padding:'10px 6px', borderRadius:12, border:`2px solid ${difficulty===d.id?d.color:'var(--border)'}`, background:difficulty===d.id?d.color+'18':'var(--surface)', color:difficulty===d.id?d.color:'var(--gray)', fontWeight:700, fontSize:11, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:5, transition:'all .15s' }}>
-                <div style={{ width:10, height:10, borderRadius:'50%', background:d.color, flexShrink:0 }} />
-                <span>{d.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={quizS.timerCard}>
-          <div style={quizS.timerTop}>
-            <span style={quizS.timerLabel}><Clock size={16} /> Timer per domanda</span>
-            <button onClick={() => setTimerOn((v) => !v)} style={{ ...quizS.toggle, ...(timerOn ? quizS.toggleOn : null) }}>
-              <span style={{ ...quizS.toggleKnob, ...(timerOn ? quizS.toggleKnobOn : null) }} />
-            </button>
-          </div>
-          {timerOn && (
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:10 }}>
-              <input type="number" min="5" max="300" value={timerSecs}
-                onChange={e => { const v = Math.max(5, Math.min(300, Number(e.target.value)||5)); setTimerSecs(v); setTimerVal(v); }}
-                style={{ width:70, padding:'7px 10px', borderRadius:10, border:'1.5px solid var(--border)', background:'var(--sidebar-bg)', color:'var(--ink)', fontSize:15, fontWeight:700, fontFamily:'inherit', textAlign:'center', outline:'none' }} />
-              <span style={{fontSize:12, color:'var(--gray)'}}>secondi</span>
-              <div style={{display:'flex', gap:4, marginLeft:'auto'}}>
-                {[15,30,60,90].map(s => (
-                  <button key={s} onClick={() => { setTimerSecs(s); setTimerVal(s); }}
-                    style={{padding:'5px 9px', borderRadius:8, border:`1.5px solid ${timerSecs===s?palette.dot:'var(--border)'}`, background:timerSecs===s?palette.bg:'transparent', color:timerSecs===s?palette.text:'var(--gray)', fontSize:11, fontWeight:700, cursor:'pointer'}}>
-                    {s}s
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        <button onClick={startQuiz} style={{ ...quizS.startBtn, background: palette.dot }}>Start Quiz</button>
       </div>
     );
   }
@@ -4364,6 +4308,9 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
   const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? exams[0]?.id ?? null);
   const [selectedChapterId, setSelectedChapterId] = useState('all');
   const [numQ, setNumQ] = useState(10);
+  const [selectedDiff, setSelectedDiff] = useState('medium');
+  const [timerOn, setTimerOn] = useState(false);
+  const [timerSecs, setTimerSecs] = useState(30);
   const [activeDeck, setActiveDeck] = useState(deck && deck.questions && deck.questions.length > 0 ? deck : null);
   const [reviewRun, setReviewRun] = useState(null);
 
@@ -4396,6 +4343,8 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
       _meta: { examId, examName: exam?.name || '', chapterId, chapterName, numQ: Math.min(n, qs.length) },
       _autoStart: overrides._autoStart || false,
       _difficulty: overrides._difficulty || null,
+      _timerOn: overrides._timerOn || false,
+      _timerSecs: overrides._timerSecs || 30,
     });
   };
 
@@ -4424,8 +4373,10 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
         darkMode={darkMode}
         onQuizComplete={handleQuizComplete}
         backTo="quiz"
-        autoStart={!!activeDeck._autoStart}
+        autoStart={true}
         initialDifficulty={activeDeck._difficulty || 'medium'}
+        timerOn={!!activeDeck._timerOn}
+        timerSecs={activeDeck._timerSecs || 30}
       />
     );
   }
@@ -4539,12 +4490,12 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
                 {DIFF.map(d => (
                   <button key={d.id}
-                    onClick={() => startQuiz({ _autoStart:false, _difficulty:d.id })}
-                    style={{ padding:'14px 6px', borderRadius:14, border:`1.5px solid var(--border)`, background:'var(--surface)', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'all .15s' }}
+                    onClick={() => setSelectedDiff(d.id)}
+                    style={{ padding:'14px 6px', borderRadius:14, border:`1.5px solid ${selectedDiff === d.id ? d.color : 'var(--border)'}`, background:selectedDiff === d.id ? d.bg : 'var(--surface)', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'all .15s' }}
                     onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = d.color; el.style.background = d.bg; }}
-                    onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.background = 'var(--surface)'; }}>
+                    onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = selectedDiff === d.id ? d.color : 'var(--border)'; el.style.background = selectedDiff === d.id ? d.bg : 'var(--surface)'; }}>
                     <div style={{ width:12, height:12, borderRadius:'50%', background:d.color, boxShadow:`0 0 0 3px ${d.color}25` }} />
-                    <div style={{ fontSize:12, fontWeight:700, color:'var(--ink)', lineHeight:1 }}>{d.label}</div>
+                    <div style={{ fontSize:12, fontWeight:700, color:selectedDiff === d.id ? d.color : 'var(--ink)', lineHeight:1 }}>{d.label}</div>
                     <div style={{ fontSize:10, color:'var(--gray)', fontWeight:500 }}>{d.desc}</div>
                   </button>
                 ))}
@@ -4552,10 +4503,46 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
             </div>
           </>
         )}
+
+        {/* 5 — Timer */}
+        {maxQ > 0 && (
+          <>
+            <div style={divider} />
+            <div style={{ padding:'20px 22px' }}>
+              <div style={quizS.timerCard}>
+                <div style={quizS.timerTop}>
+                  <span style={quizS.timerLabel}><Clock size={16} /> Timer per domanda</span>
+                  <button onClick={() => setTimerOn((v) => !v)} style={{ ...quizS.toggle, ...(timerOn ? quizS.toggleOn : null) }}>
+                    <span style={{ ...quizS.toggleKnob, ...(timerOn ? quizS.toggleKnobOn : null) }} />
+                  </button>
+                </div>
+                {timerOn && (
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:10 }}>
+                    <input type="number" min="5" max="300" value={timerSecs}
+                      onChange={e => { const v = Math.max(5, Math.min(300, Number(e.target.value)||5)); setTimerSecs(v); }}
+                      style={{ width:70, padding:'7px 10px', borderRadius:10, border:'1.5px solid var(--border)', background:'var(--sidebar-bg)', color:'var(--ink)', fontSize:15, fontWeight:700, fontFamily:'inherit', textAlign:'center', outline:'none' }} />
+                    <span style={{fontSize:12, color:'var(--gray)'}}>secondi</span>
+                    <div style={{display:'flex', gap:4, marginLeft:'auto'}}>
+                      {[15,30,60,90].map(s => {
+                        const diff = DIFF.find(d => d.id === selectedDiff) || DIFF[1];
+                        return (
+                          <button key={s} onClick={() => setTimerSecs(s)}
+                            style={{padding:'5px 9px', borderRadius:8, border:`1.5px solid ${timerSecs===s?diff.color:'var(--border)'}`, background:timerSecs===s?diff.bg:'transparent', color:timerSecs===s?diff.color:'var(--gray)', fontSize:11, fontWeight:700, cursor:'pointer'}}>
+                            {s}s
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Start button */}
-      <button onClick={() => startQuiz()} disabled={maxQ === 0}
+      <button onClick={() => startQuiz({ _autoStart:true, _difficulty:selectedDiff, _timerOn:timerOn, _timerSecs:timerSecs })} disabled={maxQ === 0}
         style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 ? 'linear-gradient(135deg, var(--indigo) 0%, #5B53F0 100%)' : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 ? '0 4px 16px rgba(55,48,232,.35)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
         onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.9'; }}
         onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}>
@@ -5914,6 +5901,8 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const [modalName, setModalName]   = useState('');
   const [modalTime, setModalTime]   = useState('09:00');
   const [modalDur, setModalDur]     = useState('1h');
+  const [customH, setCustomH]       = useState(0);
+  const [customM, setCustomM]       = useState(30);
   const [drag, setDrag]             = useState(null);
   const [viewDropOpen, setViewDropOpen] = useState(false);
   const dragMeta   = useRef({});
@@ -6037,7 +6026,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     else { setViewMonth(m => { if (m === 11) { setViewYear(y => y+1); return 0; } return m+1; }); }
   };
 
-  const openModal = (key, time = '09:00') => { setModalKey(key); setSelCat('study'); setSelNoteId(null); setModalName(''); setModalTime(time); setModalDur('1h'); };
+  const openModal = (key, time = '09:00') => { setModalKey(key); setSelCat('study'); setSelNoteId(null); setModalName(''); setModalTime(time); setModalDur('1h'); setCustomH(0); setCustomM(30); };
   const closeModal = () => setModalKey(null);
   const openDayDetail = (key) => setDayDetailKey(key);
   const closeDayDetail = () => setDayDetailKey(null);
@@ -6066,7 +6055,10 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     const noteSubject = selCat === 'study' && selNoteId
       ? Object.keys(SUBJECT_NOTE_MAP).find(s => SUBJECT_NOTE_MAP[s].noteId === selNoteId) || null : null;
     const noteInfo = noteSubject ? SUBJECT_NOTE_MAP[noteSubject] : null;
-    const ev = { name: modalName, time: modalTime, dur: modalDur, cat: selCat,
+    const h = Math.max(0, Math.min(12, Number(customH) || 0));
+    const m = Math.max(0, Math.min(59, Number(customM) || 0));
+    const customDur = h && m ? `${h}h${m}m` : h ? `${h}h` : `${m}m`;
+    const ev = { name: modalName, time: modalTime, dur: modalDur === 'Custom' ? customDur : modalDur, cat: selCat,
       noteId: selCat === 'study' ? selNoteId : null,
       noteColor: noteInfo?.color || null, noteBg: noteInfo?.bg || null,
       noteText: noteInfo?.text || null, noteSubject };
@@ -6325,8 +6317,22 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
             <div style={{ flex:1 }}><label style={calS.modalLabel}>Start time</label><input type="time" value={modalTime} onChange={e => setModalTime(e.target.value)} style={calS.modalInput} /></div>
             <div style={{ flex:1 }}><label style={calS.modalLabel}>Duration</label>
               <select value={modalDur} onChange={e => setModalDur(e.target.value)} style={calS.modalInput}>
-                {['15m','30m','45m','1h','1h30m','2h','3h'].map(d => <option key={d} value={d}>{d}</option>)}
+                {['15m','30m','45m','1h','1h30m','2h','3h','Custom'].map(d => <option key={d} value={d}>{d}</option>)}
               </select>
+              {modalDur === 'Custom' && (
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8 }}>
+                  <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--gray)', fontWeight:700 }}>
+                    <input type="number" min="0" max="12" value={customH}
+                      onChange={e => setCustomH(Math.max(0, Math.min(12, Number(e.target.value) || 0)))}
+                      style={{ ...calS.modalInput, padding:'8px 10px', textAlign:'center' }} />h
+                  </label>
+                  <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--gray)', fontWeight:700 }}>
+                    <input type="number" min="0" max="59" value={customM}
+                      onChange={e => setCustomM(Math.max(0, Math.min(59, Number(e.target.value) || 0)))}
+                      style={{ ...calS.modalInput, padding:'8px 10px', textAlign:'center' }} />m
+                  </label>
+                </div>
+              )}
             </div>
           </div>
           <div style={{ marginBottom:16 }}>
