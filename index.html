@@ -3312,12 +3312,15 @@ function EmojiPickerButton({ emoji, dot, bg, size = 60, onPick }) {
         {emoji}
       </button>
       {open && (
-        <div style={{ position:'absolute', top:'calc(100% + 8px)', left:'50%', transform:'translateX(-50%)', zIndex:999, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,.14)', padding:10, width:220 }}>
+        <div style={{ position:'fixed', zIndex:9999, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,.18)', padding:12, width:248,
+          top: (() => { const r = ref.current?.getBoundingClientRect(); if (!r) return 0; return r.bottom + 8 + 200 > window.innerHeight ? r.top - 210 : r.bottom + 8; })(),
+          left: (() => { const r = ref.current?.getBoundingClientRect(); if (!r) return 0; return Math.max(8, Math.min(r.left - 80, window.innerWidth - 256)); })()
+        }}>
           <div style={{ fontSize:10, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:8 }}>Scegli emoji</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(10,1fr)', gap:2 }}>
             {EMOJI_PICKER.map(e => (
               <button key={e} type="button" onClick={() => { onPick(e); setOpen(false); }}
-                style={{ fontSize:16, padding:'4px 2px', borderRadius:6, border:'none', background: e===emoji ? dot+'22' : 'transparent', cursor:'pointer', transition:'background .1s' }}
+                style={{ fontSize:17, padding:'5px 2px', borderRadius:6, border:'none', background: e===emoji ? dot+'22' : 'transparent', cursor:'pointer', transition:'background .1s' }}
                 onMouseEnter={ev => ev.currentTarget.style.background=dot+'22'}
                 onMouseLeave={ev => ev.currentTarget.style.background= e===emoji ? dot+'22' : 'transparent'}>
                 {e}
