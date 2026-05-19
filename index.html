@@ -2905,8 +2905,14 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
           return (
             <div key={x.id} style={notesS.card}>
               <div style={{ ...notesS.cover, background: palette.bg }}>
-                <div style={{ ...notesS.coverDot, background: palette.dot, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-                  <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 30, height: 30, objectFit: 'contain', display: 'block' }} />
+                <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-58%)', zIndex:2 }}>
+                  <EmojiPickerButton
+                    emoji={getExamEmoji(x)}
+                    dot={palette.dot}
+                    bg={palette.bg}
+                    size={64}
+                    onPick={(emoji) => setExams(prev => prev.map(e => e.id === x.id ? { ...e, emoji } : e))}
+                  />
                 </div>
                 {x.date && (() => {
                   const dl = daysLeft(x.date);
@@ -3273,6 +3279,56 @@ const SUBJECT_EMOJI = {
   Biology: '🧬', Chemistry: '⚗️', Math: '📐', History: '📜',
   Literature: '📖', Physics: '⚛️', Economics: '📊', default: '📚'
 };
+
+const EMOJI_PICKER = [
+  '📚','📖','📝','✏️','📐','📏','🔬','🧬','⚗️','🧪',
+  '⚛️','🔭','📊','📈','💰','🏛️','🌍','🗺️','🎨','🎭',
+  '🎵','💻','🤖','🧠','🔐','📜','⚔️','🏺','🎓','🌿',
+  '🌊','🔥','❄️','☀️','🌙','⭐','🦁','🦋','🏔️','🌋',
+  '🍎','🧲','⚙️','🔑','💡','🌐','🏋️','🎯','🚀','🧩',
+];
+
+function getExamEmoji(exam) {
+  if (exam.emoji) return exam.emoji;
+  return SUBJECT_EMOJI[exam.subject] || SUBJECT_EMOJI.default;
+}
+
+function EmojiPickerButton({ emoji, dot, bg, size = 60, onPick }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+  return (
+    <div ref={ref} style={{ position:'relative', display:'inline-block' }}>
+      <button type="button" onClick={() => setOpen(v => !v)}
+        title="Cambia emoji"
+        style={{ width:size, height:size, borderRadius:size*0.27, background: bg || (dot+'22'), border:`2px solid ${dot}40`, display:'grid', placeItems:'center', cursor:'pointer', transition:'transform .15s', fontSize:size*0.48, lineHeight:1 }}
+        onMouseEnter={e => e.currentTarget.style.transform='scale(1.08)'}
+        onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
+        {emoji}
+      </button>
+      {open && (
+        <div style={{ position:'absolute', top:'calc(100% + 8px)', left:'50%', transform:'translateX(-50%)', zIndex:999, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,.14)', padding:10, width:220 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:8 }}>Scegli emoji</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(10,1fr)', gap:2 }}>
+            {EMOJI_PICKER.map(e => (
+              <button key={e} type="button" onClick={() => { onPick(e); setOpen(false); }}
+                style={{ fontSize:16, padding:'4px 2px', borderRadius:6, border:'none', background: e===emoji ? dot+'22' : 'transparent', cursor:'pointer', transition:'background .1s' }}
+                onMouseEnter={ev => ev.currentTarget.style.background=dot+'22'}
+                onMouseLeave={ev => ev.currentTarget.style.background= e===emoji ? dot+'22' : 'transparent'}>
+                {e}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SubjectIcon({ subject, size = 44, radius = 12, dot }) {
   const emoji = SUBJECT_EMOJI[subject] || SUBJECT_EMOJI.default;
@@ -4239,6 +4295,7 @@ function DeleteExamModal({ exam, onClose, onConfirm }) {
 function EditExamModal({ exam, onClose, onSave }) {
   const [name, setName] = useState(exam.name || '');
   const [targetGrade, setTargetGrade] = useState(exam.targetGrade || 27);
+  const [emoji, setEmoji] = useState(getExamEmoji(exam));
   const parsedDate = exam.date ? new Date(exam.date + 'T12:00:00') : new Date();
   const [day, setDay]     = useState(parsedDate.getDate());
   const [month, setMonth] = useState(parsedDate.getMonth() + 1);
@@ -4255,7 +4312,7 @@ function EditExamModal({ exam, onClose, onSave }) {
     if (!name.trim()) return;
     const lastDay = new Date(year, month, 0).getDate();
     const safeDay = Math.min(Number(day), lastDay);
-    onSave({ name: name.trim(), date: `${year}-${pad(month)}-${pad(safeDay)}`, targetGrade });
+    onSave({ name: name.trim(), date: `${year}-${pad(month)}-${pad(safeDay)}`, targetGrade, emoji });
   };
 
   return (
@@ -4266,7 +4323,16 @@ function EditExamModal({ exam, onClose, onSave }) {
 
         <div style={uploadS.field}>
           <label style={uploadS.label}>Nome esame</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} style={uploadS.input} autoFocus />
+          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+            <EmojiPickerButton
+              emoji={emoji}
+              dot={palette.dot}
+              bg={palette.bg}
+              size={48}
+              onPick={setEmoji}
+            />
+            <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
+          </div>
         </div>
 
         <div style={uploadS.field}>
@@ -4323,6 +4389,7 @@ function CreateExamModal({ onClose, onCreate }) {
   const [day, setDay]     = useState(today.getDate());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear]   = useState(today.getFullYear());
+  const [emojiOverride, setEmojiOverride] = useState(null);
 
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years  = [2025, 2026, 2027, 2028];
@@ -4331,6 +4398,8 @@ function CreateExamModal({ onClose, onCreate }) {
   const inferredSubject = inferSubjectFromName(subjectName);
   const subjectPalette = getSubjectPalette(inferredSubject, EXTRA_SUBJECT_COLORS.Other);
   const targetPct = ((targetGrade - 18) / 12) * 100;
+  const autoEmoji = SUBJECT_EMOJI[inferredSubject] || SUBJECT_EMOJI.default;
+  const displayEmoji = emojiOverride || autoEmoji;
 
   const submit = (e) => {
     if (e) e.preventDefault();
@@ -4345,6 +4414,7 @@ function CreateExamModal({ onClose, onCreate }) {
       date: iso,
       updated: 'Just now',
       targetGrade,
+      emoji: displayEmoji,
       color: subjectPalette.bg,
       dot: subjectPalette.dot,
       chapters: []
@@ -4362,7 +4432,19 @@ function CreateExamModal({ onClose, onCreate }) {
 
         <div style={uploadS.field}>
           <label style={uploadS.label}>Exam name</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Biology Final 2024" style={uploadS.input} autoFocus />
+          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+            <EmojiPickerButton
+              emoji={displayEmoji}
+              dot={subjectPalette.dot}
+              bg={subjectPalette.bg}
+              size={48}
+              onPick={(e) => setEmojiOverride(e)}
+            />
+            <input value={name} onChange={(e) => { setName(e.target.value); setEmojiOverride(null); }} placeholder="es. Biologia 2024" style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
+          </div>
+          {!emojiOverride && name.trim() && (
+            <div style={{ fontSize:11, color:'var(--gray)', marginTop:4 }}>Emoji rilevata automaticamente · clicca per cambiare</div>
+          )}
         </div>
 
         <div style={uploadS.field}>
