@@ -308,30 +308,94 @@
 </section>
 
 <!-- ============ TRUST ============ -->
-<section class="py-16 border-y border-border bg-muted/30">
-  <div class="max-w-7xl mx-auto px-6 lg:px-8">
-    <div class="text-center mb-12">
-      <p class="text-sm uppercase tracking-wider text-foreground/50 mb-8">Trusted by students worldwide</p>
+<style>
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee-scroll 28s linear infinite;
+  }
+  .marquee-track:hover { animation-play-state: paused; }
+  .marquee-wrapper {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  }
+  .uni-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    margin: 0 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,0,0,0.08);
+    background: white;
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: rgba(0,0,0,0.55);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    transition: color 0.2s;
+  }
+  .uni-pill:hover { color: rgba(0,0,0,0.85); }
+</style>
+<section class="py-14 border-y border-border bg-muted/30">
+  <div class="text-center mb-8 px-6">
+    <p class="text-sm uppercase tracking-widest text-foreground/40 font-medium">Trusted by students at the world's top universities</p>
+  </div>
+  <div class="marquee-wrapper">
+    <div class="marquee-track">
+      <!-- set 1 -->
+      <span class="uni-pill">🎓 Stanford</span>
+      <span class="uni-pill">🎓 Harvard</span>
+      <span class="uni-pill">🎓 MIT</span>
+      <span class="uni-pill">🎓 Oxford</span>
+      <span class="uni-pill">🎓 Cambridge</span>
+      <span class="uni-pill">🎓 Bocconi</span>
+      <span class="uni-pill">🎓 HEC Paris</span>
+      <span class="uni-pill">🎓 Sciences Po</span>
+      <span class="uni-pill">🎓 LMU Munich</span>
+      <span class="uni-pill">🎓 Sapienza</span>
+      <span class="uni-pill">🎓 ETH Zurich</span>
+      <span class="uni-pill">🎓 Columbia</span>
+      <span class="uni-pill">🎓 Princeton</span>
+      <span class="uni-pill">🎓 LSE</span>
+      <span class="uni-pill">🎓 ESADE</span>
+      <span class="uni-pill">🎓 Politecnico di Milano</span>
+      <!-- set 2 (duplicate for seamless loop) -->
+      <span class="uni-pill">🎓 Stanford</span>
+      <span class="uni-pill">🎓 Harvard</span>
+      <span class="uni-pill">🎓 MIT</span>
+      <span class="uni-pill">🎓 Oxford</span>
+      <span class="uni-pill">🎓 Cambridge</span>
+      <span class="uni-pill">🎓 Bocconi</span>
+      <span class="uni-pill">🎓 HEC Paris</span>
+      <span class="uni-pill">🎓 Sciences Po</span>
+      <span class="uni-pill">🎓 LMU Munich</span>
+      <span class="uni-pill">🎓 Sapienza</span>
+      <span class="uni-pill">🎓 ETH Zurich</span>
+      <span class="uni-pill">🎓 Columbia</span>
+      <span class="uni-pill">🎓 Princeton</span>
+      <span class="uni-pill">🎓 LSE</span>
+      <span class="uni-pill">🎓 ESADE</span>
+      <span class="uni-pill">🎓 Politecnico di Milano</span>
     </div>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-12 items-center">
-      <div class="flex items-center justify-center"><div class="text-2xl font-bold text-foreground/40">MIT</div></div>
-      <div class="flex items-center justify-center"><div class="text-2xl font-bold text-foreground/40">Stanford</div></div>
-      <div class="flex items-center justify-center"><div class="text-2xl font-bold text-foreground/40">Harvard</div></div>
-      <div class="flex items-center justify-center"><div class="text-2xl font-bold text-foreground/40">Oxford</div></div>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mt-12 max-w-4xl mx-auto px-6">
+    <div class="text-center">
+      <div class="text-4xl mb-2 text-primary font-bold">500K+</div>
+      <div class="text-foreground/60">Active Students</div>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mt-16 max-w-4xl mx-auto">
-      <div class="text-center">
-        <div class="text-4xl mb-2 text-primary font-bold">500K+</div>
-        <div class="text-foreground/60">Active Students</div>
-      </div>
-      <div class="text-center">
-        <div class="text-4xl mb-2 text-primary font-bold">10M+</div>
-        <div class="text-foreground/60">Study Sessions</div>
-      </div>
-      <div class="text-center">
-        <div class="text-4xl mb-2 text-primary font-bold">95%</div>
-        <div class="text-foreground/60">Improved Grades</div>
-      </div>
+    <div class="text-center">
+      <div class="text-4xl mb-2 text-primary font-bold">10M+</div>
+      <div class="text-foreground/60">Study Sessions</div>
+    </div>
+    <div class="text-center">
+      <div class="text-4xl mb-2 text-primary font-bold">95%</div>
+      <div class="text-foreground/60">Improved Grades</div>
     </div>
   </div>
 </section>
