@@ -239,6 +239,12 @@
       <form id="application-form" class="px-6 py-6 space-y-4">
         <input type="hidden" id="application-role" name="role" value="Open Application" />
 
+        <label id="open-role-field" class="block">
+          <span class="block text-sm font-semibold text-[#070B2D] mb-2">What would you like to do? *</span>
+          <input id="open-role-input" name="desired_role" type="text" placeholder="e.g. Product, frontend, growth, AI, operations..." class="w-full rounded-xl border border-[#E5E7EB] px-4 py-3 text-sm outline-none focus:border-[#2F2BFF] focus:ring-4 focus:ring-[#2F2BFF]/10" />
+          <span class="mt-2 block text-xs text-[#070B2D]/45">Required for open applications, so we know where to route your CV.</span>
+        </label>
+
         <div class="grid sm:grid-cols-2 gap-4">
           <label class="block">
             <span class="block text-sm font-semibold text-[#070B2D] mb-2">First name *</span>
@@ -369,6 +375,8 @@
     const form = document.getElementById('application-form');
     const roleInput = document.getElementById('application-role');
     const roleCopy = document.getElementById('application-role-copy');
+    const openRoleField = document.getElementById('open-role-field');
+    const openRoleInput = document.getElementById('open-role-input');
     const success = document.getElementById('application-success');
     const closeBtns = [
       document.getElementById('application-close'),
@@ -378,6 +386,11 @@
     function openApplication(role) {
       roleInput.value = role || 'Open Application';
       roleCopy.textContent = 'Role: ' + roleInput.value;
+      const isOpen = roleInput.value === 'Open Application';
+      openRoleField.classList.toggle('hidden', !isOpen);
+      openRoleInput.required = isOpen;
+      if (!isOpen) openRoleInput.value = roleInput.value;
+      else openRoleInput.value = '';
       success.classList.add('hidden');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
