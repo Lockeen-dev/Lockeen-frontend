@@ -6714,6 +6714,7 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
   const [selTechniques, setSelTechniques] = useState(new Set(['Pomodoro 25/5']));
   const [customTech, setCustomTech]       = useState('');
   const [selTimes, setSelTimes]           = useState(new Set(['morning']));
+  const [blockLimitNotice, setBlockLimitNotice] = useState(null);
   const [plan, setPlan]                   = useState(null);
   const [added, setAdded]                 = useState(false);
   const [errors, setErrors]               = useState({});
@@ -6731,7 +6732,14 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
     setSelTimes(prev => {
       const n = new Set(prev);
       n.has(id) ? n.delete(id) : n.add(id);
-      if (n.size === 1 && n.has('morning') && hoursVal > 4) setHoursVal(4);
+      if (n.size === 1 && hoursVal > 4) {
+        const only = [...n][0];
+        const label = TIME_DEFS.find(t => t.id === only)?.label || 'Fascia';
+        setHoursVal(4);
+        setBlockLimitNotice(`${label} max 4h`);
+      } else if (n.size !== 1 || hoursVal < 4) {
+        setBlockLimitNotice(null);
+      }
       return n;
     });
     setErrors(e => ({ ...e, time: null }));
@@ -6896,7 +6904,14 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
                   <input type="range" min="1" max="8" step="0.5" value={hoursVal}
                     onChange={e => {
                       let val = Number(e.target.value);
-                      if (val > 4 && selTimes.size === 1 && selTimes.has('morning')) val = 4;
+                      if (val > 4 && selTimes.size === 1) {
+                        const only = [...selTimes][0];
+                        const label = TIME_DEFS.find(t => t.id === only)?.label || 'Fascia';
+                        val = 4;
+                        setBlockLimitNotice(`${label} max 4h`);
+                      } else if (val < 4 || selTimes.size !== 1) {
+                        setBlockLimitNotice(null);
+                      }
                       setHoursVal(val);
                     }}
                     style={{ width:'100%', height:4, borderRadius:999, cursor:'pointer', outline:'none', appearance:'none',
@@ -6906,9 +6921,9 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
                       <span key={n} style={{ fontSize:10, color:'var(--gray)' }}>{n}h</span>
                     ))}
                   </div>
-                  {selTimes.size === 1 && selTimes.has('morning') && (
+                  {blockLimitNotice && (
                     <div style={{ marginTop:6, display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:999, background:'#FEF3C7', border:'1px solid #F59E0B', fontSize:11, fontWeight:700, color:'#92400E' }}>
-                      ⚠️ Mattina max 4h
+                      ⚠️ {blockLimitNotice}
                     </div>
                   )}
                 </div>
