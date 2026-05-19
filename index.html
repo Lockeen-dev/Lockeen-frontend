@@ -1911,7 +1911,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
             )}
             {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={darkMode} />}
             {tab === 'tutor'     && <TutorView />}
-            {tab === 'analytics' && <AnalyticsView weekData={weekData} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} />}
+            {tab === 'analytics' && <AnalyticsView weekData={weekData} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuiz={openQuiz} />}
             {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} />}
           </div>
         </div>
@@ -4893,7 +4893,7 @@ const subjects = [
   { name: 'Literature', progress: 58, color: '#EF4444' },
 ];
 
-function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab }) {
+function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, openQuiz }) {
   const isMobile = useIsMobile();
   const maxMin = Math.max(...weekData.map(d => d.mins), 1);
   const totalMin = weekData.reduce((a, b) => a + b.mins, 0);
@@ -4987,6 +4987,7 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab }) {
               quizHistory={quizHistory || {}}
               flashHistory={flashHistory || {}}
               setTab={setTab}
+              openQuiz={openQuiz}
             />
           ))}
         </div>
@@ -4995,7 +4996,7 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab }) {
   );
 }
 
-function GradePredictorCard({ note, quizHistory, flashHistory, setTab }) {
+function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuiz }) {
   const palette = getSubjectPalette(note.subject, note, false);
   const targetGrade = note.targetGrade || 27;
   const allScores = [
@@ -5077,7 +5078,14 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab }) {
       </div>
 
       <div style={{ ...gradeS.message, ...messageStyle }}>{message}</div>
-      <button style={gradeS.quizBtn} onClick={() => setTab && setTab('quiz')}>Vai al Quiz →</button>
+      <button style={gradeS.quizBtn} onClick={() => {
+        const ch = note.chapters && note.chapters[0];
+        if (openQuiz && ch) {
+          openQuiz({ noteId: note.id, subject: note.subject, title: ch.title || note.name, questions: ch.questions || [] });
+        } else {
+          setTab && setTab('quiz');
+        }
+      }}>Vai al Quiz →</button>
     </div>
   );
 }
