@@ -3300,60 +3300,29 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         </div>
       )}
 
-      {/* Recent activity: quizzes done + flashcard decks for this exam */}
-      {(examRuns.length > 0 || examFlashDecks.length > 0) && (
-        <section style={{ marginTop: 24, padding: 20, borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>🎯 Recent Activity</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Recent Quizzes</p>
-              {examRuns.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 12, color: 'var(--gray-2)' }}>No quizzes yet for this exam.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {examRuns.map((r) => (
-                    <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.1)' }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{r.score}%</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.chapterName || 'Quiz'}</div>
-                        <div style={{ fontSize: 11, color: 'var(--gray)' }}>{r.date} • {(r.questions || []).length} questions</div>
-                      </div>
-                      <button
-                        onClick={() => onOpenQuiz && onOpenQuiz({ noteId: exam.id, subject: exam.subject, title: r.chapterName || 'Quiz', questions: r.questions || [] })}
-                        style={{ padding: '6px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--indigo)', cursor: 'pointer', flexShrink: 0 }}
-                      >Retake</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Generated Flashcards</p>
-              {examFlashDecks.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 12, color: 'var(--gray-2)' }}>No flashcard decks yet for this exam.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {examFlashDecks.map((d) => (
-                    <div key={d.ts} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, background: '#F5F3FF', border: '1px solid rgba(139,92,246,.15)' }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--purple)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                        <Layers size={16} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</div>
-                        <div style={{ fontSize: 11, color: 'var(--gray)' }}>{(d.cards || []).length} cards{typeof d.lastScore === 'number' ? ` • ${d.lastScore}% mastered` : ''}</div>
-                      </div>
-                      <button
-                        onClick={() => onOpenFlashcards && onOpenFlashcards({ noteId: exam.id, subject: exam.subject, title: d.title, cards: d.cards || [] })}
-                        style={{ padding: '6px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--purple)', cursor: 'pointer', flexShrink: 0 }}
-                      >Open</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Aggregate stats: avg quiz score + flashcard session count */}
+      {(examRuns.length > 0 || examFlashDecks.length > 0) && (() => {
+        const avgScore = examRuns.length > 0 ? Math.round(examRuns.reduce((s, r) => s + r.score, 0) / examRuns.length) : null;
+        const flashSessions = examFlashDecks.length;
+        return (
+          <section style={{ marginTop: 24, padding: '16px 20px', borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', gap: 12 }}>
+            {avgScore !== null && (
+              <div style={{ flex: 1, padding: '14px 18px', borderRadius: 14, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.12)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--indigo)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Avg quiz score</span>
+                <span style={{ fontSize: 28, fontWeight: 800, color: 'var(--indigo)', letterSpacing: '-0.02em', lineHeight: 1 }}>{avgScore}%</span>
+                <span style={{ fontSize: 11, color: 'var(--gray)' }}>{examRuns.length} quiz{examRuns.length !== 1 ? 'zes' : ''} completed</span>
+              </div>
+            )}
+            {flashSessions > 0 && (
+              <div style={{ flex: 1, padding: '14px 18px', borderRadius: 14, background: '#F5F3FF', border: '1px solid rgba(139,92,246,.15)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--purple)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Flashcard sessions</span>
+                <span style={{ fontSize: 28, fontWeight: 800, color: 'var(--purple)', letterSpacing: '-0.02em', lineHeight: 1 }}>{flashSessions}</span>
+                <span style={{ fontSize: 11, color: 'var(--gray)' }}>deck{flashSessions !== 1 ? 's' : ''} completed</span>
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       {editingChapter && (
         <EditChapterModal
