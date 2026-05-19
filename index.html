@@ -3371,7 +3371,7 @@ function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
               const pal = getSubjectPalette(exam.subject, {}, darkMode);
-              const emoji = SUBJECT_EMOJI[exam.subject] || SUBJECT_EMOJI.default;
+              const emoji = getExamEmoji(exam);
               return (
                 <button key={exam.id} onClick={() => setSelectedExamId(exam.id)}
                   style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.dot : 'var(--surface)', color: active ? '#fff' : 'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
@@ -4119,7 +4119,7 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
               const pal = getSubjectPalette(exam.subject, {}, darkMode);
-              const emoji = SUBJECT_EMOJI?.[exam.subject] || '📚';
+              const emoji = getExamEmoji(exam);
               return (
                 <button key={exam.id} onClick={() => { setSelectedExamId(exam.id); setSelectedChapterId('all'); }}
                   style={{ flexShrink:0, display:'inline-flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.bg : 'var(--surface)', color: active ? pal.text : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s', whiteSpace:'nowrap' }}>
