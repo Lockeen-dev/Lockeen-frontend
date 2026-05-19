@@ -3655,6 +3655,7 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
   useEffect(() => {
     if (autoStart && !autoStartHandled.current) {
       autoStartHandled.current = true;
+      setStarted(true);
       setIdx(0); setCorrect(0); setSelected(null); setPendingIdx(null); setDone(false);
       resultSavedRef.current = false; userAnswers.current = [];
       setTimeout(startTimer, 0);
@@ -3738,14 +3739,16 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
           <p style={quizS.startSub}>{total} questions · {subject}</p>
         </div>
         <div style={{ marginBottom:16 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'var(--gray)', letterSpacing:'0.05em', marginBottom:10, textTransform:'uppercase' }}>Difficoltà</div>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:'var(--gray)', letterSpacing:'0.05em', textTransform:'uppercase' }}>Difficoltà domande</div>
+            <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>filtro AI disponibile presto</span>
+          </div>
           <div style={{ display:'flex', gap:8 }}>
             {DIFF_OPTIONS.map(d => (
-              <button key={d.id} onClick={() => { setDifficulty(d.id); setTimerSecs(d.secs); setTimerVal(d.secs); }}
+              <button key={d.id} onClick={() => setDifficulty(d.id)}
                 style={{ flex:1, padding:'10px 6px', borderRadius:12, border:`2px solid ${difficulty===d.id?d.color:'var(--border)'}`, background:difficulty===d.id?d.color+'18':'var(--surface)', color:difficulty===d.id?d.color:'var(--gray)', fontWeight:700, fontSize:11, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:5, transition:'all .15s' }}>
                 <div style={{ width:10, height:10, borderRadius:'50%', background:d.color, flexShrink:0 }} />
                 <span>{d.label}</span>
-                <span style={{fontSize:10, opacity:.7}}>{d.secs}s</span>
               </button>
             ))}
           </div>
@@ -3764,7 +3767,7 @@ function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizC
                 style={{ width:70, padding:'7px 10px', borderRadius:10, border:'1.5px solid var(--border)', background:'var(--sidebar-bg)', color:'var(--ink)', fontSize:15, fontWeight:700, fontFamily:'inherit', textAlign:'center', outline:'none' }} />
               <span style={{fontSize:12, color:'var(--gray)'}}>secondi</span>
               <div style={{display:'flex', gap:4, marginLeft:'auto'}}>
-                {[15,30,60,120].map(s => (
+                {[15,30,60,90].map(s => (
                   <button key={s} onClick={() => { setTimerSecs(s); setTimerVal(s); }}
                     style={{padding:'5px 9px', borderRadius:8, border:`1.5px solid ${timerSecs===s?palette.dot:'var(--border)'}`, background:timerSecs===s?palette.bg:'transparent', color:timerSecs===s?palette.text:'var(--gray)', fontSize:11, fontWeight:700, cursor:'pointer'}}>
                     {s}s
@@ -4024,12 +4027,11 @@ function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
     );
   }
 
-  const isMobile = useIsMobile();
   const DIFF = [
-    { id:'easy',    label:'Easy',    color:'#10B981', bg:'#ECFDF5', secs:60, desc:'60s / dom.' },
-    { id:'medium',  label:'Medium',  color:'#F59E0B', bg:'#FFFBEB', secs:30, desc:'30s / dom.' },
-    { id:'hard',    label:'Hard',    color:'#EF4444', bg:'#FEF2F2', secs:20, desc:'20s / dom.' },
-    { id:'extreme', label:'Extreme', color:'#64748B', bg:'#F8FAFC', secs:10, desc:'10s / dom.' },
+    { id:'easy',    label:'Easy',    color:'#10B981', bg:'#ECFDF5', desc:'Base' },
+    { id:'medium',  label:'Medium',  color:'#F59E0B', bg:'#FFFBEB', desc:'Intermedio' },
+    { id:'hard',    label:'Hard',    color:'#EF4444', bg:'#FEF2F2', desc:'Avanzato' },
+    { id:'extreme', label:'Extreme', color:'#64748B', bg:'#F8FAFC', desc:'Difficile' },
   ];
 
   const secLabel = { fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.1em', color:'var(--gray-2)', marginBottom:10 };
