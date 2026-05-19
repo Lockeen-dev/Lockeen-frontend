@@ -3311,7 +3311,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setPdfChapter(n); }}
                   title="Open PDF"
-                  style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 8, background: '#FEF2F2', border: '1px solid #FCA5A5', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#DC2626' }}
+                  style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 8, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.18)', cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--indigo)' }}
                 >
                   <FileText size={15} />
                 </button>
@@ -3542,7 +3542,7 @@ function PDFModal({ chapter, onClose }) {
                   onClick={() => setSelectedPdf(pdf)}
                   style={{ textAlign: 'left', border: '1px solid var(--border)', background: '#fff', borderRadius: 16, padding: 14, cursor: 'pointer', boxShadow: '0 10px 30px rgba(15,16,53,.06)' }}
                 >
-                  <div style={{ width: 44, height: 52, borderRadius: 10, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', display: 'grid', placeItems: 'center', marginBottom: 12 }}>
+                  <div style={{ width: 44, height: 52, borderRadius: 10, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.18)', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 12 }}>
                     <FileText size={22} />
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdf.name}</div>
@@ -6466,7 +6466,7 @@ function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
               <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:8 }}>
                 {f.files.map(file => (
                   <div key={file.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background:'var(--sidebar-bg)', border:'1px solid var(--border)', borderRadius:8 }}>
-                    <span style={{ color:'#DC2626', display:'grid', placeItems:'center' }}><FileText size={14} /></span>
+                    <span style={{ color:'var(--indigo)', display:'grid', placeItems:'center' }}><FileText size={14} /></span>
                     <div style={{ flex:1, minWidth:0, fontSize:12, fontWeight:600, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={file.name}>{file.name}</div>
                     <span style={{ fontSize:11, color:'var(--gray)', flexShrink:0 }}>{fmtFileSize(file.size)}</span>
                     <button onClick={() => removeEditFile(file.id)}
