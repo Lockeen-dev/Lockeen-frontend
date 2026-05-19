@@ -1072,8 +1072,8 @@
     <div class="flex items-center justify-center gap-3 mb-12">
       <span id="billing-monthly-label" class="text-sm font-semibold text-foreground">Monthly</span>
       <button id="billing-toggle" onclick="window.toggleBilling && window.toggleBilling()" aria-pressed="false"
-        style="width:48px;height:26px;borderRadius:999px;background:#3730E8;border:none;position:relative;cursor:pointer;transition:background .2s;outline:none;" aria-label="Toggle annual billing">
-        <span id="billing-toggle-knob" style="position:absolute;top:3px;left:3px;width:20px;height:20px;borderRadius:999px;background:#fff;transition:transform .2s;display:block;"></span>
+        style="width:58px;height:32px;border-radius:999px;background:linear-gradient(135deg,#3730E8,#6D5DF6);border:1px solid rgba(55,48,232,.18);position:relative;cursor:pointer;transition:background .2s, box-shadow .2s;outline:none;box-shadow:0 8px 20px rgba(55,48,232,.22), inset 0 1px 0 rgba(255,255,255,.22);" aria-label="Toggle annual billing">
+        <span id="billing-toggle-knob" style="position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:999px;background:#fff;transition:transform .2s cubic-bezier(.22,1,.36,1);display:block;box-shadow:0 3px 10px rgba(15,16,53,.18);"></span>
       </button>
       <span id="billing-annual-label" class="text-sm font-medium text-foreground/50">Annual <span class="text-xs font-bold text-emerald-600 ml-1">–20%</span></span>
     </div>
@@ -1292,7 +1292,7 @@
     const knob = document.getElementById('billing-toggle-knob');
     const annLabel = document.getElementById('billing-annual-label');
     const monLabel = document.getElementById('billing-monthly-label');
-    if (knob) knob.style.transform = billingAnnual ? 'translateX(22px)' : 'translateX(0)';
+    if (knob) knob.style.transform = billingAnnual ? 'translateX(26px)' : 'translateX(0)';
     if (annLabel) annLabel.style.opacity = billingAnnual ? '1' : '0.5';
     if (monLabel) monLabel.style.opacity = billingAnnual ? '0.5' : '1';
     renderPricing();
