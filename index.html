@@ -2104,8 +2104,8 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
           border: isMobile ? 'none' : '2px solid var(--indigo)',
         }}
       >
-        <div style={{ ...shellS.grid, gridTemplateColumns: isMobile ? '1fr' : '220px 1fr' }}>
-          {!isMobile && <Sidebar tab={tab} setTab={handleSetTab} lang={lang} />}
+        <div style={{ ...shellS.grid, gridTemplateColumns: isMobile ? '1fr' : (tab === 'tutor' ? '58px 1fr' : '220px 1fr'), transition: 'grid-template-columns .2s ease' }}>
+          {!isMobile && <Sidebar tab={tab} setTab={handleSetTab} lang={lang} collapsed={tab === 'tutor'} />}
           <div style={{ ...shellS.main, padding: isMobile ? '16px 14px' : '32px 36px' }}>
             {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
             {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
@@ -2501,7 +2501,7 @@ const timerS = {
 };
 
 /* ===================== SIDEBAR ===================== */
-function Sidebar({ tab, setTab, lang = 'en' }) {
+function Sidebar({ tab, setTab, lang = 'en', collapsed = false }) {
   const items = [
     { id: 'dashboard', label: tt(lang, 'dashboard'), Icon: ZapSolid },
     { id: 'notes',     label: tt(lang, 'myExams'),  Icon: BookOpen },
@@ -2512,36 +2512,38 @@ function Sidebar({ tab, setTab, lang = 'en' }) {
     { id: 'calendar',  label: tt(lang, 'calendar'),  Icon: CalendarIcon },
   ];
   return (
-    <aside style={sideS.wrap}>
+    <aside style={{ ...sideS.wrap, ...(collapsed ? sideS.wrapCollapsed : null) }}>
       <nav style={sideS.nav}>
         {items.map(({ id, label, Icon: I }) => {
           const active = id === tab;
           return (
-            <button key={id} onClick={() => setTab(id)} style={{ ...sideS.item, ...(active ? sideS.itemActive : null) }}>
+            <button key={id} onClick={() => setTab(id)} title={collapsed ? label : undefined} style={{ ...sideS.item, ...(collapsed ? sideS.itemCollapsed : null), ...(active ? sideS.itemActive : null) }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', color: active ? '#ffffff' : '#6B7280' }}>
                 <I size={18} muted={!active} />
               </span>
-              <span style={{ color: active ? '#ffffff' : '#6B7280' }}>{label}</span>
+              {!collapsed && <span style={{ color: active ? '#ffffff' : '#6B7280' }}>{label}</span>}
             </button>
           );
         })}
       </nav>
 
-      <div style={sideS.goalCard}>
+      {!collapsed && <div style={sideS.goalCard}>
         <div style={sideS.goalLabel}>Weekly Goal</div>
         <div style={sideS.goalValue}>78%</div>
         <div style={sideS.goalBarTrack}>
           <div style={sideS.goalBarFill} />
         </div>
-      </div>
+      </div>}
     </aside>
   );
 }
 
 const sideS = {
-  wrap: { background: 'var(--sidebar-bg)', borderRight: '1px solid var(--border)', padding: '24px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
+  wrap: { background: 'var(--sidebar-bg)', borderRight: '1px solid var(--border)', padding: '24px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'hidden', transition: 'width .2s ease, padding .2s ease' },
+  wrapCollapsed: { padding: '24px 8px', alignItems: 'center' },
   nav: { display: 'flex', flexDirection: 'column', gap: 6 },
   item: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 999, color: 'var(--gray)', fontWeight: 600, fontSize: 14, textAlign: 'left' },
+  itemCollapsed: { width: 42, height: 42, padding: 0, justifyContent: 'center', gap: 0 },
   itemActive: { background: 'var(--indigo)', color: '#fff', boxShadow: '0 8px 22px -10px rgba(55,48,232,.6)' },
   goalCard: { background: 'var(--lavender)', borderRadius: 16, padding: 16, marginTop: 24 },
   goalLabel: { fontSize: 12, color: 'var(--gray)', fontWeight: 600 },
