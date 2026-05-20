@@ -2873,12 +2873,12 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
         </span>
       </div>
       <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', marginBottom: 24 }}>
-        <div style={{ ...homeS.bigCard, background: recommendedQuizDone ? '#F0FDF4' : 'var(--bigcard-bio)', borderColor: recommendedQuizDone ? '#86efac' : 'var(--border)' }}>
+        <div style={{ ...homeS.bigCard, ...(recommendedQuizDone ? homeS.recoDoneCard : { background: 'var(--bigcard-bio)' }) }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-            <div style={{ ...homeS.dot, background: recommendedQuizDone ? '#10B981' : 'var(--indigo)' }}>
+            <div style={{ ...homeS.dot, ...(recommendedQuizDone ? homeS.doneDot : { background: 'var(--indigo)' }) }}>
               {recommendedQuizDone && <Check size={14} color="#fff" />}
             </div>
-            <span style={{ fontSize:12, padding:'3px 10px', borderRadius:999, background: recommendedQuizDone ? '#DCFCE7' : 'var(--lavender)', color: recommendedQuizDone ? '#166534' : 'var(--indigo)', fontWeight:700 }}>
+            <span style={{ ...(recommendedQuizDone ? homeS.doneBadge : homeS.recoBadge), background: recommendedQuizDone ? '#DCFCE7' : 'var(--lavender)', color: recommendedQuizDone ? '#166534' : 'var(--indigo)' }}>
               {recommendedQuizDone ? 'Completato' : mockDashboard.recommendedQuiz.difficulty}
             </span>
           </div>
@@ -2890,10 +2890,8 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
           </p>
           <button
             style={{
-              ...homeS.primaryBtn,
-              background: recommendedQuizDone ? '#10B981' : 'var(--indigo)',
+              ...(recommendedQuizDone ? homeS.doneBtn : homeS.primaryBtn),
               cursor: recommendedQuizDone ? 'default' : 'pointer',
-              opacity: recommendedQuizDone ? .95 : 1,
             }}
             onClick={recommendedQuizDone ? undefined : openQuiz}
             disabled={recommendedQuizDone}
@@ -2901,12 +2899,12 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
             {recommendedQuizDone ? '✓ Completed' : 'Start Quiz'}
           </button>
         </div>
-        <div style={{ ...homeS.bigCard, background: recommendedFlashDone ? '#F0FDF4' : 'var(--bigcard-chem)', borderColor: recommendedFlashDone ? '#86efac' : 'var(--border)' }}>
+        <div style={{ ...homeS.bigCard, ...(recommendedFlashDone ? homeS.recoDoneCard : { background: 'var(--bigcard-chem)' }) }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-            <div style={{ ...homeS.dot, background: recommendedFlashDone ? '#10B981' : 'var(--purple)' }}>
+            <div style={{ ...homeS.dot, ...(recommendedFlashDone ? homeS.doneDot : { background: 'var(--purple)' }) }}>
               {recommendedFlashDone && <Check size={14} color="#fff" />}
             </div>
-            <span style={{ fontSize:12, padding:'3px 10px', borderRadius:999, background: recommendedFlashDone ? '#DCFCE7' : '#F5F3FF', color: recommendedFlashDone ? '#166534' : 'var(--purple)', fontWeight:700 }}>
+            <span style={{ ...(recommendedFlashDone ? homeS.doneBadge : homeS.recoBadge), background: recommendedFlashDone ? '#DCFCE7' : '#F5F3FF', color: recommendedFlashDone ? '#166534' : 'var(--purple)' }}>
               {recommendedFlashDone ? 'Completato' : mockDashboard.recommendedFlashcards.mode}
             </span>
           </div>
@@ -2919,9 +2917,7 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
           {!recommendedFlashDone && <p style={{ ...homeS.cardMeta, fontSize:11, marginTop:2 }}>Ultima sessione: {mockDashboard.recommendedFlashcards.lastSessionDaysAgo} gg fa</p>}
           <button
             style={{
-              ...(recommendedFlashDone ? homeS.primaryBtn : homeS.outlineBtn),
-              background: recommendedFlashDone ? '#10B981' : homeS.outlineBtn.background,
-              color: recommendedFlashDone ? '#fff' : homeS.outlineBtn.color,
+              ...(recommendedFlashDone ? homeS.doneBtn : homeS.outlineBtn),
               cursor: recommendedFlashDone ? 'default' : 'pointer',
             }}
             onClick={recommendedFlashDone ? undefined : openFlashcards}
@@ -2968,6 +2964,11 @@ const homeS = {
   cardMeta: { margin: 0, color: 'var(--gray)', fontSize: 13 },
   primaryBtn: { marginTop: 14, padding: '11px 16px', borderRadius: 999, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 14, width: '100%' },
   outlineBtn: { marginTop: 14, padding: '11px 16px', borderRadius: 999, background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border)', fontWeight: 600, fontSize: 14, width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  recoBadge: { fontSize:12, padding:'3px 10px', borderRadius:999, fontWeight:700 },
+  recoDoneCard: { background:'linear-gradient(180deg,#F0FDF4 0%,#FFFFFF 100%)', borderColor:'#86efac', boxShadow:'0 18px 45px -34px rgba(16,185,129,.6)' },
+  doneDot: { background:'#10B981', display:'grid', placeItems:'center', boxShadow:'0 0 0 10px rgba(16,185,129,.1)' },
+  doneBadge: { fontSize:12, padding:'5px 12px', borderRadius:999, fontWeight:800, letterSpacing:'-.01em' },
+  doneBtn: { marginTop:14, padding:'11px 16px', borderRadius:999, background:'#ECFDF5', color:'#047857', border:'1.5px solid #A7F3D0', fontWeight:800, fontSize:14, width:'100%', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6 },
   assistant: { background: 'var(--assistant-bg)', borderRadius: 20, padding: 22, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' },
   assistantIcon: { width: 38, height: 38, borderRadius: 999, background: 'var(--assistant-icon-bg)', color: 'var(--indigo)', display: 'grid', placeItems: 'center' },
   assistantTitle: { margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
