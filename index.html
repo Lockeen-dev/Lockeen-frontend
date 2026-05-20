@@ -2218,32 +2218,29 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
               <button
                 type="button"
                 onClick={(e) => {
-                  if (!isMobile) return;
                   e.stopPropagation();
                   setShowProfileMenu(p => !p);
                 }}
-                style={{ ...shellS.avatar, border: 'none', cursor: isMobile ? 'pointer' : 'default' }}
+                style={{ ...shellS.avatar, border: 'none', cursor: 'pointer' }}
                 aria-label="Profile menu"
               >
                 {user.name?.[0]?.toUpperCase() || 'A'}
               </button>
-              {isMobile && showProfileMenu && (
-                <div style={{ position: 'absolute', top: 48, right: 0, minWidth: 170, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 16px 40px -12px rgba(15,16,53,.25)', padding: 8, zIndex: 9999 }}>
+              {showProfileMenu && (
+                <div style={{ position: 'absolute', top: 48, right: 0, minWidth: 210, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 16px 40px -12px rgba(15,16,53,.25)', padding: 8, zIndex: 9999 }}>
                   <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', marginBottom: 6 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{user.name || 'Alex'}</div>
                     <div style={{ fontSize: 11, color: 'var(--gray)', marginTop: 2 }}>{user.email || 'alex@lockeen.com'}</div>
                   </div>
+                  <button onClick={() => { setTab('account'); setShowProfileMenu(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
+                    <Pencil size={15} /> Account settings
+                  </button>
                   <button onClick={onLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
                     <LogOut size={15} /> {tt(lang, 'signOut')}
                   </button>
                 </div>
               )}
             </div>
-            {!isMobile && (
-              <button onClick={onLogout} style={shellS.signoutBtn} title="Sign out">
-                <LogOut size={16} /> <span style={{ marginLeft: 6 }}>{tt(lang, 'signOut')}</span>
-              </button>
-            )}
           </div>
         </div>
       </header>
@@ -2273,6 +2270,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
             {tab === 'analytics' && <AnalyticsView weekData={weekData} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuiz={openQuiz} />}
             {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} />}
             {tab === 'earn'      && <EarnView />}
+            {tab === 'account'   && <AccountView user={user} lang={lang} onLangChange={onLangChange} onLogout={onLogout} />}
           </div>
         </div>
       </div>
@@ -2293,7 +2291,6 @@ const shellS = {
   themeBtn: { width: 38, height: 38, borderRadius: 10, border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center', transition: 'background .2s, color .2s' },
   themeIcon: { display: 'grid', placeItems: 'center' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
-  signoutBtn: { display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
   outerCard: { width: '100%', maxWidth: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
   grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 640, width: '100%', minWidth: 0 },
   main: { padding: '32px 36px', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box' },
@@ -6071,6 +6068,130 @@ const initCalEvents = () => {
     { name:'Morning run', time:'07:00', dur:'40m', cat:'fitness', noteId:null, noteColor:null, noteBg:null, noteText:null, noteSubject:null },
   ]);
   return ev;
+};
+
+function AccountView({ user, lang, onLangChange, onLogout }) {
+  const isMobile = useIsMobile();
+  const email = user.email || 'alex@lockeen.com';
+  const initial = user.name?.[0]?.toUpperCase() || 'A';
+  const accountLang = LANG_OPTIONS.find(l => l.value === lang) || LANG_OPTIONS[0];
+
+  const Row = ({ icon, title, sub, action, danger }) => (
+    <div style={accountS.row}>
+      <div style={accountS.rowIcon}>{icon}</div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={accountS.rowTitle}>{title}</div>
+        {sub && <div style={accountS.rowSub}>{sub}</div>}
+      </div>
+      {action && <div style={{ flexShrink:0 }}>{action}</div>}
+    </div>
+  );
+
+  return (
+    <div style={accountS.wrap}>
+      <div style={{ ...accountS.hero, flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center' }}>
+        <div style={accountS.bigAvatar}>{initial}</div>
+        <div style={{ flex:1 }}>
+          <h2 style={accountS.title}>Account</h2>
+          <p style={accountS.sub}>Gestisci piano, profilo, dispositivi e preferenze.</p>
+        </div>
+        <button onClick={onLogout} style={accountS.logoutTop}><LogOut size={15} /> Logout</button>
+      </div>
+
+      <section style={accountS.section}>
+        <h3 style={accountS.sectionTitle}>Plan</h3>
+        <div style={accountS.planCard}>
+          <div>
+            <div style={accountS.planBadge}>Free mode</div>
+            <h4 style={accountS.planTitle}>Lockeen Free</h4>
+            <p style={accountS.planText}>1 documento attivo, quiz limitati, flashcard base.</p>
+          </div>
+          <button style={accountS.primaryBtn}>Upgrade to Pro</button>
+        </div>
+        <div style={accountS.card}>
+          <Row icon={<Trophy size={18} />} title="Last plan" sub="Pro Monthly · ended 6 Sep 2025" action={<button style={accountS.softBtn}>Reactivate</button>} />
+        </div>
+      </section>
+
+      <section style={accountS.section}>
+        <h3 style={accountS.sectionTitle}>Bills</h3>
+        <div style={accountS.card}>
+          <Row icon={<FileText size={18} />} title="Payments" sub="See payments and receipts" action={<ChevronDown size={18} color="var(--gray)" />} />
+          <div style={accountS.divider} />
+          <Row icon={<Coins size={18} />} title="Billing method" sub="No active payment method on Free plan" action={<button style={accountS.ghostBtn}>Manage</button>} />
+        </div>
+      </section>
+
+      <section style={accountS.section}>
+        <h3 style={accountS.sectionTitle}>Profile</h3>
+        <div style={accountS.card}>
+          <Row icon={<MsgCircle size={18} />} title="Email" sub={email} />
+          <div style={accountS.divider} />
+          <Row icon={<EyeOff size={18} />} title="Password" sub="Signed up with Google. Password edit disabled." action={<button style={accountS.disabledBtn}>Edit</button>} />
+        </div>
+      </section>
+
+      <section style={accountS.section}>
+        <h3 style={accountS.sectionTitle}>Active devices</h3>
+        <div style={accountS.card}>
+          <div style={{ marginBottom:12 }}>
+            <div style={accountS.rowTitle}>Active devices: 2/2</div>
+            <div style={accountS.rowSub}>Puoi usare Lockeen su massimo 2 dispositivi insieme.</div>
+          </div>
+          {['Mac, macOS, Safari', 'iPhone, iOS, Safari'].map((device, i) => (
+            <React.Fragment key={device}>
+              {i > 0 && <div style={accountS.divider} />}
+              <Row
+                icon={<span style={{ width:10, height:10, borderRadius:999, background:i === 0 ? '#10B981' : '#CBD5E1', display:'block' }} />}
+                title={device}
+                sub={i === 0 ? 'Last access: today · current device' : 'Last access: 17 May 2026'}
+                action={<button style={i === 0 ? accountS.currentBtn : accountS.dangerBtn}>{i === 0 ? 'Current' : 'Log out'}</button>}
+              />
+            </React.Fragment>
+          ))}
+        </div>
+      </section>
+
+      <section style={accountS.section}>
+        <h3 style={accountS.sectionTitle}>Language</h3>
+        <div style={accountS.card}>
+          <Row
+            icon={<span style={{ fontSize:20 }}>{accountLang.flag}</span>}
+            title={`${accountLang.flag} ${accountLang.label}`}
+            sub="Questa impostazione cambia la lingua dell’interfaccia Lockeen."
+            action={<LanguageSelect lang={lang} onChange={onLangChange} compact />}
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+const accountS = {
+  wrap: { display:'flex', flexDirection:'column', gap:22, maxWidth:980, margin:'0 auto' },
+  hero: { display:'flex', gap:16, padding:20, borderRadius:20, background:'linear-gradient(135deg,#EEF2FF,#F5F3FF)', border:'1px solid var(--border)' },
+  bigAvatar: { width:58, height:58, borderRadius:18, background:'linear-gradient(135deg,var(--indigo),var(--purple))', color:'#fff', display:'grid', placeItems:'center', fontSize:22, fontWeight:800, boxShadow:'0 14px 28px -18px rgba(55,48,232,.7)' },
+  title: { margin:0, fontSize:26, fontWeight:800, color:'var(--ink)', letterSpacing:'-.03em' },
+  sub: { margin:'4px 0 0', fontSize:14, color:'var(--gray)', lineHeight:1.5 },
+  logoutTop: { display:'inline-flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:12, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:13, cursor:'pointer' },
+  section: { display:'flex', flexDirection:'column', gap:10 },
+  sectionTitle: { margin:0, fontSize:18, fontWeight:800, color:'var(--ink)', letterSpacing:'-.02em' },
+  card: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, overflow:'hidden', boxShadow:'0 12px 30px -26px rgba(15,16,53,.35)' },
+  planCard: { display:'flex', alignItems:'center', justifyContent:'space-between', gap:14, padding:18, borderRadius:16, background:'var(--surface)', border:'1px solid var(--border)', boxShadow:'0 12px 30px -26px rgba(15,16,53,.35)', flexWrap:'wrap' },
+  planBadge: { display:'inline-flex', padding:'5px 10px', borderRadius:999, background:'#ECFDF5', color:'#047857', fontSize:11, fontWeight:800, marginBottom:8 },
+  planTitle: { margin:0, fontSize:18, fontWeight:800, color:'var(--ink)' },
+  planText: { margin:'4px 0 0', color:'var(--gray)', fontSize:13 },
+  row: { display:'flex', alignItems:'center', gap:12, padding:'15px 18px' },
+  rowIcon: { width:34, height:34, borderRadius:12, background:'var(--sidebar-bg)', color:'var(--indigo)', display:'grid', placeItems:'center', flexShrink:0 },
+  rowTitle: { fontSize:14, fontWeight:800, color:'var(--ink)' },
+  rowSub: { fontSize:12, color:'var(--gray)', marginTop:2, lineHeight:1.45 },
+  divider: { height:1, background:'var(--border)' },
+  primaryBtn: { padding:'11px 16px', borderRadius:12, border:'none', background:'var(--indigo)', color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer' },
+  softBtn: { padding:'9px 13px', borderRadius:10, border:'none', background:'#FEF3C7', color:'#92400E', fontWeight:800, fontSize:12, cursor:'pointer' },
+  ghostBtn: { padding:'9px 13px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:12, cursor:'pointer' },
+  disabledBtn: { padding:'9px 13px', borderRadius:10, border:'none', background:'#E5E7EB', color:'#9CA3AF', fontWeight:800, fontSize:12, cursor:'not-allowed' },
+  dangerBtn: { padding:'9px 13px', borderRadius:10, border:'none', background:'#EF4444', color:'#fff', fontWeight:800, fontSize:12, cursor:'pointer' },
+  currentBtn: { padding:'9px 13px', borderRadius:10, border:'none', background:'#DCFCE7', color:'#166534', fontWeight:800, fontSize:12 },
 };
 
 /* ============ EARN / AMBASSADOR VIEW ============ */
