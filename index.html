@@ -2036,6 +2036,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   const [flashLanding, setFlashLanding] = useState(true);
   const [weekData, setWeekData] = useState(initialWeekData);
   const [recommendedQuizDone, setRecommendedQuizDone] = useState(false);
+  const [recommendedFlashDone, setRecommendedFlashDone] = useState(false);
 
   function handleSessionSaved(mins) {
     const labels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -2097,6 +2098,9 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   function onFlashComplete(noteId, scorePct) {
     if (!noteId) return;
     setFlashHistory(prev => ({ ...prev, [noteId]: [...(prev[noteId] || []), scorePct] }));
+    if (flashcardDeck?._meta?.source === 'dashboardRecommended') {
+      setRecommendedFlashDone(true);
+    }
     addNotification(`Flashcards done: ${flashcardDeck.subject} · ${scorePct}%`, 'flash');
     setRecentFlashDecks(prev => {
       const next = prev.filter(d => d.title !== flashcardDeck.title);
@@ -2104,15 +2108,17 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
     });
   }
 
-  const openFlashcards = ({ noteId, subject, title, cards }) => {
-    setFlashcardDeck({ noteId, subject, title, cards });
+  const openFlashcards = (deck) => {
+    const { noteId, subject, title, cards } = deck;
+    setFlashcardDeck({ noteId, subject, title, cards, _meta: deck._meta });
     setActiveExamId(null);
     setFlashLanding(false);
     setTab('flashcards');
   };
 
-  const openQuiz = ({ noteId, subject, title, questions }) => {
-    setQuizDeck({ noteId, subject, title, questions });
+  const openQuiz = (deck) => {
+    const { noteId, subject, title, questions } = deck;
+    setQuizDeck({ noteId, subject, title, questions, _meta: deck._meta });
     setActiveExamId(null);
     setTab('quiz');
   };
@@ -2256,7 +2262,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
         <div style={{ ...shellS.grid, gridTemplateColumns: isMobile ? '1fr' : sidebarCollapsed ? '64px 1fr' : '220px 1fr', transition: 'grid-template-columns .2s ease' }}>
           {!isMobile && <Sidebar tab={tab} setTab={handleSetTab} lang={lang} collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed(v => !v)} />}
           <div style={{ ...shellS.main, padding: isMobile ? '16px 14px' : '32px 36px' }}>
-            {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions, _meta: { source: 'dashboardRecommended', subject: 'Biology', title: 'Biology Quiz' } })} recommendedQuizDone={recommendedQuizDone} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
+            {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions, _meta: { source: 'dashboardRecommended', subject: 'Biology', title: 'Biology Quiz' } })} openFlashcards={() => openFlashcards({ noteId: 201, subject: 'Chemistry', title: 'Chemistry Flash', cards: chemistryCards, _meta: { source: 'dashboardRecommended', subject: 'Chemistry', title: 'Chemistry Flash' } })} recommendedQuizDone={recommendedQuizDone} recommendedFlashDone={recommendedFlashDone} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
             {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
             {tab === 'flashcards' && (flashLanding
               ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} exams={exams} />
@@ -2752,7 +2758,7 @@ const mockDashboard = {
   recommendedFlashcards: { title:'Chemistry Flash', cardCount:48, mode:'Practice', lastSessionDaysAgo:3 },
 };
 
-function DashboardHome({ user, lang = 'en', setTab, openQuiz, recommendedQuizDone = false, onOpenPlanner, darkMode, calEvents, onMarkEventDone, onStartTimer }) {
+function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, recommendedQuizDone = false, recommendedFlashDone = false, onOpenPlanner, darkMode, calEvents, onMarkEventDone, onStartTimer }) {
   const isMobile = useIsMobile();
   const todayKey = dayKey(new Date());
   const todayEvents = (calEvents && calEvents[todayKey]) || [];
@@ -2760,6 +2766,7 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, recommendedQuizDon
   const [confirmModal, setConfirmModal] = React.useState(null);
   const toggleCheck = (idx) => setChecked(prev => ({ ...prev, [idx]: !prev[idx] }));
   const doneCount = Object.values(checked).filter(Boolean).length;
+  const recommendedDoneCount = (recommendedQuizDone ? 1 : 0) + (recommendedFlashDone ? 1 : 0);
   const fmtDur = (mins) => mins >= 60 ? (mins % 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${Math.floor(mins/60)}h`) : `${mins}m`;
 
   return (
@@ -2859,7 +2866,12 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, recommendedQuizDon
       </div>
 
       {/* Consigliati oggi */}
-      <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>⭐ {tt(lang, 'recommended')}</h3></div>
+      <div style={{ marginBottom: 8, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap' }}>
+        <h3 style={homeS.sectionLabel}>⭐ {tt(lang, 'recommended')}</h3>
+        <span style={{ fontSize:12, fontWeight:800, color: recommendedDoneCount === 2 ? '#166534' : 'var(--gray)', background: recommendedDoneCount === 2 ? '#DCFCE7' : 'var(--sidebar-bg)', border:'1px solid var(--border)', borderRadius:999, padding:'5px 10px' }}>
+          {recommendedDoneCount}/2 completati oggi
+        </span>
+      </div>
       <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', marginBottom: 24 }}>
         <div style={{ ...homeS.bigCard, background: recommendedQuizDone ? '#F0FDF4' : 'var(--bigcard-bio)', borderColor: recommendedQuizDone ? '#86efac' : 'var(--border)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
@@ -2889,12 +2901,34 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, recommendedQuizDon
             {recommendedQuizDone ? '✓ Completed' : 'Start Quiz'}
           </button>
         </div>
-        <div style={{ ...homeS.bigCard, background: 'var(--bigcard-chem)' }}>
-          <div style={{ ...homeS.dot, background: 'var(--purple)', marginBottom:4 }} />
+        <div style={{ ...homeS.bigCard, background: recommendedFlashDone ? '#F0FDF4' : 'var(--bigcard-chem)', borderColor: recommendedFlashDone ? '#86efac' : 'var(--border)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+            <div style={{ ...homeS.dot, background: recommendedFlashDone ? '#10B981' : 'var(--purple)' }}>
+              {recommendedFlashDone && <Check size={14} color="#fff" />}
+            </div>
+            <span style={{ fontSize:12, padding:'3px 10px', borderRadius:999, background: recommendedFlashDone ? '#DCFCE7' : '#F5F3FF', color: recommendedFlashDone ? '#166534' : 'var(--purple)', fontWeight:700 }}>
+              {recommendedFlashDone ? 'Completato' : mockDashboard.recommendedFlashcards.mode}
+            </span>
+          </div>
           <h3 style={homeS.cardTitle}>{mockDashboard.recommendedFlashcards.title}</h3>
-          <p style={homeS.cardMeta}>{mockDashboard.recommendedFlashcards.cardCount} cards • {mockDashboard.recommendedFlashcards.mode}</p>
-          <p style={{ ...homeS.cardMeta, fontSize:11, marginTop:2 }}>Ultima sessione: {mockDashboard.recommendedFlashcards.lastSessionDaysAgo} gg fa</p>
-          <button style={homeS.outlineBtn} onClick={() => setTab('notes')}>Review Cards</button>
+          <p style={homeS.cardMeta}>
+            {recommendedFlashDone
+              ? 'Flashcards completate oggi'
+              : `${mockDashboard.recommendedFlashcards.cardCount} cards • ${mockDashboard.recommendedFlashcards.mode}`}
+          </p>
+          {!recommendedFlashDone && <p style={{ ...homeS.cardMeta, fontSize:11, marginTop:2 }}>Ultima sessione: {mockDashboard.recommendedFlashcards.lastSessionDaysAgo} gg fa</p>}
+          <button
+            style={{
+              ...(recommendedFlashDone ? homeS.primaryBtn : homeS.outlineBtn),
+              background: recommendedFlashDone ? '#10B981' : homeS.outlineBtn.background,
+              color: recommendedFlashDone ? '#fff' : homeS.outlineBtn.color,
+              cursor: recommendedFlashDone ? 'default' : 'pointer',
+            }}
+            onClick={recommendedFlashDone ? undefined : openFlashcards}
+            disabled={recommendedFlashDone}
+          >
+            {recommendedFlashDone ? '✓ Completed' : 'Review Cards'}
+          </button>
         </div>
       </div>
 
