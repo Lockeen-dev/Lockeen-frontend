@@ -2086,7 +2086,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
       ...prev,
       [noteId]: [...(prev[noteId] || []), scorePct]
     }));
-    if (runMeta?.source === 'dashboardRecommended') {
+    if (runMeta?.source === 'dashboardRecommended' || runMeta?.title === mockDashboard.recommendedQuiz.title || runMeta?.subject === 'Biology') {
       setRecommendedQuizDone(true);
     }
     if (runMeta) {
@@ -2098,7 +2098,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   function onFlashComplete(noteId, scorePct) {
     if (!noteId) return;
     setFlashHistory(prev => ({ ...prev, [noteId]: [...(prev[noteId] || []), scorePct] }));
-    if (flashcardDeck?._meta?.source === 'dashboardRecommended') {
+    if (flashcardDeck?._meta?.source === 'dashboardRecommended' || flashcardDeck?.title === mockDashboard.recommendedFlashcards.title || flashcardDeck?.subject === 'Chemistry') {
       setRecommendedFlashDone(true);
     }
     addNotification(`Flashcards done: ${flashcardDeck.subject} · ${scorePct}%`, 'flash');
@@ -3464,13 +3464,18 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [readinessView, setReadinessView] = useState('exam');
   const [editingChapter, setEditingChapter] = useState(null);
   const [pdfChapter, setPdfChapter] = useState(null);
+  const examChapterIds = (exam.chapters || []).map((c) => c.id);
+  const belongsToExam = (noteId) => String(noteId) === String(exam.id) || examChapterIds.some((id) => String(id) === String(noteId));
   const examRuns = quizRuns.filter(r => r.examId === exam.id).slice(0, 5);
-  const examFlashDecks = recentFlashDecks.filter(d => d.noteId === exam.id).slice(0, 5);
+  const examFlashDecks = recentFlashDecks.filter(d => belongsToExam(d.noteId)).slice(0, 5);
   const palette = getSubjectPalette(exam.subject, exam, darkMode);
   const filtered = exam.chapters.filter((c) => c.title.toLowerCase().includes(q.toLowerCase()));
   const chapterKey = (chapter) => String(chapter.id ?? chapter.name ?? chapter.title);
   const allQuiz = quizHistory[exam.id] || [];
-  const allFlash = flashHistory[exam.id] || [];
+  const allFlash = [
+    ...(flashHistory[exam.id] || []),
+    ...(exam.chapters || []).flatMap((c) => flashHistory[c.id] || []),
+  ];
   const quizAvg = allQuiz.length > 0
     ? Math.round(allQuiz.reduce((a, b) => a + b, 0) / allQuiz.length)
     : 50;
@@ -3737,7 +3742,10 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       </section>
       {(() => {
         const qh = quizHistory[exam.id] || [];
-        const fh = flashHistory[exam.id] || [];
+        const fh = [
+          ...(flashHistory[exam.id] || []),
+          ...(exam.chapters || []).flatMap((c) => flashHistory[c.id] || []),
+        ];
         const avgQ = qh.length ? Math.round(qh.reduce((a,b)=>a+b,0)/qh.length) : null;
         const avgQColor = avgQ !== null ? (avgQ >= 80 ? '#10B981' : avgQ >= 60 ? '#F59E0B' : '#EF4444') : null;
         const flashCount = fh.length;
