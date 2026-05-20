@@ -3089,12 +3089,22 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                     onPick={(emoji) => setExams(prev => prev.map(e => e.id === x.id ? { ...e, emoji } : e))}
                   />
                 </div>
+                {x.priority && (() => {
+                  const pColor = x.priority <= 2 ? '#10B981' : x.priority === 3 ? '#F59E0B' : '#EF4444';
+                  const pLabel = ['','Bassa','Media','Alta','Molto Alta','Critica'][x.priority] || '';
+                  const pEmoji = ['','🟢','🔵','🟡','🟠','🔴'][x.priority] || '';
+                  return (
+                    <span style={{ position:'absolute', top:10, left:10, fontSize:10, fontWeight:700, padding:'3px 8px', background:'rgba(255,255,255,.9)', border:`1.5px solid ${pColor}`, borderRadius:999, color:pColor, lineHeight:1.4, display:'inline-flex', alignItems:'center', gap:3 }}>
+                      {pEmoji} {pLabel}
+                    </span>
+                  );
+                })()}
                 {x.date && (() => {
                   const dl = daysLeft(x.date);
                   return (
                     <>
                       {dl >= 0 && (
-                        <span style={{ position:'absolute', top:12, left:12, fontSize:11, fontWeight:700, padding:'5px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--indigo)', lineHeight:1.3 }}>
+                        <span style={{ position:'absolute', top:12, left: x.priority ? 90 : 12, fontSize:11, fontWeight:700, padding:'5px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--indigo)', lineHeight:1.3 }}>
                           {dl === 0 ? 'Oggi!' : `${dl} giorni`}
                         </span>
                       )}
@@ -4663,6 +4673,14 @@ function CreateExamModal({ onClose, onCreate }) {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear]   = useState(today.getFullYear());
   const [emojiOverride, setEmojiOverride] = useState(null);
+  const [priority, setPriority] = useState(3);
+  const PRIORITIES = [
+    { val:1, label:'Bassa',     color:'#10B981' },
+    { val:2, label:'Media',     color:'#3B82F6' },
+    { val:3, label:'Alta',      color:'#F59E0B' },
+    { val:4, label:'Molto Alta',color:'#F97316' },
+    { val:5, label:'Critica',   color:'#EF4444' },
+  ];
 
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years  = [2025, 2026, 2027, 2028];
@@ -4687,6 +4705,7 @@ function CreateExamModal({ onClose, onCreate }) {
       date: iso,
       updated: 'Just now',
       targetGrade,
+      priority,
       emoji: displayEmoji,
       color: subjectPalette.bg,
       dot: subjectPalette.dot,
@@ -4772,6 +4791,19 @@ function CreateExamModal({ onClose, onCreate }) {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={dateS.label}>Priorità esame</label>
+          <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
+            {PRIORITIES.map(p => (
+              <button key={p.val} type="button" onClick={() => setPriority(p.val)}
+                style={{ flex:1, minWidth:0, padding:'8px 4px', borderRadius:10, border:`2px solid ${priority===p.val ? p.color : 'var(--border)'}`, background: priority===p.val ? p.color : 'var(--surface)', color: priority===p.val ? '#fff' : 'var(--gray)', fontWeight:700, fontSize:11, cursor:'pointer', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                <span style={{ fontSize:14 }}>{['🟢','🔵','🟡','🟠','🔴'][p.val-1]}</span>
+                <span>{p.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
