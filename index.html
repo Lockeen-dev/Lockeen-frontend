@@ -3749,6 +3749,8 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         const avgQ = qh.length ? Math.round(qh.reduce((a,b)=>a+b,0)/qh.length) : null;
         const avgQColor = avgQ !== null ? (avgQ >= 80 ? '#10B981' : avgQ >= 60 ? '#F59E0B' : '#EF4444') : null;
         const flashCount = fh.length;
+        const avgFlash = fh.length ? Math.round(fh.reduce((a,b)=>a+b,0)/fh.length) : null;
+        const avgFlashColor = avgFlash !== null ? (avgFlash >= 80 ? '#10B981' : avgFlash >= 60 ? '#F59E0B' : '#EF4444') : null;
         return (
           <div style={{ marginTop:28 }}>
             <h3 style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Storico attività</h3>
@@ -3780,6 +3782,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
                     <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>Flashcard</div>
                     <div style={{ fontSize:11, color:'var(--gray)', marginTop:2 }}>{flashCount} sessioni completate</div>
                   </div>
+                  <div style={{ fontSize:20, fontWeight:800, color:avgFlashColor }}>{avgFlash}%</div>
                 </div>
               ) : (
                 <div style={{ flex:1, padding:'14px 16px', borderRadius:14, background:'var(--surface)', border:'1.5px dashed var(--border)', display:'flex', alignItems:'center', gap:12 }}>
