@@ -2138,7 +2138,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   };
 
   return (
-    <div style={{ ...shellS.wrap, padding: isMobile ? '12px 0 80px' : '24px 24px 48px' }}>
+    <div style={{ ...shellS.wrap, padding: isMobile ? '12px 0 80px' : '24px clamp(18px, 2.4vw, 40px) 40px' }}>
       {/* Header bar */}
       <header style={{ ...shellS.header, padding: isMobile ? '0 12px 12px' : 0 }}>
         <div style={shellS.headerInner}>
@@ -2259,7 +2259,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
       >
         <div style={{ ...shellS.grid, gridTemplateColumns: isMobile ? '1fr' : sidebarCollapsed ? '64px 1fr' : '220px 1fr', transition: 'grid-template-columns .2s ease' }}>
           {!isMobile && <Sidebar tab={tab} setTab={handleSetTab} lang={lang} collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed(v => !v)} />}
-          <div style={{ ...shellS.main, padding: isMobile ? '16px 14px' : '32px 36px' }}>
+          <div style={{ ...shellS.main, padding: isMobile ? '16px 14px' : '32px clamp(28px, 3vw, 56px)' }}>
             {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions, _meta: { source: 'dashboardRecommended', subject: 'Biology', title: 'Biology Quiz' } })} openFlashcards={() => openFlashcards({ noteId: 201, subject: 'Chemistry', title: 'Chemistry Flash', cards: chemistryCards, _meta: { source: 'dashboardRecommended', subject: 'Chemistry', title: 'Chemistry Flash' } })} recommendedQuizDone={recommendedQuizDone} recommendedFlashDone={recommendedFlashDone} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
             {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
             {tab === 'flashcards' && (flashLanding
@@ -2283,7 +2283,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
 }
 
 const shellS = {
-  wrap: { minHeight: '100vh', width: '100%', maxWidth: 1280, margin: '0 auto', padding: '24px 24px 48px', boxSizing: 'border-box', overflowX: 'hidden' },
+  wrap: { minHeight: '100vh', width: '100%', margin: '0 auto', padding: '24px clamp(18px, 2.4vw, 40px) 40px', boxSizing: 'border-box', overflowX: 'hidden' },
   header: { marginBottom: 20 },
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   logoBox: { width: 36, height: 36, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
@@ -2293,8 +2293,8 @@ const shellS = {
   themeIcon: { display: 'grid', placeItems: 'center' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
   outerCard: { width: '100%', maxWidth: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
-  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 640, width: '100%', minWidth: 0 },
-  main: { padding: '32px 36px', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box' },
+  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 132px)', width: '100%', minWidth: 0 },
+  main: { padding: '32px clamp(28px, 3vw, 56px)', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box' },
 };
 
 /* ===================== STUDY TIMER ===================== */

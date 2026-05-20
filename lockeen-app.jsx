@@ -262,7 +262,7 @@ function Dashboard({ user, onLogout }) {
 }
 
 const shellS = {
-  wrap: { minHeight: '100vh', padding: '24px 24px 48px', maxWidth: 1280, margin: '0 auto' },
+  wrap: { minHeight: '100vh', width: '100%', padding: '24px clamp(18px, 2.4vw, 40px) 40px', boxSizing: 'border-box' },
   header: { marginBottom: 20 },
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   logoBox: { width: 36, height: 36, borderRadius: 10, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
@@ -270,9 +270,9 @@ const shellS = {
   iconBtn: { width: 38, height: 38, borderRadius: 10, background: '#fff', border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
   signoutBtn: { display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: '#fff', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
-  outerCard: { border: '2px solid var(--indigo)', borderRadius: 24, background: '#fff', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
-  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 640 },
-  main: { padding: '32px 36px' },
+  outerCard: { width: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: '#fff', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
+  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 132px)' },
+  main: { padding: '32px clamp(28px, 3vw, 56px)' },
 };
 
 /* ===================== SIDEBAR ===================== */
