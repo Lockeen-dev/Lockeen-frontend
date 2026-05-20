@@ -2035,6 +2035,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   const [recentFlashDecks, setRecentFlashDecks] = useState([]);
   const [flashLanding, setFlashLanding] = useState(true);
   const [weekData, setWeekData] = useState(initialWeekData);
+  const [recommendedQuizDone, setRecommendedQuizDone] = useState(false);
 
   function handleSessionSaved(mins) {
     const labels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -2084,6 +2085,9 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
       ...prev,
       [noteId]: [...(prev[noteId] || []), scorePct]
     }));
+    if (runMeta?.source === 'dashboardRecommended') {
+      setRecommendedQuizDone(true);
+    }
     if (runMeta) {
       setQuizRuns(prev => [{ id: Date.now(), score: scorePct, date: new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }), ...runMeta }, ...prev]);
       addNotification(`Quiz complete: ${runMeta.subject || 'Quiz'} · ${scorePct}%`, 'quiz');
@@ -2252,7 +2256,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
         <div style={{ ...shellS.grid, gridTemplateColumns: isMobile ? '1fr' : sidebarCollapsed ? '64px 1fr' : '220px 1fr', transition: 'grid-template-columns .2s ease' }}>
           {!isMobile && <Sidebar tab={tab} setTab={handleSetTab} lang={lang} collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed(v => !v)} />}
           <div style={{ ...shellS.main, padding: isMobile ? '16px 14px' : '32px 36px' }}>
-            {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions })} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
+            {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions, _meta: { source: 'dashboardRecommended', subject: 'Biology', title: 'Biology Quiz' } })} recommendedQuizDone={recommendedQuizDone} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
             {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
             {tab === 'flashcards' && (flashLanding
               ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} exams={exams} />
@@ -2730,7 +2734,7 @@ const mockDashboard = {
   recommendedFlashcards: { title:'Chemistry Flash', cardCount:48, mode:'Practice', lastSessionDaysAgo:3 },
 };
 
-function DashboardHome({ user, lang = 'en', setTab, openQuiz, onOpenPlanner, darkMode, calEvents, onMarkEventDone, onStartTimer }) {
+function DashboardHome({ user, lang = 'en', setTab, openQuiz, recommendedQuizDone = false, onOpenPlanner, darkMode, calEvents, onMarkEventDone, onStartTimer }) {
   const isMobile = useIsMobile();
   const todayKey = dayKey(new Date());
   const todayEvents = (calEvents && calEvents[todayKey]) || [];
@@ -2839,14 +2843,33 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, onOpenPlanner, dar
       {/* Consigliati oggi */}
       <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>⭐ {tt(lang, 'recommended')}</h3></div>
       <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', marginBottom: 24 }}>
-        <div style={{ ...homeS.bigCard, background: 'var(--bigcard-bio)' }}>
+        <div style={{ ...homeS.bigCard, background: recommendedQuizDone ? '#F0FDF4' : 'var(--bigcard-bio)', borderColor: recommendedQuizDone ? '#86efac' : 'var(--border)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-            <div style={{ ...homeS.dot, background: 'var(--indigo)' }} />
-            <span style={{ fontSize:12, padding:'3px 10px', borderRadius:999, background:'var(--lavender)', color:'var(--indigo)', fontWeight:700 }}>{mockDashboard.recommendedQuiz.difficulty}</span>
+            <div style={{ ...homeS.dot, background: recommendedQuizDone ? '#10B981' : 'var(--indigo)' }}>
+              {recommendedQuizDone && <Check size={14} color="#fff" />}
+            </div>
+            <span style={{ fontSize:12, padding:'3px 10px', borderRadius:999, background: recommendedQuizDone ? '#DCFCE7' : 'var(--lavender)', color: recommendedQuizDone ? '#166534' : 'var(--indigo)', fontWeight:700 }}>
+              {recommendedQuizDone ? 'Completato' : mockDashboard.recommendedQuiz.difficulty}
+            </span>
           </div>
           <h3 style={homeS.cardTitle}>{mockDashboard.recommendedQuiz.title}</h3>
-          <p style={homeS.cardMeta}>{mockDashboard.recommendedQuiz.questionCount} questions • {mockDashboard.recommendedQuiz.estimatedMinutes} min</p>
-          <button style={homeS.primaryBtn} onClick={openQuiz}>Start Quiz</button>
+          <p style={homeS.cardMeta}>
+            {recommendedQuizDone
+              ? 'Quiz completato oggi'
+              : `${mockDashboard.recommendedQuiz.questionCount} questions • ${mockDashboard.recommendedQuiz.estimatedMinutes} min`}
+          </p>
+          <button
+            style={{
+              ...homeS.primaryBtn,
+              background: recommendedQuizDone ? '#10B981' : 'var(--indigo)',
+              cursor: recommendedQuizDone ? 'default' : 'pointer',
+              opacity: recommendedQuizDone ? .95 : 1,
+            }}
+            onClick={recommendedQuizDone ? undefined : openQuiz}
+            disabled={recommendedQuizDone}
+          >
+            {recommendedQuizDone ? '✓ Completed' : 'Start Quiz'}
+          </button>
         </div>
         <div style={{ ...homeS.bigCard, background: 'var(--bigcard-chem)' }}>
           <div style={{ ...homeS.dot, background: 'var(--purple)', marginBottom:4 }} />
