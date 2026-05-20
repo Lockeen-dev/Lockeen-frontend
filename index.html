@@ -2321,6 +2321,12 @@ function StudyTimer({ onSessionSaved, startTrigger }) {
     const n = Math.max(0, s);
     return `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
   };
+  const customMinsFromInput = (value) => {
+    if (String(value).trim() === '') return 0;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(240, Math.floor(n)));
+  };
 
   const playDing = () => {
     try {
@@ -2402,7 +2408,8 @@ function StudyTimer({ onSessionSaved, startTrigger }) {
       return;
     }
     if (modeRef.current === 'custom') {
-      const mins = parseInt(customInputMins, 10) || 25;
+      const mins = customMinsFromInput(customInputMins);
+      if (mins <= 0) return;
       customDurRef.current = mins * 60;
     }
     setRunning(true);
@@ -2507,8 +2514,10 @@ function StudyTimer({ onSessionSaved, startTrigger }) {
   const isPomo = mode === 'pomodoro';
   const isCustom = mode === 'custom';
   const phaseDur = pomoPhase === 'study' ? PS : PB;
-  const displaySeconds = isPomo ? phaseDur - pomoElapsed : isCustom ? Math.max(0, customDurRef.current - elapsed) : elapsed;
-  const progress = isPomo ? Math.min(pomoElapsed / phaseDur, 1) : isCustom ? Math.min(elapsed / customDurRef.current, 1) : (elapsed % 3600) / 3600;
+  const customInputSeconds = customMinsFromInput(customInputMins) * 60;
+  const customDisplayTotal = running || elapsed > 0 ? customDurRef.current : customInputSeconds;
+  const displaySeconds = isPomo ? phaseDur - pomoElapsed : isCustom ? Math.max(0, customDisplayTotal - elapsed) : elapsed;
+  const progress = isPomo ? Math.min(pomoElapsed / phaseDur, 1) : isCustom ? (customDisplayTotal > 0 ? Math.min(elapsed / customDisplayTotal, 1) : 0) : (elapsed % 3600) / 3600;
   const ringColor = isPomo && pomoPhase === 'break' ? '#10B981' : isCustom ? '#8B5CF6' : 'var(--indigo)';
   const dashOffset = CIRC * (1 - progress);
   const disabledStop = elapsed === 0 && pomoElapsed === 0 && !running;
@@ -2553,8 +2562,17 @@ function StudyTimer({ onSessionSaved, startTrigger }) {
         {isCustom && !running && (
           <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
-              type="number" min="1" max="240" value={customInputMins}
-              onChange={e => setCustomInputMins(e.target.value)}
+              type="number" min="0" max="240" value={customInputMins}
+              onChange={e => {
+                const next = e.target.value;
+                setCustomInputMins(next);
+                if (!running) {
+                  const nextSeconds = customMinsFromInput(next) * 60;
+                  customDurRef.current = nextSeconds;
+                  elapsedRef.current = 0;
+                  setElapsed(0);
+                }
+              }}
               style={{ flex: 1, padding: '8px 10px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--sidebar-bg)', color: 'var(--ink)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', textAlign: 'center', outline: 'none' }}
               placeholder="25"
             />
