@@ -3151,28 +3151,65 @@ function GradeValue({ value, color, size = 20 }) {
   );
 }
 
+const PRIORITY_OPTIONS = [
+  { v: 1, label: 'Bassa',      short: 'Low',       desc: 'Tranquillo', color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0' },
+  { v: 2, label: 'Media',      short: 'Medium',    desc: 'Normale',    color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE' },
+  { v: 3, label: 'Alta',       short: 'High',      desc: 'Priorità',   color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A' },
+  { v: 4, label: 'Molto alta', short: 'Very high', desc: 'Urgente',    color: '#F97316', bg: '#FFF7ED', border: '#FED7AA' },
+  { v: 5, label: 'Critica',    short: 'Critical',  desc: 'Massima',    color: '#EF4444', bg: '#FEF2F2', border: '#FECACA' },
+];
+
+const getPriorityMeta = (value) => PRIORITY_OPTIONS.find((p) => p.v === Number(value)) || PRIORITY_OPTIONS[2];
+
+function PrioritySelector({ value, onChange }) {
+  return (
+    <div style={priorityS.grid}>
+      {PRIORITY_OPTIONS.map((p) => {
+        const active = Number(value) === p.v;
+        return (
+          <button
+            key={p.v}
+            type="button"
+            onClick={() => onChange(p.v)}
+            style={{
+              ...priorityS.option,
+              background: active ? p.bg : 'var(--surface)',
+              borderColor: active ? p.color : 'var(--border)',
+              boxShadow: active ? `0 10px 24px -18px ${p.color}` : 'none',
+            }}
+          >
+            <span style={{ ...priorityS.num, background: active ? p.color : 'var(--sidebar-bg)', color: active ? '#fff' : 'var(--gray)' }}>{p.v}</span>
+            <span style={{ ...priorityS.text, color: active ? 'var(--ink)' : 'var(--gray)' }}>{p.label}</span>
+            <span style={{ ...priorityS.desc, color: active ? p.color : 'var(--gray-2)' }}>{p.desc}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const seedExams = [
-  { id: 1, name: 'Biology 2024',       subject: 'Biology',    date: '2026-06-24', targetGrade: 27, updated: '2h ago',     chapters: [
+  { id: 1, name: 'Biology 2024',       subject: 'Biology',    date: '2026-06-24', targetGrade: 27, priority: 3, updated: '2h ago',     chapters: [
     makeSampleChapter(101, 'Cellular Respiration', '2h ago',     12, 1, 0, cellularRespirationCards, cellularRespirationQuestions),
     makeSampleChapter(102, 'Genetics Basics',      '3 days ago', 18, 2, 1, geneticsCards,            cellularRespirationQuestions),
   ]},
-  { id: 2, name: 'Organic Chemistry',  subject: 'Chemistry',  date: '2026-07-08', targetGrade: 25, updated: '1 day ago',  chapters: [
+  { id: 2, name: 'Organic Chemistry',  subject: 'Chemistry',  date: '2026-07-08', targetGrade: 25, priority: 4, updated: '1 day ago',  chapters: [
     makeSampleChapter(201, 'Reaction Mechanisms', '1 day ago',  22, 2, 1, chemistryCards, chemistryQuestions),
     makeSampleChapter(202, 'Alkanes & Alkenes',   '4 days ago', 14, 1, 2, chemistryCards, chemistryQuestions),
   ]},
-  { id: 3, name: 'Calculus II',        subject: 'Math',       date: '2026-06-15', targetGrade: 28, updated: '3 days ago', chapters: [
+  { id: 3, name: 'Calculus II',        subject: 'Math',       date: '2026-06-15', targetGrade: 28, priority: 5, updated: '3 days ago', chapters: [
     makeSampleChapter(301, 'Integration Techniques', '3 days ago', 28, 3, 2, mathCards, mathQuestions),
     makeSampleChapter(302, 'Series & Sequences',     '1 week ago', 20, 2, 3, mathCards, mathQuestions),
   ]},
-  { id: 4, name: 'World War II',       subject: 'History',    date: '2026-06-24', targetGrade: 24, updated: '5 days ago', chapters: [
+  { id: 4, name: 'World War II',       subject: 'History',    date: '2026-06-24', targetGrade: 24, priority: 2, updated: '5 days ago', chapters: [
     makeSampleChapter(401, 'Causes & Outbreak', '5 days ago', 16, 1, 3, historyCards, historyQuestions),
     makeSampleChapter(402, 'Pacific Theater',   '1 week ago', 22, 2, 4, historyCards, historyQuestions),
   ]},
-  { id: 5, name: 'Quantum Physics',    subject: 'Physics',    date: '2026-07-22', targetGrade: 27, updated: '1 week ago', chapters: [
+  { id: 5, name: 'Quantum Physics',    subject: 'Physics',    date: '2026-07-22', targetGrade: 27, priority: 3, updated: '1 week ago', chapters: [
     makeSampleChapter(501, 'Wave-Particle Duality',  '1 week ago',  24, 2, 4, physicsCards, physicsQuestions),
     makeSampleChapter(502, 'Schrödinger Equation',   '2 weeks ago', 30, 3, 5, physicsCards, physicsQuestions),
   ]},
-  { id: 6, name: 'English Literature', subject: 'Literature', date: '2026-05-29', targetGrade: 24, updated: '2 weeks ago', chapters: [
+  { id: 6, name: 'English Literature', subject: 'Literature', date: '2026-05-29', targetGrade: 24, priority: 4, updated: '2 weeks ago', chapters: [
     makeSampleChapter(601, 'Shakespeare — Hamlet', '2 weeks ago', 26, 2, 5, literatureCards, literatureQuestions),
     makeSampleChapter(602, 'Romantic Poetry',      '3 weeks ago', 18, 1, 0, literatureCards, literatureQuestions),
   ]},
@@ -3321,15 +3358,12 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                 })()}
               </div>
               <div style={{ padding: 18 }}>
-                {x.priority && (() => {
-                  const p = x.priority;
-                  const pColor = p <= 2 ? '#10B981' : p === 3 ? '#F59E0B' : '#EF4444';
-                  const pBg = p <= 2 ? '#D1FAE5' : p === 3 ? '#FEF3C7' : '#FEE2E2';
-                  const pLabels = ['','Bassa','Media','Alta','Molto Alta','Critica'];
+                {(() => {
+                  const p = getPriorityMeta(x.priority || 3);
                   return (
-                    <div style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:8, background:pBg, border:`1px solid ${pColor}30`, marginBottom:8 }}>
-                      <span style={{ width:6, height:6, borderRadius:'50%', background:pColor, flexShrink:0 }} />
-                      <span style={{ fontSize:10, fontWeight:700, color:pColor, lineHeight:1 }}>{pLabels[p]}</span>
+                    <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 9px', borderRadius:999, background:p.bg, border:`1px solid ${p.border}`, marginBottom:8 }}>
+                      <span style={{ width:6, height:6, borderRadius:'50%', background:p.color, flexShrink:0 }} />
+                      <span style={{ fontSize:10, fontWeight:800, color:p.color, lineHeight:1 }}>{p.label}</span>
                     </div>
                   );
                 })()}
@@ -4876,6 +4910,7 @@ function EditExamModal({ exam, onClose, onSave }) {
   const [name, setName] = useState(exam.name || '');
   const [targetGrade, setTargetGrade] = useState(exam.targetGrade || 27);
   const [emoji, setEmoji] = useState(getExamEmoji(exam));
+  const [priority, setPriority] = useState(exam.priority || 3);
   const parsedDate = exam.date ? new Date(exam.date + 'T12:00:00') : new Date();
   const [day, setDay]     = useState(parsedDate.getDate());
   const [month, setMonth] = useState(parsedDate.getMonth() + 1);
@@ -4892,12 +4927,12 @@ function EditExamModal({ exam, onClose, onSave }) {
     if (!name.trim()) return;
     const lastDay = new Date(year, month, 0).getDate();
     const safeDay = Math.min(Number(day), lastDay);
-    onSave({ name: name.trim(), date: `${year}-${pad(month)}-${pad(safeDay)}`, targetGrade, emoji });
+    onSave({ name: name.trim(), date: `${year}-${pad(month)}-${pad(safeDay)}`, targetGrade, priority, emoji });
   };
 
   return (
     <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <form onSubmit={submit} style={{ ...uploadS.card, maxWidth:440 }}>
+      <form onSubmit={submit} style={{ ...uploadS.card, maxWidth:520 }}>
         <button type="button" onClick={onClose} style={uploadS.closeBtn}><XIcon size={16} /></button>
         <h3 style={uploadS.title}>Modifica esame</h3>
 
@@ -4913,6 +4948,11 @@ function EditExamModal({ exam, onClose, onSave }) {
             />
             <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
           </div>
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={uploadS.label}>Priorità</label>
+          <PrioritySelector value={priority} onChange={setPriority} />
         </div>
 
         <div style={uploadS.field}>
@@ -5007,7 +5047,7 @@ function CreateExamModal({ onClose, onCreate }) {
 
   return (
     <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
-      <form onSubmit={submit} style={{ ...uploadS.card, maxWidth: 440 }}>
+      <form onSubmit={submit} style={{ ...uploadS.card, maxWidth: 520 }}>
         <button type="button" onClick={onClose} aria-label="Close" style={uploadS.closeBtn}><XIcon size={16} /></button>
         <h3 style={uploadS.title}>Create New Exam</h3>
         <p style={uploadS.subtitle}>Give your exam a name to get started</p>
@@ -5031,14 +5071,7 @@ function CreateExamModal({ onClose, onCreate }) {
 
         <div style={uploadS.field}>
           <label style={uploadS.label}>Priorità</label>
-          <div style={{ display:'flex', gap:6 }}>
-            {[{v:1,label:'Bassa'},{v:2,label:'Media'},{v:3,label:'Alta'},{v:4,label:'Molto Alta'},{v:5,label:'Critica'}].map(({ v, label }) => (
-              <button key={v} type="button" onClick={() => setPriority(v)}
-                style={{ flex:1, padding:'7px 4px', borderRadius:10, border:`1.5px solid ${priority === v ? 'var(--indigo)' : 'var(--border)'}`, background: priority === v ? 'var(--indigo)' : 'var(--surface)', color: priority === v ? '#fff' : 'var(--gray)', fontWeight:700, fontSize:11, cursor:'pointer', transition:'all .12s' }}>
-                {v} {label}
-              </button>
-            ))}
-          </div>
+          <PrioritySelector value={priority} onChange={setPriority} />
         </div>
 
         <div style={uploadS.field}>
@@ -5420,6 +5453,14 @@ const uploadS = {
   cancelBtn: { padding: '11px 18px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 14 },
   submitBtn: { padding: '11px 18px', borderRadius: 12, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 14, boxShadow: '0 10px 26px -10px rgba(55,48,232,.55)', transition: 'opacity .15s' },
   submitBtnDisabled: { background: '#C7C9F0', boxShadow: 'none', cursor: 'not-allowed' },
+};
+
+const priorityS = {
+  grid: { display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(92px, 1fr))', gap:8 },
+  option: { minHeight:72, padding:'10px 9px', borderRadius:14, border:'1.5px solid var(--border)', display:'flex', flexDirection:'column', alignItems:'flex-start', justifyContent:'center', gap:4, cursor:'pointer', transition:'background .15s, border-color .15s, box-shadow .15s, transform .15s' },
+  num: { width:22, height:22, borderRadius:999, display:'grid', placeItems:'center', fontSize:11, fontWeight:800, lineHeight:1 },
+  text: { fontSize:12, fontWeight:800, lineHeight:1.1 },
+  desc: { fontSize:10, fontWeight:700, lineHeight:1.1 },
 };
 
 /* ===================== AI TUTOR ===================== */
