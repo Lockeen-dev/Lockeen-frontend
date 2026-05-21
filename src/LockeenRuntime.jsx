@@ -1814,26 +1814,18 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                     onPick={(emoji) => setExams(prev => prev.map(e => e.id === x.id ? { ...e, emoji } : e))}
                   />
                 </div>
-                {x.priority && (() => {
-                  const pColor = x.priority <= 2 ? '#10B981' : x.priority === 3 ? '#F59E0B' : '#EF4444';
-                  const pLabel = ['','Bassa','Media','Alta','Molto Alta','Critica'][x.priority] || '';
-                  const pEmoji = ['','🟢','🔵','🟡','🟠','🔴'][x.priority] || '';
-                  return (
-                    <span style={{ position:'absolute', top:10, left:10, fontSize:10, fontWeight:700, padding:'3px 8px', background:'rgba(255,255,255,.9)', border:`1.5px solid ${pColor}`, borderRadius:999, color:pColor, lineHeight:1.4, display:'inline-flex', alignItems:'center', gap:3 }}>
-                      {pEmoji} {pLabel}
-                    </span>
-                  );
-                })()}
                 {x.date && (() => {
                   const dl = daysLeft(x.date);
                   return (
                     <>
+                      <span style={{ position:'absolute', top:12, left:12, fontSize:11, fontWeight:700, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--ink)', lineHeight:1.3 }}>
+                        {formatExamDate(x.date)}
+                      </span>
                       {dl >= 0 && (
-                        <span style={{ position:'absolute', top:12, left: x.priority ? 90 : 12, fontSize:11, fontWeight:700, padding:'5px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--indigo)', lineHeight:1.3 }}>
+                        <span style={{ position:'absolute', top:12, right:12, fontSize:11, fontWeight:700, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--indigo)', lineHeight:1.3 }}>
                           {dl === 0 ? 'Oggi!' : `${dl} giorni`}
                         </span>
                       )}
-                      <span style={{ ...notesS.subjectChip, lineHeight:1.3 }}>{formatExamDate(x.date)}</span>
                     </>
                   );
                 })()}
