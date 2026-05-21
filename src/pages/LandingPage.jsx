@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, useScroll, useSpring } from 'framer-motion';
 import ProductScrollPreview from '../components/ProductScrollPreview';
+import InfiniteGridBg from '../components/InfiniteGridBg';
 import { landingHtml } from '../content/landingHtml';
 import { initMarketingDom } from '../marketingBoot';
 import LockeenRuntime from '../LockeenRuntime';
@@ -19,6 +20,8 @@ function LandingInteractionLayer() {
 
 export default function LandingPage() {
   const [productPreviewRoot, setProductPreviewRoot] = useState(null);
+  const [heroGridRoot, setHeroGridRoot] = useState(null);
+  const heroRef = useRef(null);
 
   useEffect(() => {
     window.showPage = function showPage(id) {
@@ -32,6 +35,17 @@ export default function LandingPage() {
 
     const landing = document.getElementById('page-landing');
     if (!landing) return undefined;
+
+    // Inject InfiniteGrid into hero section
+    const heroSection = landing.querySelector('main > section:first-of-type');
+    let gridDiv = null;
+    if (heroSection) {
+      heroRef.current = heroSection;
+      gridDiv = document.createElement('div');
+      gridDiv.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;';
+      heroSection.insertBefore(gridDiv, heroSection.firstChild);
+      setHeroGridRoot(gridDiv);
+    }
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const sections = [...landing.querySelectorAll('main > section')];
@@ -102,6 +116,8 @@ export default function LandingPage() {
 
     return () => {
       window.removeEventListener('scroll', onScroll);
+      if (gridDiv) gridDiv.remove();
+      setHeroGridRoot(null);
       window.showPage = undefined;
       window.openAuth = undefined;
       window.closeAuth = undefined;
@@ -122,6 +138,7 @@ export default function LandingPage() {
     <>
       <LandingInteractionLayer />
       <div id="page-landing" className="page" dangerouslySetInnerHTML={{ __html: landingHtml }} />
+      {heroGridRoot && createPortal(<InfiniteGridBg heroRef={heroRef} />, heroGridRoot)}
       {productPreviewRoot && createPortal(<ProductScrollPreview />, productPreviewRoot)}
       <div id="page-app" className="page notranslate" translate="no" style={{ display: 'none' }} />
       <LockeenRuntime />
