@@ -5,9 +5,9 @@ import { EXTRA_SUBJECT_COLORS, getSubjectPalette, inferSubjectFromName } from '.
 import { SUBJECT_EMOJI, getExamEmoji } from '../lib/examUi';
 import { EmojiPickerButton, GradeValue, PrioritySelector, gradeS } from './common/ExamControls';
 
-function DeleteExamModal({ exam, onClose, onConfirm }) {
+function DeleteExamModal({ exam, onClose, onConfirm, saving = false, error = null }) {
   return (
-    <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}>
       <div style={{ ...uploadS.card, maxWidth:400, textAlign:'center' }}>
         <div style={{ width:52, height:52, borderRadius:999, background:'#FEE2E2', display:'grid', placeItems:'center', margin:'0 auto 16px' }}>
           <Trash2 size={22} color="#EF4444" />
@@ -16,12 +16,13 @@ function DeleteExamModal({ exam, onClose, onConfirm }) {
         <p style={{ margin:'0 0 6px', color:'var(--gray)', fontSize:14 }}>Stai per eliminare:</p>
         <p style={{ margin:'0 0 20px', fontWeight:700, fontSize:15, color:'var(--ink)' }}>"{exam.name}"</p>
         <p style={{ margin:'0 0 24px', color:'var(--gray)', fontSize:13 }}>Questa azione è irreversibile. Tutti i capitoli e i dati dell'esame saranno persi.</p>
+        {error && <div style={uploadS.errorText}>{error}</div>}
         <div style={{ display:'flex', gap:10 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'11px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor:'pointer' }}>
+          <button onClick={onClose} disabled={saving} style={{ flex:1, padding:'11px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .65 : 1 }}>
             Annulla
           </button>
-          <button onClick={onConfirm} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:'#EF4444', color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer' }}>
-            Elimina
+          <button onClick={onConfirm} disabled={saving} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:'#EF4444', color:'#fff', fontWeight:700, fontSize:14, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1 }}>
+            {saving ? 'Eliminazione...' : 'Elimina'}
           </button>
         </div>
       </div>
@@ -29,7 +30,7 @@ function DeleteExamModal({ exam, onClose, onConfirm }) {
   );
 }
 
-function EditExamModal({ exam, onClose, onSave }) {
+function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) {
   const [name, setName] = useState(exam.name || '');
   const [targetGrade, setTargetGrade] = useState(exam.targetGrade || 27);
   const [emoji, setEmoji] = useState(getExamEmoji(exam));
@@ -54,9 +55,9 @@ function EditExamModal({ exam, onClose, onSave }) {
   };
 
   return (
-    <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}>
       <form onSubmit={submit} style={{ ...uploadS.card, maxWidth:520 }}>
-        <button type="button" onClick={onClose} style={uploadS.closeBtn}><XIcon size={16} /></button>
+        <button type="button" onClick={onClose} disabled={saving} style={uploadS.closeBtn}><XIcon size={16} /></button>
         <h3 style={uploadS.title}>Modifica esame</h3>
 
         <div style={uploadS.field}>
@@ -69,7 +70,7 @@ function EditExamModal({ exam, onClose, onSave }) {
               size={48}
               onPick={setEmoji}
             />
-            <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
+            <input value={name} onChange={(e) => setName(e.target.value)} disabled={saving} style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
           </div>
         </div>
 
@@ -81,13 +82,13 @@ function EditExamModal({ exam, onClose, onSave }) {
         <div style={uploadS.field}>
           <label style={dateS.label}>Data esame</label>
           <div style={dateS.row}>
-            <select value={day} onChange={(e) => setDay(Number(e.target.value))} style={dateS.select}>
+            <select value={day} onChange={(e) => setDay(Number(e.target.value))} disabled={saving} style={dateS.select}>
               {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
-            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={dateS.select}>
+            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} disabled={saving} style={dateS.select}>
               {months.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>
-            <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={dateS.select}>
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))} disabled={saving} style={dateS.select}>
               {years.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
@@ -102,6 +103,7 @@ function EditExamModal({ exam, onClose, onSave }) {
             <div style={gradeS.sliderTrackCol}>
               <input type="range" className="grade-range" min="18" max="30" step="1" value={targetGrade}
                 onChange={(e) => setTargetGrade(Number(e.target.value))}
+                disabled={saving}
                 style={{ ...gradeS.range, '--grade-color': palette.dot, accentColor: palette.dot, background: `linear-gradient(90deg, ${palette.dot} 0%, ${palette.dot} ${targetPct}%, var(--border) ${targetPct}%, var(--border) 100%)` }} />
               <div style={gradeS.ticks}>
                 {[18, 21, 24, 27, 30].map((t) => (
@@ -112,12 +114,13 @@ function EditExamModal({ exam, onClose, onSave }) {
           </div>
         </div>
 
+        {error && <div style={uploadS.errorText}>{error}</div>}
         <div style={{ display:'flex', gap:10, marginTop:8 }}>
-          <button type="button" onClick={onClose} style={{ flex:1, padding:'11px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor:'pointer' }}>
+          <button type="button" onClick={onClose} disabled={saving} style={{ flex:1, padding:'11px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .65 : 1 }}>
             Annulla
           </button>
-          <button type="submit" disabled={!name.trim()} style={{ flex:2, padding:'11px', borderRadius:12, border:'none', background: name.trim() ? 'var(--indigo)' : '#CBD5E1', color:'#fff', fontWeight:700, fontSize:14, cursor: name.trim() ? 'pointer' : 'not-allowed' }}>
-            Salva modifiche
+          <button type="submit" disabled={!name.trim() || saving} style={{ flex:2, padding:'11px', borderRadius:12, border:'none', background: name.trim() && !saving ? 'var(--indigo)' : '#CBD5E1', color:'#fff', fontWeight:700, fontSize:14, cursor: name.trim() && !saving ? 'pointer' : 'not-allowed' }}>
+            {saving ? 'Salvataggio...' : 'Salva modifiche'}
           </button>
         </div>
       </form>
@@ -125,7 +128,7 @@ function EditExamModal({ exam, onClose, onSave }) {
   );
 }
 
-function CreateExamModal({ onClose, onCreate }) {
+function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
   const [name, setName] = useState('');
   const [targetGrade, setTargetGrade] = useState(27);
   const today = new Date();
@@ -176,9 +179,9 @@ function CreateExamModal({ onClose, onCreate }) {
   const canSubmit = name.trim();
 
   return (
-    <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
+    <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose && onClose(); }}>
       <form onSubmit={submit} style={{ ...uploadS.card, maxWidth: 520 }}>
-        <button type="button" onClick={onClose} aria-label="Close" style={uploadS.closeBtn}><XIcon size={16} /></button>
+        <button type="button" onClick={onClose} disabled={saving} aria-label="Close" style={uploadS.closeBtn}><XIcon size={16} /></button>
         <h3 style={uploadS.title}>Create New Exam</h3>
         <p style={uploadS.subtitle}>Give your exam a name to get started</p>
 
@@ -190,9 +193,9 @@ function CreateExamModal({ onClose, onCreate }) {
               dot={subjectPalette.dot}
               bg={subjectPalette.bg}
               size={48}
-              onPick={(e) => setEmojiOverride(e)}
+              onPick={(e) => { if (!saving) setEmojiOverride(e); }}
             />
-            <input value={name} onChange={(e) => { setName(e.target.value); setEmojiOverride(null); }} placeholder="es. Biologia 2024" style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
+            <input value={name} onChange={(e) => { setName(e.target.value); setEmojiOverride(null); }} disabled={saving} placeholder="es. Biologia 2024" style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
           </div>
           {!emojiOverride && name.trim() && (
             <div style={{ fontSize:11, color:'var(--gray)', marginTop:4 }}>Emoji rilevata automaticamente · clicca per cambiare</div>
@@ -207,17 +210,17 @@ function CreateExamModal({ onClose, onCreate }) {
         <div style={uploadS.field}>
           <label style={dateS.label}>Exam date</label>
           <div style={dateS.row}>
-            <select value={day} onChange={(e) => setDay(Number(e.target.value))} style={dateS.select} aria-label="Day">
+            <select value={day} onChange={(e) => setDay(Number(e.target.value))} disabled={saving} style={dateS.select} aria-label="Day">
               {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>
-            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={dateS.select} aria-label="Month">
+            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} disabled={saving} style={dateS.select} aria-label="Month">
               {months.map((m, i) => (
                 <option key={m} value={i + 1}>{m}</option>
               ))}
             </select>
-            <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={dateS.select} aria-label="Year">
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))} disabled={saving} style={dateS.select} aria-label="Year">
               {years.map((y) => (
                 <option key={y} value={y}>{y}</option>
               ))}
@@ -240,6 +243,7 @@ function CreateExamModal({ onClose, onCreate }) {
                 step="1"
                 value={targetGrade}
                 onChange={(e) => setTargetGrade(Number(e.target.value))}
+                disabled={saving}
                 style={{
                   ...gradeS.range,
                   '--grade-color': subjectPalette.dot,
@@ -263,8 +267,8 @@ function CreateExamModal({ onClose, onCreate }) {
           <label style={dateS.label}>Priorità esame</label>
           <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
             {PRIORITIES.map(p => (
-              <button key={p.val} type="button" onClick={() => setPriority(p.val)}
-                style={{ flex:1, minWidth:0, padding:'8px 4px', borderRadius:10, border:`2px solid ${priority===p.val ? p.color : 'var(--border)'}`, background: priority===p.val ? p.color : 'var(--surface)', color: priority===p.val ? '#fff' : 'var(--gray)', fontWeight:700, fontSize:11, cursor:'pointer', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+              <button key={p.val} type="button" onClick={() => setPriority(p.val)} disabled={saving}
+                style={{ flex:1, minWidth:0, padding:'8px 4px', borderRadius:10, border:`2px solid ${priority===p.val ? p.color : 'var(--border)'}`, background: priority===p.val ? p.color : 'var(--surface)', color: priority===p.val ? '#fff' : 'var(--gray)', fontWeight:700, fontSize:11, cursor: saving ? 'not-allowed' : 'pointer', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:3, opacity: saving ? .65 : 1 }}>
                 <span style={{ fontSize:14 }}>{['🟢','🔵','🟡','🟠','🔴'][p.val-1]}</span>
                 <span>{p.label}</span>
               </button>
@@ -272,11 +276,12 @@ function CreateExamModal({ onClose, onCreate }) {
           </div>
         </div>
 
+        {error && <div style={uploadS.errorText}>{error}</div>}
         <div style={uploadS.actions}>
-          <button type="button" onClick={onClose} style={uploadS.cancelBtn}>Cancel</button>
-          <button type="submit" disabled={!canSubmit}
-            style={{ ...uploadS.submitBtn, ...(!canSubmit ? uploadS.submitBtnDisabled : null) }}>
-            Create Exam
+          <button type="button" onClick={onClose} disabled={saving} style={{ ...uploadS.cancelBtn, ...(saving ? uploadS.submitBtnDisabled : null) }}>Cancel</button>
+          <button type="submit" disabled={!canSubmit || saving}
+            style={{ ...uploadS.submitBtn, ...((!canSubmit || saving) ? uploadS.submitBtnDisabled : null) }}>
+            {saving ? 'Creating...' : 'Create Exam'}
           </button>
         </div>
       </form>
@@ -525,6 +530,7 @@ const uploadS = {
   progressTrack: { height: 6, background: '#EEF2FF', borderRadius: 999, overflow: 'hidden' },
   progressFill: { height: '100%', background: 'linear-gradient(90deg, var(--indigo), var(--purple))', borderRadius: 999, transition: 'width .1s linear' },
   loadingText: { textAlign: 'center', fontSize: 13, color: 'var(--gray)', marginTop: 8 },
+  errorText: { margin: '14px 0 0', padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12, fontWeight: 600, lineHeight: 1.4 },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 },
   cancelBtn: { padding: '11px 18px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 14 },
   submitBtn: { padding: '11px 18px', borderRadius: 12, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 14, boxShadow: '0 10px 26px -10px rgba(55,48,232,.55)', transition: 'opacity .15s' },
