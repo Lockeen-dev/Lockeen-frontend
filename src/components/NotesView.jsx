@@ -5,6 +5,7 @@ import { tt } from '../lib/i18n';
 import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, inferSubjectFromName, makeSampleChapter } from '../data/mockData';
 import { getExamEmoji } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
+import { createExam, deleteExam, listExams, updateExam } from '../services/exams';
 import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, UploadChapterModal } from './ExamModals';
 import { EmojiPickerButton, GradeValue, getPriorityMeta, gradeS } from './common/ExamControls';
 import { homeS } from '../styles/dashboardStyles';
@@ -15,15 +16,85 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
   const [showCreate, setShowCreate] = useState(false);
   const [editingExam, setEditingExam] = useState(null);
   const [deletingExam, setDeletingExam] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [actionError, setActionError] = useState(null);
+  const [savingAction, setSavingAction] = useState(null);
 
-  const handleDeleteExam = (id) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadInitialExams() {
+      setLoading(true);
+      setLoadError(null);
+      const { data, error } = await listExams();
+      if (cancelled) return;
+      if (error) {
+        setLoadError(error.message || 'Unable to load exams.');
+      } else {
+        setExams(data || []);
+      }
+      setLoading(false);
+    }
+
+    loadInitialExams();
+    return () => { cancelled = true; };
+  }, [setExams]);
+
+  const handleDeleteExam = async (id) => {
+    setActionError(null);
+    setSavingAction('delete');
+    const { error } = await deleteExam(id);
+    if (error) {
+      setActionError(error.message || 'Unable to delete exam.');
+      setSavingAction(null);
+      return;
+    }
     setExams(prev => prev.filter(e => e.id !== id));
     setDeletingExam(null);
+    setSavingAction(null);
   };
 
-  const handleEditExam = (id, changes) => {
-    setExams(prev => prev.map(e => e.id === id ? { ...e, ...changes } : e));
+  const handleEditExam = async (id, changes) => {
+    setActionError(null);
+    setSavingAction('edit');
+    const { data, error } = await updateExam(id, changes);
+    if (error) {
+      setActionError(error.message || 'Unable to update exam.');
+      setSavingAction(null);
+      return;
+    }
+    setExams(prev => prev.map(e => e.id === id ? data : e));
     setEditingExam(null);
+    setSavingAction(null);
+  };
+
+  const handleCreateExam = async (exam) => {
+    setActionError(null);
+    setSavingAction('create');
+    const palette = getSubjectPalette(inferSubjectFromName(exam.subject), EXTRA_SUBJECT_COLORS.Other);
+    const enriched = { ...exam, color: palette.bg, dot: palette.dot };
+    const { data, error } = await createExam(enriched);
+    if (error) {
+      setActionError(error.message || 'Unable to create exam.');
+      setSavingAction(null);
+      return;
+    }
+    const created = data || enriched;
+    setExams((p) => [created, ...p]);
+    setShowCreate(false);
+    setSavingAction(null);
+    if (created.date && onExamAdded) {
+      const [yr, mo, dy] = created.date.split('-').map(Number);
+      const dateKey = `${yr}-${mo}-${dy}`;
+      onExamAdded(dateKey, {
+        name: '📝 Exam: ' + created.name,
+        time: '09:00', dur: '2h', cat: 'study',
+        noteId: created.id,
+        noteColor: palette.dot, noteBg: palette.bg,
+        noteText: palette.text, noteSubject: created.subject,
+      });
+    }
   };
 
   const activeExam = exams.find((x) => x.id === activeId);
@@ -87,43 +158,57 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       {deletingExam && (
         <DeleteExamModal
           exam={deletingExam}
-          onClose={() => setDeletingExam(null)}
+          onClose={() => { setDeletingExam(null); setActionError(null); }}
           onConfirm={() => handleDeleteExam(deletingExam.id)}
+          saving={savingAction === 'delete'}
+          error={actionError}
         />
       )}
       {editingExam && (
         <EditExamModal
           exam={editingExam}
-          onClose={() => setEditingExam(null)}
+          onClose={() => { setEditingExam(null); setActionError(null); }}
           onSave={(changes) => handleEditExam(editingExam.id, changes)}
+          saving={savingAction === 'edit'}
+          error={actionError}
         />
       )}
 
       {showCreate && (
         <CreateExamModal
-          onClose={() => setShowCreate(false)}
-          onCreate={(exam) => {
-            const palette = getSubjectPalette(inferSubjectFromName(exam.subject), EXTRA_SUBJECT_COLORS.Other);
-            const enriched = { ...exam, color: palette.bg, dot: palette.dot };
-            setExams((p) => [enriched, ...p]);
-            setShowCreate(false);
-            if (exam.date && onExamAdded) {
-              const [yr, mo, dy] = exam.date.split('-').map(Number);
-              const dateKey = `${yr}-${mo}-${dy}`;
-              onExamAdded(dateKey, {
-                name: '📝 Exam: ' + exam.name,
-                time: '09:00', dur: '2h', cat: 'study',
-                noteId: exam.id,
-                noteColor: palette.dot, noteBg: palette.bg,
-                noteText: palette.text, noteSubject: exam.subject,
-              });
-            }
-          }}
+          onClose={() => { setShowCreate(false); setActionError(null); }}
+          onCreate={handleCreateExam}
+          saving={savingAction === 'create'}
+          error={actionError}
         />
       )}
 
+      {loading && (
+        <div style={examsS.empty}>
+          <div style={examsS.emptyIcon}><FileText size={22} /></div>
+          <div style={examsS.emptyTitle}>Loading exams...</div>
+          <div style={examsS.emptySub}>Fetching your mock exam list.</div>
+        </div>
+      )}
+
+      {!loading && loadError && (
+        <div style={examsS.empty}>
+          <div style={examsS.emptyIcon}><FileText size={22} /></div>
+          <div style={examsS.emptyTitle}>Unable to load exams</div>
+          <div style={examsS.emptySub}>{loadError}</div>
+        </div>
+      )}
+
+      {!loading && !loadError && filtered.length === 0 && (
+        <div style={examsS.empty}>
+          <div style={examsS.emptyIcon}><FileText size={22} /></div>
+          <div style={examsS.emptyTitle}>{exams.length === 0 ? 'No exams yet' : 'No exams found'}</div>
+          <div style={examsS.emptySub}>{exams.length === 0 ? 'Create your first exam to start organizing chapters.' : 'Try a different search term.'}</div>
+        </div>
+      )}
+
       <div style={examsS.grid}>
-        {filtered.map((x) => {
+        {!loading && !loadError && filtered.map((x) => {
           const palette = getSubjectPalette(x.subject, x, darkMode);
           return (
             <div key={x.id} style={notesS.card}>
