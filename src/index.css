@@ -125,9 +125,11 @@
   .landing-pressable.is-pressing {
     transform: translateY(1px) scale(.985);
   }
+  #page-landing #features-grid > div {
+    overflow: hidden;
+  }
   #page-landing #features-grid > div,
   #page-landing #pricing-grid > div {
-    overflow: hidden;
     position: relative;
   }
   #page-landing #features-grid > div::before,

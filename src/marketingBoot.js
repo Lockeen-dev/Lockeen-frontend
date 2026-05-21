@@ -135,7 +135,7 @@ export function initMarketingDom() {
       const period = p.period === 'forever' ? pc.periodForever : (p.oneTime ? pc.periodOneTime : (billingAnnual ? pc.periodAnnual : pc.periodMonthly));
       return `
     <div class="relative p-8 bg-white rounded-3xl border-2 transition-all duration-300 ${p.popular ? 'border-primary shadow-2xl shadow-primary/20' : 'border-border hover:border-primary/30 hover:shadow-lg'}">
-      ${p.popular ? `<div class="absolute -top-4 left-1/2 -translate-x-1/2"><div class="px-4 py-1.5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold">${pc.badge}</div></div>` : ''}
+      ${p.popular ? `<div class="absolute -top-5 left-1/2 z-20 -translate-x-1/2"><div class="px-5 py-2 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold shadow-primary-soft whitespace-nowrap">${pc.badge}</div></div>` : ''}
       <div class="mb-6">
         <h3 class="text-2xl mb-1 font-bold">${pc.name}</h3>
         <div class="flex items-baseline gap-1 mt-4 mb-1">
