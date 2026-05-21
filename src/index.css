@@ -86,6 +86,144 @@
   .shadow-primary-lg { box-shadow: 0 20px 40px -10px rgba(47,43,255,0.30); }
   .shadow-primary-xl { box-shadow: 0 25px 60px -10px rgba(47,43,255,0.40); }
   .shadow-primary-soft { box-shadow: 0 10px 30px -8px rgba(47,43,255,0.20); }
+  .landing-scroll-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 80;
+    transform-origin: 0 50%;
+    background: linear-gradient(90deg, var(--indigo), var(--purple));
+    box-shadow: 0 0 24px rgba(47,43,255,.28);
+  }
+  #page-landing nav.fixed {
+    transition: transform .24s ease, box-shadow .24s ease;
+  }
+  #page-landing section {
+    scroll-margin-top: 96px;
+  }
+  .landing-reveal {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0) scale(.985);
+    transition:
+      opacity .7s cubic-bezier(.22,1,.36,1) var(--reveal-delay, 0ms),
+      transform .7s cubic-bezier(.22,1,.36,1) var(--reveal-delay, 0ms);
+  }
+  .landing-reveal.is-visible {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  .landing-pressable {
+    transform: translateZ(0);
+    transition: transform .16s ease, box-shadow .18s ease, opacity .18s ease, background-color .18s ease;
+    touch-action: manipulation;
+  }
+  .landing-pressable:hover {
+    transform: translateY(-1px);
+  }
+  .landing-pressable.is-pressing {
+    transform: translateY(1px) scale(.985);
+  }
+  #page-landing #features-grid > div,
+  #page-landing #pricing-grid > div {
+    overflow: hidden;
+    position: relative;
+  }
+  #page-landing #features-grid > div::before,
+  #page-landing #pricing-grid > div::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0;
+    background: linear-gradient(135deg, rgba(47,43,255,.16), transparent 34%, rgba(139,92,246,.12));
+    transition: opacity .28s ease;
+  }
+  #page-landing #features-grid > div:hover::before,
+  #page-landing #pricing-grid > div:hover::before {
+    opacity: 1;
+  }
+  #page-landing .uni-pill {
+    transition: transform .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+  }
+  #page-landing .uni-pill:hover {
+    transform: translateY(-2px);
+    border-color: rgba(55,48,232,.22);
+    box-shadow: 0 14px 28px -22px rgba(15,16,53,.36);
+  }
+  /* ── Nav scroll state ── */
+  #page-landing nav.is-scrolled {
+    box-shadow: 0 1px 32px rgba(15,16,53,0.07);
+    background: rgba(255,255,255,0.97) !important;
+  }
+
+  /* ── Section spacing tightening ── */
+  #page-landing #features { padding-bottom: 2rem !important; }
+  #page-landing #pricing { padding-top: 3rem !important; padding-bottom: 3rem !important; }
+  #page-landing #pricing + section { padding-top: 3rem !important; }
+
+  /* ── Hero entrance stagger ── */
+  @keyframes heroFadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
+  .hero-badge-reveal {
+    opacity: 0;
+    animation: heroFadeUp .55s cubic-bezier(.22,1,.36,1) .08s forwards;
+  }
+  .hero-title-reveal {
+    opacity: 0;
+    animation: heroFadeUp .65s cubic-bezier(.22,1,.36,1) .22s forwards;
+  }
+  .hero-sub-reveal {
+    opacity: 0;
+    animation: heroFadeUp .6s cubic-bezier(.22,1,.36,1) .38s forwards;
+  }
+  .hero-cta-reveal {
+    opacity: 0;
+    animation: heroFadeUp .52s cubic-bezier(.22,1,.36,1) calc(.5s + var(--cta-delay, 0ms)) forwards;
+  }
+  .hero-card-reveal {
+    opacity: 0;
+    transform: translateY(28px) scale(0.97);
+    animation: heroFadeUp .6s cubic-bezier(.22,1,.36,1) var(--card-delay, 0.62s) forwards;
+  }
+
+  /* ── Hero blob subtle pulse ── */
+  .hero-blob {
+    animation: blobPulse 9s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  @keyframes blobPulse {
+    0%,100% { transform: translate(-50%, 0) scale(1);    opacity: .8; }
+    50%      { transform: translate(-50%, -2%) scale(1.07); opacity: 1;  }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-reveal,
+    .landing-pressable {
+      transition: none !important;
+      transform: none !important;
+    }
+    .hero-badge-reveal,
+    .hero-title-reveal,
+    .hero-sub-reveal,
+    .hero-cta-reveal,
+    .hero-card-reveal {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+    .hero-blob { animation: none !important; }
+  }
+  @media (max-width: 768px) {
+    .landing-scroll-progress { height: 2px; }
+    .landing-reveal {
+      transform: translate3d(0, 14px, 0);
+    }
+  }
   /* Lucide icons sizing helper */
   [data-lucide] { width: 1em; height: 1em; }
   .page { display: block; }

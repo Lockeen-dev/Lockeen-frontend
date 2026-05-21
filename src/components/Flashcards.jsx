@@ -4,6 +4,61 @@ import { getExamEmoji, SubjectIcon } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { getSubjectPalette } from '../data/mockData';
 
+function FlashStyles() {
+  return (
+    <style>{`
+      @keyframes fSlideIn  { from { opacity:0; transform:translateX(18px);  } to { opacity:1; transform:translateX(0); } }
+      @keyframes fSlideBack { from { opacity:0; transform:translateX(-18px); } to { opacity:1; transform:translateX(0); } }
+      @keyframes fFadeUp   { from { opacity:0; transform:translateY(16px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+    `}</style>
+  );
+}
+
+function FlashResultScreen({ percent, correct, total, palette, title, subject, subjectStyle, onReset, onBack }) {
+  const [p, setP] = useState(0);
+  useEffect(() => {
+    let raf;
+    const s = performance.now();
+    const tick = (now) => {
+      const prog = Math.min((now - s) / 1000, 1);
+      setP(Math.round((1 - Math.pow(1 - prog, 3)) * percent));
+      if (prog < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [percent]);
+  const r = 44, circ = 2 * Math.PI * r;
+  const offset = circ * (1 - p / 100);
+  const emoji = percent >= 80 ? '🎉' : percent >= 60 ? '👍' : '💪';
+  const titleText = percent >= 80 ? 'Excellent work!' : percent >= 60 ? 'Good effort!' : 'Keep studying!';
+  return (
+    <>
+      <FlashStyles />
+      <div style={{ ...flashS.resultWrap, animation: 'fFadeUp .45s cubic-bezier(.22,1,.36,1)' }}>
+        <span style={subjectStyle}>{subject}</span>
+        <div style={{ position: 'relative', width: 120, height: 120, margin: '4px 0' }}>
+          <svg width="120" height="120" style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx="60" cy="60" r={r} fill="none" stroke="var(--border)" strokeWidth="8" />
+            <circle cx="60" cy="60" r={r} fill="none" stroke={palette.dot} strokeWidth="8"
+              strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset} />
+          </svg>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: palette.dot, lineHeight: 1 }}>{p}%</span>
+            <span style={{ fontSize: 12, color: palette.text, fontWeight: 700 }}>{correct}/{total}</span>
+          </div>
+        </div>
+        <div style={{ fontSize: 32 }}>{emoji}</div>
+        <h2 style={flashS.resultTitle}>{titleText}</h2>
+        <p style={flashS.resultSub}>{title}</p>
+        <div style={flashS.resultActions}>
+          <button onClick={onReset} style={{ ...flashS.tryAgainBtn, background: palette.dot }}>Try again</button>
+          <button onClick={onBack} style={flashS.backBtn}>Torna ai mazzi</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [] }) {
   const isMobile = useIsMobile();
   const [selectedExamId, setSelectedExamId] = useState(exams[0]?.id ?? null);
@@ -149,6 +204,8 @@ export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMod
   const [seen, setSeen] = useState(() => new Set([0]));
   const [done, setDone] = useState(false);
   const resultSavedRef = useRef(false);
+  const [cardKey, setCardKey] = useState(0);
+  const [cardDir, setCardDir] = useState(1); // 1=forward, -1=back
 
   const answeredCount = answered.filter((v) => v !== undefined).length;
   const allAnswered = answeredCount >= total;
@@ -191,6 +248,8 @@ export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMod
   const goTo = (nextIdx) => {
     if (nextIdx < 0 || nextIdx >= total) return;
     if (nextIdx > idx && answered[idx] === undefined) return;
+    setCardDir(nextIdx > idx ? 1 : -1);
+    setCardKey(k => k + 1);
     setSeen(prev => new Set([...prev, idx, nextIdx]));
     setIdx(nextIdx);
     setFlipped(answered[nextIdx] !== undefined);
@@ -205,65 +264,63 @@ export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMod
     if (known) setCorrect((c) => c + 1);
     setTimeout(() => {
       if (idx < total - 1) {
+        setCardDir(1);
+        setCardKey(k => k + 1);
         setSeen(prev => new Set([...prev, idx + 1]));
         setIdx((i) => i + 1);
         setFlipped(false);
       }
-      // no auto-done — user must click Completa
     }, 350);
   };
 
   if (done) {
     const percent = Math.round((correct / total) * 100);
-    const titleText = percent >= 80 ? 'Excellent work!' : percent >= 60 ? 'Good effort!' : 'Keep studying!';
     return (
-      <div style={flashS.resultWrap}>
-        <div style={{ ...flashS.scoreCircle, borderColor: palette.dot, background: palette.bg }}>
-          <div style={{ ...flashS.scorePercent, color: palette.dot }}>{percent}%</div>
-          <div style={{ ...flashS.scoreFraction, color: palette.text }}>{correct}/{total}</div>
-        </div>
-        <h2 style={flashS.resultTitle}>{titleText}</h2>
-        <p style={flashS.resultSub}>{title}</p>
-        <div style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</div>
-        <div style={flashS.resultActions}>
-          <button onClick={reset} style={{ ...flashS.tryAgainBtn, background: palette.dot }}>Try again</button>
-          <button onClick={() => onBackToLanding ? onBackToLanding() : setTab('notes')} style={flashS.backBtn}>Torna ai mazzi</button>
-        </div>
-      </div>
+      <FlashResultScreen
+        percent={percent} correct={correct} total={total}
+        palette={palette} title={title} subject={subject}
+        subjectStyle={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}
+        onReset={reset}
+        onBack={() => onBackToLanding ? onBackToLanding() : setTab('notes')}
+      />
     );
   }
 
   return (
-    <div style={flashS.wrap}>
-      <div style={flashS.headerRow}>
-        <div style={flashS.headerLeft}>
-          <span style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
-          <span style={flashS.deckTitle}>{title}</span>
-        </div>
-        <span style={flashS.correctCount}>{correct} / {total} correct</span>
-      </div>
-
-      <div style={flashS.progressTrack}>
-        <div style={{ ...flashS.progressFill, width: `${progress}%`, background: palette.dot }} />
-      </div>
-
-      <button
-        type="button"
-        onClick={() => { if (!isAnswered) setFlipped((v) => !v); }}
-        style={flashS.cardStage}
-      >
-        <div style={{ ...flashS.cardInner, transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
-          <div style={flashS.cardFront}>
-            <span style={flashS.faceLabel}>Question</span>
-            <div style={flashS.questionText}>{current.q}</div>
-            <span style={flashS.cardHint}>Tap to reveal answer</span>
+    <>
+      <FlashStyles />
+      <div style={flashS.wrap}>
+        <div style={flashS.headerRow}>
+          <div style={flashS.headerLeft}>
+            <span style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
+            <span style={flashS.deckTitle}>{title}</span>
           </div>
-          <div style={{ ...flashS.cardBack, background: palette.bg, borderColor: palette.border }}>
-            <span style={{ ...flashS.faceLabel, color: palette.text }}>Answer</span>
-            <div style={{ ...flashS.answerText, color: palette.text }}>{current.a}</div>
-          </div>
+          <span style={flashS.correctCount}>{correct} / {total} correct</span>
         </div>
-      </button>
+
+        <div style={flashS.progressTrack}>
+          <div style={{ ...flashS.progressFill, width: `${progress}%`, background: palette.dot }} />
+        </div>
+
+        <div key={cardKey} style={{ animation: `${cardDir >= 0 ? 'fSlideIn' : 'fSlideBack'} .26s cubic-bezier(.22,1,.36,1)` }}>
+          <button
+            type="button"
+            onClick={() => { if (!isAnswered) setFlipped((v) => !v); }}
+            style={flashS.cardStage}
+          >
+            <div style={{ ...flashS.cardInner, transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
+              <div style={flashS.cardFront}>
+                <span style={flashS.faceLabel}>Question</span>
+                <div style={flashS.questionText}>{current.q}</div>
+                <span style={flashS.cardHint}>Tap to reveal answer</span>
+              </div>
+              <div style={{ ...flashS.cardBack, background: palette.bg, borderColor: palette.border }}>
+                <span style={{ ...flashS.faceLabel, color: palette.text }}>Answer</span>
+                <div style={{ ...flashS.answerText, color: palette.text }}>{current.a}</div>
+              </div>
+            </div>
+          </button>
+        </div>
 
       <div style={{ ...flashS.answerRow, opacity: flipped && !isAnswered ? 1 : 0, pointerEvents: flipped && !isAnswered ? 'auto' : 'none' }}>
         <button onClick={() => handleAnswer(false)} style={flashS.dontKnowBtn}>
@@ -297,6 +354,7 @@ export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMod
         {allAnswered ? '✓ Completa' : `Completa (${answeredCount}/${total} risposte)`}
       </button>
     </div>
+    </>
   );
 }
 

@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, Google } from '../lib/icons';
 
+const AUTH_STYLES = `
+  @keyframes authCardIn { from { opacity:0; transform:scale(.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+  @keyframes authSpin { to { transform:rotate(360deg); } }
+  @keyframes authModeSwitch { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+`;
+
 /* ===================== AUTH SCREEN ===================== */
 export default function AuthModal({ initialMode = "signin", onAuth, onClose, darkMode }) {
   const [mode, setMode] = useState(initialMode);
@@ -9,6 +15,8 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
   const [password, setPassword] = useState('••••••••');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
+  const [modeKey, setModeKey] = useState(0);
 
   const submit = (e) => {
     e.preventDefault();
@@ -24,14 +32,19 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     setTimeout(() => onAuth({ name: 'Alex', email: 'alex@gmail.com' }), 600);
   };
 
+  const focusStyle = (field) => focusedField === field
+    ? { borderColor: 'var(--indigo)', boxShadow: '0 0 0 3px rgba(55,48,232,.12)' }
+    : {};
+
   return (
     <div style={authS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
+      <style>{AUTH_STYLES}</style>
       <div style={authS.bg}>
       {/* decorative blobs */}
       <div style={authS.blob1} />
       <div style={authS.blob2} />
 
-      <div style={{ ...authS.card, background: darkMode ? '#1e293b' : '#fff' }}>
+      <div style={{ ...authS.card, background: darkMode ? '#1e293b' : '#fff', animation: 'authCardIn .32s cubic-bezier(.22,1,.36,1)' }}>
         <div style={authS.brand}>
           <div style={{ width: 36, height: 36, background: '#3730E8', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img src="/Lockeen-2.png" alt="Lockeen logo" style={{ width: 58, height: 58, maxWidth: 'none' }} />
@@ -58,33 +71,40 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
           <span style={authS.dividerLine} />
         </div>
 
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <form key={modeKey} onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'authModeSwitch .22s ease' }}>
           {mode === 'signup' && (
             <Field label="Full name">
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff' }} />
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe"
+                onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)}
+                style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('name') }} />
             </Field>
           )}
           <Field label="Email">
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff' }} />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
+              onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
+              style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('email') }} />
           </Field>
           <Field label="Password" right={mode === 'signin' && <a href="#" style={authS.forgot}>Forgot?</a>}>
             <div style={{ position: 'relative' }}>
-              <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', paddingRight: 44 }} />
+              <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
+                style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', paddingRight: 44, ...focusStyle('password') }} />
               <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password" style={authS.eyeBtn}>
                 {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </Field>
 
-          <button type="submit" disabled={loading} style={{ ...authS.submit, opacity: loading ? .7 : 1 }}>
-            {loading ? 'Just a sec…' : (mode === 'signin' ? 'Sign In' : 'Create Account')}
-            <ArrowRight size={18} />
+          <button type="submit" disabled={loading} style={{ ...authS.submit, opacity: loading ? .85 : 1 }}>
+            {loading
+              ? <><span style={{ width: 18, height: 18, border: '2.5px solid rgba(255,255,255,.35)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'authSpin .7s linear infinite' }} /> Just a sec…</>
+              : <>{mode === 'signin' ? 'Sign In' : 'Create Account'} <ArrowRight size={18} /></>}
           </button>
         </form>
 
         <p style={authS.toggle}>
           {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
-          <button onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')} style={authS.toggleLink}>
+          <button onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setModeKey(k => k + 1); }} style={authS.toggleLink}>
             {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </button>
         </p>

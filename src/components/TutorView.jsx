@@ -139,13 +139,16 @@ export default function TutorView() {
         </div>
 
         <div ref={endRef} style={tutorS.thread}>
-          {msgs.map((m, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: m.who === 'user' ? 'flex-end' : 'flex-start' }}>
-              <div style={m.who === 'user' ? tutorS.bubbleUser : tutorS.bubbleAI}>{m.text}</div>
-            </div>
-          ))}
+          {msgs.map((m, i) => {
+            const isNew = i >= msgs.length - 1;
+            return (
+              <div key={i} style={{ display: 'flex', justifyContent: m.who === 'user' ? 'flex-end' : 'flex-start', animation: isNew ? (m.who === 'user' ? 'msgSlideRight .22s cubic-bezier(.22,1,.36,1)' : 'msgSlideLeft .22s cubic-bezier(.22,1,.36,1)') : 'none' }}>
+                <div style={m.who === 'user' ? tutorS.bubbleUser : tutorS.bubbleAI}>{m.text}</div>
+              </div>
+            );
+          })}
           {typing && (
-            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', animation: 'msgSlideLeft .22s cubic-bezier(.22,1,.36,1)' }}>
               <div style={{ ...tutorS.bubbleAI, display: 'flex', gap: 6, padding: '14px 18px' }}>
                 <span style={tutorS.typingDot} /><span style={{ ...tutorS.typingDot, animationDelay: '.15s' }} /><span style={{ ...tutorS.typingDot, animationDelay: '.3s' }} />
               </div>
@@ -180,7 +183,11 @@ export default function TutorView() {
         </form>
       </div>
 
-      <style>{`@keyframes tdot { 0%,80%,100% { transform: translateY(0); opacity:.4 } 40% { transform: translateY(-4px); opacity:1 } }`}</style>
+      <style>{`
+    @keyframes tdot { 0%,80%,100% { transform: translateY(0); opacity:.4 } 40% { transform: translateY(-4px); opacity:1 } }
+    @keyframes msgSlideLeft  { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:translateX(0); } }
+    @keyframes msgSlideRight { from { opacity:0; transform:translateX(12px);  } to { opacity:1; transform:translateX(0); } }
+  `}</style>
     </div>
   );
 }

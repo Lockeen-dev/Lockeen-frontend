@@ -1,10 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import { Clock, Flame, Trend, Trophy } from '../lib/icons';
 import { formatExamDate, getSubjectPalette, seedExams } from '../data/mockData';
 import useIsMobile from '../lib/useIsMobile';
 import { gradeS } from './common/ExamControls';
 import { homeS } from '../styles/dashboardStyles';
+
+function useCountUp(target, duration = 1000, delay = 0) {
+  const [value, setValue] = useState(0);
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    const timeout = setTimeout(() => {
+      const start = performance.now();
+      const tick = (now) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setValue(Math.round(eased * target));
+        if (progress < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }, delay);
+    return () => clearTimeout(timeout);
+  }, [target, duration, delay]);
+  return value;
+}
+
+function useInView(rootMargin = '0px') {
+  const ref = useRef(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setInView(true); obs.disconnect(); } }, { rootMargin });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [rootMargin]);
+  return [ref, inView];
+}
 
 export const initialWeekData = [
   { day: 'Mon', mins: 45 },
@@ -23,6 +57,69 @@ const subjects = [
   { name: 'Literature', progress: 58, color: '#EF4444' },
 ];
 
+function KpiStat({ label, rawValue, displayValue, Icon, tint, col, delay = 0 }) {
+  const I = Icon;
+  return (
+    <div style={{ ...analS.kpiCard, background: tint }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ ...analS.statIcon, background: 'rgba(255,255,255,.6)', color: col }}><I size={18} /></div>
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 800, color: col, letterSpacing: '-0.02em', lineHeight: 1 }}>{displayValue}</div>
+      <div style={{ fontSize: 12, color: col, opacity: 0.7, marginTop: 6, fontWeight: 600 }}>{label}</div>
+    </div>
+  );
+}
+
+function AnimatedBar({ mins, maxMin, day, animate }) {
+  const targetH = Math.round((mins / maxMin) * 180);
+  const [h, setH] = useState(0);
+  useEffect(() => {
+    if (!animate) return;
+    let raf;
+    const start = performance.now();
+    const duration = 700;
+    const tick = (now) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setH(Math.round(eased * targetH));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [animate, targetH]);
+  return (
+    <div style={analS.barCol}>
+      <div style={analS.barLabel}>{mins}m</div>
+      <div style={analS.barTrack}>
+        <div style={{ ...analS.bar, height: h }} />
+      </div>
+      <div style={analS.dayLabel}>{day}</div>
+    </div>
+  );
+}
+
+function AnimatedProgress({ progress, color }) {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    let raf;
+    const start = performance.now();
+    const duration = 800;
+    const tick = (now) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setW(eased * progress);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [progress]);
+  return (
+    <div style={analS.progTrack}>
+      <div style={{ ...analS.progFill, width: `${w}%`, background: color }} />
+    </div>
+  );
+}
+
 function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, openQuiz }) {
   const isMobile = useIsMobile();
   const maxMin = Math.max(...weekData.map(d => d.mins), 1);
@@ -31,11 +128,21 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
   const avgTarget = trackedNotes.length
     ? (trackedNotes.reduce((sum, n) => sum + (n.targetGrade || 27), 0) / trackedNotes.length).toFixed(1)
     : '27.0';
-  const stats = [
-    { label: 'Study time this week', value: `${Math.floor(totalMin/60)}h ${totalMin%60}m`, Icon: Clock,     tint: 'var(--lavender)', col: 'var(--indigo)' },
-    { label: 'Current streak',       value: '42 days',                                    Icon: Flame,     tint: '#FFF7ED',         col: '#F97316' },
-    { label: 'Avg. quiz score',      value: '88%',                                        Icon: Trend,     tint: '#ECFDF5',         col: '#10B981' },
-    { label: 'Voto medio target',    value: avgTarget,                                    Icon: Trophy,    tint: '#FEF9C3',         col: '#CA8A04' },
+
+  const [chartRef, chartInView] = useInView('-40px');
+
+  // Count-up values
+  const studyH = useCountUp(Math.floor(totalMin / 60), 900, 0);
+  const studyM = useCountUp(totalMin % 60, 900, 0);
+  const streakVal = useCountUp(42, 900, 80);
+  const scoreVal = useCountUp(88, 900, 160);
+  const avgVal = useCountUp(Math.round(parseFloat(avgTarget) * 10), 900, 240);
+
+  const kpiCards = [
+    { label: 'Study time this week', displayValue: `${studyH}h ${studyM}m`, Icon: Clock,  tint: 'var(--lavender)', col: 'var(--indigo)', delay: 0 },
+    { label: 'Current streak',       displayValue: `${streakVal} days`,      Icon: Flame,  tint: '#FFF7ED',         col: '#F97316',       delay: 80 },
+    { label: 'Avg. quiz score',      displayValue: `${scoreVal}%`,           Icon: Trend,  tint: '#ECFDF5',         col: '#10B981',       delay: 160 },
+    { label: 'Voto medio target',    displayValue: `${(avgVal/10).toFixed(1)}`, Icon: Trophy, tint: '#FEF9C3',      col: '#CA8A04',       delay: 240 },
   ];
 
   return (
@@ -46,21 +153,10 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
       </div>
 
       <div style={{ ...analS.statsGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)' }}>
-        {stats.map(s => {
-          const I = s.Icon;
-          return (
-            <div key={s.label} style={analS.statCard}>
-              <div style={{ ...analS.statIcon, background: s.tint, color: s.col }}><I size={18} /></div>
-              <div>
-                <div style={analS.statValue}>{s.value}</div>
-                <div style={analS.statLabel}>{s.label}</div>
-              </div>
-            </div>
-          );
-        })}
+        {kpiCards.map(s => <KpiStat key={s.label} {...s} />)}
       </div>
 
-      <div style={{ ...analS.row, gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr' }}>
+      <div ref={chartRef} style={{ ...analS.row, gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr' }}>
         <div style={analS.chartCard}>
           <div style={analS.cardHeader}>
             <div>
@@ -70,18 +166,9 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
             <span style={analS.legend}><span style={{ ...analS.legendDot, background: 'var(--indigo)' }} /> mins</span>
           </div>
           <div style={analS.chart}>
-            {weekData.map(d => {
-              const h = Math.round((d.mins / maxMin) * 180);
-              return (
-                <div key={d.day} style={analS.barCol}>
-                  <div style={analS.barLabel}>{d.mins}m</div>
-                  <div style={analS.barTrack}>
-                    <div style={{ ...analS.bar, height: h }} />
-                  </div>
-                  <div style={analS.dayLabel}>{d.day}</div>
-                </div>
-              );
-            })}
+            {weekData.map((d, i) => (
+              <AnimatedBar key={d.day} mins={d.mins} maxMin={maxMin} day={d.day} animate={chartInView} />
+            ))}
           </div>
         </div>
 
@@ -95,9 +182,7 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
                   <span style={analS.subjName}>{s.name}</span>
                   <span style={analS.subjPct}>{s.progress}%</span>
                 </div>
-                <div style={analS.progTrack}>
-                  <div style={{ ...analS.progFill, width: `${s.progress}%`, background: s.color }} />
-                </div>
+                <AnimatedProgress progress={s.progress} color={s.color} />
               </div>
             ))}
           </div>
@@ -222,8 +307,9 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuiz 
 
 const analS = {
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 22 },
+  kpiCard: { borderRadius: 20, padding: '18px 20px', display: 'flex', flexDirection: 'column' },
   statCard: { display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
-  statIcon: { width: 38, height: 38, borderRadius: 12, display: 'grid', placeItems: 'center' },
+  statIcon: { width: 36, height: 36, borderRadius: 10, display: 'grid', placeItems: 'center', flexShrink: 0 },
   statValue: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' },
   statLabel: { fontSize: 12, color: 'var(--gray)', marginTop: 2 },
   row: { display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 },

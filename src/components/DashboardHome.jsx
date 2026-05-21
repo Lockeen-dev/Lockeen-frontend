@@ -7,6 +7,7 @@ import useIsMobile from '../lib/useIsMobile';
 import { LIFE_CATS, dayKey } from './CalendarView';
 import { homeS } from '../styles/dashboardStyles';
 
+
 function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, recommendedQuizDone = false, recommendedFlashDone = false, onOpenPlanner, darkMode, calEvents, onMarkEventDone, onStartTimer }) {
   const isMobile = useIsMobile();
   const todayKey = dayKey(new Date());

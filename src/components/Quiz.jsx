@@ -3,6 +3,59 @@ import { Check, Clock, XMark } from '../lib/icons';
 import { getExamEmoji } from '../lib/examUi';
 import { getSubjectPalette } from '../data/mockData';
 
+function QuizStyles() {
+  return (
+    <style>{`
+      @keyframes qSlideIn { from { opacity:0; transform:translateX(22px); } to { opacity:1; transform:translateX(0); } }
+      @keyframes qShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(7px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(3px)} }
+      @keyframes qFadeUp { from { opacity:0; transform:translateY(18px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+    `}</style>
+  );
+}
+
+function QuizResultScreen({ percent, correct, total, palette, resultTitle, subject, subjectStyle, onRestart, onBack }) {
+  const [p, setP] = useState(0);
+  useEffect(() => {
+    let raf;
+    const s = performance.now();
+    const tick = (now) => {
+      const prog = Math.min((now - s) / 1000, 1);
+      setP(Math.round((1 - Math.pow(1 - prog, 3)) * percent));
+      if (prog < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [percent]);
+  const r = 44, circ = 2 * Math.PI * r;
+  const offset = circ * (1 - p / 100);
+  const emoji = percent >= 80 ? '🎉' : percent >= 60 ? '👍' : '💪';
+  return (
+    <>
+      <QuizStyles />
+      <div style={{ ...quizS.resultWrap, animation: 'qFadeUp .45s cubic-bezier(.22,1,.36,1)' }}>
+        <span style={subjectStyle}>{subject}</span>
+        <div style={{ position: 'relative', width: 120, height: 120, margin: '4px 0' }}>
+          <svg width="120" height="120" style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx="60" cy="60" r={r} fill="none" stroke="var(--border)" strokeWidth="8" />
+            <circle cx="60" cy="60" r={r} fill="none" stroke={palette.dot} strokeWidth="8"
+              strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset} />
+          </svg>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: palette.dot, lineHeight: 1 }}>{p}%</span>
+            <span style={{ fontSize: 12, color: palette.text, fontWeight: 700 }}>{correct}/{total}</span>
+          </div>
+        </div>
+        <div style={{ fontSize: 32 }}>{emoji}</div>
+        <h2 style={quizS.resultTitle}>{resultTitle}</h2>
+        <div style={quizS.resultActions}>
+          <button onClick={onRestart} style={{ ...quizS.tryAgainBtn, background: palette.dot }}>Try again</button>
+          <button onClick={onBack} style={quizS.backBtn}>Back to Study</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = true, initialDifficulty = 'medium', timerOn: initialTimerOn = false, timerSecs: initialTimerSecs = 30 }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const total = questions.length;
@@ -23,6 +76,8 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
   const [done, setDone] = useState(false);
   const resultSavedRef = useRef(false);
   const userAnswers = useRef([]);
+  const [qKey, setQKey] = useState(0);
+  const [shake, setShake] = useState(false);
 
   const stopTimer = () => {
     if (timerID.current) {
@@ -108,7 +163,12 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
     setTimeout(() => {
       setSelected(i);
       setPendingIdx(null);
-      if (i === questions[idx].correct) setCorrect((c) => c + 1);
+      if (i === questions[idx].correct) {
+        setCorrect((c) => c + 1);
+      } else {
+        setShake(true);
+        setTimeout(() => setShake(false), 440);
+      }
     }, 150);
   };
 
@@ -119,6 +179,8 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
       return;
     }
     setIdx((i) => i + 1);
+    setQKey((k) => k + 1);
+    setShake(false);
     setSelected(null);
     setPendingIdx(null);
     setTimeout(startTimer, 0);
@@ -139,18 +201,13 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
     const percent = Math.round((correct / total) * 100);
     const resultTitle = percent >= 80 ? 'Excellent work!' : percent >= 60 ? 'Good effort!' : 'Keep studying!';
     return (
-      <div style={quizS.resultWrap}>
-        <div style={{ ...quizS.scoreCircle, borderColor: palette.dot, background: palette.bg }}>
-          <div style={{ ...quizS.scorePercent, color: palette.dot }}>{percent}%</div>
-          <div style={{ ...quizS.scoreFraction, color: palette.text }}>{correct}/{total}</div>
-        </div>
-        <h2 style={quizS.resultTitle}>{resultTitle}</h2>
-        <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border, alignSelf: 'center' }}>{subject}</span>
-        <div style={quizS.resultActions}>
-          <button onClick={restartQuiz} style={{ ...quizS.tryAgainBtn, background: palette.dot }}>Try again</button>
-          <button onClick={() => setTab(backTo)} style={quizS.backBtn}>Back to Study</button>
-        </div>
-      </div>
+      <QuizResultScreen
+        percent={percent} correct={correct} total={total}
+        palette={palette} resultTitle={resultTitle} subject={subject}
+        subjectStyle={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border, alignSelf: 'center' }}
+        onRestart={restartQuiz}
+        onBack={() => setTab(backTo)}
+      />
     );
   }
 
@@ -171,46 +228,49 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
   const feedbackText = selected === -1 ? `Time expired. ${q.explanation}` : q.explanation;
 
   return (
-    <div style={quizS.wrap}>
-      <div style={quizS.headerRow}>
-        <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
-        {timerOn && (
-          <span style={{ ...quizS.timerLive, color: timerVal <= 5 ? '#DC2626' : 'var(--gray)' }}>
-            <Clock size={15} /> {timerVal}s
-          </span>
-        )}
-      </div>
-
-      <div style={quizS.progressMeta}>
-        <span>Question {idx + 1} of {total}</span>
-        <span>{correct} correct</span>
-      </div>
-      <div style={quizS.progressTrack}>
-        <div style={{ ...quizS.progressFill, width: `${progress}%`, background: palette.dot }} />
-      </div>
-
-      <div style={quizS.card}>
-        <span style={quizS.questionLabel}>Question {idx + 1}</span>
-        <div style={quizS.questionText}>{q.q}</div>
-        <div style={quizS.options}>
-          {q.options.map((option, i) => (
-            <button key={option} className={!answered && pendingIdx === null ? 'quiz-option-ready' : ''} disabled={answered} onClick={() => handleSelect(i)} style={{ ...quizS.optionBase, ...optionStyle(i) }}>
-              <span style={quizS.optionLetter}>{String.fromCharCode(65 + i)}</span>
-              <span>{option}</span>
-            </button>
-          ))}
+    <>
+      <QuizStyles />
+      <div style={quizS.wrap}>
+        <div style={quizS.headerRow}>
+          <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
+          {timerOn && (
+            <span style={{ ...quizS.timerLive, color: timerVal <= 5 ? '#DC2626' : 'var(--gray)' }}>
+              <Clock size={15} /> {timerVal}s
+            </span>
+          )}
         </div>
-        {answered && (
-          <div style={ok ? quizS.feedbackOk : quizS.feedbackKo}>
-            {ok ? <Check size={15} /> : <XMark size={15} />} {feedbackText}
-          </div>
-        )}
-      </div>
 
-      <button onClick={nextQuestion} style={{ ...quizS.nextBtn, background: palette.dot, display: answered ? 'flex' : 'none' }}>
-        {idx === total - 1 ? 'See results' : 'Next question'}
-      </button>
-    </div>
+        <div style={quizS.progressMeta}>
+          <span>Question {idx + 1} of {total}</span>
+          <span>{correct} correct</span>
+        </div>
+        <div style={quizS.progressTrack}>
+          <div style={{ ...quizS.progressFill, width: `${progress}%`, background: palette.dot }} />
+        </div>
+
+        <div key={qKey} style={{ ...quizS.card, animation: shake ? 'qShake .42s ease' : 'qSlideIn .28s cubic-bezier(.22,1,.36,1)' }}>
+          <span style={quizS.questionLabel}>Question {idx + 1}</span>
+          <div style={quizS.questionText}>{q.q}</div>
+          <div style={quizS.options}>
+            {q.options.map((option, i) => (
+              <button key={option} className={!answered && pendingIdx === null ? 'quiz-option-ready' : ''} disabled={answered} onClick={() => handleSelect(i)} style={{ ...quizS.optionBase, ...optionStyle(i) }}>
+                <span style={quizS.optionLetter}>{String.fromCharCode(65 + i)}</span>
+                <span>{option}</span>
+              </button>
+            ))}
+          </div>
+          {answered && (
+            <div style={ok ? quizS.feedbackOk : quizS.feedbackKo}>
+              {ok ? <Check size={15} /> : <XMark size={15} />} {feedbackText}
+            </div>
+          )}
+        </div>
+
+        <button onClick={nextQuestion} style={{ ...quizS.nextBtn, background: palette.dot, display: answered ? 'flex' : 'none' }}>
+          {idx === total - 1 ? 'See results' : 'Next question'}
+        </button>
+      </div>
+    </>
   );
 }
 
