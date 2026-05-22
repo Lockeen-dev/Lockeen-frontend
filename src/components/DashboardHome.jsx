@@ -1,23 +1,65 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { ArrowRight, CalendarIcon, Check, CheckCircle, MsgCircle } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import { mockDashboard } from '../data/mockData';
+import { getDashboardSummary, listUpcomingExams } from '../services/dashboard';
 import useIsMobile from '../lib/useIsMobile';
 import { LIFE_CATS, dayKey } from './CalendarView';
 import { homeS } from '../styles/dashboardStyles';
 
+function formatDashboardError(error) {
+  if (!error) return 'Unable to load dashboard data.';
+  if (error.code === 'AUTH_REQUIRED') {
+    return 'Real mode requires lockeen_real_user_id in localStorage.';
+  }
+  if (error.code === 'SUPABASE_CONFIG_MISSING') {
+    return 'Supabase config is missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
+  }
+  return error.message || 'Unable to load dashboard data.';
+}
 
 function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, recommendedQuizDone = false, recommendedFlashDone = false, onOpenPlanner, darkMode, calEvents, onMarkEventDone, onStartTimer }) {
   const isMobile = useIsMobile();
   const todayKey = dayKey(new Date());
   const todayEvents = (calEvents && calEvents[todayKey]) || [];
+  const [summary, setSummary] = useState(null);
+  const [upcomingExams, setUpcomingExams] = useState([]);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState(null);
   const [checked, setChecked] = React.useState({});
   const [confirmModal, setConfirmModal] = React.useState(null);
   const toggleCheck = (idx) => setChecked(prev => ({ ...prev, [idx]: !prev[idx] }));
   const doneCount = Object.values(checked).filter(Boolean).length;
   const recommendedDoneCount = (recommendedQuizDone ? 1 : 0) + (recommendedFlashDone ? 1 : 0);
   const fmtDur = (mins) => mins >= 60 ? (mins % 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${Math.floor(mins/60)}h`) : `${mins}m`;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReadModels() {
+      setDashboardLoading(true);
+      setDashboardError(null);
+      const [summaryResult, upcomingResult] = await Promise.all([
+        getDashboardSummary(),
+        listUpcomingExams(),
+      ]);
+      if (cancelled) return;
+      const error = summaryResult.error || upcomingResult.error;
+      if (error) {
+        setDashboardError(formatDashboardError(error));
+        setSummary(null);
+        setUpcomingExams([]);
+      } else {
+        setSummary(summaryResult.data || null);
+        setUpcomingExams(upcomingResult.data || []);
+      }
+      setDashboardLoading(false);
+    }
+
+    loadReadModels();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div style={homeS.wrap}>
@@ -92,6 +134,41 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
         <button onClick={() => setTab('calendar')} style={{ width:'100%', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:8, padding:'11px 16px', borderRadius:12, background:'var(--sidebar-bg)', border:'1px solid var(--border)', color:'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer' }}>
           <CalendarIcon size={14} /> {tt(lang, 'openCalendar')}
         </button>
+      </div>
+
+      <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>📝 Prossimi esami</h3></div>
+      <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', marginBottom: 24 }}>
+        {dashboardLoading && (
+          <div style={{ ...homeS.bigCard, gridColumn: '1 / -1', background:'var(--surface)', textAlign:'center', color:'var(--gray)', fontSize:14 }}>
+            Caricamento esami...
+          </div>
+        )}
+        {!dashboardLoading && dashboardError && (
+          <div style={{ ...homeS.bigCard, gridColumn: '1 / -1', background:'#FEF2F2', border:'1px solid #FCA5A5', color:'#991B1B', fontSize:13, fontWeight:700 }}>
+            {dashboardError}
+          </div>
+        )}
+        {!dashboardLoading && !dashboardError && (!summary || summary.totalExams === 0) && (
+          <div style={{ ...homeS.bigCard, gridColumn: '1 / -1', background:'var(--surface)', textAlign:'center', color:'var(--gray)', fontSize:14 }}>
+            Nessun esame ancora — crea il primo da Notes.
+          </div>
+        )}
+        {!dashboardLoading && !dashboardError && summary && summary.totalExams > 0 && upcomingExams.length === 0 && (
+          <div style={{ ...homeS.bigCard, gridColumn: '1 / -1', background:'var(--surface)', textAlign:'center', color:'var(--gray)', fontSize:14 }}>
+            Nessun esame imminente con data.
+          </div>
+        )}
+        {!dashboardLoading && !dashboardError && upcomingExams.map((exam) => (
+          <div key={exam.id} style={{ ...homeS.bigCard, background:'var(--surface)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:8 }}>
+              <div style={{ width:9, height:9, borderRadius:999, background:exam.dot || exam.color || 'var(--indigo)', flexShrink:0 }} />
+              <span style={{ fontSize:11, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'0.05em' }}>{exam.subject || 'Exam'}</span>
+            </div>
+            <h3 style={{ margin:'0 0 6px', fontSize:17, fontWeight:700, color:'var(--ink)', lineHeight:1.3 }}>{exam.name}</h3>
+            <p style={{ ...homeS.cardMeta, marginBottom:14 }}>{exam.date || 'No date'}</p>
+            <button style={{ ...homeS.outlineBtn, width:'100%' }} onClick={() => setTab('notes')}>Open Notes</button>
+          </div>
+        ))}
       </div>
 
       {/* Task del giorno */}
