@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Brain, CalendarIcon, ChevronDown, FileText, GripDots, Paperclip, Plus, Trash } from '../lib/icons';
+import { listCalendarEvents } from '../services/calendar';
 import { homeS } from '../styles/dashboardStyles';
 
 export const LIFE_CATS = [
@@ -62,6 +63,44 @@ export const initCalEvents = () => {
   return ev;
 };
 
+function formatCalendarError(error) {
+  if (!error) return 'Unable to load calendar events.';
+  if (error.code === 'AUTH_REQUIRED') {
+    return 'Real mode requires lockeen_real_user_id in localStorage.';
+  }
+  if (error.code === 'SUPABASE_CONFIG_MISSING') {
+    return 'Supabase config is missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
+  }
+  return error.message || 'Unable to load calendar events.';
+}
+
+function calendarKeyFromDate(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split('T')[0].split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return `${year}-${month}-${day}`;
+}
+
+function serviceEventToCalendarEvent(event) {
+  const subjectInfo = event.subject ? SUBJECT_NOTE_MAP[event.subject] : null;
+  const color = event.color || subjectInfo?.color || '#3730E8';
+  return {
+    type: event.type,
+    source: 'exam-service',
+    serviceId: event.id,
+    examId: event.examId,
+    name: `📝 Exam: ${event.title}`,
+    time: '09:00',
+    dur: '2h',
+    cat: 'study',
+    noteId: event.examId,
+    noteColor: color,
+    noteBg: subjectInfo?.bg || '#EEF2FF',
+    noteText: subjectInfo?.text || color,
+    noteSubject: event.subject || 'Exam',
+  };
+}
+
 export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const [view, setView]           = useState('week');
@@ -80,6 +119,9 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const [customM, setCustomM]       = useState(30);
   const [drag, setDrag]             = useState(null);
   const [viewDropOpen, setViewDropOpen] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const [calendarError, setCalendarError] = useState(null);
+  const [serviceEventCount, setServiceEventCount] = useState(0);
   const dragMeta   = useRef({});
   const monthDragMeta = useRef({});
   const [monthDrag, setMonthDrag] = useState(null);
@@ -91,6 +133,48 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     const scrollTo = (now.getHours() + now.getMinutes() / 60) * CAL_HOUR_H - 120;
     gridBodyRef.current.scrollTop = Math.max(0, scrollTo);
   }, [view]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadExamEvents() {
+      setCalendarLoading(true);
+      setCalendarError(null);
+      const { data, error } = await listCalendarEvents();
+      if (cancelled) return;
+      if (error) {
+        setCalendarError(formatCalendarError(error));
+        setServiceEventCount(0);
+        setCalendarLoading(false);
+        return;
+      }
+
+      const grouped = {};
+      (data || []).forEach((event) => {
+        const key = calendarKeyFromDate(event.date);
+        if (!key) return;
+        grouped[key] = [...(grouped[key] || []), serviceEventToCalendarEvent(event)];
+      });
+
+      setEvents((prev) => {
+        const next = { ...(prev || {}) };
+        Object.keys(next).forEach((key) => {
+          const kept = (next[key] || []).filter((event) => event.source !== 'exam-service');
+          if (kept.length) next[key] = kept;
+          else delete next[key];
+        });
+        Object.entries(grouped).forEach(([key, value]) => {
+          next[key] = [...(next[key] || []), ...value];
+        });
+        return next;
+      });
+      setServiceEventCount((data || []).length);
+      setCalendarLoading(false);
+    }
+
+    loadExamEvents();
+    return () => { cancelled = true; };
+  }, [setEvents]);
 
   const startDrag = (e, ev, key, idx) => {
     e.preventDefault(); e.stopPropagation();
@@ -712,6 +796,15 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
           </button>
         ))}
       </div>
+      {calendarLoading && (
+        <div style={calS.readModelNotice}>Loading exam events...</div>
+      )}
+      {!calendarLoading && calendarError && (
+        <div style={{ ...calS.readModelNotice, background:'#FEF2F2', borderColor:'#FCA5A5', color:'#991B1B' }}>{calendarError}</div>
+      )}
+      {!calendarLoading && !calendarError && serviceEventCount === 0 && (
+        <div style={calS.readModelNotice}>No exam events yet. Add an exam date in Notes.</div>
+      )}
       {view === 'week' ? renderWeek() : renderMonth()}
       <div style={calS.balanceSection}>
         <h4 style={calS.balanceTitle}>Life Balance — this week</h4>
@@ -825,6 +918,7 @@ const calS = {
   catsRow: { display:'flex', gap:8, flexWrap:'wrap' },
   catChip: { display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:999, fontSize:12, fontWeight:600, cursor:'pointer', transition:'opacity .15s' },
   catDot: { width:8, height:8, borderRadius:999, flexShrink:0 },
+  readModelNotice: { margin:'0 0 12px', padding:'10px 12px', borderRadius:12, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--gray)', fontSize:13, fontWeight:700 },
   weekGrid: { display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:8 },
   weekCol: { display:'flex', flexDirection:'column', gap:6 },
   weekColHeader: { display:'flex', flexDirection:'column', alignItems:'center', gap:2, padding:'10px 8px', background:'var(--sidebar-bg)', border:'1px solid var(--border)', borderRadius:10, marginBottom:2 },
@@ -860,5 +954,3 @@ const calS = {
   cancelBtn: { padding:'10px 20px', borderRadius:999, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor:'pointer' },
   saveBtn: { padding:'10px 20px', borderRadius:999, border:'none', color:'#fff', fontWeight:600, fontSize:14, cursor:'pointer' },
 };
-
-
