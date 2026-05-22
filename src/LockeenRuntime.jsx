@@ -3,14 +3,11 @@ import { createPortal } from 'react-dom';
 
 import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 /* ===================== ROOT APP ===================== */
-export default function LockeenRuntime() {
-  const [authed, setAuthed] = useState(() => localStorage.getItem('lockeen-authed') === '1');
-  const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('lockeen-user')) || { name: 'Alex', email: 'alex@lockeen.com' }; }
-    catch { return { name: 'Alex', email: 'alex@lockeen.com' }; }
-  });
+function AuthShell() {
+  const { user, status, error: authError, isAuthenticated, isLoading, refreshSession } = useAuth();
   const [modal, setModal] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [lang, setLang] = useState(() => localStorage.getItem('lockeen-lang') || 'en');
@@ -25,20 +22,13 @@ export default function LockeenRuntime() {
     } else {
       document.documentElement.setAttribute('data-theme', 'light');
     }
-    // Restore session: if user was logged in, skip landing page
-    if (localStorage.getItem('lockeen-authed') === '1') {
-      if (window.showPage) window.showPage('page-app');
-    }
   }, []);
 
   useEffect(() => {
     window.openAuth = (m) => setModal(m === 'signup' ? 'signup' : 'signin');
     window.closeAuth = () => setModal(null);
     window.signOut = () => {
-      setAuthed(false);
       setModal(null);
-      localStorage.removeItem('lockeen-authed');
-      localStorage.removeItem('lockeen-user');
       if (window.showPage) window.showPage('page-landing');
     };
     return () => {
@@ -47,6 +37,14 @@ export default function LockeenRuntime() {
       window.signOut = undefined;
     };
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && pageAppEl) {
+      if (window.showPage) window.showPage('page-app');
+    } else if (status === 'anonymous') {
+      if (window.showPage) window.showPage('page-landing');
+    }
+  }, [isAuthenticated, pageAppEl, status]);
 
   useEffect(() => {
     function onLang(e) {
@@ -63,20 +61,13 @@ export default function LockeenRuntime() {
     else localStorage.setItem('lockeen-lang', next);
   }
 
-  const handleAuth = (u) => {
-    setUser(u);
-    setAuthed(true);
+  const handleAuth = () => {
     setModal(null);
-    localStorage.setItem('lockeen-authed', '1');
-    localStorage.setItem('lockeen-user', JSON.stringify(u));
     if (window.showPage) window.showPage('page-app');
   };
 
   const handleLogout = () => {
-    setAuthed(false);
     setModal(null);
-    localStorage.removeItem('lockeen-authed');
-    localStorage.removeItem('lockeen-user');
     if (window.showPage) window.showPage('page-landing');
   };
 
@@ -89,6 +80,15 @@ export default function LockeenRuntime() {
 
   return (
     <React.Fragment>
+      {isLoading && <div style={runtimeS.state}>Loading session...</div>}
+      {status === 'error' && (
+        <div style={runtimeS.state}>
+          <strong>Authentication unavailable</strong>
+          <span>{authError?.message || 'Unable to restore your session.'}</span>
+          <button onClick={refreshSession} style={runtimeS.button}>Retry</button>
+          <button onClick={() => setModal('signin')} style={runtimeS.button}>Login</button>
+        </div>
+      )}
       {modal && (
         <AuthModal
           initialMode={modal}
@@ -97,7 +97,7 @@ export default function LockeenRuntime() {
           darkMode={darkMode}
         />
       )}
-      {authed && pageAppEl && createPortal(
+      {isAuthenticated && pageAppEl && createPortal(
         <Dashboard user={user} onLogout={handleLogout} darkMode={darkMode} toggleDark={toggleDark} lang={lang} onLangChange={changeLang} />,
         pageAppEl
       )}
@@ -105,3 +105,15 @@ export default function LockeenRuntime() {
   );
 }
 
+export default function LockeenRuntime() {
+  return (
+    <AuthProvider>
+      <AuthShell />
+    </AuthProvider>
+  );
+}
+
+const runtimeS = {
+  state: { position: 'fixed', inset: 0, zIndex: 1200, display: 'grid', placeItems: 'center', gap: 10, alignContent: 'center', background: 'rgba(255,255,255,.92)', color: 'var(--ink)', fontSize: 14, textAlign: 'center' },
+  button: { padding: '9px 14px', borderRadius: 10, background: 'var(--indigo)', color: '#fff', fontWeight: 700 },
+};

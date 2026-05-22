@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { BarChart3, Bell, BookOpen, Layers, LogOut, Moon, Pencil, Sparkles, Sun, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import { cellularRespirationCards, cellularRespirationQuestions, chemistryCards, mockDashboard, seedExams } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
 import useIsMobile from '../lib/useIsMobile';
 import LanguageSelect from './LanguageSelect';
 import Sidebar from './Sidebar';
@@ -45,6 +46,7 @@ function BottomNav({ tab, setTab, lang = 'en' }) {
 }
 
 function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangChange }) {
+  const { signOut } = useAuth();
   const [tab, setTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isMobile = useIsMobile();
@@ -207,6 +209,11 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
     setTab(t);
   };
 
+  const handleLogout = async () => {
+    const result = await signOut();
+    if (!result.error) onLogout && onLogout();
+  };
+
   return (
     <div style={{ ...shellS.wrap, padding: isMobile ? '12px 0 80px' : '24px clamp(18px, 2.4vw, 40px) 40px' }}>
       {/* Header bar */}
@@ -306,7 +313,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
                   <button onClick={() => { setTab('account'); setShowProfileMenu(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
                     <Pencil size={15} /> Account settings
                   </button>
-                  <button onClick={onLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
+                  <button onClick={handleLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
                     <LogOut size={15} /> {tt(lang, 'signOut')}
                   </button>
                 </div>
@@ -350,7 +357,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
                 {tab === 'analytics' && <AnalyticsView weekData={weekData} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuiz={openQuiz} />}
                 {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} />}
                 {tab === 'earn'      && <EarnView />}
-                {tab === 'account'   && <AccountView user={user} lang={lang} onLangChange={onLangChange} onLogout={onLogout} />}
+                {tab === 'account'   && <AccountView user={user} lang={lang} onLangChange={onLangChange} onLogout={handleLogout} />}
               </motion.div>
             </AnimatePresence>
           </div>
