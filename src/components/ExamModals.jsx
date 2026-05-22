@@ -32,6 +32,7 @@ function DeleteExamModal({ exam, onClose, onConfirm, saving = false, error = nul
 
 function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) {
   const [name, setName] = useState(exam.name || '');
+  const [nameTouched, setNameTouched] = useState(false);
   const [targetGrade, setTargetGrade] = useState(exam.targetGrade || 27);
   const [emoji, setEmoji] = useState(getExamEmoji(exam));
   const [priority, setPriority] = useState(exam.priority || 3);
@@ -48,7 +49,10 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
 
   const submit = (e) => {
     if (e) e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setNameTouched(true);
+      return;
+    }
     const lastDay = new Date(year, month, 0).getDate();
     const safeDay = Math.min(Number(day), lastDay);
     onSave({ name: name.trim(), date: `${year}-${pad(month)}-${pad(safeDay)}`, targetGrade, priority, emoji });
@@ -70,8 +74,9 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
               size={48}
               onPick={setEmoji}
             />
-            <input value={name} onChange={(e) => setName(e.target.value)} disabled={saving} style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
+            <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setNameTouched(true)} disabled={saving} style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
           </div>
+          {nameTouched && !name.trim() && <div style={uploadS.validationText}>Nome esame richiesto.</div>}
         </div>
 
         <div style={uploadS.field}>
@@ -130,6 +135,7 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
 
 function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
   const [name, setName] = useState('');
+  const [nameTouched, setNameTouched] = useState(false);
   const [targetGrade, setTargetGrade] = useState(27);
   const today = new Date();
   const [day, setDay]     = useState(today.getDate());
@@ -157,7 +163,10 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
 
   const submit = (e) => {
     if (e) e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setNameTouched(true);
+      return;
+    }
     const lastDay = new Date(year, month, 0).getDate();
     const safeDay = Math.min(Number(day), lastDay);
     const iso = `${year}-${pad(month)}-${pad(safeDay)}`;
@@ -195,8 +204,9 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
               size={48}
               onPick={(e) => { if (!saving) setEmojiOverride(e); }}
             />
-            <input value={name} onChange={(e) => { setName(e.target.value); setEmojiOverride(null); }} disabled={saving} placeholder="es. Biologia 2024" style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
+            <input value={name} onChange={(e) => { setName(e.target.value); setEmojiOverride(null); }} onBlur={() => setNameTouched(true)} disabled={saving} placeholder="es. Biologia 2024" style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
           </div>
+          {nameTouched && !name.trim() && <div style={uploadS.validationText}>Exam name is required.</div>}
           {!emojiOverride && name.trim() && (
             <div style={{ fontSize:11, color:'var(--gray)', marginTop:4 }}>Emoji rilevata automaticamente · clicca per cambiare</div>
           )}
@@ -530,6 +540,7 @@ const uploadS = {
   progressTrack: { height: 6, background: '#EEF2FF', borderRadius: 999, overflow: 'hidden' },
   progressFill: { height: '100%', background: 'linear-gradient(90deg, var(--indigo), var(--purple))', borderRadius: 999, transition: 'width .1s linear' },
   loadingText: { textAlign: 'center', fontSize: 13, color: 'var(--gray)', marginTop: 8 },
+  validationText: { marginTop: 6, color: '#B91C1C', fontSize: 12, fontWeight: 700 },
   errorText: { margin: '14px 0 0', padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12, fontWeight: 600, lineHeight: 1.4 },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 },
   cancelBtn: { padding: '11px 18px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 14 },
