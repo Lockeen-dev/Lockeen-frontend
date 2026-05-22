@@ -3,3 +3,7 @@ node_modules/
 dist/
 .agents/
 .codex-plugins/
+
+# Supabase local metadata
+supabase/.temp/
+.env.local
