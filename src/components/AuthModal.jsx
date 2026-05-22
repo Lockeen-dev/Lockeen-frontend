@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, Google } from '../lib/icons';
+import { useAuth } from '../context/AuthContext';
 
 const AUTH_STYLES = `
   @keyframes authCardIn { from { opacity:0; transform:scale(.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
@@ -9,27 +10,47 @@ const AUTH_STYLES = `
 
 /* ===================== AUTH SCREEN ===================== */
 export default function AuthModal({ initialMode = "signin", onAuth, onClose, darkMode }) {
+  const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('alex@lockeen.com');
   const [password, setPassword] = useState('••••••••');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [focusedField, setFocusedField] = useState(null);
   const [modeKey, setModeKey] = useState(0);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (loading) return;
+    if (!email.trim()) {
+      setError('Email is required.');
+      return;
+    }
+    setError(null);
     setLoading(true);
-    setTimeout(() => {
-      onAuth({ name: name || email.split('@')[0] || 'Alex', email });
-    }, 700);
+    const input = { name: name || email.split('@')[0] || 'Alex', email, password };
+    const result = mode === 'signin' ? await signIn(input) : await signUp(input);
+    setLoading(false);
+    if (result.error) {
+      setError(result.error.message || 'Unable to authenticate.');
+      return;
+    }
+    onAuth && onAuth(result.data.user);
   };
 
-  const google = () => {
+  const google = async () => {
+    if (loading) return;
+    setError(null);
     setLoading(true);
-    setTimeout(() => onAuth({ name: 'Alex', email: 'alex@gmail.com' }), 600);
+    const result = await signIn({ name: 'Alex', email: 'alex@gmail.com', provider: 'google' });
+    setLoading(false);
+    if (result.error) {
+      setError(result.error.message || 'Unable to authenticate.');
+      return;
+    }
+    onAuth && onAuth(result.data.user);
   };
 
   const focusStyle = (field) => focusedField === field
@@ -81,12 +102,15 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
           )}
           <Field label="Email">
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
+              required
+              disabled={loading}
               onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
               style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('email') }} />
           </Field>
           <Field label="Password" right={mode === 'signin' && <a href="#" style={authS.forgot}>Forgot?</a>}>
             <div style={{ position: 'relative' }}>
               <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                disabled={loading}
                 onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
                 style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', paddingRight: 44, ...focusStyle('password') }} />
               <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password" style={authS.eyeBtn}>
@@ -94,6 +118,8 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
               </button>
             </div>
           </Field>
+
+          {error && <div style={authS.error}>{error}</div>}
 
           <button type="submit" disabled={loading} style={{ ...authS.submit, opacity: loading ? .85 : 1 }}>
             {loading
@@ -104,7 +130,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
 
         <p style={authS.toggle}>
           {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
-          <button onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setModeKey(k => k + 1); }} style={authS.toggleLink}>
+          <button onClick={() => { setError(null); setMode(mode === 'signin' ? 'signup' : 'signin'); setModeKey(k => k + 1); }} style={authS.toggleLink}>
             {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </button>
         </p>
@@ -143,6 +169,7 @@ const authS = {
   dividerLine: { flex: 1, height: 1, background: 'var(--border)' },
   dividerText: { color: 'var(--gray-2)', fontSize: 13 },
   input: { width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 15, color: 'var(--ink)', background: 'var(--input-bg)', outline: 'none', transition: 'border-color .15s' },
+  error: { padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600, lineHeight: 1.4 },
   eyeBtn: { position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', padding: 8, color: 'var(--gray)', borderRadius: 8 },
   forgot: { fontSize: 13, color: 'var(--indigo)', fontWeight: 600 },
   submit: { width: '100%', marginTop: 8, padding: '13px 16px', background: 'var(--indigo)', color: '#fff', borderRadius: 12, fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 10px 30px -8px rgba(55,48,232,.45)' },
