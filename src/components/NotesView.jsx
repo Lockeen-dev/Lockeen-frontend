@@ -10,6 +10,20 @@ import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, Uplo
 import { EmojiPickerButton, GradeValue, getPriorityMeta, gradeS } from './common/ExamControls';
 import { homeS } from '../styles/dashboardStyles';
 
+function formatExamServiceError(error, fallback) {
+  if (!error) return fallback;
+  if (error.code === 'AUTH_REQUIRED') {
+    return 'Real mode requires a temporary user id. Set lockeen_real_user_id in localStorage, then refresh.';
+  }
+  if (error.code === 'SUPABASE_CONFIG_MISSING') {
+    return 'Supabase config is missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
+  }
+  if (error.code === 'VALIDATION_ERROR') {
+    return error.message || 'Check required fields before saving.';
+  }
+  return error.message || fallback;
+}
+
 function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
   const isMobile = useIsMobile();
   const [q, setQ] = useState('');
@@ -30,7 +44,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       const { data, error } = await listExams();
       if (cancelled) return;
       if (error) {
-        setLoadError(error.message || 'Unable to load exams.');
+        setLoadError(formatExamServiceError(error, 'Unable to load exams.'));
       } else {
         setExams(data || []);
       }
@@ -46,7 +60,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
     setSavingAction('delete');
     const { error } = await deleteExam(id);
     if (error) {
-      setActionError(error.message || 'Unable to delete exam.');
+      setActionError(formatExamServiceError(error, 'Unable to delete exam.'));
       setSavingAction(null);
       return;
     }
@@ -60,7 +74,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
     setSavingAction('edit');
     const { data, error } = await updateExam(id, changes);
     if (error) {
-      setActionError(error.message || 'Unable to update exam.');
+      setActionError(formatExamServiceError(error, 'Unable to update exam.'));
       setSavingAction(null);
       return;
     }
@@ -71,12 +85,16 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
 
   const handleCreateExam = async (exam) => {
     setActionError(null);
+    if (!exam?.name?.trim()) {
+      setActionError(formatExamServiceError({ code: 'VALIDATION_ERROR', message: 'Exam name is required.' }, 'Exam name is required.'));
+      return;
+    }
     setSavingAction('create');
     const palette = getSubjectPalette(inferSubjectFromName(exam.subject), EXTRA_SUBJECT_COLORS.Other);
     const enriched = { ...exam, color: palette.bg, dot: palette.dot };
     const { data, error } = await createExam(enriched);
     if (error) {
-      setActionError(error.message || 'Unable to create exam.');
+      setActionError(formatExamServiceError(error, 'Unable to create exam.'));
       setSavingAction(null);
       return;
     }
