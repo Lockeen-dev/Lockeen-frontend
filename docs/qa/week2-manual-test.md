@@ -42,11 +42,17 @@ npm run dev
 
 - [ ] create material without file works
 - [ ] create material metadata with optional source URL works
+- [ ] create material with valid PDF works
+- [ ] create material with valid PNG/JPG works
+- [ ] create material with valid TXT works
 - [ ] invalid file type blocked or shows error
-- [ ] large file blocked or shows error
+- [ ] file larger than 10 MB blocked or shows error
+- [ ] open/download material works through source URL or signed URL
 - [ ] delete material works
 - [ ] storage unavailable fallback does not break notes
+- [ ] storage unavailable still allows metadata/source URL material
 - [ ] material list remains scoped to selected exam
+- [ ] mock mode material upload smoke works
 - [ ] refresh behavior documented: mock mode resets in-memory service data, real mode persists after db push
 
 ## Flashcards
@@ -99,3 +105,4 @@ Record bugs here:
 
 - Week 2 Day 2 B wires `NotesView` to `notes` and `materials` services in mock mode first.
 - Real mode notes/materials should be retested after Supabase db push and `lockeen_real_user_id` setup.
+- Week 2 Day 3 B adds optional material file upload UI. No PDF parsing or advanced upload flow.

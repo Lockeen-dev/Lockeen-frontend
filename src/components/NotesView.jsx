@@ -6,8 +6,9 @@ import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, infe
 import { getExamEmoji } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { createExam, deleteExam, listExams, updateExam } from '../services/exams';
-import { createMaterial, deleteMaterial, listMaterials } from '../services/materials';
+import { createMaterial, deleteMaterial, getMaterialDownloadUrl, listMaterials } from '../services/materials';
 import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
+import { deleteStudyMaterialFile, uploadStudyMaterialFile, validateStudyMaterialFile } from '../services/storage';
 import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, UploadChapterModal } from './ExamModals';
 import { EmojiPickerButton, GradeValue, getPriorityMeta, gradeS } from './common/ExamControls';
 import { homeS } from '../styles/dashboardStyles';
@@ -339,6 +340,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [editingNoteBody, setEditingNoteBody] = useState('');
   const [materialTitle, setMaterialTitle] = useState('');
   const [materialUrl, setMaterialUrl] = useState('');
+  const [materialFile, setMaterialFile] = useState(null);
   const [savingStudyAction, setSavingStudyAction] = useState(null);
   const examChapterIds = (exam.chapters || []).map((c) => c.id);
   const belongsToExam = (noteId) => String(noteId) === String(exam.id) || examChapterIds.some((id) => String(id) === String(noteId));
@@ -489,12 +491,35 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       setMaterialsError('Material title is required.');
       return;
     }
+    if (materialFile) {
+      const validation = validateStudyMaterialFile(materialFile);
+      if (validation.error) {
+        setMaterialsError(formatStudyServiceError(validation.error, 'File is not valid.'));
+        return;
+      }
+    }
     setSavingStudyAction('create-material');
+    let uploadedFile = null;
+    if (materialFile) {
+      const uploadResult = await uploadStudyMaterialFile({
+        file: materialFile,
+        materialId: crypto.randomUUID(),
+      });
+      if (uploadResult.error) {
+        setMaterialsError(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
+        setSavingStudyAction(null);
+        return;
+      }
+      uploadedFile = uploadResult.data;
+    }
     const { data, error } = await createMaterial({
       examId: exam.id,
       title: materialTitle.trim(),
-      sourceUrl: materialUrl.trim() || null,
-      type: materialUrl.trim() ? 'link' : 'metadata',
+      sourceUrl: uploadedFile ? null : materialUrl.trim() || null,
+      storagePath: uploadedFile?.path || null,
+      mimeType: uploadedFile?.mimeType || null,
+      sizeBytes: uploadedFile?.sizeBytes ?? null,
+      type: uploadedFile ? 'file' : (materialUrl.trim() ? 'link' : 'metadata'),
     });
     if (error) {
       setMaterialsError(formatStudyServiceError(error, 'Unable to create material.'));
@@ -504,12 +529,22 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterials((prev) => [data, ...prev]);
     setMaterialTitle('');
     setMaterialUrl('');
+    setMaterialFile(null);
     setSavingStudyAction(null);
   };
 
   const handleDeleteMaterial = async (id) => {
     setMaterialsError(null);
     setSavingStudyAction(`delete-material-${id}`);
+    const material = materials.find((item) => String(item.id) === String(id));
+    if (material?.storagePath) {
+      const fileResult = await deleteStudyMaterialFile(material.storagePath);
+      if (fileResult.error) {
+        setMaterialsError(formatStudyServiceError(fileResult.error, 'Unable to delete material file.'));
+        setSavingStudyAction(null);
+        return;
+      }
+    }
     const { error } = await deleteMaterial(id);
     if (error) {
       setMaterialsError(formatStudyServiceError(error, 'Unable to delete material.'));
@@ -518,6 +553,18 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     }
     setMaterials((prev) => prev.filter((material) => String(material.id) !== String(id)));
     setSavingStudyAction(null);
+  };
+
+  const handleOpenMaterial = async (id) => {
+    setMaterialsError(null);
+    setSavingStudyAction(`open-material-${id}`);
+    const { data, error } = await getMaterialDownloadUrl(id);
+    setSavingStudyAction(null);
+    if (error) {
+      setMaterialsError(formatStudyServiceError(error, 'Unable to open material.'));
+      return;
+    }
+    window.open(data.url, '_blank', 'noopener,noreferrer');
   };
 
   function readinessMsg() {
@@ -692,12 +739,40 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
             <input
               value={materialUrl}
               onChange={(e) => setMaterialUrl(e.target.value)}
-              placeholder="Optional source URL"
-              disabled={savingStudyAction === 'create-material'}
+              placeholder={materialFile ? 'Source URL disabled when file selected' : 'Optional source URL'}
+              disabled={savingStudyAction === 'create-material' || Boolean(materialFile)}
               style={studyS.input}
             />
+            <label style={studyS.fileLabel}>
+              <span style={studyS.fileText}>{materialFile ? materialFile.name : 'Optional PDF, PNG, JPG, or TXT file'}</span>
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain"
+                disabled={savingStudyAction === 'create-material'}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setMaterialFile(file);
+                  setMaterialsError(null);
+                  if (file) {
+                    const validation = validateStudyMaterialFile(file);
+                    if (validation.error) setMaterialsError(formatStudyServiceError(validation.error, 'File is not valid.'));
+                  }
+                }}
+                style={studyS.fileInput}
+              />
+            </label>
+            {materialFile && (
+              <button
+                type="button"
+                onClick={() => setMaterialFile(null)}
+                disabled={savingStudyAction === 'create-material'}
+                style={studyS.ghostMini}
+              >
+                Remove file
+              </button>
+            )}
             <button type="submit" disabled={savingStudyAction === 'create-material'} style={studyS.primaryBtn}>
-              {savingStudyAction === 'create-material' ? 'Saving...' : 'Add material'}
+              {savingStudyAction === 'create-material' ? (materialFile ? 'Uploading...' : 'Saving...') : 'Add material'}
             </button>
           </form>
 
@@ -707,10 +782,20 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           {!materialsLoading && materials.map((material) => (
             <div key={material.id} style={studyS.item}>
               <div style={studyS.itemTitle}>{material.title}</div>
-              <div style={studyS.itemBody}>{material.sourceUrl || material.type || 'metadata'}</div>
+              <div style={studyS.itemBody}>
+                {material.sourceUrl || material.storagePath || material.type || 'metadata'}
+                {material.sizeBytes ? ` · ${Math.round(material.sizeBytes / 1024)} KB` : ''}
+              </div>
               <div style={studyS.actions}>
-                {material.sourceUrl && (
-                  <a href={material.sourceUrl} target="_blank" rel="noreferrer" style={studyS.ghostMini}>Open</a>
+                {(material.sourceUrl || material.storagePath) && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenMaterial(material.id)}
+                    disabled={savingStudyAction === `open-material-${material.id}`}
+                    style={studyS.ghostMini}
+                  >
+                    {savingStudyAction === `open-material-${material.id}` ? 'Opening...' : 'Open'}
+                  </button>
                 )}
                 <button type="button" onClick={() => handleDeleteMaterial(material.id)} disabled={savingStudyAction === `delete-material-${material.id}`} style={studyS.dangerMini}>
                   {savingStudyAction === `delete-material-${material.id}` ? 'Deleting...' : 'Delete'}
@@ -1090,6 +1175,9 @@ const studyS = {
   sub: { margin: '4px 0 0', fontSize: 12, color: 'var(--gray)', lineHeight: 1.4 },
   form: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 },
   input: { width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--input-bg)', color: 'var(--ink)', fontSize: 13, outline: 'none' },
+  fileLabel: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px dashed var(--border)', borderRadius: 12, background: 'var(--input-bg)', color: 'var(--gray)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  fileText: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  fileInput: { width: 110, maxWidth: '45%', fontSize: 11, color: 'var(--gray)' },
   primaryBtn: { alignSelf: 'flex-start', padding: '9px 13px', borderRadius: 10, background: 'var(--indigo)', color: '#fff', fontWeight: 700, fontSize: 12 },
   empty: { padding: '14px 12px', borderRadius: 12, background: 'var(--sidebar-bg)', border: '1px dashed var(--border)', color: 'var(--gray)', fontSize: 13, textAlign: 'center' },
   error: { marginBottom: 10, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12, fontWeight: 700, lineHeight: 1.4 },
