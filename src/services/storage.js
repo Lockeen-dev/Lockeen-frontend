@@ -1,5 +1,6 @@
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
+import { requireAuthenticatedUserId } from './auth';
 
 export const STUDY_MATERIALS_BUCKET = 'study-materials';
 export const MAX_STUDY_MATERIAL_BYTES = 10 * 1024 * 1024;
@@ -23,20 +24,6 @@ function normalizeError(error, fallback = 'Storage request failed.') {
     code: error?.code || error?.name || 'STORAGE_ERROR',
     message: error?.message || fallback,
   };
-}
-
-function getCurrentUserId() {
-  return localStorage.getItem('lockeen_real_user_id') || null;
-}
-
-function requireRealUserId() {
-  const userId = getCurrentUserId();
-
-  if (!userId) {
-    return fail('Real mode requires lockeen_real_user_id in localStorage.', 'AUTH_REQUIRED');
-  }
-
-  return { data: userId, error: null };
 }
 
 function sanitizeFileName(fileName = 'material') {
@@ -87,7 +74,7 @@ export async function uploadStudyMaterialFile({ file, materialId }) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const validation = validateStudyMaterialFile(file);

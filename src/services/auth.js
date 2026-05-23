@@ -107,6 +107,19 @@ export async function getCurrentUser() {
   return ok(result.data.user);
 }
 
+export async function requireAuthenticatedUserId() {
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error || !data?.user?.id) {
+    return fail('Real mode requires an authenticated Supabase session.', 'AUTH_REQUIRED');
+  }
+
+  return ok(data.user.id);
+}
+
 export async function signIn(input = {}) {
   if (!input.email) {
     return fail('Email is required.', 'VALIDATION_ERROR');

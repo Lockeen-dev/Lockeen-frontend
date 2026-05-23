@@ -12,43 +12,45 @@ Local real mode needs:
 
 ```bash
 VITE_API_MODE=real
-VITE_AUTH_MODE=mock
+VITE_AUTH_MODE=supabase
 VITE_SUPABASE_URL=https://nozrnnjqndtwcnyhciod.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=
 VITE_SUPABASE_ANON_KEY=
-Tables
-profiles
-subjects
-exams
-chapters
-Ownership
-Every real row has user_id.
+```
+
+## Tables
+
+- profiles
+- subjects
+- exams
+- chapters
+
+## Ownership
+
+Every real row has `user_id`.
 
 RLS policies allow authenticated users to read/write only own rows.
 
-Day 4 temporary user id
-Until real Supabase Auth is connected, real exams service reads:
+Week 3 ownership
 
-localStorage.getItem('lockeen_real_user_id')
-This is temporary bridge only.
+Real services read the current Supabase Auth session and use `auth.users.id` as `user_id`.
 
-Day 5 should replace it with authenticated Supabase user session.
+## Manual test
 
-Manual test
-Set VITE_API_MODE=real.
-Put anon/public key in .env.local.
+Set `VITE_API_MODE=real`.
+Set `VITE_AUTH_MODE=supabase`.
+Put anon/public key in `.env.local`.
 Apply migration to Supabase.
-Create or use a Supabase auth user.
-Put user id in browser localStorage:
-localStorage.setItem('lockeen_real_user_id', 'USER_UUID')
+Create or use a confirmed Supabase auth user.
+Sign in through the app.
 Create exam.
 Refresh browser.
 Exam still visible.
 Edit exam.
 Delete exam.
 Test another user id cannot see same rows.
-Known gaps
-Auth real not wired yet.
-Temporary lockeen_real_user_id bridge.
-Subjects table exists but UI does not manage subjects yet.
-Chapters backend exists but UI coverage may be partial.
+
+## Known gaps
+
+- Subjects table exists but UI does not manage subjects yet.
+- Chapters backend exists but UI coverage may be partial.

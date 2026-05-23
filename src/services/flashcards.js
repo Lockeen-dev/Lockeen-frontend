@@ -1,6 +1,7 @@
 import { seedExams } from '../data/mockData';
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
+import { requireAuthenticatedUserId } from './auth';
 
 const mockFlashcards = seedExams.flatMap((exam) =>
   (exam.chapters || []).flatMap((chapter) =>
@@ -28,16 +29,6 @@ function fail(message, code = 'UNKNOWN_ERROR') {
 
 function normalizeError(error, fallback = 'Request failed.') {
   return { code: error?.code || error?.name || 'SUPABASE_ERROR', message: error?.message || fallback };
-}
-
-function getCurrentUserId() {
-  return localStorage.getItem('lockeen_real_user_id') || null;
-}
-
-function requireRealUserId() {
-  const userId = getCurrentUserId();
-  if (!userId) return fail('Real mode requires lockeen_real_user_id in localStorage.', 'AUTH_REQUIRED');
-  return { data: userId, error: null };
 }
 
 function matchesFilters(card, filters = {}) {
@@ -107,7 +98,7 @@ function validate(input = {}) {
 async function listRealFlashcards(filters = {}) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   let query = supabase
@@ -132,7 +123,7 @@ async function listRealFlashcards(filters = {}) {
 async function createRealFlashcard(input = {}) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
   const validationError = validate(input);
   if (validationError) return validationError;
@@ -153,7 +144,7 @@ async function createRealFlashcard(input = {}) {
 async function updateRealFlashcard(id, patch = {}) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const { data, error } = await supabase
@@ -175,7 +166,7 @@ async function updateRealFlashcard(id, patch = {}) {
 async function deleteRealFlashcard(id) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const { data, error } = await supabase

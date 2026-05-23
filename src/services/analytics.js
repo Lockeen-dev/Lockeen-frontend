@@ -1,5 +1,6 @@
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
+import { requireAuthenticatedUserId } from './auth';
 import { listExams } from './exams';
 import { listFlashcards } from './flashcards';
 import { listMaterials } from './materials';
@@ -19,20 +20,6 @@ function normalizeError(error, fallback = 'Analytics request failed.') {
     code: error?.code || error?.name || 'SUPABASE_ERROR',
     message: error?.message || fallback,
   };
-}
-
-function getCurrentUserId() {
-  return localStorage.getItem('lockeen_real_user_id') || null;
-}
-
-function requireRealUserId() {
-  const userId = getCurrentUserId();
-
-  if (!userId) {
-    return fail('Real mode requires lockeen_real_user_id in localStorage.', 'AUTH_REQUIRED');
-  }
-
-  return { data: userId, error: null };
 }
 
 function parseDate(value) {
@@ -135,7 +122,7 @@ async function getRealStudySummary() {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
   const userId = userResult.data;
 

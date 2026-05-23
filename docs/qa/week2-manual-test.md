@@ -107,7 +107,7 @@ npm run dev
 - [ ] quiz score shown only if attempts exist
 - [ ] latest activity shown when data exists
 - [ ] mock mode smoke works without Supabase env
-- [ ] real mode smoke works if Supabase env and `lockeen_real_user_id` are ready
+- [ ] real mode smoke works if Supabase env and authenticated Supabase session are ready
 - [ ] mobile quick check
 - [ ] no fake progress shown for missing backend data
 
@@ -140,7 +140,7 @@ npm run dev
 Record bugs here:
 
 - Week 2 Day 2 B wires `NotesView` to `notes` and `materials` services in mock mode first.
-- Real mode notes/materials should be retested after Supabase db push and `lockeen_real_user_id` setup.
+- Real mode notes/materials should be retested after Supabase db push and authenticated Supabase session setup.
 - Week 2 Day 3 B adds optional material file upload UI. No PDF parsing or advanced upload flow.
 - Week 2 Day 4 B wires Flashcards and Quiz UI to practice services. No AI generation or adaptive quiz.
 - Week 2 Day 5 B wires DashboardHome and AnalyticsView to analytics/dashboard read models.

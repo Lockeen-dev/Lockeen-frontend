@@ -26,65 +26,101 @@ loading
 authenticated
 anonymous
 error
-Return shape
+```
+
+## Return shape
+
 Success:
 
+```js
 { data, error: null }
+```
+
 Failure:
 
 { data: null, error: { code, message } }
-Service functions
-restoreSession()
+
+## Service functions
+
+### restoreSession()
+
 Restores existing session from current provider.
 
 Mock behavior:
 
 reads lockeen_mock_session from localStorage
 returns authenticated when user exists
-returns anonymous when no user exists
-getCurrentUser()
+- reads `lockeen_mock_session` from localStorage
+- returns authenticated when user exists
+- returns anonymous when no user exists
+
+### getCurrentUser()
+
 Returns current user or null.
 
-signIn(input)
+### requireAuthenticatedUserId()
+
+Returns current Supabase session user id for real data services.
+
+Returns `AUTH_REQUIRED` when no authenticated Supabase session exists.
+
+### signIn(input)
+
 Input:
 
+```js
 {
   email: string,
   password?: string
 }
+```
+
 Returns:
 
+```js
 {
   user,
   status: 'authenticated'
 }
+```
+
 Validation:
 
 email required
-signUp(input)
+
+### signUp(input)
+
 Input:
 
+```js
 {
   email: string,
   password?: string,
   name?: string
 }
+```
+
 Returns authenticated mock user.
 
 Validation:
 
 email required
-signOut()
+
+### signOut()
+
 Clears session and returns anonymous state.
 
-onAuthStateChange(callback)
+### onAuthStateChange(callback)
+
 Subscribes to auth session changes.
 
 Returns unsubscribe function.
 
-Auth context
+## Auth context
+
 AuthProvider exposes:
 
+```text
 user
 status
 error
@@ -95,29 +131,36 @@ signUp
 signOut
 refreshSession
 useAuth() must be called inside AuthProvider.
+```
 
-Mock session
+## Mock session
+
 Mock session stored in localStorage key:
 
 lockeen_mock_session
+
 Refresh behavior:
 
-logged-in mock user persists after browser refresh
-logout clears localStorage session
-Supabase behavior
+- logged-in mock user persists after browser refresh
+- logout clears localStorage session
+
+## Supabase behavior
+
 Supabase implementation keeps:
 
-same service function names
-same return shape
-same context values
-same session states
+- same service function names
+- same return shape
+- same context values
+- same session states
+
 Supabase mapping:
 
-restoreSession() -> supabase.auth.getSession() / getUser()
-signIn() -> Supabase email/password
-signUp() -> Supabase sign up
-signOut() -> Supabase sign out
-onAuthStateChange() -> Supabase auth listener
+- `restoreSession()` -> `supabase.auth.getSession()`
+- `requireAuthenticatedUserId()` -> `supabase.auth.getUser()`
+- `signIn()` -> Supabase email/password
+- `signUp()` -> Supabase sign up
+- `signOut()` -> Supabase sign out
+- `onAuthStateChange()` -> Supabase auth listener
 
 User mapping:
 
@@ -137,9 +180,10 @@ Beta constraints:
 - Google/OAuth UI path returns `PROVIDER_UNSUPPORTED` in real mode.
 - If Supabase email confirmation is enabled, sign up returns `EMAIL_CONFIRMATION_REQUIRED` until user confirms email.
 
-Known gaps Day 1 Week 3
-No password validation beyond required email.
-No reset password flow.
-No route-level router guard.
-No profile upsert on auth callback.
-Data services still use temporary `lockeen_real_user_id` until Week 3 Day 2.
+## Known gaps Week 3
+
+- No password validation beyond required email.
+- No reset password flow.
+- No route-level router guard.
+- No profile upsert on auth callback.
+- Data services require authenticated Supabase session in real mode.

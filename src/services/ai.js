@@ -1,3 +1,5 @@
+import { requireAuthenticatedUserId } from './auth';
+
 const AI_MODE = import.meta.env.VITE_AI_MODE || (import.meta.env.PROD ? 'real' : 'mock');
 
 function ok(data) {
@@ -6,10 +8,6 @@ function ok(data) {
 
 function fail(message, code = 'AI_ERROR') {
   return { data: null, error: { code, message } };
-}
-
-function getCurrentUserId() {
-  return localStorage.getItem('lockeen_real_user_id') || 'mock-ai-user';
 }
 
 function fallbackText(kind, prompt) {
@@ -45,11 +43,14 @@ async function requestAi({ kind = 'tutor', prompt, context = {} }) {
     });
   }
 
+  const userResult = await requireAuthenticatedUserId();
+  if (userResult.error) return userResult;
+
   const response = await fetch('/api/ai-study-assist', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-lockeen-user-id': getCurrentUserId(),
+      'x-lockeen-user-id': userResult.data,
     },
     body: JSON.stringify({ kind, prompt, context }),
   });

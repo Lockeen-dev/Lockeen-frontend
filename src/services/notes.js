@@ -1,6 +1,7 @@
 import { seedExams } from '../data/mockData';
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
+import { requireAuthenticatedUserId } from './auth';
 
 const mockNotes = [];
 
@@ -21,20 +22,6 @@ function normalizeError(error, fallback = 'Request failed.') {
     code: error?.code || error?.name || 'SUPABASE_ERROR',
     message: error?.message || fallback,
   };
-}
-
-function getCurrentUserId() {
-  return localStorage.getItem('lockeen_real_user_id') || null;
-}
-
-function requireRealUserId() {
-  const userId = getCurrentUserId();
-
-  if (!userId) {
-    return fail('Real mode requires lockeen_real_user_id in localStorage.', 'AUTH_REQUIRED');
-  }
-
-  return { data: userId, error: null };
 }
 
 function hasKnownMockParent(input = {}) {
@@ -111,7 +98,7 @@ async function listRealNotes(filters = {}) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   let query = supabase
@@ -138,7 +125,7 @@ async function createRealNote(input = {}) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   if (!input.title?.trim()) {
@@ -167,7 +154,7 @@ async function updateRealNote(id, patch = {}) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   if (patch.title !== undefined && !patch.title?.trim()) {
@@ -195,7 +182,7 @@ async function deleteRealNote(id) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const { data, error } = await supabase

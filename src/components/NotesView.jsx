@@ -16,7 +16,7 @@ import { homeS } from '../styles/dashboardStyles';
 function formatExamServiceError(error, fallback) {
   if (!error) return fallback;
   if (error.code === 'AUTH_REQUIRED') {
-    return 'Real mode requires a temporary user id. Set lockeen_real_user_id in localStorage, then refresh.';
+    return 'Real mode requires an authenticated Supabase session.';
   }
   if (error.code === 'SUPABASE_CONFIG_MISSING') {
     return 'Supabase config is missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
@@ -30,7 +30,7 @@ function formatExamServiceError(error, fallback) {
 function formatStudyServiceError(error, fallback) {
   if (!error) return fallback;
   if (error.code === 'AUTH_REQUIRED') {
-    return 'Real mode requires lockeen_real_user_id in localStorage.';
+    return 'Real mode requires an authenticated Supabase session.';
   }
   if (error.code === 'SUPABASE_CONFIG_MISSING') {
     return 'Supabase config is missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';

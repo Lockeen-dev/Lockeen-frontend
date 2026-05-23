@@ -1,6 +1,7 @@
 import { seedExams } from '../data/mockData';
 import { getApiMode, isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
+import { requireAuthenticatedUserId } from './auth';
 
 const mockExams = structuredClone(seedExams || []);
 
@@ -21,20 +22,6 @@ function normalizeError(error, fallback = 'Request failed.') {
 
 function findExam(id) {
   return mockExams.find((exam) => String(exam.id) === String(id));
-}
-
-function getCurrentUserId() {
-  return localStorage.getItem('lockeen_real_user_id') || null;
-}
-
-function requireRealUserId() {
-  const userId = getCurrentUserId();
-
-  if (!userId) {
-    return fail('Real mode requires lockeen_real_user_id in localStorage.', 'AUTH_REQUIRED');
-  }
-
-  return { data: userId, error: null };
 }
 
 function toExam(row) {
@@ -114,7 +101,7 @@ async function listRealExams() {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const { data, error } = await supabase
@@ -133,7 +120,7 @@ async function getRealExam(id) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const { data, error } = await supabase
@@ -153,7 +140,7 @@ async function createRealExam(input) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   if (!input?.name) {
@@ -175,7 +162,7 @@ async function updateRealExam(id, patch) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const { data, error } = await supabase
@@ -196,7 +183,7 @@ async function deleteRealExam(id) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const { data, error } = await supabase
@@ -217,7 +204,7 @@ async function listRealChapters(examId) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const { data, error } = await supabase
@@ -236,7 +223,7 @@ async function createRealChapter(examId, input) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   if (!input?.title) {
@@ -258,7 +245,7 @@ async function updateRealChapter(examId, chapterId, patch) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const { data, error } = await supabase
@@ -280,7 +267,7 @@ async function deleteRealChapter(examId, chapterId) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = requireRealUserId();
+  const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
   const { data, error } = await supabase

@@ -50,6 +50,7 @@ supabase db push --dry-run
 - `VITE_AUTH_MODE=supabase` build with dummy public env: pass.
 - `supabase db push --dry-run`: pass, remote database up to date.
 
-## Day 2 Follow-Up
+## Day 2 Result
 
-Remove `lockeen_real_user_id` from real data services and use authenticated Supabase session user id.
+- Data services now use authenticated Supabase session user id.
+- `lockeen_real_user_id` is no longer required by frontend services.

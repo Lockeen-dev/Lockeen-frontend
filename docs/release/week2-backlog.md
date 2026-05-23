@@ -6,7 +6,7 @@
 
 Goal:
 
-- remove lockeen_real_user_id
+- remove lockeen_real_user_id (done Week 3 Day 2)
 - use Supabase session user id
 - keep AuthContext contract stable
 

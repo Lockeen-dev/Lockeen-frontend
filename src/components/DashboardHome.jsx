@@ -11,7 +11,7 @@ import { homeS } from '../styles/dashboardStyles';
 function formatDashboardError(error) {
   if (!error) return 'Unable to load dashboard data.';
   if (error.code === 'AUTH_REQUIRED') {
-    return 'Real mode requires lockeen_real_user_id in localStorage.';
+    return 'Real mode requires an authenticated Supabase session.';
   }
   if (error.code === 'SUPABASE_CONFIG_MISSING') {
     return 'Supabase config is missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
