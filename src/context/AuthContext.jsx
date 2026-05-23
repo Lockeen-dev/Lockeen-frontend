@@ -52,7 +52,7 @@ export function AuthProvider({ children }) {
       setState({
         user: session.user,
         status: session.status,
-        error: null,
+        error: session.error || null,
       });
     });
   }, [refreshSession]);

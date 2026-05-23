@@ -6,14 +6,18 @@ Day 3 auth shell.
 
 Goal: frontend thinks in authenticated app states before real provider integration.
 
-Current mode: mock.
-Future mode: Supabase Auth.
+Current modes:
+
+- `mock`
+- `supabase`
 
 ## Auth mode
 
 `VITE_AUTH_MODE=mock` uses localStorage mock session.
 
-Future `VITE_AUTH_MODE=supabase` will keep same service function signatures and context values.
+`VITE_AUTH_MODE=supabase` uses Supabase Auth with email/password.
+
+Both modes keep same service function signatures and context values.
 
 ## Session states
 
@@ -100,24 +104,42 @@ Refresh behavior:
 
 logged-in mock user persists after browser refresh
 logout clears localStorage session
-Future Supabase behavior
-Supabase implementation must keep:
+Supabase behavior
+Supabase implementation keeps:
 
 same service function names
 same return shape
 same context values
 same session states
-Expected Supabase mapping:
+Supabase mapping:
 
 restoreSession() -> supabase.auth.getSession() / getUser()
-signIn() -> password or magic-link provider
+signIn() -> Supabase email/password
 signUp() -> Supabase sign up
 signOut() -> Supabase sign out
 onAuthStateChange() -> Supabase auth listener
-Known gaps Day 3
-No real Supabase auth call yet.
+
+User mapping:
+
+```js
+{
+  id: user.id,
+  email: user.email,
+  name: user.user_metadata.full_name || user.user_metadata.name || email prefix,
+  provider: 'supabase',
+  createdAt: user.created_at
+}
+```
+
+Beta constraints:
+
+- Email/password only.
+- Google/OAuth UI path returns `PROVIDER_UNSUPPORTED` in real mode.
+- If Supabase email confirmation is enabled, sign up returns `EMAIL_CONFIRMATION_REQUIRED` until user confirms email.
+
+Known gaps Day 1 Week 3
 No password validation beyond required email.
-No email verification.
+No reset password flow.
 No route-level router guard.
-No user profile table.
-No RLS.
+No profile upsert on auth callback.
+Data services still use temporary `lockeen_real_user_id` until Week 3 Day 2.
