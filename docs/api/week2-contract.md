@@ -145,15 +145,26 @@ Summary shape:
 
 ```js
 {
+  totalExams,
   upcomingExams,
+  nextExam,
   notesCount,
   materialsCount,
   flashcardsCount,
+  quizzesCount,
   quizAttemptsCount,
   averageQuizScore,
   latestActivity
 }
 ```
+
+Day 5 implemented:
+
+- `getStudySummary()` returns a backend-derived read model
+- `listRecentActivity({ limit })` returns latest notes/materials/quiz attempts
+- mock mode derives from existing mock services
+- real mode queries Supabase user-owned tables
+- missing data returns zero/empty values, not fake progress
 
 ## Error contract
 
@@ -255,4 +266,18 @@ Day 4 limits:
 - quiz list/get/attempt submit only
 - no AI generation
 - no spaced repetition
+- no UI integration in backend PR
+
+## Day 5 implementation note
+
+Implemented services:
+
+- `src/services/analytics.js`
+- `src/services/dashboard.js` now prefers analytics read model
+
+Day 5 limits:
+
+- no new migration
+- no analytics warehouse
+- no retention cohorts
 - no UI integration in backend PR

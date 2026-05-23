@@ -1,4 +1,5 @@
 import { listExams } from './exams';
+import { getStudySummary } from './analytics';
 
 function ok(data) {
   return { data: structuredClone(data), error: null };
@@ -56,6 +57,12 @@ export async function listUpcomingExams(limit = 5) {
 }
 
 export async function getDashboardSummary() {
+  const studyResult = await getStudySummary();
+
+  if (!studyResult.error) {
+    return ok(studyResult.data);
+  }
+
   const result = await listExams();
 
   if (result.error) return failFrom(result.error);
