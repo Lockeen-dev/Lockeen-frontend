@@ -24,6 +24,19 @@ Test:
 4. user B cannot insert child record under user A parent id
 5. user A still sees own records after refresh
 
+Day 2 added tables:
+
+- `notes`
+- `study_materials`
+
+Extra Day 2 checks:
+
+- user B cannot insert a note under user A `exam_id`
+- user B cannot insert a note under user A `chapter_id`
+- user B cannot insert material under user A `note_id`
+- user B cannot list user A materials
+- deleting a note cascades related material metadata only when attached by `note_id`
+
 ## Storage rules
 
 Allowed week 2 file policy:
@@ -39,6 +52,13 @@ Not allowed:
 - executable files
 - unbounded upload size
 - client-side secret signing
+
+Day 2 storage state:
+
+- material metadata supported
+- external `source_url` supported
+- `storage_path` field reserved
+- signed download URLs not implemented until storage policy PR
 
 ## AI rules
 

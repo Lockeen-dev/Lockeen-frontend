@@ -185,3 +185,23 @@ Frontend must not use:
 - private storage signing secret
 
 AI and signed storage must happen server-side.
+
+## Day 2 implementation note
+
+Migration:
+
+- `supabase/migrations/20260523_day2_notes_materials.sql`
+
+Implemented services:
+
+- `src/services/notes.js`
+- `src/services/materials.js`
+
+Day 2 limits:
+
+- notes require `examId` or `chapterId`
+- materials require `examId`, `chapterId`, or `noteId`
+- materials can be metadata-only; `sourceUrl` and `storagePath` are optional
+- storage signed URLs return `STORAGE_NOT_IMPLEMENTED` until storage policy is added
+- no PDF parsing
+- no UI integration in backend PR
