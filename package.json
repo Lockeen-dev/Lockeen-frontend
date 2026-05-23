@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "setup:check": "node scripts/validate-env.mjs",
-    "ci": "npm run setup:check && npm run build"
+    "security:rls": "node scripts/check-rls-baseline.mjs",
+    "ci": "npm run setup:check && npm run security:rls && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
