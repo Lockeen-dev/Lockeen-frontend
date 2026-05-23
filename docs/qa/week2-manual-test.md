@@ -59,9 +59,13 @@ npm run dev
 
 - [ ] flashcards view opens
 - [ ] empty state visible
-- [ ] create/list card works when enabled
-- [ ] delete card works when enabled
-- [ ] mock fallback works
+- [ ] loading state visible while flashcards service waits
+- [ ] error state visible when flashcards service fails
+- [ ] list cards from service by exam/chapter
+- [ ] create flashcard works from UI
+- [ ] edit flashcard works from UI
+- [ ] delete flashcard works from UI
+- [ ] mock mode smoke works without Supabase env
 - [ ] real mode list flashcards by exam/chapter works after Day 4 db push
 - [ ] real mode create/edit/delete flashcard persists after refresh
 - [ ] cross-user flashcard access blocked by RLS
@@ -70,13 +74,20 @@ npm run dev
 
 - [ ] quiz view opens
 - [ ] no quiz empty state visible
+- [ ] loading state visible while quiz service waits
+- [ ] error state visible when quiz service fails
+- [ ] list quiz from service
+- [ ] get quiz from service before starting
 - [ ] answer questions
-- [ ] submit attempt
+- [ ] submit attempt via service
 - [ ] score visible
 - [ ] submit error handled
 - [ ] score persists after refresh in real mode
 - [ ] real mode list/get quiz works after Day 4 db push
 - [ ] real mode quiz attempt writes score/answers
+- [ ] mock mode smoke works without Supabase env
+- [ ] no console crash
+- [ ] mobile quick check
 - [ ] cross-user quiz/attempt access blocked by RLS
 
 ## Analytics
@@ -112,3 +123,4 @@ Record bugs here:
 - Week 2 Day 2 B wires `NotesView` to `notes` and `materials` services in mock mode first.
 - Real mode notes/materials should be retested after Supabase db push and `lockeen_real_user_id` setup.
 - Week 2 Day 3 B adds optional material file upload UI. No PDF parsing or advanced upload flow.
+- Week 2 Day 4 B wires Flashcards and Quiz UI to practice services. No AI generation or adaptive quiz.

@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ChevronRight, XMark } from '../lib/icons';
 import { getExamEmoji, SubjectIcon } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { getSubjectPalette } from '../data/mockData';
+import { createFlashcard, deleteFlashcard, listFlashcards, updateFlashcard } from '../services/flashcards';
 
 function FlashStyles() {
   return (
@@ -12,6 +13,16 @@ function FlashStyles() {
       @keyframes fFadeUp   { from { opacity:0; transform:translateY(16px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
     `}</style>
   );
+}
+
+function normalizeFlashcard(card) {
+  return {
+    ...card,
+    front: card.front ?? card.q ?? '',
+    back: card.back ?? card.a ?? '',
+    q: card.q ?? card.front ?? '',
+    a: card.a ?? card.back ?? '',
+  };
 }
 
 function FlashResultScreen({ percent, correct, total, palette, title, subject, subjectStyle, onReset, onBack }) {
@@ -62,12 +73,92 @@ function FlashResultScreen({ percent, correct, total, palette, title, subject, s
 export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [] }) {
   const isMobile = useIsMobile();
   const [selectedExamId, setSelectedExamId] = useState(exams[0]?.id ?? null);
+  const [cards, setCards] = useState([]);
+  const [loadingCards, setLoadingCards] = useState(false);
+  const [cardsLoaded, setCardsLoaded] = useState(false);
+  const [cardsError, setCardsError] = useState('');
+  const [form, setForm] = useState({ chapterId: '', front: '', back: '' });
+  const [editingId, setEditingId] = useState(null);
   const selectedExam = exams.find(e => e.id === selectedExamId);
 
   const fmtDate = (ts) => new Date(ts).toLocaleDateString('it-IT', { day:'numeric', month:'short' });
   const fmtScore = (s) => s >= 80 ? { label: s + '%', color: '#10B981', bg:'#ECFDF5' } : s >= 60 ? { label: s + '%', color: '#F59E0B', bg:'#FFFBEB' } : { label: s + '%', color: '#EF4444', bg:'#FEF2F2' };
 
   const sL = { fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.08em', color:'var(--gray)', marginBottom:12 };
+
+  const loadCards = async (examId = selectedExamId) => {
+    if (!examId) return;
+    setLoadingCards(true);
+    setCardsLoaded(false);
+    setCardsError('');
+    const result = await listFlashcards({ examId });
+    if (result.error) {
+      setCardsError(result.error.message || 'Could not load flashcards.');
+      setCards([]);
+    } else {
+      setCards((result.data || []).map(normalizeFlashcard));
+    }
+    setCardsLoaded(true);
+    setLoadingCards(false);
+  };
+
+  useEffect(() => {
+    if (!selectedExamId) return;
+    loadCards(selectedExamId);
+  }, [selectedExamId]);
+
+  useEffect(() => {
+    const firstChapterId = selectedExam?.chapters?.[0]?.id || '';
+    setForm({ chapterId: firstChapterId, front: '', back: '' });
+    setEditingId(null);
+  }, [selectedExamId, selectedExam]);
+
+  const getCardsForChapter = (chapter) => {
+    const serviceCards = cards.filter((card) => String(card.chapterId) === String(chapter.id));
+    if (cardsLoaded && !cardsError) return serviceCards;
+    return serviceCards.length ? serviceCards : (chapter.cards || []).map(normalizeFlashcard);
+  };
+
+  const submitCardForm = async (event) => {
+    event.preventDefault();
+    if (!selectedExamId || !form.chapterId) return;
+    setCardsError('');
+    const input = {
+      examId: selectedExamId,
+      chapterId: form.chapterId,
+      front: form.front.trim(),
+      back: form.back.trim(),
+    };
+    const result = editingId
+      ? await updateFlashcard(editingId, input)
+      : await createFlashcard(input);
+    if (result.error) {
+      setCardsError(result.error.message || 'Could not save flashcard.');
+      return;
+    }
+    setForm({ chapterId: form.chapterId, front: '', back: '' });
+    setEditingId(null);
+    await loadCards(selectedExamId);
+  };
+
+  const startEditCard = (card) => {
+    setEditingId(card.id);
+    setForm({
+      chapterId: card.chapterId || selectedExam?.chapters?.[0]?.id || '',
+      front: card.front || card.q || '',
+      back: card.back || card.a || '',
+    });
+  };
+
+  const removeCard = async (id) => {
+    setCardsError('');
+    const result = await deleteFlashcard(id);
+    if (result.error) {
+      setCardsError(result.error.message || 'Could not delete flashcard.');
+      return;
+    }
+    await loadCards(selectedExamId);
+  };
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:28, maxWidth:860 }}>
@@ -108,7 +199,8 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
           <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap:12 }}>
             {selectedExam.chapters.map(ch => {
               const pal = getSubjectPalette(selectedExam.subject, {}, darkMode);
-              const cardCount = (ch.cards || []).length;
+              const chapterCards = getCardsForChapter(ch);
+              const cardCount = chapterCards.length;
               const hasCards = cardCount > 0;
               const recentDeck = recentDecks.find(d => d.title === ch.title);
               const lastScore = recentDeck?.lastScore ?? null;
@@ -116,7 +208,7 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
               const studied = lastScore != null;
               return (
                 <div key={ch.id}
-                  onClick={() => hasCards && onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: ch.cards })}
+                  onClick={() => hasCards && onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: chapterCards, _meta: { examId: selectedExam.id, chapterId: ch.id } })}
                   style={{ display:'flex', flexDirection:'column', gap:0, background:'var(--surface)', border:`1.5px solid ${studied ? pal.dot + '40' : 'var(--border)'}`, borderRadius:18, overflow:'hidden', opacity: hasCards ? 1 : 0.5, cursor: hasCards ? 'pointer' : 'default', transition:'box-shadow .15s, border-color .15s' }}
                   onMouseEnter={e => { if (hasCards) e.currentTarget.style.boxShadow='0 4px 20px rgba(55,48,232,.1)'; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow='none'; }}>
@@ -147,7 +239,7 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
 
                     <button
                       disabled={!hasCards}
-                      onClick={e => { e.stopPropagation(); if(hasCards) onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: ch.cards }); }}
+                      onClick={e => { e.stopPropagation(); if(hasCards) onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: chapterCards, _meta: { examId: selectedExam.id, chapterId: ch.id } }); }}
                       style={{ width:'100%', padding:'10px', borderRadius:12, background: hasCards ? pal.dot : 'var(--border)', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor: hasCards ? 'pointer' : 'not-allowed', letterSpacing:'.01em' }}>
                       {studied ? '🔄 Rivedi' : '▶ Studia'}
                     </button>
@@ -156,6 +248,47 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
               );
             })}
           </div>
+          {loadingCards && <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>Loading flashcards...</p>}
+          {cardsError && <p style={{ margin:'12px 0 0', color:'#DC2626', fontSize:13 }}>{cardsError}</p>}
+          {!loadingCards && !cardsError && cards.length === 0 && (
+            <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>No flashcards yet.</p>
+          )}
+          <form onSubmit={submitCardForm} style={{ marginTop:16, padding:16, border:'1px solid var(--border)', borderRadius:16, background:'var(--surface)', display:'grid', gap:10 }}>
+            <div style={sL}>{editingId ? 'Modifica flashcard' : 'Nuova flashcard'}</div>
+            <select value={form.chapterId} onChange={e => setForm(f => ({ ...f, chapterId: e.target.value }))}
+              style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)' }}>
+              {(selectedExam.chapters || []).map(ch => <option key={ch.id} value={ch.id}>{ch.title}</option>)}
+            </select>
+            <input value={form.front} onChange={e => setForm(f => ({ ...f, front: e.target.value }))} placeholder="Front"
+              style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)' }} />
+            <textarea value={form.back} onChange={e => setForm(f => ({ ...f, back: e.target.value }))} placeholder="Back" rows={3}
+              style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)', resize:'vertical' }} />
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              <button type="submit" style={{ padding:'10px 14px', borderRadius:10, border:'none', background:'var(--indigo)', color:'#fff', fontWeight:700 }}>
+                {editingId ? 'Salva' : 'Crea'}
+              </button>
+              {editingId && (
+                <button type="button" onClick={() => { setEditingId(null); setForm(f => ({ ...f, front:'', back:'' })); }}
+                  style={{ padding:'10px 14px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700 }}>
+                  Annulla
+                </button>
+              )}
+            </div>
+          </form>
+          {cards.length > 0 && (
+            <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:8 }}>
+              {cards.slice(0, 8).map(card => (
+                <div key={card.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', border:'1px solid var(--border)', borderRadius:12, background:'var(--surface)' }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{card.front}</div>
+                    <div style={{ fontSize:12, color:'var(--gray)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{card.back}</div>
+                  </div>
+                  <button type="button" onClick={() => startEditCard(card)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:12 }}>Edit</button>
+                  <button type="button" onClick={() => removeCard(card.id)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid #fca5a5', background:'#FEE2E2', color:'#991B1B', fontWeight:700, fontSize:12 }}>Delete</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

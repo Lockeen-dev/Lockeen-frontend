@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Check, Clock, XMark } from '../lib/icons';
 import { getExamEmoji } from '../lib/examUi';
 import { getSubjectPalette } from '../data/mockData';
+import { getQuiz, listQuizzes, submitQuizAttempt } from '../services/quiz';
 
 function QuizStyles() {
   return (
@@ -13,7 +14,24 @@ function QuizStyles() {
   );
 }
 
-function QuizResultScreen({ percent, correct, total, palette, resultTitle, subject, subjectStyle, onRestart, onBack }) {
+function normalizeQuestion(question) {
+  return {
+    ...question,
+    q: question.q ?? question.prompt ?? '',
+    options: question.options || [],
+    correct: Number(question.correct ?? question.correctAnswer ?? 0),
+    explanation: question.explanation || '',
+  };
+}
+
+function normalizeQuiz(quiz) {
+  return {
+    ...quiz,
+    questions: (quiz.questions || []).map(normalizeQuestion),
+  };
+}
+
+function QuizResultScreen({ percent, correct, total, palette, resultTitle, subject, subjectStyle, attemptError, attemptSaved, onRestart, onBack }) {
   const [p, setP] = useState(0);
   useEffect(() => {
     let raf;
@@ -47,6 +65,8 @@ function QuizResultScreen({ percent, correct, total, palette, resultTitle, subje
         </div>
         <div style={{ fontSize: 32 }}>{emoji}</div>
         <h2 style={quizS.resultTitle}>{resultTitle}</h2>
+        {attemptSaved && <p style={{ ...quizS.resultSub, color:'#10B981' }}>Score saved</p>}
+        {attemptError && <p style={{ ...quizS.resultSub, color:'#DC2626' }}>{attemptError}</p>}
         <div style={quizS.resultActions}>
           <button onClick={onRestart} style={{ ...quizS.tryAgainBtn, background: palette.dot }}>Try again</button>
           <button onClick={onBack} style={quizS.backBtn}>Back to Study</button>
@@ -56,9 +76,10 @@ function QuizResultScreen({ percent, correct, total, palette, resultTitle, subje
   );
 }
 
-export function QuizView({ noteId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = true, initialDifficulty = 'medium', timerOn: initialTimerOn = false, timerSecs: initialTimerSecs = 30 }) {
+export function QuizView({ noteId, quizId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = true, initialDifficulty = 'medium', timerOn: initialTimerOn = false, timerSecs: initialTimerSecs = 30 }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
-  const total = questions.length;
+  const normalizedQuestions = (questions || []).map(normalizeQuestion);
+  const total = normalizedQuestions.length;
   const [started, setStarted] = useState(true);
   const autoStartHandled = useRef(false);
   const [idx, setIdx] = useState(0);
@@ -74,6 +95,8 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
   const [timerVal, setTimerVal] = useState(initSecs);
   const timerID = useRef(null);
   const [done, setDone] = useState(false);
+  const [attemptError, setAttemptError] = useState('');
+  const [attemptSaved, setAttemptSaved] = useState(false);
   const resultSavedRef = useRef(false);
   const userAnswers = useRef([]);
   const [qKey, setQKey] = useState(0);
@@ -98,6 +121,8 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
     setTimerVal(initSecs);
     setDifficulty(initDiff);
     setDone(false);
+    setAttemptError('');
+    setAttemptSaved(false);
     resultSavedRef.current = false;
     userAnswers.current = [];
   };
@@ -109,6 +134,8 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
     setSelected(null);
     setPendingIdx(null);
     setDone(false);
+    setAttemptError('');
+    setAttemptSaved(false);
     resultSavedRef.current = false;
     userAnswers.current = [];
     setStarted(true);
@@ -127,6 +154,7 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
       autoStartHandled.current = true;
       setStarted(true);
       setIdx(0); setCorrect(0); setSelected(null); setPendingIdx(null); setDone(false);
+      setAttemptError(''); setAttemptSaved(false);
       resultSavedRef.current = false; userAnswers.current = [];
       setTimeout(startTimer, 0);
       return;
@@ -136,8 +164,25 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
   useEffect(() => {
     if (!done || !total || resultSavedRef.current) return;
     resultSavedRef.current = true;
-    onQuizComplete && onQuizComplete(noteId, Math.round((correct / total) * 100), [...userAnswers.current]);
-  }, [done, total, correct, noteId, onQuizComplete]);
+    async function saveAttempt() {
+      const answers = [...userAnswers.current];
+      if (quizId) {
+        const result = await submitQuizAttempt(quizId, {
+          score: correct,
+          total,
+          answers,
+          completedAt: new Date().toISOString(),
+        });
+        if (result.error) {
+          setAttemptError(result.error.message || 'Could not save score.');
+        } else {
+          setAttemptSaved(true);
+        }
+      }
+      onQuizComplete && onQuizComplete(noteId, Math.round((correct / total) * 100), answers);
+    }
+    saveAttempt();
+  }, [done, total, correct, noteId, quizId, onQuizComplete]);
 
   const startTimer = () => {
     stopTimer();
@@ -163,7 +208,7 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
     setTimeout(() => {
       setSelected(i);
       setPendingIdx(null);
-      if (i === questions[idx].correct) {
+      if (i === normalizedQuestions[idx].correct) {
         setCorrect((c) => c + 1);
       } else {
         setShake(true);
@@ -205,13 +250,15 @@ export function QuizView({ noteId, subject, title, questions, setTab, darkMode, 
         percent={percent} correct={correct} total={total}
         palette={palette} resultTitle={resultTitle} subject={subject}
         subjectStyle={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border, alignSelf: 'center' }}
+        attemptError={attemptError}
+        attemptSaved={attemptSaved}
         onRestart={restartQuiz}
         onBack={() => setTab(backTo)}
       />
     );
   }
 
-  const q = questions[idx];
+  const q = normalizedQuestions[idx];
   const progress = ((idx + 1) / total) * 100;
   const answered = selected !== null;
 
@@ -379,33 +426,85 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   const [timerSecs, setTimerSecs] = useState(30);
   const [activeDeck, setActiveDeck] = useState(deck && deck.questions && deck.questions.length > 0 ? deck : null);
   const [reviewRun, setReviewRun] = useState(null);
+  const [serviceQuizzes, setServiceQuizzes] = useState([]);
+  const [loadingQuizzes, setLoadingQuizzes] = useState(false);
+  const [quizError, setQuizError] = useState('');
 
   const selectedExam = exams.find(e => e.id === selectedExamId);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadQuizzes() {
+      if (!selectedExamId || activeDeck) return;
+      setLoadingQuizzes(true);
+      setQuizError('');
+      const filters = selectedChapterId === 'all'
+        ? { examId: selectedExamId }
+        : { examId: selectedExamId, chapterId: selectedChapterId };
+      const result = await listQuizzes(filters);
+      if (cancelled) return;
+      if (result.error) {
+        setQuizError(result.error.message || 'Could not load quizzes.');
+        setServiceQuizzes([]);
+      } else {
+        setServiceQuizzes((result.data || []).map(normalizeQuiz));
+      }
+      setLoadingQuizzes(false);
+    }
+    loadQuizzes();
+    return () => { cancelled = true; };
+  }, [selectedExamId, selectedChapterId, activeDeck]);
+
   const availableQuestions = React.useMemo(() => {
+    const serviceQuestions = serviceQuizzes.flatMap(quiz => quiz.questions || []);
+    if (serviceQuestions.length > 0) return serviceQuestions;
     if (!selectedExam) return [];
     if (selectedChapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []);
     const ch = selectedExam.chapters.find(c => c.id === selectedChapterId);
     return ch?.questions || [];
-  }, [selectedExam, selectedChapterId]);
+  }, [selectedExam, selectedChapterId, serviceQuizzes]);
 
   const maxQ = availableQuestions.length;
   const effectiveNumQ = Math.min(numQ, maxQ || 1);
 
-  const startQuiz = (overrides = {}) => {
+  const startQuiz = async (overrides = {}) => {
     const examId = overrides.examId ?? selectedExamId;
     const chapterId = overrides.chapterId ?? selectedChapterId;
     const exam = exams.find(e => e.id === examId) || selectedExam;
-    const qs = chapterId === 'all'
+    setLoadingQuizzes(true);
+    setQuizError('');
+    const filters = chapterId === 'all'
+      ? { examId }
+      : { examId, chapterId };
+    const listResult = await listQuizzes(filters);
+    let serviceQuiz = null;
+    if (listResult.error) {
+      setQuizError(listResult.error.message || 'Could not load quiz.');
+    } else {
+      serviceQuiz = (listResult.data || []).find(quiz => (quiz.questions || []).length > 0) || null;
+      if (serviceQuiz) {
+        const quizResult = await getQuiz(serviceQuiz.id);
+        if (quizResult.error) {
+          setQuizError(quizResult.error.message || 'Could not open quiz.');
+          serviceQuiz = normalizeQuiz(serviceQuiz);
+        } else {
+          serviceQuiz = normalizeQuiz(quizResult.data);
+        }
+      }
+    }
+    setLoadingQuizzes(false);
+    const fallbackQs = chapterId === 'all'
       ? (exam?.chapters || []).flatMap(c => c.questions || [])
       : (exam?.chapters.find(c => c.id === chapterId)?.questions || []);
+    const qs = serviceQuiz?.questions?.length ? serviceQuiz.questions : fallbackQs;
     const chapterName = chapterId === 'all' ? 'Intero esame' : (exam?.chapters.find(c => c.id === chapterId)?.title || '');
     const n = overrides.numQ ?? effectiveNumQ;
     setActiveDeck({
       noteId: chapterId === 'all' ? examId : chapterId,
+      quizId: serviceQuiz?.id || null,
       subject: exam?.subject || '',
-      title: chapterName,
-      questions: qs.slice(0, n),
+      title: serviceQuiz?.title || chapterName,
+      questions: qs.map(normalizeQuestion).slice(0, n),
       _meta: { examId, examName: exam?.name || '', chapterId, chapterName, numQ: Math.min(n, qs.length) },
       _autoStart: overrides._autoStart || false,
       _difficulty: overrides._difficulty || null,
@@ -432,6 +531,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
     return (
       <QuizView
         noteId={activeDeck.noteId}
+        quizId={activeDeck.quizId}
         subject={activeDeck.subject}
         title={activeDeck.title}
         questions={activeDeck.questions}
@@ -465,10 +565,11 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         <div>
           <h2 style={{ margin:'0 0 3px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>Quiz</h2>
           <p style={{ margin:0, fontSize:13, color:'var(--gray)' }}>
-            {selectedExam ? `${selectedExam.name} · ${maxQ > 0 ? effectiveNumQ + ' domande' : 'nessuna domanda'}` : 'Configura il tuo quiz'}
+            {selectedExam ? `${selectedExam.name} · ${loadingQuizzes ? 'loading...' : maxQ > 0 ? effectiveNumQ + ' domande' : 'nessuna domanda'}` : 'Configura il tuo quiz'}
           </p>
         </div>
       </div>
+      {quizError && <p style={{ margin:'0 0 12px', color:'#DC2626', fontSize:13 }}>{quizError}</p>}
 
       {/* Config card */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:22, overflow:'hidden', boxShadow:'0 2px 16px rgba(0,0,0,.04)', marginBottom:14 }}>
@@ -608,11 +709,11 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       </div>
 
       {/* Start button */}
-      <button onClick={() => startQuiz({ _autoStart:true, _difficulty:selectedDiff, _timerOn:timerOn, _timerSecs:timerSecs })} disabled={maxQ === 0}
-        style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 ? 'linear-gradient(135deg, var(--indigo) 0%, #5B53F0 100%)' : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 ? '0 4px 16px rgba(55,48,232,.35)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
+      <button onClick={() => startQuiz({ _autoStart:true, _difficulty:selectedDiff, _timerOn:timerOn, _timerSecs:timerSecs })} disabled={maxQ === 0 || loadingQuizzes}
+        style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 && !loadingQuizzes ? 'linear-gradient(135deg, var(--indigo) 0%, #5B53F0 100%)' : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 && !loadingQuizzes ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 && !loadingQuizzes ? '0 4px 16px rgba(55,48,232,.35)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
         onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.9'; }}
         onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}>
-        Inizia Quiz
+        {loadingQuizzes ? 'Loading...' : 'Inizia Quiz'}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       </button>
 
