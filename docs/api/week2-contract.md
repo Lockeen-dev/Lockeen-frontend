@@ -97,6 +97,13 @@ Flashcard shape:
 }
 ```
 
+Day 4 implemented:
+
+- mock mode reads seed chapter cards
+- real mode reads `public.flashcards`
+- create/update/delete supported
+- parent scope: `examId`, `chapterId`, or `noteId`
+
 ### `src/services/quiz.js`
 
 Functions:
@@ -118,6 +125,14 @@ Attempt shape:
   createdAt
 }
 ```
+
+Day 4 implemented:
+
+- mock mode reads seed chapter questions
+- real mode reads `public.quizzes` + `public.quiz_questions`
+- `submitQuizAttempt` persists score/answers in `public.quiz_attempts`
+- quiz generation is not implemented yet
+- adaptive/spaced practice is not implemented yet
 
 ### `src/services/analytics.js`
 
@@ -222,3 +237,22 @@ Rules:
 - allowed types: PDF, PNG, JPEG, TXT
 - path pattern: `{userId}/{materialId}/{fileName}`
 - signed URLs expire after 3600 seconds by default
+
+## Day 4 implementation note
+
+Migration:
+
+- `supabase/migrations/20260523130000_day4_practice.sql`
+
+Implemented services:
+
+- `src/services/flashcards.js`
+- `src/services/quiz.js`
+
+Day 4 limits:
+
+- manual flashcard CRUD only
+- quiz list/get/attempt submit only
+- no AI generation
+- no spaced repetition
+- no UI integration in backend PR

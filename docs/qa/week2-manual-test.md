@@ -62,6 +62,9 @@ npm run dev
 - [ ] create/list card works when enabled
 - [ ] delete card works when enabled
 - [ ] mock fallback works
+- [ ] real mode list flashcards by exam/chapter works after Day 4 db push
+- [ ] real mode create/edit/delete flashcard persists after refresh
+- [ ] cross-user flashcard access blocked by RLS
 
 ## Quiz
 
@@ -72,6 +75,9 @@ npm run dev
 - [ ] score visible
 - [ ] submit error handled
 - [ ] score persists after refresh in real mode
+- [ ] real mode list/get quiz works after Day 4 db push
+- [ ] real mode quiz attempt writes score/answers
+- [ ] cross-user quiz/attempt access blocked by RLS
 
 ## Analytics
 

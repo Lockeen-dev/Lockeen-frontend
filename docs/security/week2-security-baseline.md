@@ -70,6 +70,22 @@ Day 3 storage policy:
 - users can select/insert/update/delete only objects inside own user-id folder
 - frontend service exposes upload validation and signed URL helper
 
+Day 4 practice tables:
+
+- `flashcards`
+- `quizzes`
+- `quiz_questions`
+- `quiz_attempts`
+
+Extra Day 4 checks:
+
+- user B cannot list user A flashcards
+- user B cannot create flashcard under user A `exam_id`, `chapter_id`, or `note_id`
+- user B cannot list user A quizzes/questions
+- user B cannot insert question under user A quiz
+- user B cannot submit attempt under user A quiz
+- quiz attempts are append-only through insert/select policies
+
 ## AI rules
 
 Allowed:
