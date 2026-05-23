@@ -58,7 +58,17 @@ Day 2 storage state:
 - material metadata supported
 - external `source_url` supported
 - `storage_path` field reserved
-- signed download URLs not implemented until storage policy PR
+- signed download URLs implemented by storage service after Day 3 storage policy PR
+
+Day 3 storage policy:
+
+- bucket: `study-materials`
+- bucket is private
+- max file size: 10 MB
+- allowed mime types: `application/pdf`, `image/png`, `image/jpeg`, `text/plain`
+- object path must start with `auth.uid()`
+- users can select/insert/update/delete only objects inside own user-id folder
+- frontend service exposes upload validation and signed URL helper
 
 ## AI rules
 

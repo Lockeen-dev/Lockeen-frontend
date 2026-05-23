@@ -202,6 +202,23 @@ Day 2 limits:
 - notes require `examId` or `chapterId`
 - materials require `examId`, `chapterId`, or `noteId`
 - materials can be metadata-only; `sourceUrl` and `storagePath` are optional
-- storage signed URLs return `STORAGE_NOT_IMPLEMENTED` until storage policy is added
+- storage signed URLs work for real-mode materials with `storagePath` after Day 3 migration
 - no PDF parsing
 - no UI integration in backend PR
+
+### `src/services/storage.js`
+
+Functions:
+
+- `validateStudyMaterialFile(file)`
+- `uploadStudyMaterialFile({ file, materialId })`
+- `createStudyMaterialSignedUrl(storagePath, expiresInSeconds)`
+- `deleteStudyMaterialFile(storagePath)`
+
+Rules:
+
+- bucket: `study-materials`
+- max file size: 10 MB
+- allowed types: PDF, PNG, JPEG, TXT
+- path pattern: `{userId}/{materialId}/{fileName}`
+- signed URLs expire after 3600 seconds by default

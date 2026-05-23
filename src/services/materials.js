@@ -1,6 +1,7 @@
 import { seedExams } from '../data/mockData';
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
+import { createStudyMaterialSignedUrl } from './storage';
 
 const mockMaterials = [];
 
@@ -240,5 +241,5 @@ export async function getMaterialDownloadUrl(id) {
   if (material.sourceUrl) return ok({ url: material.sourceUrl });
   if (!material.storagePath) return fail('Material has no downloadable source.', 'NOT_FOUND');
 
-  return fail('Storage signed URLs are not implemented yet.', 'STORAGE_NOT_IMPLEMENTED');
+  return createStudyMaterialSignedUrl(material.storagePath);
 }
