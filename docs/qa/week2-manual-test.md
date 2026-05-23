@@ -35,14 +35,19 @@ npm run dev
 - [ ] validation catches empty required fields
 - [ ] backend/service error shows readable message
 - [ ] refresh preserves real data when in real mode
+- [ ] mock mode create/edit/delete works without Supabase env
+- [ ] note list remains scoped to selected exam
 
 ## Materials
 
 - [ ] create material without file works
+- [ ] create material metadata with optional source URL works
 - [ ] invalid file type blocked or shows error
 - [ ] large file blocked or shows error
 - [ ] delete material works
 - [ ] storage unavailable fallback does not break notes
+- [ ] material list remains scoped to selected exam
+- [ ] refresh behavior documented: mock mode resets in-memory service data, real mode persists after db push
 
 ## Flashcards
 
@@ -92,4 +97,5 @@ npm run dev
 
 Record bugs here:
 
-- 
+- Week 2 Day 2 B wires `NotesView` to `notes` and `materials` services in mock mode first.
+- Real mode notes/materials should be retested after Supabase db push and `lockeen_real_user_id` setup.

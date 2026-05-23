@@ -6,6 +6,8 @@ import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, infe
 import { getExamEmoji } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { createExam, deleteExam, listExams, updateExam } from '../services/exams';
+import { createMaterial, deleteMaterial, listMaterials } from '../services/materials';
+import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
 import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, UploadChapterModal } from './ExamModals';
 import { EmojiPickerButton, GradeValue, getPriorityMeta, gradeS } from './common/ExamControls';
 import { homeS } from '../styles/dashboardStyles';
@@ -20,6 +22,20 @@ function formatExamServiceError(error, fallback) {
   }
   if (error.code === 'VALIDATION_ERROR') {
     return error.message || 'Check required fields before saving.';
+  }
+  return error.message || fallback;
+}
+
+function formatStudyServiceError(error, fallback) {
+  if (!error) return fallback;
+  if (error.code === 'AUTH_REQUIRED') {
+    return 'Real mode requires lockeen_real_user_id in localStorage.';
+  }
+  if (error.code === 'SUPABASE_CONFIG_MISSING') {
+    return 'Supabase config is missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
+  }
+  if (error.code === 'VALIDATION_ERROR') {
+    return error.message || 'Check required fields.';
   }
   return error.message || fallback;
 }
@@ -310,6 +326,20 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [readinessView, setReadinessView] = useState('exam');
   const [editingChapter, setEditingChapter] = useState(null);
   const [pdfChapter, setPdfChapter] = useState(null);
+  const [notesLoading, setNotesLoading] = useState(true);
+  const [notesError, setNotesError] = useState(null);
+  const [notes, setNotes] = useState([]);
+  const [materialsLoading, setMaterialsLoading] = useState(true);
+  const [materialsError, setMaterialsError] = useState(null);
+  const [materials, setMaterials] = useState([]);
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteBody, setNoteBody] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteTitle, setEditingNoteTitle] = useState('');
+  const [editingNoteBody, setEditingNoteBody] = useState('');
+  const [materialTitle, setMaterialTitle] = useState('');
+  const [materialUrl, setMaterialUrl] = useState('');
+  const [savingStudyAction, setSavingStudyAction] = useState(null);
   const examChapterIds = (exam.chapters || []).map((c) => c.id);
   const belongsToExam = (noteId) => String(noteId) === String(exam.id) || examChapterIds.some((id) => String(id) === String(noteId));
   const examRuns = quizRuns.filter(r => r.examId === exam.id).slice(0, 5);
@@ -346,6 +376,149 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const currentReadiness = selectedChapter ? chReadiness : readiness;
   const circumference = 251.33;
   const dashOffset = circumference - (currentReadiness / 100) * circumference;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStudyData() {
+      setNotesLoading(true);
+      setMaterialsLoading(true);
+      setNotesError(null);
+      setMaterialsError(null);
+      const [notesResult, materialsResult] = await Promise.all([
+        listNotes({ examId: exam.id }),
+        listMaterials({ examId: exam.id }),
+      ]);
+      if (cancelled) return;
+
+      if (notesResult.error) {
+        setNotesError(formatStudyServiceError(notesResult.error, 'Unable to load notes.'));
+        setNotes([]);
+      } else {
+        setNotes(notesResult.data || []);
+      }
+
+      if (materialsResult.error) {
+        setMaterialsError(formatStudyServiceError(materialsResult.error, 'Unable to load materials.'));
+        setMaterials([]);
+      } else {
+        setMaterials(materialsResult.data || []);
+      }
+
+      setNotesLoading(false);
+      setMaterialsLoading(false);
+    }
+
+    loadStudyData();
+    return () => { cancelled = true; };
+  }, [exam.id]);
+
+  const resetNoteForm = () => {
+    setNoteTitle('');
+    setNoteBody('');
+  };
+
+  const handleCreateNote = async (e) => {
+    e.preventDefault();
+    setNotesError(null);
+    if (!noteTitle.trim()) {
+      setNotesError('Note title is required.');
+      return;
+    }
+    setSavingStudyAction('create-note');
+    const { data, error } = await createNote({ examId: exam.id, title: noteTitle.trim(), body: noteBody.trim() });
+    if (error) {
+      setNotesError(formatStudyServiceError(error, 'Unable to create note.'));
+      setSavingStudyAction(null);
+      return;
+    }
+    setNotes((prev) => [data, ...prev]);
+    resetNoteForm();
+    setSavingStudyAction(null);
+  };
+
+  const beginEditNote = (note) => {
+    setNotesError(null);
+    setEditingNoteId(note.id);
+    setEditingNoteTitle(note.title || '');
+    setEditingNoteBody(note.body || '');
+  };
+
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditingNoteTitle('');
+    setEditingNoteBody('');
+  };
+
+  const handleUpdateNote = async (id) => {
+    setNotesError(null);
+    if (!editingNoteTitle.trim()) {
+      setNotesError('Note title is required.');
+      return;
+    }
+    setSavingStudyAction(`edit-note-${id}`);
+    const { data, error } = await updateNote(id, { title: editingNoteTitle.trim(), body: editingNoteBody.trim() });
+    if (error) {
+      setNotesError(formatStudyServiceError(error, 'Unable to update note.'));
+      setSavingStudyAction(null);
+      return;
+    }
+    setNotes((prev) => prev.map((note) => String(note.id) === String(id) ? data : note));
+    cancelEditNote();
+    setSavingStudyAction(null);
+  };
+
+  const handleDeleteNote = async (id) => {
+    setNotesError(null);
+    setSavingStudyAction(`delete-note-${id}`);
+    const { error } = await deleteNote(id);
+    if (error) {
+      setNotesError(formatStudyServiceError(error, 'Unable to delete note.'));
+      setSavingStudyAction(null);
+      return;
+    }
+    setNotes((prev) => prev.filter((note) => String(note.id) !== String(id)));
+    setMaterials((prev) => prev.filter((material) => String(material.noteId) !== String(id)));
+    setSavingStudyAction(null);
+  };
+
+  const handleCreateMaterial = async (e) => {
+    e.preventDefault();
+    setMaterialsError(null);
+    if (!materialTitle.trim()) {
+      setMaterialsError('Material title is required.');
+      return;
+    }
+    setSavingStudyAction('create-material');
+    const { data, error } = await createMaterial({
+      examId: exam.id,
+      title: materialTitle.trim(),
+      sourceUrl: materialUrl.trim() || null,
+      type: materialUrl.trim() ? 'link' : 'metadata',
+    });
+    if (error) {
+      setMaterialsError(formatStudyServiceError(error, 'Unable to create material.'));
+      setSavingStudyAction(null);
+      return;
+    }
+    setMaterials((prev) => [data, ...prev]);
+    setMaterialTitle('');
+    setMaterialUrl('');
+    setSavingStudyAction(null);
+  };
+
+  const handleDeleteMaterial = async (id) => {
+    setMaterialsError(null);
+    setSavingStudyAction(`delete-material-${id}`);
+    const { error } = await deleteMaterial(id);
+    if (error) {
+      setMaterialsError(formatStudyServiceError(error, 'Unable to delete material.'));
+      setSavingStudyAction(null);
+      return;
+    }
+    setMaterials((prev) => prev.filter((material) => String(material.id) !== String(id)));
+    setSavingStudyAction(null);
+  };
 
   function readinessMsg() {
     if (readiness >= 80) return {
@@ -428,6 +601,125 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           onUpload={(payload) => { onAddChapter(payload); setShowUpload(false); }}
         />
       )}
+
+      <section style={studyS.wrap}>
+        <div style={studyS.column}>
+          <div style={studyS.sectionHead}>
+            <div>
+              <h3 style={studyS.title}>Study notes</h3>
+              <p style={studyS.sub}>Notes saved through the Week 2 notes service.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleCreateNote} style={studyS.form}>
+            <input
+              value={noteTitle}
+              onChange={(e) => setNoteTitle(e.target.value)}
+              placeholder="Note title"
+              disabled={savingStudyAction === 'create-note'}
+              style={studyS.input}
+            />
+            <textarea
+              value={noteBody}
+              onChange={(e) => setNoteBody(e.target.value)}
+              placeholder="Short note body"
+              disabled={savingStudyAction === 'create-note'}
+              style={{ ...studyS.input, minHeight: 72, resize: 'vertical', fontFamily: 'inherit' }}
+            />
+            <button type="submit" disabled={savingStudyAction === 'create-note'} style={studyS.primaryBtn}>
+              {savingStudyAction === 'create-note' ? 'Saving...' : 'Create note'}
+            </button>
+          </form>
+
+          {notesError && <div style={studyS.error}>{notesError}</div>}
+          {notesLoading && <div style={studyS.empty}>Loading notes...</div>}
+          {!notesLoading && !notesError && notes.length === 0 && <div style={studyS.empty}>No notes yet.</div>}
+          {!notesLoading && notes.map((note) => (
+            <div key={note.id} style={studyS.item}>
+              {editingNoteId === note.id ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input
+                    value={editingNoteTitle}
+                    onChange={(e) => setEditingNoteTitle(e.target.value)}
+                    disabled={savingStudyAction === `edit-note-${note.id}`}
+                    style={studyS.input}
+                  />
+                  <textarea
+                    value={editingNoteBody}
+                    onChange={(e) => setEditingNoteBody(e.target.value)}
+                    disabled={savingStudyAction === `edit-note-${note.id}`}
+                    style={{ ...studyS.input, minHeight: 64, resize: 'vertical', fontFamily: 'inherit' }}
+                  />
+                  <div style={studyS.actions}>
+                    <button type="button" onClick={() => handleUpdateNote(note.id)} disabled={savingStudyAction === `edit-note-${note.id}`} style={studyS.primaryMini}>
+                      {savingStudyAction === `edit-note-${note.id}` ? 'Saving...' : 'Save'}
+                    </button>
+                    <button type="button" onClick={cancelEditNote} style={studyS.ghostMini}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={studyS.itemTitle}>{note.title}</div>
+                  {note.body && <div style={studyS.itemBody}>{note.body}</div>}
+                  <div style={studyS.actions}>
+                    <button type="button" onClick={() => beginEditNote(note)} style={studyS.ghostMini}>Edit</button>
+                    <button type="button" onClick={() => handleDeleteNote(note.id)} disabled={savingStudyAction === `delete-note-${note.id}`} style={studyS.dangerMini}>
+                      {savingStudyAction === `delete-note-${note.id}` ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={studyS.column}>
+          <div style={studyS.sectionHead}>
+            <div>
+              <h3 style={studyS.title}>Materials</h3>
+              <p style={studyS.sub}>Metadata only. No PDF parsing or advanced upload.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleCreateMaterial} style={studyS.form}>
+            <input
+              value={materialTitle}
+              onChange={(e) => setMaterialTitle(e.target.value)}
+              placeholder="Material title"
+              disabled={savingStudyAction === 'create-material'}
+              style={studyS.input}
+            />
+            <input
+              value={materialUrl}
+              onChange={(e) => setMaterialUrl(e.target.value)}
+              placeholder="Optional source URL"
+              disabled={savingStudyAction === 'create-material'}
+              style={studyS.input}
+            />
+            <button type="submit" disabled={savingStudyAction === 'create-material'} style={studyS.primaryBtn}>
+              {savingStudyAction === 'create-material' ? 'Saving...' : 'Add material'}
+            </button>
+          </form>
+
+          {materialsError && <div style={studyS.error}>{materialsError}</div>}
+          {materialsLoading && <div style={studyS.empty}>Loading materials...</div>}
+          {!materialsLoading && !materialsError && materials.length === 0 && <div style={studyS.empty}>No materials yet.</div>}
+          {!materialsLoading && materials.map((material) => (
+            <div key={material.id} style={studyS.item}>
+              <div style={studyS.itemTitle}>{material.title}</div>
+              <div style={studyS.itemBody}>{material.sourceUrl || material.type || 'metadata'}</div>
+              <div style={studyS.actions}>
+                {material.sourceUrl && (
+                  <a href={material.sourceUrl} target="_blank" rel="noreferrer" style={studyS.ghostMini}>Open</a>
+                )}
+                <button type="button" onClick={() => handleDeleteMaterial(material.id)} disabled={savingStudyAction === `delete-material-${material.id}`} style={studyS.dangerMini}>
+                  {savingStudyAction === `delete-material-${material.id}` ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {filtered.length === 0 ? (
         <div style={examsS.empty}>
@@ -789,6 +1081,26 @@ function PDFModal({ chapter, onClose }) {
 }
 
 
+
+const studyS = {
+  wrap: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 22 },
+  column: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 16 },
+  sectionHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
+  title: { margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--ink)' },
+  sub: { margin: '4px 0 0', fontSize: 12, color: 'var(--gray)', lineHeight: 1.4 },
+  form: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 },
+  input: { width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--input-bg)', color: 'var(--ink)', fontSize: 13, outline: 'none' },
+  primaryBtn: { alignSelf: 'flex-start', padding: '9px 13px', borderRadius: 10, background: 'var(--indigo)', color: '#fff', fontWeight: 700, fontSize: 12 },
+  empty: { padding: '14px 12px', borderRadius: 12, background: 'var(--sidebar-bg)', border: '1px dashed var(--border)', color: 'var(--gray)', fontSize: 13, textAlign: 'center' },
+  error: { marginBottom: 10, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12, fontWeight: 700, lineHeight: 1.4 },
+  item: { padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--sidebar-bg)', marginTop: 8 },
+  itemTitle: { fontSize: 13, fontWeight: 800, color: 'var(--ink)', marginBottom: 5 },
+  itemBody: { fontSize: 12, color: 'var(--gray)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
+  actions: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' },
+  primaryMini: { padding: '7px 10px', borderRadius: 9, background: 'var(--indigo)', color: '#fff', fontSize: 12, fontWeight: 700 },
+  ghostMini: { padding: '7px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12, fontWeight: 700, textDecoration: 'none' },
+  dangerMini: { padding: '7px 10px', borderRadius: 9, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#EF4444', fontSize: 12, fontWeight: 700 },
+};
 
 const examsS = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 },
