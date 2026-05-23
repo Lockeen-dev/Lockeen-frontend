@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Brain, Check, Sparkles, XMark } from '../lib/icons';
 import { EXTRA_SUBJECT_COLORS, SUBJECT_COLORS, seedNotes } from '../data/mockData';
 import { SUBJECT_NOTE_MAP, durToMins } from './CalendarView';
+import { generateStudyPlan } from '../services/ai';
 
 function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents }) {
   const SUBJECTS_LIST = ['Biology','Chemistry','History','Math','Economics','Literature'];
@@ -32,6 +33,8 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
   const [selTimes, setSelTimes]           = useState(new Set(['morning']));
   const [blockLimitNotice, setBlockLimitNotice] = useState(null);
   const [plan, setPlan]                   = useState(null);
+  const [aiPlanText, setAiPlanText]       = useState('');
+  const [aiError, setAiError]             = useState('');
   const [added, setAdded]                 = useState(false);
   const [errors, setErrors]               = useState({});
 
@@ -129,10 +132,48 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
     return days;
   };
 
-  const generate = () => {
+  const formatAiError = (error) => {
+    if (!error) return 'AI request failed.';
+    if (error.code === 'AI_QUOTA_EXCEEDED') return 'Daily AI quota reached. Try again tomorrow.';
+    if (error.code === 'AI_PROVIDER_UNAVAILABLE') return 'AI provider is not configured. Showing fallback when available.';
+    return error.message || 'AI request failed.';
+  };
+
+  const buildPrompt = () => {
+    const subjects = [...selSubjects].join(', ');
+    const technique = customTech.trim() || [...selTechniques].join(', ');
+    const times = [...selTimes].map(id => TIME_DEFS.find(t => t.id === id)?.label || id).join(', ');
+    return `Create a study plan for ${subjects}. Available time: ${hoursVal}h per day. Technique: ${technique}. Preferred times: ${times}.`;
+  };
+
+  const generate = async () => {
     if (!validate()) return;
+    setAiError('');
+    setAiPlanText('');
     setStep('loading');
-    setTimeout(() => { setPlan(buildPlan()); setStep('result'); }, 1800);
+    try {
+      const result = await generateStudyPlan({
+        prompt: buildPrompt(),
+        context: {
+          subjects: [...selSubjects],
+          hoursPerDay: hoursVal,
+          techniques: customTech.trim() ? [customTech.trim()] : [...selTechniques],
+          preferredTimes: [...selTimes],
+          initialNoteId,
+        },
+      });
+      if (result.error) {
+        setAiError(formatAiError(result.error));
+      }
+      setAiPlanText(result.data?.text || '');
+      setPlan(buildPlan());
+      setStep('result');
+    } catch {
+      setAiError('AI provider unavailable. Showing local fallback plan.');
+      setAiPlanText('');
+      setPlan(buildPlan());
+      setStep('result');
+    }
   };
 
   const addToCalendar = () => {
@@ -287,19 +328,34 @@ function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents })
                   );
                 })}
               </div>
-              {errors.time && <div style={errMsg}>{errors.time}</div>}
+            {errors.time && <div style={errMsg}>{errors.time}</div>}
             </div>
+          </div>
+        )}
+        {step === 'form' && aiError && (
+          <div style={{ margin:'0 24px 12px', padding:'10px 12px', borderRadius:12, background:'#FEF2F2', border:'1px solid #FCA5A5', color:'#991B1B', fontSize:13, fontWeight:600 }}>
+            {aiError}
           </div>
         )}
 
         {/* BODY result */}
         {step === 'result' && plan && (
           <div style={plannerS.body}>
+            {aiError && (
+              <div style={{ padding:'10px 12px', borderRadius:12, background:'#FEF2F2', border:'1px solid #FCA5A5', color:'#991B1B', fontSize:13, fontWeight:600 }}>
+                {aiError}
+              </div>
+            )}
             <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'#DCFCE7', border:'1px solid #86efac', borderRadius:12 }}>
               <Check size={16} style={{ color:'#166534' }} />
               <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>Plan ready</span>
               <span style={{ fontSize:12, color:'#166534', marginLeft:'auto' }}>{selSubjects.size} subjects · {plan.length} days</span>
             </div>
+            {aiPlanText && (
+              <div style={{ padding:'12px 14px', background:'var(--sidebar-bg)', border:'1px solid var(--border)', borderRadius:12, color:'var(--ink)', fontSize:13, lineHeight:1.5, whiteSpace:'pre-wrap' }}>
+                {aiPlanText}
+              </div>
+            )}
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {plan.map((day, di) => (
                 <div key={di} style={{ borderRadius:14, border:'1px solid var(--border)', overflow:'hidden' }}>

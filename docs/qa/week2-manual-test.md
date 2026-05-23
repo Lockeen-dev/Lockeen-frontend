@@ -114,10 +114,17 @@ npm run dev
 ## AI Tutor / Planner
 
 - [ ] tutor view opens
+- [ ] TutorView calls `askTutor({ prompt, context })`
 - [ ] planner view opens
+- [ ] AIStudyPlanner calls `generateStudyPlan({ prompt, context })`
 - [ ] loading state visible
 - [ ] provider unavailable fallback works
 - [ ] quota/rate-limit message readable
+- [ ] empty prompt is blocked or ignored
+- [ ] no direct OpenAI request from frontend
+- [ ] no secret appears in browser console or source
+- [ ] mock mode AI fallback smoke works
+- [ ] real mode AI smoke works if provider env is ready
 - [ ] logout blocks real AI request
 
 ## Regression
@@ -137,3 +144,4 @@ Record bugs here:
 - Week 2 Day 3 B adds optional material file upload UI. No PDF parsing or advanced upload flow.
 - Week 2 Day 4 B wires Flashcards and Quiz UI to practice services. No AI generation or adaptive quiz.
 - Week 2 Day 5 B wires DashboardHome and AnalyticsView to analytics/dashboard read models.
+- Week 2 Day 6 B wires TutorView and AIStudyPlanner to server-side AI gate. No direct OpenAI calls.

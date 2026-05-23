@@ -1,16 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Brain, MsgCircle, Paperclip, Plus, Send } from '../lib/icons';
 import useIsMobile from '../lib/useIsMobile';
+import { askTutor } from '../services/ai';
 
 /* ===================== AI TUTOR ===================== */
-const tutorReplies = [
-  "Great question — let's break it down step by step. The key idea is that the rate of change tells you how a quantity is moving at an instant in time.",
-  "Think of it this way: imagine you're tracking the position of a car. The derivative is the speedometer reading at any moment.",
-  "Here's a quick worked example: if f(x) = x², then f'(x) = 2x. So at x = 3, the slope is 6.",
-  "Try this practice problem: differentiate f(x) = 3x³ − 5x + 2. Hint: bring the exponent down, then subtract 1.",
-  "Excellent. You're getting the hang of it. Want to try a quiz on this topic next?",
-];
-
 const SEED_MSGS = [
   { who: 'ai', text: "Hi Alex! I'm your AI tutor. What subject would you like to explore today?" },
   { who: 'user', text: "Can you help me understand derivatives in calculus?" },
@@ -36,16 +29,23 @@ export default function TutorView() {
   const [msgs, setMsgs] = useState(SEED_MSGS);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
+  const [aiError, setAiError] = useState('');
   const [files, setFiles] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const fileRef = useRef(null);
   const endRef = useRef(null);
-  const replyIdx = useRef(0);
 
   useEffect(() => { endRef.current?.scrollTo({ top: endRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, typing]);
   useEffect(() => { if (!isMobile) setHistoryOpen(true); else setHistoryOpen(false); }, [isMobile]);
 
-  const send = () => {
+  const formatAiError = (error) => {
+    if (!error) return 'AI request failed.';
+    if (error.code === 'AI_QUOTA_EXCEEDED') return 'Daily AI quota reached. Try again tomorrow.';
+    if (error.code === 'AI_PROVIDER_UNAVAILABLE') return 'AI provider is not configured. Showing fallback when available.';
+    return error.message || 'AI request failed.';
+  };
+
+  const send = async () => {
     const text = input.trim();
     if (!text && files.length === 0) return;
     const fileNote = files.length > 0 ? ` [Attached: ${files.map(f => f.name).join(', ')}]` : '';
@@ -57,17 +57,34 @@ export default function TutorView() {
     });
     setInput('');
     setFiles([]);
+    setAiError('');
     setTyping(true);
-    setTimeout(() => {
-      const reply = tutorReplies[replyIdx.current % tutorReplies.length];
-      replyIdx.current += 1;
+    try {
+      const result = await askTutor({
+        prompt: fullText,
+        context: {
+          history: msgs.slice(-8),
+          attachments: files.map(f => ({ name: f.name, type: f.type, size: f.size })),
+        },
+      });
+      const reply = result.data?.text || 'No answer returned.';
+      if (result.error) setAiError(formatAiError(result.error));
       setMsgs(m => {
-        const next = [...m, { who: 'ai', text: reply }];
+        const next = [...m, { who: 'ai', text: result.error ? formatAiError(result.error) : reply }];
         setSessions(prev => prev.map(s => s.id === activeId ? { ...s, msgs: next } : s));
         return next;
       });
+    } catch {
+      const message = 'AI provider unavailable. Try again later.';
+      setAiError(message);
+      setMsgs(m => {
+        const next = [...m, { who: 'ai', text: message }];
+        setSessions(prev => prev.map(s => s.id === activeId ? { ...s, msgs: next } : s));
+        return next;
+      });
+    } finally {
       setTyping(false);
-    }, 900 + Math.random() * 600);
+    }
   };
 
   const newChat = () => {
@@ -161,6 +178,7 @@ export default function TutorView() {
             <button key={s} onClick={() => setInput(s)} style={tutorS.suggestChip}>{s}</button>
           ))}
         </div>
+        {aiError && <div style={tutorS.errorBox}>{aiError}</div>}
 
         {files.length > 0 && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -179,7 +197,7 @@ export default function TutorView() {
             <Paperclip size={16} />
           </button>
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask me anything…" style={tutorS.composerInput} />
-          <button type="submit" style={tutorS.sendBtn} aria-label="Send"><Send size={16} /></button>
+          <button type="submit" disabled={typing} style={{ ...tutorS.sendBtn, opacity: typing ? .6 : 1, cursor: typing ? 'not-allowed' : 'pointer' }} aria-label="Send"><Send size={16} /></button>
         </form>
       </div>
 
@@ -203,6 +221,7 @@ const tutorS = {
   typingDot: { width: 8, height: 8, borderRadius: 999, background: 'var(--gray-2)', animation: 'tdot 1s infinite ease-in-out' },
   suggestRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' },
   suggestChip: { padding: '8px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12 },
+  errorBox: { marginBottom: 8, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600 },
   composer: { display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
   composerInput: { flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: 'var(--ink)' },
   sendBtn: { width: 40, height: 40, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
