@@ -1,9 +1,12 @@
+import { createClient } from '@supabase/supabase-js';
+
 const MAX_PROMPT_CHARS = 4000;
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_DAILY_QUOTA = 20;
 const DEFAULT_MODEL = 'gpt-4.1-mini';
 
 const usageByUser = new Map();
+let supabaseAdmin = null;
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -30,9 +33,38 @@ function getJsonBody(req) {
   return req.body;
 }
 
-function checkQuota(userKey) {
-  const now = Date.now();
+function parseUserId(userKey) {
+  const normalized = String(userKey || '').trim();
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidPattern.test(normalized) ? normalized : null;
+}
+
+function getQuotaLimit() {
   const quota = Number(process.env.AI_DAILY_QUOTA || DEFAULT_DAILY_QUOTA);
+  return Number.isFinite(quota) && quota > 0 ? quota : DEFAULT_DAILY_QUOTA;
+}
+
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) return null;
+
+  if (!supabaseAdmin) {
+    supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  }
+
+  return supabaseAdmin;
+}
+
+function checkMemoryQuota(userKey) {
+  const now = Date.now();
+  const quota = getQuotaLimit();
   const record = usageByUser.get(userKey) || { count: 0, resetAt: now + WINDOW_MS };
 
   if (record.resetAt <= now) {
@@ -45,6 +77,7 @@ function checkQuota(userKey) {
       allowed: false,
       remaining: 0,
       resetAt: new Date(record.resetAt).toISOString(),
+      source: 'memory',
     };
   }
 
@@ -55,6 +88,38 @@ function checkQuota(userKey) {
     allowed: true,
     remaining: Math.max(quota - record.count, 0),
     resetAt: new Date(record.resetAt).toISOString(),
+    source: 'memory',
+  };
+}
+
+async function checkPersistentQuota(userKey) {
+  const userId = parseUserId(userKey);
+  const client = getSupabaseAdmin();
+
+  if (!client || !userId) return checkMemoryQuota(userKey);
+
+  const quota = getQuotaLimit();
+  const usageDate = new Date().toISOString().slice(0, 10);
+  const resetAt = new Date(`${usageDate}T00:00:00.000Z`);
+  resetAt.setUTCDate(resetAt.getUTCDate() + 1);
+
+  const { data, error } = await client.rpc('increment_ai_usage', {
+    p_user_id: userId,
+    p_usage_date: usageDate,
+    p_quota: quota,
+  });
+
+  if (error) throw error;
+
+  const quotaRecord = Array.isArray(data) ? data[0] : data;
+  const nextCount = Number(quotaRecord?.request_count || 0);
+  const allowed = Boolean(quotaRecord?.allowed);
+
+  return {
+    allowed,
+    remaining: Math.max(quota - nextCount, 0),
+    resetAt: resetAt.toISOString(),
+    source: 'persistent',
   };
 }
 
@@ -162,7 +227,18 @@ export default async function handler(req, res) {
     return json(res, 400, { error: { code: 'PROMPT_TOO_LONG', message: `Prompt must be ${MAX_PROMPT_CHARS} characters or less.` } });
   }
 
-  const quota = checkQuota(userKey);
+  let quota;
+  try {
+    quota = await checkPersistentQuota(userKey);
+  } catch (error) {
+    return json(res, 503, {
+      error: {
+        code: error?.code || error?.name || 'AI_QUOTA_UNAVAILABLE',
+        message: 'AI quota is temporarily unavailable.',
+      },
+    });
+  }
+
   if (!quota.allowed) {
     return json(res, 429, { error: { code: 'AI_QUOTA_EXCEEDED', message: 'Daily AI quota reached.', resetAt: quota.resetAt } });
   }

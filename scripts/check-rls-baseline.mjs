@@ -82,6 +82,11 @@ const expectedTables = [
     operations: ['select', 'insert'],
     parentChecks: ['public.quizzes', 'quizzes.user_id = auth.uid()'],
   },
+  {
+    table: 'ai_usage',
+    ownerColumn: 'user_id',
+    operations: ['select'],
+  },
 ];
 
 const storageChecks = [
@@ -93,6 +98,11 @@ const storageChecks = [
   'study materials insert own',
   'study materials update own',
   'study materials delete own',
+];
+
+const functionChecks = [
+  'function public.increment_ai_usage',
+  'on conflict (user_id, usage_date) do update',
 ];
 
 function readMigrations() {
@@ -147,6 +157,10 @@ for (const tableConfig of expectedTables) {
 
 for (const check of storageChecks) {
   assertContains(sql, check, 'storage policy', errors);
+}
+
+for (const check of functionChecks) {
+  assertContains(sql, check, 'AI usage function', errors);
 }
 
 if (errors.length) {

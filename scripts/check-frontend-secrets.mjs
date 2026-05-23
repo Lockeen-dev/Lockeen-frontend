@@ -18,12 +18,14 @@ const blockedContentPatterns = [
 
 const allowedContentFiles = new Set([
   '.env.example',
+  'api/ai-study-assist.js',
   'scripts/check-frontend-secrets.mjs',
   'docs/security/ai-baseline.md',
   'docs/security/week2-security-baseline.md',
   'docs/setup/week2-environment.md',
   'docs/release/week3-handoff.md',
   'docs/release/week3-beta-preview-checklist.md',
+  'docs/security/week3-ai-quota.md',
   'docs/openai.md',
 ]);
 
