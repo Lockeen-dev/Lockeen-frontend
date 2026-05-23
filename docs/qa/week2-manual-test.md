@@ -92,11 +92,23 @@ npm run dev
 
 ## Analytics
 
+- [ ] dashboard loads read model
+- [ ] dashboard loading state visible when service waits
+- [ ] dashboard error state visible when service fails
 - [ ] analytics view opens
+- [ ] analytics loads read model
+- [ ] analytics loading state visible when service waits
+- [ ] analytics error state visible when service fails
 - [ ] zero-data state is not broken
+- [ ] notes/materials/flashcards/quiz counts visible
 - [ ] notes count updates when note exists
 - [ ] materials count updates when material exists
 - [ ] quiz attempts count updates after submit
+- [ ] quiz score shown only if attempts exist
+- [ ] latest activity shown when data exists
+- [ ] mock mode smoke works without Supabase env
+- [ ] real mode smoke works if Supabase env and `lockeen_real_user_id` are ready
+- [ ] mobile quick check
 - [ ] no fake progress shown for missing backend data
 
 ## AI Tutor / Planner
@@ -124,3 +136,4 @@ Record bugs here:
 - Real mode notes/materials should be retested after Supabase db push and `lockeen_real_user_id` setup.
 - Week 2 Day 3 B adds optional material file upload UI. No PDF parsing or advanced upload flow.
 - Week 2 Day 4 B wires Flashcards and Quiz UI to practice services. No AI generation or adaptive quiz.
+- Week 2 Day 5 B wires DashboardHome and AnalyticsView to analytics/dashboard read models.

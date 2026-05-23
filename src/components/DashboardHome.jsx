@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowRight, CalendarIcon, Check, CheckCircle, MsgCircle } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import { mockDashboard } from '../data/mockData';
-import { getDashboardSummary, listUpcomingExams } from '../services/dashboard';
+import { getDashboardSummary } from '../services/dashboard';
 import useIsMobile from '../lib/useIsMobile';
 import { LIFE_CATS, dayKey } from './CalendarView';
 import { homeS } from '../styles/dashboardStyles';
@@ -24,7 +24,6 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
   const todayKey = dayKey(new Date());
   const todayEvents = (calEvents && calEvents[todayKey]) || [];
   const [summary, setSummary] = useState(null);
-  const [upcomingExams, setUpcomingExams] = useState([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState(null);
   const [checked, setChecked] = React.useState({});
@@ -40,19 +39,14 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
     async function loadReadModels() {
       setDashboardLoading(true);
       setDashboardError(null);
-      const [summaryResult, upcomingResult] = await Promise.all([
-        getDashboardSummary(),
-        listUpcomingExams(),
-      ]);
+      const summaryResult = await getDashboardSummary();
       if (cancelled) return;
-      const error = summaryResult.error || upcomingResult.error;
+      const error = summaryResult.error;
       if (error) {
         setDashboardError(formatDashboardError(error));
         setSummary(null);
-        setUpcomingExams([]);
       } else {
         setSummary(summaryResult.data || null);
-        setUpcomingExams(upcomingResult.data || []);
       }
       setDashboardLoading(false);
     }
@@ -60,6 +54,17 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
     loadReadModels();
     return () => { cancelled = true; };
   }, []);
+
+  const upcomingExams = summary?.upcomingExams || [];
+  const nextExam = summary?.nextExam || upcomingExams[0] || null;
+  const countCards = [
+    ['Exams', summary?.totalExams],
+    ['Notes', summary?.notesCount],
+    ['Materials', summary?.materialsCount],
+    ['Flashcards', summary?.flashcardsCount],
+    ['Quizzes', summary?.quizzesCount],
+    ['Attempts', summary?.quizAttemptsCount],
+  ].filter(([, value]) => Number.isFinite(Number(value)));
 
   return (
     <div style={homeS.wrap}>
@@ -158,7 +163,18 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
             Nessun esame imminente con data.
           </div>
         )}
-        {!dashboardLoading && !dashboardError && upcomingExams.map((exam) => (
+        {!dashboardLoading && !dashboardError && nextExam && (
+          <div style={{ ...homeS.bigCard, background:'var(--bigcard-bio)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:8 }}>
+              <div style={{ width:9, height:9, borderRadius:999, background:nextExam.dot || nextExam.color || 'var(--indigo)', flexShrink:0 }} />
+              <span style={{ fontSize:11, fontWeight:700, color:'var(--indigo)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Next exam</span>
+            </div>
+            <h3 style={{ margin:'0 0 6px', fontSize:17, fontWeight:700, color:'var(--ink)', lineHeight:1.3 }}>{nextExam.name}</h3>
+            <p style={{ ...homeS.cardMeta, marginBottom:14 }}>{nextExam.date || 'No date'}</p>
+            <button style={{ ...homeS.primaryBtn, width:'100%' }} onClick={() => setTab('notes')}>Open Notes</button>
+          </div>
+        )}
+        {!dashboardLoading && !dashboardError && upcomingExams.filter((exam) => String(exam.id) !== String(nextExam?.id)).map((exam) => (
           <div key={exam.id} style={{ ...homeS.bigCard, background:'var(--surface)' }}>
             <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:8 }}>
               <div style={{ width:9, height:9, borderRadius:999, background:exam.dot || exam.color || 'var(--indigo)', flexShrink:0 }} />
@@ -170,6 +186,20 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
           </div>
         ))}
       </div>
+
+      {countCards.length > 0 && (
+        <>
+          <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>📊 Study summary</h3></div>
+          <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', marginBottom: 24 }}>
+            {countCards.map(([label, value]) => (
+              <div key={label} style={{ ...homeS.bigCard, background:'var(--surface)', padding:14 }}>
+                <div style={{ fontSize:20, fontWeight:800, color:'var(--ink)', lineHeight:1 }}>{value}</div>
+                <div style={{ marginTop:6, fontSize:11, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'.04em' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Task del giorno */}
       <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>📅 {tt(lang, 'dailyTasks')}</h3></div>
