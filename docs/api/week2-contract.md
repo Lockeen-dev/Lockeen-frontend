@@ -281,3 +281,18 @@ Day 5 limits:
 - no analytics warehouse
 - no retention cohorts
 - no UI integration in backend PR
+
+### `src/services/ai.js`
+
+Functions:
+
+- `askTutor({ prompt, context })`
+- `generateStudyPlan({ prompt, context })`
+
+Day 6 implemented:
+
+- client calls `/api/ai-study-assist` only in real mode
+- mock mode returns local fallback
+- server endpoint keeps `OPENAI_API_KEY` server-side
+- endpoint enforces prompt length and per-user daily quota
+- endpoint returns fallback when provider is not configured
