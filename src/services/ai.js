@@ -1,4 +1,4 @@
-import { isMockMode } from '../lib/apiClient';
+const AI_MODE = import.meta.env.VITE_AI_MODE || 'mock';
 
 function ok(data) {
   return { data: structuredClone(data), error: null };
@@ -36,7 +36,7 @@ async function requestAi({ kind = 'tutor', prompt, context = {} }) {
     return fail('Prompt is required.', 'VALIDATION_ERROR');
   }
 
-  if (isMockMode()) {
+  if (AI_MODE !== 'real') {
     return ok({
       text: fallbackText(kind, prompt),
       provider: 'mock',
