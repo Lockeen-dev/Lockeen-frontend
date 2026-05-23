@@ -33,6 +33,9 @@ jobs:
             exit 1
           fi
 
+      - name: Validate environment contract
+        run: npm run setup:check
+
       - name: Build
         run: npm run build
 
