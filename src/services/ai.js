@@ -1,4 +1,4 @@
-const AI_MODE = import.meta.env.VITE_AI_MODE || 'mock';
+const AI_MODE = import.meta.env.VITE_AI_MODE || (import.meta.env.PROD ? 'real' : 'mock');
 
 function ok(data) {
   return { data: structuredClone(data), error: null };
