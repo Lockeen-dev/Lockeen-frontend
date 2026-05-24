@@ -222,7 +222,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         <div style={examsS.empty}>
           <div style={examsS.emptyIcon}><FileText size={22} /></div>
           <div style={examsS.emptyTitle}>Loading exams...</div>
-          <div style={examsS.emptySub}>Fetching your mock exam list.</div>
+          <div style={examsS.emptySub}>Preparing your exam list.</div>
         </div>
       )}
 

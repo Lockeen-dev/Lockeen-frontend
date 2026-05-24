@@ -57,15 +57,6 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
 
   const upcomingExams = summary?.upcomingExams || [];
   const nextExam = summary?.nextExam || upcomingExams[0] || null;
-  const countCards = [
-    ['Exams', summary?.totalExams],
-    ['Notes', summary?.notesCount],
-    ['Materials', summary?.materialsCount],
-    ['Flashcards', summary?.flashcardsCount],
-    ['Quizzes', summary?.quizzesCount],
-    ['Attempts', summary?.quizAttemptsCount],
-  ].filter(([, value]) => Number.isFinite(Number(value)));
-
   return (
     <div style={homeS.wrap}>
       {confirmModal && (
@@ -186,20 +177,6 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
           </div>
         ))}
       </div>
-
-      {countCards.length > 0 && (
-        <>
-          <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>📊 Study summary</h3></div>
-          <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', marginBottom: 24 }}>
-            {countCards.map(([label, value]) => (
-              <div key={label} style={{ ...homeS.bigCard, background:'var(--surface)', padding:14 }}>
-                <div style={{ fontSize:20, fontWeight:800, color:'var(--ink)', lineHeight:1 }}>{value}</div>
-                <div style={{ marginTop:6, fontSize:11, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'.04em' }}>{label}</div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
 
       {/* Task del giorno */}
       <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>📅 {tt(lang, 'dailyTasks')}</h3></div>
