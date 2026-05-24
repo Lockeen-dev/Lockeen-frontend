@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-import { Clock, Flame, Trend, Trophy } from '../lib/icons';
+import { Clock, Flame, Layers, Sparkles, Trend, Trophy } from '../lib/icons';
 import { formatExamDate, getSubjectPalette, seedExams } from '../data/mockData';
 import useIsMobile from '../lib/useIsMobile';
-import { gradeS } from './common/ExamControls';
 import { homeS } from '../styles/dashboardStyles';
-import { getStudySummary, listRecentActivity } from '../services/analytics';
+import { tt } from '../lib/i18n';
 
 function useCountUp(target, duration = 1000, delay = 0) {
   const [value, setValue] = useState(0);
@@ -58,29 +57,17 @@ const subjects = [
   { name: 'Literature', progress: 58, color: '#EF4444' },
 ];
 
-function formatAnalyticsError(error) {
-  if (!error) return 'Unable to load analytics data.';
-  if (error.code === 'AUTH_REQUIRED') return 'Real mode requires an authenticated Supabase session.';
-  if (error.code === 'SUPABASE_CONFIG_MISSING') return 'Supabase config is missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
-  return error.message || 'Unable to load analytics data.';
-}
-
-function formatActivityDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('it-IT', { day:'numeric', month:'short' });
-}
-
 function KpiStat({ label, rawValue, displayValue, Icon, tint, col, delay = 0 }) {
   const I = Icon;
+  const counted = typeof rawValue === 'number' ? useCountUp(rawValue, 900, delay) : '';
+  const value = displayValue || counted;
   return (
     <div style={{ ...analS.kpiCard, background: tint }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 26 }}>
         <div style={{ ...analS.statIcon, background: 'rgba(255,255,255,.6)', color: col }}><I size={18} /></div>
       </div>
-      <div style={{ fontSize: 28, fontWeight: 800, color: col, letterSpacing: '-0.02em', lineHeight: 1 }}>{displayValue}</div>
-      <div style={{ fontSize: 12, color: col, opacity: 0.7, marginTop: 6, fontWeight: 600 }}>{label}</div>
+      <div style={analS.kpiValue(col)}>{value}</div>
+      <div style={analS.kpiLabel(col)}>{label}</div>
     </div>
   );
 }
@@ -135,7 +122,7 @@ function AnimatedProgress({ progress, color }) {
   );
 }
 
-function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, openQuiz }) {
+function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, openQuiz, openFlashcards, lang = 'en' }) {
   const isMobile = useIsMobile();
   const maxMin = Math.max(...weekData.map(d => d.mins), 1);
   const totalMin = weekData.reduce((a, b) => a + b.mins, 0);
@@ -145,137 +132,92 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
     : '27.0';
 
   const [chartRef, chartInView] = useInView('-40px');
-  const [summary, setSummary] = useState(null);
-  const [activity, setActivity] = useState([]);
-  const [analyticsLoading, setAnalyticsLoading] = useState(true);
-  const [analyticsError, setAnalyticsError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadAnalytics() {
-      setAnalyticsLoading(true);
-      setAnalyticsError('');
-      const [summaryResult, activityResult] = await Promise.all([
-        getStudySummary(),
-        listRecentActivity({ limit: 8 }),
-      ]);
-      if (cancelled) return;
-      const error = summaryResult.error || activityResult.error;
-      if (error) {
-        setAnalyticsError(formatAnalyticsError(error));
-        setSummary(null);
-        setActivity([]);
-      } else {
-        setSummary(summaryResult.data || null);
-        setActivity(activityResult.data || summaryResult.data?.latestActivity || []);
-      }
-      setAnalyticsLoading(false);
-    }
-    loadAnalytics();
-    return () => { cancelled = true; };
-  }, []);
-
-  const hasReadModelData = summary && [
-    summary.totalExams,
-    summary.notesCount,
-    summary.materialsCount,
-    summary.flashcardsCount,
-    summary.quizzesCount,
-    summary.quizAttemptsCount,
-  ].some((value) => Number(value) > 0);
-
   // Count-up values
   const studyH = useCountUp(Math.floor(totalMin / 60), 900, 0);
   const studyM = useCountUp(totalMin % 60, 900, 0);
   const avgVal = useCountUp(Math.round(parseFloat(avgTarget) * 10), 900, 240);
+  const streakVal = useCountUp(42, 900, 120);
+  const quizScores = Object.values(quizHistory || {}).flat();
+  const averageQuizScore = quizScores.length
+    ? Math.round(quizScores.reduce((sum, score) => sum + score, 0) / quizScores.length)
+    : 88;
+  const avgQuizVal = useCountUp(averageQuizScore, 900, 200);
 
-  const kpiCards = summary ? [
-    { label: 'Exams', displayValue: summary.totalExams ?? 0, Icon: Trophy, tint: '#FEF9C3', col: '#CA8A04' },
-    { label: 'Notes', displayValue: summary.notesCount ?? 0, Icon: Clock, tint: 'var(--lavender)', col: 'var(--indigo)' },
-    { label: 'Materials', displayValue: summary.materialsCount ?? 0, Icon: Flame, tint: '#FFF7ED', col: '#F97316' },
-    { label: 'Flashcards', displayValue: summary.flashcardsCount ?? 0, Icon: Trend, tint: '#ECFDF5', col: '#10B981' },
-    { label: 'Quizzes', displayValue: summary.quizzesCount ?? 0, Icon: Trend, tint: '#EEF2FF', col: 'var(--indigo)' },
-    { label: 'Quiz attempts', displayValue: summary.quizAttemptsCount ?? 0, Icon: Trophy, tint: '#F5F3FF', col: 'var(--purple)' },
-    ...(summary.averageQuizScore != null
-      ? [{ label: 'Avg. quiz score', displayValue: `${summary.averageQuizScore}%`, Icon: Trend, tint: '#ECFDF5', col: '#10B981' }]
-      : []),
-  ] : [
-    { label: 'Study time this week', displayValue: `${studyH}h ${studyM}m`, Icon: Clock,  tint: 'var(--lavender)', col: 'var(--indigo)' },
-    { label: 'Voto medio target', displayValue: `${(avgVal/10).toFixed(1)}`, Icon: Trophy, tint: '#FEF9C3', col: '#CA8A04' },
+  const kpiCards = [
+    { label: tt(lang, 'studyTimeWeek'), displayValue: `${studyH}h ${studyM}m`, Icon: Clock, tint: 'var(--lavender)', col: 'var(--indigo)', delay: 0 },
+    { label: tt(lang, 'currentStreak'), displayValue: `${streakVal} ${tt(lang, 'days')}`, Icon: Flame, tint: '#FFF7ED', col: '#F97316', delay: 120 },
+    { label: tt(lang, 'avgQuizScore'), displayValue: `${avgQuizVal}%`, Icon: Trend, tint: '#ECFDF5', col: '#10B981', delay: 200 },
+    { label: tt(lang, 'avgTargetGrade'), displayValue: `${(avgVal/10).toFixed(1)}`, Icon: Trophy, tint: '#FEF9C3', col: '#CA8A04', delay: 280 },
   ];
 
   return (
     <div>
       <div style={{ marginBottom: 22 }}>
-        <h2 style={homeS.h1}>Analytics</h2>
-        <p style={homeS.sub}>Track your study habits and progress across subjects</p>
+        <h2 style={homeS.h1}>{tt(lang, 'analytics')}</h2>
+        <p style={homeS.sub}>{tt(lang, 'analyticsSub')}</p>
       </div>
 
-      {analyticsLoading && (
-        <div style={{ ...analS.noticeCard, marginBottom:22 }}>Loading analytics...</div>
-      )}
-      {!analyticsLoading && analyticsError && (
-        <div style={{ ...analS.noticeCard, marginBottom:22, background:'#FEF2F2', borderColor:'#FCA5A5', color:'#991B1B', fontWeight:700 }}>{analyticsError}</div>
-      )}
-      {!analyticsLoading && !analyticsError && !hasReadModelData && (
-        <div style={{ ...analS.noticeCard, marginBottom:22 }}>No analytics data yet. Add notes, materials, flashcards, or quiz attempts to populate this view.</div>
-      )}
-
-      {!analyticsLoading && !analyticsError && (
-        <div style={{ ...analS.statsGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)' }}>
-          {kpiCards.map(s => <KpiStat key={s.label} {...s} />)}
-        </div>
-      )}
+      <div style={{ ...analS.statsGrid, gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)' }}>
+        {kpiCards.map(s => <KpiStat key={s.label} {...s} />)}
+      </div>
 
       <div ref={chartRef} style={{ ...analS.row, gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr' }}>
         <div style={analS.chartCard}>
           <div style={analS.cardHeader}>
             <div>
-              <h3 style={analS.cardTitle}>Weekly study time</h3>
-              <p style={analS.cardSub}>Minutes spent studying per day</p>
+              <h3 style={analS.cardTitle}>{tt(lang, 'weeklyStudyTime')}</h3>
+              <p style={analS.cardSub}>{tt(lang, 'minutesPerDay')}</p>
             </div>
             <span style={analS.legend}><span style={{ ...analS.legendDot, background: 'var(--indigo)' }} /> mins</span>
           </div>
           <div style={analS.chart}>
-            {weekData.map((d, i) => (
+            {weekData.map((d) => (
               <AnimatedBar key={d.day} mins={d.mins} maxMin={maxMin} day={d.day} animate={chartInView} />
             ))}
           </div>
         </div>
 
         <div style={analS.subjectCard}>
-          <h3 style={{ ...analS.cardTitle, marginBottom: 4 }}>Latest activity</h3>
-          <p style={{ ...analS.cardSub, marginBottom: 18 }}>Recent items from the read model</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {activity.length === 0 ? (
-              <p style={{ margin:0, color:'var(--gray)', fontSize:13 }}>No recent activity yet.</p>
-            ) : activity.map(item => (
-              <div key={item.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
-                <span style={{ width:8, height:8, borderRadius:999, background:'var(--indigo)', flexShrink:0 }} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.title || item.type}</div>
-                  <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>{item.type}{formatActivityDate(item.at) ? ` · ${formatActivityDate(item.at)}` : ''}</div>
+          <h3 style={{ ...analS.cardTitle, marginBottom: 4 }}>{tt(lang, 'subjectMastery')}</h3>
+          <p style={{ ...analS.cardSub, marginBottom: 26 }}>{tt(lang, 'progressPerSubject')}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+            {subjects.map(s => (
+              <div key={s.name}>
+                <div style={analS.subjRow}>
+                  <span style={analS.subjName}>{s.name}</span>
+                  <span style={analS.subjPct}>{s.progress}%</span>
                 </div>
+                <AnimatedProgress progress={s.progress} color={s.color} />
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      <div style={gradeS.section}>
-        <div style={gradeS.sectionHead}>
-          <h3 style={gradeS.sectionTitle}>Grade Predictor</h3>
-          <p style={gradeS.sectionSub}>Previsione basata sui tuoi quiz e flashcard</p>
+      <div style={predictS.section}>
+        <div style={predictS.head}>
+          <div>
+            <h3 style={predictS.title}>{tt(lang, 'gradePredictor')}</h3>
+            <p style={predictS.sub}>{tt(lang, 'gradePredictorSub')}</p>
+          </div>
+          <div style={predictS.summaryPills}>
+            <span style={predictS.pill('#ECFDF5', '#047857')}>{tt(lang, 'onTrack')}</span>
+            <span style={predictS.pill('#EEF2FF', 'var(--indigo)')}>{tt(lang, 'closeStatus')}</span>
+            <span style={predictS.pill('#FEF2F2', '#EF4444')}>{tt(lang, 'atRisk')}</span>
+            <span style={predictS.pill('#FFF7ED', '#F97316')}>{tt(lang, 'needsPractice')}</span>
+          </div>
         </div>
-        <div style={gradeS.grid}>
+        <div style={predictS.panel}>
           {trackedNotes.map(note => (
-            <GradePredictorCard
+            <GradePredictorRow
               key={note.id}
               note={note}
               quizHistory={quizHistory || {}}
               flashHistory={flashHistory || {}}
               setTab={setTab}
               openQuiz={openQuiz}
+              openFlashcards={openFlashcards}
+              lang={lang}
             />
           ))}
         </div>
@@ -284,7 +226,15 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
   );
 }
 
-function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuiz }) {
+function GradePredictorRow({ note, quizHistory, flashHistory, setTab, openQuiz, openFlashcards, lang = 'en' }) {
+  const [practiceOpen, setPracticeOpen] = useState(false);
+  const [practiceType, setPracticeType] = useState('quiz');
+  const [scopeId, setScopeId] = useState('all');
+  const [difficulty, setDifficulty] = useState('medium');
+  const [quizCount, setQuizCount] = useState(10);
+  const [flashCount, setFlashCount] = useState(20);
+  const [timerOn, setTimerOn] = useState(true);
+  const [timerSecs, setTimerSecs] = useState(30);
   const palette = getSubjectPalette(note.subject, note, false);
   const targetGrade = note.targetGrade || 27;
   const allScores = [
@@ -299,99 +249,223 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuiz 
   const gap = targetGrade - predictedGrade;
   const predPct = hasScores ? Math.max(0, Math.min(100, ((predictedGrade - 18) / 12) * 100)) : 0;
   const targetPct = Math.max(0, Math.min(100, ((targetGrade - 18) / 12) * 100));
-  const onTarget = hasScores && predictedGrade === targetGrade;
-  const overlap = !onTarget && Math.abs(gap) < 2;
-  const gradeText = (v) => v;
-
-  let messageStyle = gradeS.msgEmpty;
-  let message = 'Fai il primo quiz per vedere la previsione del voto.';
-  if (allScores.length > 0 && gap > 4) {
-    messageStyle = gradeS.msgWarn;
-    message = `Sei a ${gap} punti dall'obiettivo. Fai più quiz per migliorare la previsione.`;
-  } else if (allScores.length > 0 && gap > 0) {
-    messageStyle = gradeS.msgAlmost;
-    message = `Quasi lì. Ti mancano ${gap} punti. Continua così.`;
-  } else if (allScores.length > 0 && gap <= 0) {
-    messageStyle = gradeS.msgGood;
-    message = 'Sei sulla strada giusta. Al ritmo attuale puoi raggiungere il tuo obiettivo.';
-  }
+  const status = !hasScores
+    ? { label: tt(lang, 'needsPractice'), bg: '#FFF7ED', color: '#F97316', text: tt(lang, 'needsPractice'), cta: tt(lang, 'startPractice') }
+    : gap > 4
+      ? { label: tt(lang, 'atRisk'), bg: '#FEF2F2', color: '#EF4444', text: `${gap} ${tt(lang, 'atRisk').toLowerCase()}.`, cta: tt(lang, 'practiceNow') }
+      : gap > 0
+        ? { label: tt(lang, 'closeStatus'), bg: '#EEF2FF', color: 'var(--indigo)', text: `${gap} ${tt(lang, 'target').toLowerCase()}.`, cta: tt(lang, 'reviewPractice') }
+        : { label: tt(lang, 'onTrack'), bg: '#ECFDF5', color: '#047857', text: tt(lang, 'keepGoing'), cta: tt(lang, 'keepGoing') };
+  const confidence = !hasScores ? tt(lang, 'noData') : allScores.length >= 3 ? tt(lang, 'reliable') : tt(lang, 'lowConfidence');
+  const chapters = note.chapters || [];
+  const selectedChapter = chapters.find(c => String(c.id) === String(scopeId));
+  const allQuestions = chapters.flatMap(c => c.questions || []);
+  const allCards = chapters.flatMap(c => c.cards || []);
+  const scopedQuestions = scopeId === 'all'
+    ? allQuestions
+    : (selectedChapter?.questions || []);
+  const scopedCards = scopeId === 'all'
+    ? allCards
+    : (selectedChapter?.cards || []);
+  const quizLimit = Math.min(quizCount, scopedQuestions.length || quizCount);
+  const flashLimit = Math.min(flashCount, scopedCards.length || flashCount);
+  const scopeTitle = scopeId === 'all' ? 'Intero esame' : (selectedChapter?.title || 'Capitolo');
+  const openTargetQuiz = () => {
+    if (openQuiz) {
+      openQuiz({
+        noteId: note.id,
+        subject: note.subject,
+        title: `${note.name || note.title} · ${scopeTitle}`,
+        questions: scopedQuestions.slice(0, quizLimit),
+        _difficulty: difficulty,
+        _timerOn: timerOn,
+        _timerSecs: timerSecs,
+        _meta: {
+          source: 'gradePredictor',
+          examId: note.id,
+          examName: note.name || note.title,
+          chapterId: scopeId,
+          chapterName: scopeTitle,
+          numQ: quizLimit,
+          difficulty,
+          timerOn,
+          timerSecs,
+        },
+      });
+    } else {
+      setTab && setTab('quiz');
+    }
+  };
+  const openTargetFlashcards = () => {
+    if (openFlashcards) {
+      openFlashcards({
+        noteId: note.id,
+        subject: note.subject,
+        title: `${note.name || note.title} · ${scopeTitle}`,
+        cards: scopedCards.slice(0, flashLimit),
+        _meta: {
+          source: 'gradePredictor',
+          examId: note.id,
+          examName: note.name || note.title,
+          chapterId: scopeId,
+          chapterName: scopeTitle,
+          cardCount: flashLimit,
+          difficulty,
+        },
+      });
+    } else {
+      setTab && setTab('flashcards');
+    }
+  };
+  const startPractice = () => {
+    setPracticeOpen(false);
+    if (practiceType === 'quiz') openTargetQuiz();
+    else openTargetFlashcards();
+  };
+  const practiceAvailable = practiceType === 'quiz' ? scopedQuestions.length : scopedCards.length;
 
   return (
-    <div style={gradeS.card}>
-      <div style={gradeS.cardHead}>
-        <div style={gradeS.noteName}>
-          <span style={{ ...gradeS.noteDot, background: palette.dot }} />
-          <span>{note.name || note.title}</span>
-        </div>
-        <span style={gradeS.examDate}>{formatExamDate(note.date || note.examDate)}</span>
-      </div>
-
-      <div style={gradeS.barWrap}>
-        <div style={gradeS.track} />
-        <div style={{ ...gradeS.fill, width: `${predPct}%` }} />
-        {!hasScores ? null : onTarget ? (
-          <div style={{ ...gradeS.point, ...gradeS.pointGood, left: `${targetPct}%` }}>
-            <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelGood, width: 60, left: -22 }}>On target</span>
+    <React.Fragment>
+      <div style={predictS.row}>
+        <div style={predictS.identity}>
+          <span style={{ ...predictS.dot, background: palette.dot }} />
+          <div style={{ minWidth: 0 }}>
+            <div style={predictS.examName}>{note.name || note.title}</div>
+            <div style={predictS.meta}>{formatExamDate(note.date || note.examDate)} · {confidence}</div>
           </div>
-        ) : overlap ? (
-          <div style={{ ...gradeS.point, ...gradeS.pointTarget, left: `${targetPct}%`, zIndex: 3 }}>
-            <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelTarget }}>{gradeText(targetGrade)}</span>
+        </div>
+        <div style={predictS.metric}>
+          <span style={predictS.metricValue}>{targetGrade}</span>
+          <span style={predictS.metricLabel}>{tt(lang, 'target')}</span>
+        </div>
+        <div style={predictS.metric}>
+          <span style={{ ...predictS.metricValue, color: hasScores ? 'var(--ink)' : 'var(--gray-2)' }}>{hasScores ? predictedGrade : '—'}</span>
+          <span style={predictS.metricLabel}>{tt(lang, 'prediction')}</span>
+        </div>
+        <div style={predictS.progressCell}>
+          <div style={predictS.statusLine}>
+            <span style={predictS.badge(status.bg, status.color)}>{status.label}</span>
+            <span style={{ color: status.color, fontWeight: 900 }}>{hasScores ? (gap > 0 ? `-${gap}` : `+${Math.abs(gap)}`) : '—'}</span>
           </div>
-        ) : (
-          <React.Fragment>
-            <div style={{ ...gradeS.point, ...gradeS.pointPred, left: `${predPct}%`, zIndex: 2 }}>
-              <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelPred }}>{gradeText(predictedGrade)}</span>
-            </div>
-            <div style={{ ...gradeS.point, ...gradeS.pointTarget, left: `${targetPct}%`, zIndex: 3 }}>
-              <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelTarget }}>{gradeText(targetGrade)}</span>
-            </div>
-          </React.Fragment>
-        )}
-        <span style={gradeS.minLabel}>18</span>
-        <span style={gradeS.maxLabel}>30</span>
+          <div style={predictS.track}>
+            {hasScores && <div style={{ ...predictS.fill, width: `${predPct}%`, background: status.color }} />}
+            <span style={{ ...predictS.targetMarker, left: `${targetPct}%` }} />
+          </div>
+          <div style={predictS.helpText}>{status.text}</div>
+        </div>
+        <button style={predictS.cta} onClick={() => setPracticeOpen(true)}>{status.cta}</button>
       </div>
-
-      <div style={gradeS.nums}>
-        <div>
-          <div style={{ ...gradeS.num, ...gradeS.numPred }}>{hasScores ? gradeText(predictedGrade) : '—'}</div>
-          <div style={gradeS.numLabel}>Previsione attuale</div>
+      {practiceOpen && (
+        <div style={predictS.modalOverlay} onClick={() => setPracticeOpen(false)}>
+          <div style={predictS.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={predictS.modalKicker}>{tt(lang, 'configurePractice')}</div>
+            <h4 style={predictS.modalTitle}>{note.name || note.title}</h4>
+            <p style={predictS.modalText}>{tt(lang, 'gradePredictorSub')}</p>
+            <div style={predictS.practiceGrid}>
+              <button style={{ ...predictS.practiceCard, ...(practiceType === 'quiz' ? predictS.practiceCardActive('var(--indigo)', 'var(--lavender)') : null) }} onClick={() => setPracticeType('quiz')}>
+                <span style={{ ...predictS.practiceIcon, color: 'var(--indigo)', background: 'var(--lavender)' }}><Sparkles size={20} /></span>
+                <span style={predictS.practiceTitle}>Quiz</span>
+                <span style={predictS.practiceSub}>{tt(lang, 'questionCount')} + {tt(lang, 'timer')}</span>
+              </button>
+              <button style={{ ...predictS.practiceCard, ...(practiceType === 'flashcards' ? predictS.practiceCardActive('#10B981', '#ECFDF5') : null) }} onClick={() => setPracticeType('flashcards')}>
+                <span style={{ ...predictS.practiceIcon, color: '#10B981', background: '#ECFDF5' }}><Layers size={20} /></span>
+                <span style={predictS.practiceTitle}>Flashcards</span>
+                <span style={predictS.practiceSub}>{tt(lang, 'reviewPractice')}</span>
+              </button>
+            </div>
+            <div style={predictS.modalSection}>
+              <div style={predictS.modalLabel}>{tt(lang, 'scope')}</div>
+              <div style={predictS.optionWrap}>
+                {[{ id: 'all', title: tt(lang, 'wholeExam'), count: practiceType === 'quiz' ? allQuestions.length : allCards.length }, ...chapters.map(c => ({ id: c.id, title: c.title, count: practiceType === 'quiz' ? (c.questions || []).length : (c.cards || []).length }))].map(opt => {
+                  const active = String(scopeId) === String(opt.id);
+                  return (
+                    <button key={opt.id} style={{ ...predictS.optionPill, ...(active ? predictS.optionPillActive : null) }} onClick={() => setScopeId(opt.id)}>
+                      {opt.title}
+                      <span style={predictS.countPill(active)}>{opt.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={predictS.modalSection}>
+              <div style={predictS.modalLabel}>Difficulty</div>
+              <div style={predictS.optionGrid}>
+                {[
+                  { id: 'easy', label: 'Easy', sub: 'Warm-up' },
+                  { id: 'medium', label: 'Medium', sub: 'Balanced' },
+                  { id: 'hard', label: 'Hard', sub: 'Exam mode' },
+                ].map(opt => {
+                  const active = difficulty === opt.id;
+                  return (
+                    <button key={opt.id} style={{ ...predictS.diffBtn, ...(active ? predictS.diffBtnActive : null) }} onClick={() => setDifficulty(opt.id)}>
+                      <span>{opt.label}</span>
+                      <small>{opt.sub}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={predictS.modalSection}>
+              <div style={predictS.modalLabel}>{practiceType === 'quiz' ? 'Questions' : 'Cards'}</div>
+              <div style={predictS.optionGrid}>
+                {(practiceType === 'quiz' ? [5, 10, 15, 20] : [10, 20, 30, 50]).map(n => {
+                  const max = practiceType === 'quiz' ? scopedQuestions.length : scopedCards.length;
+                  const disabled = max > 0 && n > max;
+                  const active = (practiceType === 'quiz' ? quizCount : flashCount) === n && !disabled;
+                  return (
+                    <button key={n} disabled={disabled} style={{ ...predictS.amountBtn, ...(active ? predictS.amountBtnActive : null), ...(disabled ? predictS.disabledOption : null) }} onClick={() => practiceType === 'quiz' ? setQuizCount(n) : setFlashCount(n)}>
+                      {n}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {practiceType === 'quiz' && (
+              <div style={predictS.modalSection}>
+                <div style={predictS.timerRow}>
+                  <div>
+                    <div style={predictS.modalLabel}>Timer</div>
+                    <div style={predictS.timerSub}>Seconds per question</div>
+                  </div>
+                  <button style={{ ...predictS.timerToggle, ...(timerOn ? predictS.timerToggleOn : null) }} onClick={() => setTimerOn(v => !v)}>
+                    <span style={{ ...predictS.timerKnob, ...(timerOn ? predictS.timerKnobOn : null) }} />
+                  </button>
+                </div>
+                {timerOn && (
+                  <div style={predictS.optionGrid}>
+                    {[15, 30, 60, 90].map(s => (
+                      <button key={s} style={{ ...predictS.amountBtn, ...(timerSecs === s ? predictS.amountBtnActive : null) }} onClick={() => setTimerSecs(s)}>{s}s</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div style={predictS.modalActions}>
+              <button style={predictS.modalCancel} onClick={() => setPracticeOpen(false)}>Cancel</button>
+              <button disabled={practiceAvailable === 0} style={{ ...predictS.modalStart, ...(practiceAvailable === 0 ? predictS.modalStartDisabled : null) }} onClick={startPractice}>Start practice</button>
+            </div>
+          </div>
         </div>
-        <div>
-          <div style={{ ...gradeS.num, ...gradeS.numTarget }}>{gradeText(targetGrade)}</div>
-          <div style={gradeS.numLabel}>Il tuo obiettivo</div>
-        </div>
-        <div>
-          <div style={{ ...gradeS.num, color: hasScores && gap > 0 ? '#B91C1C' : '#047857' }}>{hasScores ? (gap > 0 ? `-${gap}` : `+${Math.abs(gap)}`) : '—'}</div>
-          <div style={gradeS.numLabel}>Punti da recuperare</div>
-        </div>
-      </div>
-
-      <div style={{ ...gradeS.message, ...messageStyle }}>{message}</div>
-      <button style={gradeS.quizBtn} onClick={() => {
-        const ch = note.chapters && note.chapters[0];
-        if (openQuiz && ch) {
-          openQuiz({ noteId: note.id, subject: note.subject, title: ch.title || note.name, questions: ch.questions || [] });
-        } else {
-          setTab && setTab('quiz');
-        }
-      }}>Vai al Quiz →</button>
-    </div>
+      )}
+    </React.Fragment>
   );
 }
 
 const analS = {
   noticeCard: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, padding:16, color:'var(--gray)', fontSize:14 },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 22 },
-  kpiCard: { borderRadius: 20, padding: '18px 20px', display: 'flex', flexDirection: 'column' },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 22, marginBottom: 32 },
+  kpiCard: { borderRadius: 28, padding: '34px 40px 32px', minHeight: 198, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' },
+  kpiValue: (color) => ({ fontSize: 42, fontWeight: 900, color, letterSpacing: '-0.04em', lineHeight: 1.05 }),
+  kpiLabel: (color) => ({ fontSize: 17, color, opacity: 0.68, marginTop: 12, fontWeight: 800, lineHeight: 1.35 }),
   statCard: { display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
-  statIcon: { width: 36, height: 36, borderRadius: 10, display: 'grid', placeItems: 'center', flexShrink: 0 },
+  statIcon: { width: 48, height: 48, borderRadius: 14, display: 'grid', placeItems: 'center', flexShrink: 0 },
   statValue: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' },
   statLabel: { fontSize: 12, color: 'var(--gray)', marginTop: 2 },
   row: { display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 },
-  chartCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
+  chartCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 28, padding: 28 },
   cardHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 },
-  cardTitle: { margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' },
-  cardSub: { margin: '4px 0 0', fontSize: 13, color: 'var(--gray)' },
+  cardTitle: { margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-0.03em' },
+  cardSub: { margin: '10px 0 0', fontSize: 19, color: 'var(--gray)', lineHeight: 1.35 },
   legend: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--gray)' },
   legendDot: { width: 10, height: 10, borderRadius: 3 },
   chart: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 12, alignItems: 'end', height: 240 },
@@ -400,12 +474,71 @@ const analS = {
   barTrack: { width: '100%', maxWidth: 40, height: 190, background: 'var(--chart-track)', borderRadius: 10, display: 'flex', alignItems: 'flex-end', overflow: 'hidden' },
   bar: { width: '100%', background: 'linear-gradient(180deg, var(--indigo), var(--purple))', borderRadius: 10, transition: 'height .4s ease' },
   dayLabel: { fontSize: 12, color: 'var(--gray)', fontWeight: 600 },
-  subjectCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
-  subjRow: { display: 'flex', justifyContent: 'space-between', marginBottom: 6 },
-  subjName: { fontSize: 13, fontWeight: 600, color: 'var(--ink)' },
-  subjPct: { fontSize: 13, color: 'var(--gray)', fontWeight: 600 },
-  progTrack: { height: 8, background: 'var(--chart-track)', borderRadius: 999, overflow: 'hidden' },
+  subjectCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 28, padding: 34 },
+  subjRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  subjName: { fontSize: 19, fontWeight: 900, color: 'var(--ink)' },
+  subjPct: { fontSize: 19, color: 'var(--gray)', fontWeight: 900 },
+  progTrack: { height: 10, background: 'var(--chart-track)', borderRadius: 999, overflow: 'hidden' },
   progFill: { height: '100%', borderRadius: 999, transition: 'width .4s ease' },
 };
 
-export { AnalyticsView, GradePredictorCard };
+const predictS = {
+  section: { marginTop: 32 },
+  head: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 16, flexWrap: 'wrap' },
+  title: { margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-0.03em' },
+  sub: { margin: '8px 0 0', fontSize: 16, color: 'var(--gray)' },
+  summaryPills: { display: 'flex', gap: 8, alignItems: 'center' },
+  pill: (bg, color) => ({ display: 'inline-flex', padding: '8px 12px', borderRadius: 999, background: bg, color, fontSize: 12, fontWeight: 900 }),
+  panel: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 28, overflow: 'hidden', boxShadow: '0 16px 36px -30px rgba(15,16,53,.35)' },
+  row: { display: 'grid', gridTemplateColumns: 'minmax(230px, 1.25fr) 90px 110px minmax(260px, 1.2fr) 130px', gap: 18, alignItems: 'center', padding: '18px 22px', borderBottom: '1px solid var(--border)' },
+  identity: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
+  dot: { width: 10, height: 10, borderRadius: 999, flexShrink: 0 },
+  examName: { fontSize: 16, fontWeight: 900, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  meta: { marginTop: 4, fontSize: 12, color: 'var(--gray)', fontWeight: 700 },
+  metric: { display: 'flex', flexDirection: 'column', gap: 3 },
+  metricValue: { fontSize: 26, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-0.04em', lineHeight: 1 },
+  metricLabel: { fontSize: 11, fontWeight: 800, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.04em' },
+  progressCell: { minWidth: 0 },
+  statusLine: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 },
+  badge: (bg, color) => ({ display: 'inline-flex', padding: '5px 9px', borderRadius: 999, background: bg, color, fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' }),
+  track: { position: 'relative', height: 9, borderRadius: 999, background: 'var(--chart-track)', overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: 999 },
+  targetMarker: { position: 'absolute', top: 0, width: 3, height: '100%', borderRadius: 999, background: 'var(--ink)', opacity: .55 },
+  helpText: { marginTop: 7, fontSize: 12, color: 'var(--gray)', fontWeight: 650, lineHeight: 1.35 },
+  cta: { padding: '11px 14px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontWeight: 900, cursor: 'pointer' },
+  modalOverlay: { position: 'fixed', inset: 0, zIndex: 2500, background: 'rgba(15,16,53,.38)', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', padding: 18 },
+  modal: { width: 'min(620px, 100%)', maxHeight: 'calc(100vh - 36px)', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 24, padding: 24, boxShadow: '0 28px 80px rgba(15,16,53,.28)' },
+  modalKicker: { fontSize: 11, fontWeight: 900, color: 'var(--indigo)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 },
+  modalTitle: { margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-.03em' },
+  modalText: { margin: '8px 0 18px', fontSize: 14, color: 'var(--gray)', lineHeight: 1.5 },
+  practiceGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
+  practiceCard: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, padding: 16, minHeight: 142, borderRadius: 18, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer', textAlign: 'left' },
+  practiceCardActive: (color, bg) => ({ borderColor: color, background: bg, boxShadow: `0 16px 30px -24px ${color}` }),
+  practiceIcon: { width: 42, height: 42, borderRadius: 14, display: 'grid', placeItems: 'center' },
+  practiceTitle: { fontSize: 16, fontWeight: 900, color: 'var(--ink)' },
+  practiceSub: { fontSize: 12, fontWeight: 700, color: 'var(--gray)', lineHeight: 1.35 },
+  modalSection: { marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' },
+  modalLabel: { fontSize: 11, fontWeight: 900, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 10 },
+  optionWrap: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  optionPill: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--gray)', fontSize: 13, fontWeight: 900, cursor: 'pointer' },
+  optionPillActive: { borderColor: 'var(--indigo)', background: 'var(--lavender)', color: 'var(--indigo)' },
+  countPill: (active) => ({ minWidth: 20, height: 20, borderRadius: 999, display: 'inline-grid', placeItems: 'center', padding: '0 6px', background: active ? 'var(--indigo)' : 'var(--sidebar-bg)', color: active ? '#fff' : 'var(--gray)', fontSize: 10, fontWeight: 900 }),
+  optionGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 },
+  diffBtn: { minHeight: 70, padding: '10px 8px', borderRadius: 14, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, cursor: 'pointer', fontWeight: 900 },
+  diffBtnActive: { borderColor: 'var(--indigo)', background: 'var(--lavender)', color: 'var(--indigo)' },
+  amountBtn: { minHeight: 46, borderRadius: 14, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 15, fontWeight: 900, cursor: 'pointer' },
+  amountBtnActive: { borderColor: 'var(--indigo)', background: 'var(--lavender)', color: 'var(--indigo)' },
+  disabledOption: { opacity: .35, cursor: 'not-allowed' },
+  timerRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 },
+  timerSub: { fontSize: 12, color: 'var(--gray)', fontWeight: 700 },
+  timerToggle: { width: 50, height: 30, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--sidebar-bg)', padding: 3, cursor: 'pointer' },
+  timerToggleOn: { background: 'var(--indigo)', borderColor: 'var(--indigo)' },
+  timerKnob: { display: 'block', width: 22, height: 22, borderRadius: 999, background: '#fff', transition: 'transform .18s ease' },
+  timerKnobOn: { transform: 'translateX(20px)' },
+  modalActions: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 16 },
+  modalCancel: { padding: '12px 14px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--sidebar-bg)', color: 'var(--gray)', fontSize: 13, fontWeight: 900, cursor: 'pointer' },
+  modalStart: { padding: '12px 14px', borderRadius: 14, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 13, fontWeight: 900, cursor: 'pointer' },
+  modalStartDisabled: { background: '#CBD5E1', cursor: 'not-allowed' },
+};
+
+export { AnalyticsView, GradePredictorRow };

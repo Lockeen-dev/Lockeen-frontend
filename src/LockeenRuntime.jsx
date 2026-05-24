@@ -9,24 +9,19 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 function AuthShell() {
   const { user, status, error: authError, isAuthenticated, isLoading, refreshSession } = useAuth();
   const [modal, setModal] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
   const [lang, setLang] = useState(() => localStorage.getItem('lockeen-lang') || 'en');
   const [pageAppEl, setPageAppEl] = useState(null);
 
   useEffect(() => {
     setPageAppEl(document.getElementById('page-app'));
-    const saved = localStorage.getItem('lockeen-theme');
-    if (saved === 'dark') {
-      setDarkMode(true);
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      document.documentElement.setAttribute('data-theme', 'light');
-    }
+    localStorage.removeItem('lockeen-theme');
+    document.documentElement.setAttribute('data-theme', 'light');
   }, []);
 
   useEffect(() => {
     window.openAuth = (m) => setModal(m === 'signup' ? 'signup' : 'signin');
     window.closeAuth = () => setModal(null);
+    window.lockeenApplyGlobalLanguage = (next) => setLang(next || localStorage.getItem('lockeen-lang') || 'en');
     window.signOut = () => {
       setModal(null);
       if (window.showPage) window.showPage('page-landing');
@@ -34,6 +29,7 @@ function AuthShell() {
     return () => {
       window.openAuth = undefined;
       window.closeAuth = undefined;
+      window.lockeenApplyGlobalLanguage = undefined;
       window.signOut = undefined;
     };
   }, []);
@@ -57,8 +53,11 @@ function AuthShell() {
 
   function changeLang(next) {
     setLang(next);
+    localStorage.setItem('lockeen-lang', next);
+    document.documentElement.lang = next;
+    document.querySelectorAll('.js-lang-select').forEach((sel) => { sel.value = next; });
     if (window.setLockeenLanguage) window.setLockeenLanguage(next);
-    else localStorage.setItem('lockeen-lang', next);
+    else window.dispatchEvent(new CustomEvent('lockeen-language', { detail: { lang: next } }));
   }
 
   const handleAuth = () => {
@@ -70,13 +69,6 @@ function AuthShell() {
     setModal(null);
     if (window.showPage) window.showPage('page-landing');
   };
-
-  function toggleDark() {
-    const next = !darkMode;
-    setDarkMode(next);
-    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
-    localStorage.setItem('lockeen-theme', next ? 'dark' : 'light');
-  }
 
   return (
     <React.Fragment>
@@ -92,13 +84,13 @@ function AuthShell() {
       {modal && (
         <AuthModal
           initialMode={modal}
+          lang={lang}
           onAuth={handleAuth}
           onClose={() => setModal(null)}
-          darkMode={darkMode}
         />
       )}
       {isAuthenticated && pageAppEl && createPortal(
-        <Dashboard user={user} onLogout={handleLogout} darkMode={darkMode} toggleDark={toggleDark} lang={lang} onLangChange={changeLang} />,
+        <Dashboard user={user} onLogout={handleLogout} lang={lang} onLangChange={changeLang} />,
         pageAppEl
       )}
     </React.Fragment>

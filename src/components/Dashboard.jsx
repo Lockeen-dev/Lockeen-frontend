@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-import { BarChart3, Bell, BookOpen, Layers, LogOut, Moon, Pencil, Sparkles, Sun, ZapSolid } from '../lib/icons';
+import { BarChart3, Bell, BookOpen, Layers, LogOut, Pencil, Sparkles, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import { cellularRespirationCards, cellularRespirationQuestions, chemistryCards, mockDashboard, seedExams } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +14,7 @@ import { FlashcardLanding, FlashcardViewer } from './Flashcards';
 import { QuizTab } from './Quiz';
 import { NotesView } from './NotesView';
 import { AnalyticsView, initialWeekData } from './AnalyticsView';
-import { AccountView, EarnView } from './AccountViews';
+import { AccountView } from './AccountViews';
 import { CalendarView, initCalEvents } from './CalendarView';
 import AIStudyPlanner from './AIStudyPlanner';
 import DashboardHome from './DashboardHome';
@@ -45,7 +45,7 @@ function BottomNav({ tab, setTab, lang = 'en' }) {
   );
 }
 
-function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangChange }) {
+function Dashboard({ user, onLogout, lang = 'en', onLangChange }) {
   const { signOut } = useAuth();
   const [tab, setTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -89,7 +89,6 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   function clearAll() { setNotifications([]); setShowNotifPanel(false); }
   const [exams, setExams] = useState(seedExams);
   const [activeExamId, setActiveExamId] = useState(null);
-  const [themeSpin, setThemeSpin] = useState(0);
   const [flashcardDeck, setFlashcardDeck] = useState({
     noteId: 1,
     subject: 'Biology',
@@ -219,12 +218,17 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
       {/* Header bar */}
       <header style={{ ...shellS.header, padding: isMobile ? '0 12px 12px' : 0 }}>
         <div style={shellS.headerInner}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            title="Refresh Lockeen"
+            style={{ display: 'flex', alignItems: 'center', gap: 10, border: 0, background: 'transparent', padding: 0, cursor: 'pointer' }}
+          >
             <div style={{ width: 36, height: 36, background: '#3730E8', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <img src="/Lockeen-2.png" alt="Lockeen logo" style={{ width: 58, height: 58, maxWidth: 'none' }} />
             </div>
             <span style={shellS.brand}>Lockeen</span>
-          </div>
+          </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <LanguageSelect lang={lang} onChange={onLangChange} compact />
             {/* Notification bell */}
@@ -283,15 +287,6 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
                 </div>
               )}
             </div>}
-            <button
-              onClick={() => { setThemeSpin((n) => n + 1); toggleDark(); }}
-              style={{ ...shellS.themeBtn, background: darkMode ? '#1e293b' : '#fff' }}
-              aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              <span key={themeSpin} style={{ ...shellS.themeIcon, animation: themeSpin ? 'spin-once .4s ease' : 'none' }}>
-                {darkMode ? <Moon size={18} /> : <Sun size={18} />}
-              </span>
-            </button>
             <div ref={profileRef} style={{ position: 'relative' }}>
               <button
                 type="button"
@@ -311,7 +306,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
                     <div style={{ fontSize: 11, color: 'var(--gray)', marginTop: 2 }}>{user.email || 'alex@lockeen.com'}</div>
                   </div>
                   <button onClick={() => { setTab('account'); setShowProfileMenu(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
-                    <Pencil size={15} /> Account settings
+                    <Pencil size={15} /> {tt(lang, 'accountSettings')}
                   </button>
                   <button onClick={handleLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
                     <LogOut size={15} /> {tt(lang, 'signOut')}
@@ -328,8 +323,8 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
         className="outerCard"
         style={{
           ...shellS.outerCard,
-          background: darkMode ? '#1e293b' : '#fff',
-          boxShadow: darkMode ? '0 30px 60px -30px rgba(0,0,0,.5)' : '0 30px 60px -30px rgba(55,48,232,.25)',
+          background: '#fff',
+          boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)',
           borderRadius: isMobile ? 0 : 24,
           border: isMobile ? 'none' : '2px solid var(--indigo)',
         }}
@@ -346,24 +341,23 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
                 transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                 style={{ height: '100%' }}
               >
-                {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions, _meta: { source: 'dashboardRecommended', subject: 'Biology', title: 'Biology Quiz' } })} openFlashcards={() => openFlashcards({ noteId: 201, subject: 'Chemistry', title: 'Chemistry Flash', cards: chemistryCards, _meta: { source: 'dashboardRecommended', subject: 'Chemistry', title: 'Chemistry Flash' } })} recommendedQuizDone={recommendedQuizDone} recommendedFlashDone={recommendedFlashDone} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
-                {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
+                {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions, _meta: { source: 'dashboardRecommended', subject: 'Biology', title: 'Biology Quiz' } })} openFlashcards={() => openFlashcards({ noteId: 201, subject: 'Chemistry', title: 'Chemistry Flash', cards: chemistryCards, _meta: { source: 'dashboardRecommended', subject: 'Chemistry', title: 'Chemistry Flash' } })} recommendedQuizDone={recommendedQuizDone} recommendedFlashDone={recommendedFlashDone} onOpenPlanner={() => setPlannerOpen(true)} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
+                {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={false} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
                 {tab === 'flashcards' && (flashLanding
-                  ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} exams={exams} />
-                  : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} />
+                  ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={false} exams={exams} lang={lang} />
+                  : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={false} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} lang={lang} />
                 )}
-                {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={darkMode} />}
+                {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={false} lang={lang} />}
                 {tab === 'tutor'     && <TutorView />}
-                {tab === 'analytics' && <AnalyticsView weekData={weekData} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuiz={openQuiz} />}
-                {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} />}
-                {tab === 'earn'      && <EarnView />}
+                {tab === 'analytics' && <AnalyticsView weekData={weekData} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuiz={openQuiz} openFlashcards={openFlashcards} lang={lang} />}
+                {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} lang={lang} />}
                 {tab === 'account'   && <AccountView user={user} lang={lang} onLangChange={onLangChange} onLogout={handleLogout} />}
               </motion.div>
             </AnimatePresence>
           </div>
         </div>
       </div>
-      {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
+      {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} lang={lang} />}
       {plannerOpen && <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} initialNoteId={plannerNoteId} existingEvents={calEvents} />}
       {isMobile && <BottomNav tab={tab} setTab={handleSetTab} lang={lang} />}
     </div>
@@ -377,8 +371,6 @@ const shellS = {
   logoBox: { width: 36, height: 36, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
   brand: { fontSize: 18, fontWeight: 800, color: 'var(--indigo)' },
   iconBtn: { width: 38, height: 38, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
-  themeBtn: { width: 38, height: 38, borderRadius: 10, border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center', transition: 'background .2s, color .2s' },
-  themeIcon: { display: 'grid', placeItems: 'center' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
   outerCard: { width: '100%', maxWidth: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
   grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 132px)', width: '100%', minWidth: 0 },

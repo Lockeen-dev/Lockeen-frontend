@@ -37,14 +37,14 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         <h3 style={accountS.sectionTitle}>Plan</h3>
         <div style={accountS.planCard}>
           <div>
-            <div style={accountS.planBadge}>Free mode</div>
-            <h4 style={accountS.planTitle}>Lockeen Free</h4>
-            <p style={accountS.planText}>1 documento attivo, quiz limitati, flashcard base.</p>
+            <div style={accountS.planBadge}>Current access</div>
+            <h4 style={accountS.planTitle}>Lockeen</h4>
+            <p style={accountS.planText}>Plan management will be available when billing is ready.</p>
           </div>
-          <button style={accountS.primaryBtn}>Upgrade to Pro</button>
+          <button disabled style={accountS.disabledBtn}>Billing coming soon</button>
         </div>
         <div style={accountS.card}>
-          <Row icon={<Trophy size={18} />} title="Last plan" sub="Pro Monthly · ended 6 Sep 2025" action={<button style={accountS.softBtn}>Reactivate</button>} />
+          <Row icon={<Trophy size={18} />} title="Subscription" sub="No paid plan is active yet." action={<button disabled style={accountS.disabledBtn}>Unavailable</button>} />
         </div>
       </section>
 

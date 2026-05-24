@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, Google } from '../lib/icons';
 import { useAuth } from '../context/AuthContext';
 import { isMockAuthMode } from '../lib/authClient';
+import { tt } from '../lib/i18n';
 
 const AUTH_STYLES = `
   @keyframes authCardIn { from { opacity:0; transform:scale(.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
@@ -10,7 +11,7 @@ const AUTH_STYLES = `
 `;
 
 /* ===================== AUTH SCREEN ===================== */
-export default function AuthModal({ initialMode = "signin", onAuth, onClose, darkMode }) {
+export default function AuthModal({ initialMode = "signin", lang = 'en', onAuth, onClose }) {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState('');
@@ -26,11 +27,11 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     e.preventDefault();
     if (loading) return;
     if (!email.trim()) {
-      setError('Email is required.');
+      setError(tt(lang, 'emailRequired'));
       return;
     }
     if (!password) {
-      setError('Password is required.');
+      setError(tt(lang, 'passwordRequired'));
       return;
     }
     setError(null);
@@ -39,7 +40,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     const result = mode === 'signin' ? await signIn(input) : await signUp(input);
     setLoading(false);
     if (result.error) {
-      setError(result.error.message || 'Unable to authenticate.');
+      setError(result.error.message || tt(lang, 'authFailed'));
       return;
     }
     onAuth && onAuth(result.data.user);
@@ -48,7 +49,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
   const google = async () => {
     if (loading) return;
     if (!isMockAuthMode()) {
-      setError('Google sign-in is not enabled for beta. Use email and password.');
+      setError(tt(lang, 'googleDisabled'));
       return;
     }
     setError(null);
@@ -56,7 +57,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     const result = await signIn({ name: 'Alex', email: 'alex@gmail.com', provider: 'google' });
     setLoading(false);
     if (result.error) {
-      setError(result.error.message || 'Unable to authenticate.');
+      setError(result.error.message || tt(lang, 'authFailed'));
       return;
     }
     onAuth && onAuth(result.data.user);
@@ -74,50 +75,55 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
       <div style={authS.blob1} />
       <div style={authS.blob2} />
 
-      <div style={{ ...authS.card, background: darkMode ? '#1e293b' : '#fff', animation: 'authCardIn .32s cubic-bezier(.22,1,.36,1)' }}>
-        <div style={authS.brand}>
+      <div style={{ ...authS.card, animation: 'authCardIn .32s cubic-bezier(.22,1,.36,1)' }}>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          title="Refresh Lockeen"
+          style={{ ...authS.brand, border: 0, background: 'transparent', padding: 0, cursor: 'pointer' }}
+        >
           <div style={{ width: 36, height: 36, background: '#3730E8', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img src="/Lockeen-2.png" alt="Lockeen logo" style={{ width: 58, height: 58, maxWidth: 'none' }} />
           </div>
           <span style={authS.brandText}>Lockeen</span>
-        </div>
+        </button>
 
         <h1 style={authS.title}>
-          {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+          {mode === 'signin' ? tt(lang, 'authWelcome') : tt(lang, 'authCreate')}
         </h1>
         <p style={authS.sub}>
           {mode === 'signin'
-            ? 'Sign in to continue your learning journey'
-            : 'Start studying smarter with AI in seconds'}
+            ? tt(lang, 'authSigninSub')
+            : tt(lang, 'authSignupSub')}
         </p>
 
-        <button onClick={google} style={{ ...authS.googleBtn, background: darkMode ? '#1e293b' : '#fff' }} disabled={loading}>
-          <Google /> Continue with Google
+        <button onClick={google} style={authS.googleBtn} disabled={loading}>
+          <Google /> {tt(lang, 'authGoogle')}
         </button>
 
         <div style={authS.divider}>
           <span style={authS.dividerLine} />
-          <span style={authS.dividerText}>or</span>
+          <span style={authS.dividerText}>{tt(lang, 'authOr')}</span>
           <span style={authS.dividerLine} />
         </div>
 
         <form key={modeKey} onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'authModeSwitch .22s ease' }}>
           {mode === 'signup' && (
-            <Field label="Full name">
+            <Field label={tt(lang, 'fullName')}>
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe"
                 onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)}
-                style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('name') }} />
+                style={{ ...authS.input, ...focusStyle('name') }} />
             </Field>
           )}
-          <Field label="Email">
+          <Field label={tt(lang, 'email')}>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
               required
               disabled={loading}
               autoComplete={mode === 'signin' ? 'email' : 'username'}
               onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
-              style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('email') }} />
+              style={{ ...authS.input, ...focusStyle('email') }} />
           </Field>
-          <Field label="Password" right={mode === 'signin' && <a href="#" style={authS.forgot}>Forgot?</a>}>
+          <Field label={tt(lang, 'password')} right={mode === 'signin' && <a href="#" style={authS.forgot}>{tt(lang, 'forgot')}</a>}>
             <div style={{ position: 'relative' }}>
               <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
                 required
@@ -125,7 +131,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
                 disabled={loading}
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
-                style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', paddingRight: 44, ...focusStyle('password') }} />
+                style={{ ...authS.input, paddingRight: 44, ...focusStyle('password') }} />
               <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password" style={authS.eyeBtn}>
                 {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -136,19 +142,19 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
 
           <button type="submit" disabled={loading} style={{ ...authS.submit, opacity: loading ? .85 : 1 }}>
             {loading
-              ? <><span style={{ width: 18, height: 18, border: '2.5px solid rgba(255,255,255,.35)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'authSpin .7s linear infinite' }} /> Just a sec…</>
-              : <>{mode === 'signin' ? 'Sign In' : 'Create Account'} <ArrowRight size={18} /></>}
+              ? <><span style={{ width: 18, height: 18, border: '2.5px solid rgba(255,255,255,.35)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'authSpin .7s linear infinite' }} /> {tt(lang, 'justSec')}</>
+              : <>{mode === 'signin' ? tt(lang, 'signIn') : tt(lang, 'createAccount')} <ArrowRight size={18} /></>}
           </button>
         </form>
 
         <p style={authS.toggle}>
-          {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
+          {mode === 'signin' ? tt(lang, 'noAccount') : tt(lang, 'hasAccount')}{' '}
           <button onClick={() => { setError(null); setMode(mode === 'signin' ? 'signup' : 'signin'); setModeKey(k => k + 1); }} style={authS.toggleLink}>
-            {mode === 'signin' ? 'Sign up' : 'Sign in'}
+            {mode === 'signin' ? tt(lang, 'signUp') : tt(lang, 'signIn')}
           </button>
         </p>
       </div>
-        <button onClick={onClose} aria-label="Close" style={authS.closeBtn}>×</button>
+        <button onClick={onClose} aria-label={tt(lang, 'close')} style={authS.closeBtn}>×</button>
       </div>
     </div>
   );
