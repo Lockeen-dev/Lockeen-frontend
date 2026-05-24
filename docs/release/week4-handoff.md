@@ -13,10 +13,16 @@ Week 3 main includes:
 
 ## First Actions
 
-1. Apply pending Supabase migration if not already applied:
+1. Confirm Supabase migration is applied:
 
 ```bash
-supabase db push
+supabase db push --dry-run
+```
+
+Expected:
+
+```text
+Remote database is up to date.
 ```
 
 2. Add server-only Vercel env:
@@ -41,7 +47,7 @@ supabase db push
 
 - Finish B manual real-mode smoke.
 - Fix any P0/P1 auth/RLS/user-isolation issues.
-- Confirm persistent AI quota source is `persistent` in real deployment.
+- Confirm persistent AI quota source is `persistent` in real deployment after server env is added.
 
 ### P1
 

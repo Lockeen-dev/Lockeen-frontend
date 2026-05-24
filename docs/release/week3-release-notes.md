@@ -47,7 +47,7 @@ Vercel production deploy succeeded after each merged PR through Day 6.
 - Founder B manual real-mode smoke is still pending.
 - Founder B two-user RLS QA is still pending.
 - Beta preview must not be marked ready until B completes QA.
-- Persistent AI quota migration exists but must be applied to Supabase before quota source becomes persistent.
+- Persistent AI quota migration was applied to Supabase on 2026-05-24.
 - Server-only Vercel env for persistent quota must be added.
 
 ## Required Server Env For Persistent AI Quota
@@ -75,5 +75,5 @@ OpenAI env remains server-only:
 ## Risk Notes
 
 - If `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are missing, AI quota falls back to memory so current AI does not break.
-- Persistent quota starts only after the migration is applied and server env exists.
+- Persistent quota starts after server env exists.
 - B should use anon/publishable key only in local `.env.local`.

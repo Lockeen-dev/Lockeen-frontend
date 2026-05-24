@@ -41,6 +41,13 @@ Frontend still only uses:
 - If server Supabase env is missing, quota falls back to in-memory source so production AI does not break before env setup.
 - Provider fallback behavior is unchanged.
 
+## Deployment Status
+
+- Supabase migration applied on 2026-05-24.
+- Persistent source still requires Vercel server env:
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+
 ## Verification
 
 ```bash

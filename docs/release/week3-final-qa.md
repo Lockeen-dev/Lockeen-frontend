@@ -40,7 +40,7 @@ Beta preview can move forward only after:
 - no service-role key in frontend env
 - no OpenAI key in frontend env
 - Vercel production green
-- Supabase migration for `ai_usage` applied if persistent AI quota is required
+- server-only Supabase env configured for persistent AI quota
 
 ## Known Non-Blocking Warnings
 
@@ -50,4 +50,4 @@ Beta preview can move forward only after:
 ## Known Blockers
 
 - B manual QA not finished.
-- Persistent AI quota not fully active until server env and migration are applied.
+- Persistent AI quota not fully active until server env is added.
