@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 /* ===================== ROOT APP ===================== */
 function AuthShell() {
-  const { user, status, error: authError, isAuthenticated, isLoading, refreshSession } = useAuth();
+  const { user, status, error: authError, authEvent, isAuthenticated, isLoading, refreshSession } = useAuth();
   const [modal, setModal] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [lang, setLang] = useState(() => localStorage.getItem('lockeen-lang') || 'en');
@@ -37,6 +37,12 @@ function AuthShell() {
       window.signOut = undefined;
     };
   }, []);
+
+  useEffect(() => {
+    if (authEvent === 'PASSWORD_RECOVERY') {
+      setModal('reset');
+    }
+  }, [authEvent]);
 
   useEffect(() => {
     if (isAuthenticated && pageAppEl) {

@@ -61,6 +61,10 @@ function createSupabaseSession(session) {
   };
 }
 
+function normalizeEmail(email = '') {
+  return String(email).trim().toLowerCase();
+}
+
 function requireSupabaseAuthMode() {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
@@ -121,7 +125,8 @@ export async function requireAuthenticatedUserId() {
 }
 
 export async function signIn(input = {}) {
-  if (!input.email) {
+  const email = normalizeEmail(input.email);
+  if (!email) {
     return fail('Email is required.', 'VALIDATION_ERROR');
   }
 
@@ -138,7 +143,7 @@ export async function signIn(input = {}) {
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: input.email,
+      email,
       password: input.password,
     });
 
@@ -159,8 +164,51 @@ export async function signIn(input = {}) {
   });
 }
 
+export async function signInWithGoogle() {
+  if (!isMockAuthMode()) {
+    const modeError = requireSupabaseAuthMode();
+    if (modeError) return modeError;
+
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'select_account',
+        },
+      },
+    });
+
+    if (error) return fail(error.message, error.code || 'GOOGLE_SIGN_IN_FAILED');
+
+    return ok({
+      provider: 'google',
+      status: 'redirecting',
+      url: data?.url || null,
+    });
+  }
+
+  const user = createMockUser({
+    name: 'Alex',
+    email: 'alex@gmail.com',
+    provider: 'google',
+  });
+  const session = createSession(user);
+
+  writeMockSession(session);
+  notify(session);
+
+  return ok({
+    user,
+    status: 'authenticated',
+  });
+}
+
 export async function signUp(input = {}) {
-  if (!input.email) {
+  const email = normalizeEmail(input.email);
+  if (!email) {
     return fail('Email is required.', 'VALIDATION_ERROR');
   }
 
@@ -173,12 +221,12 @@ export async function signUp(input = {}) {
     }
 
     const { data, error } = await supabase.auth.signUp({
-      email: input.email,
+      email,
       password: input.password,
       options: {
         data: {
-          name: input.name || input.email.split('@')[0],
-          full_name: input.name || input.email.split('@')[0],
+          name: input.name || email.split('@')[0],
+          full_name: input.name || email.split('@')[0],
         },
       },
     });
@@ -200,6 +248,58 @@ export async function signUp(input = {}) {
 
   return ok({
     user,
+    status: 'authenticated',
+  });
+}
+
+export async function requestPasswordReset(input = {}) {
+  const email = normalizeEmail(input.email);
+  if (!email) return fail('Email is required.', 'VALIDATION_ERROR');
+
+  if (!isMockAuthMode()) {
+    const modeError = requireSupabaseAuthMode();
+    if (modeError) return modeError;
+
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+
+    if (error) return fail(error.message, error.code || 'PASSWORD_RESET_FAILED');
+
+    return ok({
+      email,
+      status: 'sent',
+    });
+  }
+
+  return ok({
+    email,
+    status: 'sent',
+  });
+}
+
+export async function updatePassword(input = {}) {
+  if (!input.password) return fail('Password is required.', 'VALIDATION_ERROR');
+  if (String(input.password).length < 6) {
+    return fail('Password must be at least 6 characters.', 'VALIDATION_ERROR');
+  }
+
+  if (!isMockAuthMode()) {
+    const modeError = requireSupabaseAuthMode();
+    if (modeError) return modeError;
+
+    const { data, error } = await supabase.auth.updateUser({
+      password: input.password,
+    });
+
+    if (error) return fail(error.message, error.code || 'PASSWORD_UPDATE_FAILED');
+
+    return ok(createSupabaseSession({ user: data.user }));
+  }
+
+  return ok({
+    user: readMockSession()?.user || null,
     status: 'authenticated',
   });
 }
@@ -246,8 +346,11 @@ export function onAuthStateChange(callback) {
       return function unsubscribe() {};
     }
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      callback(createSupabaseSession(session));
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      callback({
+        ...createSupabaseSession(session),
+        event,
+      });
     });
 
     return function unsubscribe() {

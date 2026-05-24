@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import { BarChart3, Bell, BookOpen, Layers, LogOut, Moon, Pencil, Sparkles, Sun, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
+import { isMockMode } from '../lib/apiClient';
 import { cellularRespirationCards, cellularRespirationQuestions, chemistryCards, mockDashboard, seedExams } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import useIsMobile from '../lib/useIsMobile';
@@ -50,7 +51,8 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   const [tab, setTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isMobile = useIsMobile();
-  const [notifications, setNotifications] = useState([
+  const realMode = !isMockMode();
+  const [notifications, setNotifications] = useState(() => realMode ? [] : [
     { id: 1, text: 'Welcome to Lockeen! Bell shows your activity here.', ts: Date.now() - 60000, read: false, type: 'info' },
     { id: 2, text: 'Tip: complete a quiz to see your score logged here.', ts: Date.now() - 1800000, read: false, type: 'quiz' },
     { id: 3, text: 'Tip: use the Study Planner in Calendar to schedule sessions.', ts: Date.now() - 3600000, read: false, type: 'plan' },
@@ -87,16 +89,16 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   const unreadCount = notifications.filter(n => !n.read).length;
   function markAllRead() { setNotifications(prev => prev.map(n => ({ ...n, read: true }))); }
   function clearAll() { setNotifications([]); setShowNotifPanel(false); }
-  const [exams, setExams] = useState(seedExams);
+  const [exams, setExams] = useState(() => realMode ? [] : seedExams);
   const [activeExamId, setActiveExamId] = useState(null);
   const [themeSpin, setThemeSpin] = useState(0);
-  const [flashcardDeck, setFlashcardDeck] = useState({
+  const [flashcardDeck, setFlashcardDeck] = useState(() => realMode ? null : {
     noteId: 1,
     subject: 'Biology',
     title: 'Cellular Respiration',
     cards: cellularRespirationCards,
   });
-  const [quizDeck, setQuizDeck] = useState({
+  const [quizDeck, setQuizDeck] = useState(() => realMode ? null : {
     noteId: 1,
     subject: 'Biology',
     title: 'Cellular Respiration',
@@ -107,7 +109,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   const [flashHistory, setFlashHistory] = useState({});
   const [recentFlashDecks, setRecentFlashDecks] = useState([]);
   const [flashLanding, setFlashLanding] = useState(true);
-  const [weekData, setWeekData] = useState(initialWeekData);
+  const [weekData, setWeekData] = useState(() => realMode ? initialWeekData.map((day) => ({ ...day, mins: 0 })) : initialWeekData);
   const [recommendedQuizDone, setRecommendedQuizDone] = useState(false);
   const [recommendedFlashDone, setRecommendedFlashDone] = useState(false);
 
@@ -120,7 +122,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
 
   const [plannerOpen, setPlannerOpen]       = useState(false);
   const [plannerNoteId, setPlannerNoteId]     = useState(null);
-  const [calEvents, setCalEvents]             = useState(initCalEvents);
+  const [calEvents, setCalEvents]             = useState(() => realMode ? {} : initCalEvents());
   const [timerTrigger, setTimerTrigger]       = useState(null);
 
   function onStartTimer(mins) { setTimerTrigger({ mins, ts: Date.now() }); }
@@ -346,7 +348,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
                 transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                 style={{ height: '100%' }}
               >
-                {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions, _meta: { source: 'dashboardRecommended', subject: 'Biology', title: 'Biology Quiz' } })} openFlashcards={() => openFlashcards({ noteId: 201, subject: 'Chemistry', title: 'Chemistry Flash', cards: chemistryCards, _meta: { source: 'dashboardRecommended', subject: 'Chemistry', title: 'Chemistry Flash' } })} recommendedQuizDone={recommendedQuizDone} recommendedFlashDone={recommendedFlashDone} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} />}
+                {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions, _meta: { source: 'dashboardRecommended', subject: 'Biology', title: 'Biology Quiz' } })} openFlashcards={() => openFlashcards({ noteId: 201, subject: 'Chemistry', title: 'Chemistry Flash', cards: chemistryCards, _meta: { source: 'dashboardRecommended', subject: 'Chemistry', title: 'Chemistry Flash' } })} recommendedQuizDone={recommendedQuizDone} recommendedFlashDone={recommendedFlashDone} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} realMode={realMode} />}
                 {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
                 {tab === 'flashcards' && (flashLanding
                   ? <FlashcardLanding recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} exams={exams} />

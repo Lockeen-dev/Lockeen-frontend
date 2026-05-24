@@ -20,6 +20,11 @@ function normalizeError(error, fallback = 'Request failed.') {
   };
 }
 
+function isMissingColumnError(error) {
+  const message = error?.message || '';
+  return error?.code === '42703' || error?.code === 'PGRST204' || message.includes('Could not find') || message.includes('column');
+}
+
 function findExam(id) {
   return mockExams.find((exam) => String(exam.id) === String(id));
 }
@@ -32,6 +37,10 @@ function toExam(row) {
     subjectId: row.subject_id,
     date: row.date,
     color: row.color,
+    dot: row.dot,
+    emoji: row.emoji,
+    priority: row.priority,
+    targetGrade: row.target_grade,
     status: row.status,
     chapters: (row.chapters || []).map(toChapter),
     createdAt: row.created_at,
@@ -47,6 +56,9 @@ function toChapter(row) {
     description: row.description,
     progress: row.progress,
     position: row.position,
+    files: row.file_count,
+    pages: row.page_count,
+    updated: row.updated_at ? new Date(row.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -60,8 +72,21 @@ function toExamInsert(input, userId) {
     subject_id: input.subjectId || null,
     date: input.date || null,
     color: input.color || null,
+    dot: input.dot || null,
+    emoji: input.emoji || null,
+    priority: input.priority ?? null,
+    target_grade: input.targetGrade ?? null,
     status: input.status || 'active',
   };
+}
+
+function toExamInsertBase(input, userId) {
+  const row = toExamInsert(input, userId);
+  delete row.dot;
+  delete row.emoji;
+  delete row.priority;
+  delete row.target_grade;
+  return row;
 }
 
 function toExamPatch(patch) {
@@ -71,9 +96,22 @@ function toExamPatch(patch) {
     ...(patch.subjectId !== undefined ? { subject_id: patch.subjectId } : {}),
     ...(patch.date !== undefined ? { date: patch.date } : {}),
     ...(patch.color !== undefined ? { color: patch.color } : {}),
+    ...(patch.dot !== undefined ? { dot: patch.dot } : {}),
+    ...(patch.emoji !== undefined ? { emoji: patch.emoji } : {}),
+    ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+    ...(patch.targetGrade !== undefined ? { target_grade: patch.targetGrade } : {}),
     ...(patch.status !== undefined ? { status: patch.status } : {}),
     updated_at: new Date().toISOString(),
   };
+}
+
+function toExamPatchBase(patch) {
+  const row = toExamPatch(patch);
+  delete row.dot;
+  delete row.emoji;
+  delete row.priority;
+  delete row.target_grade;
+  return row;
 }
 
 function toChapterInsert(examId, input, userId) {
@@ -84,7 +122,16 @@ function toChapterInsert(examId, input, userId) {
     description: input.description || null,
     progress: input.progress || 0,
     position: input.position || 0,
+    file_count: input.files ?? input.fileCount ?? 0,
+    page_count: input.pages ?? input.pageCount ?? 0,
   };
+}
+
+function toChapterInsertBase(examId, input, userId) {
+  const row = toChapterInsert(examId, input, userId);
+  delete row.file_count;
+  delete row.page_count;
+  return row;
 }
 
 function toChapterPatch(patch) {
@@ -93,8 +140,19 @@ function toChapterPatch(patch) {
     ...(patch.description !== undefined ? { description: patch.description } : {}),
     ...(patch.progress !== undefined ? { progress: patch.progress } : {}),
     ...(patch.position !== undefined ? { position: patch.position } : {}),
+    ...(patch.files !== undefined ? { file_count: patch.files } : {}),
+    ...(patch.fileCount !== undefined ? { file_count: patch.fileCount } : {}),
+    ...(patch.pages !== undefined ? { page_count: patch.pages } : {}),
+    ...(patch.pageCount !== undefined ? { page_count: patch.pageCount } : {}),
     updated_at: new Date().toISOString(),
   };
+}
+
+function toChapterPatchBase(patch) {
+  const row = toChapterPatch(patch);
+  delete row.file_count;
+  delete row.page_count;
+  return row;
 }
 
 async function listRealExams() {
@@ -147,11 +205,21 @@ async function createRealExam(input) {
     return fail('Exam name is required.', 'VALIDATION_ERROR');
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('exams')
     .insert(toExamInsert(input, userResult.data))
     .select('*, chapters(*)')
     .single();
+
+  if (error && isMissingColumnError(error)) {
+    const retry = await supabase
+      .from('exams')
+      .insert(toExamInsertBase(input, userResult.data))
+      .select('*, chapters(*)')
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return fail(normalizeError(error).message, normalizeError(error).code);
 
@@ -165,13 +233,25 @@ async function updateRealExam(id, patch) {
   const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('exams')
     .update(toExamPatch(patch))
     .eq('id', id)
     .eq('user_id', userResult.data)
     .select('*, chapters(*)')
     .maybeSingle();
+
+  if (error && isMissingColumnError(error)) {
+    const retry = await supabase
+      .from('exams')
+      .update(toExamPatchBase(patch))
+      .eq('id', id)
+      .eq('user_id', userResult.data)
+      .select('*, chapters(*)')
+      .maybeSingle();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return fail(normalizeError(error).message, normalizeError(error).code);
   if (!data) return fail('Exam not found.', 'EXAM_NOT_FOUND');
@@ -230,11 +310,21 @@ async function createRealChapter(examId, input) {
     return fail('Chapter title is required.', 'VALIDATION_ERROR');
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('chapters')
     .insert(toChapterInsert(examId, input, userResult.data))
     .select()
     .single();
+
+  if (error && isMissingColumnError(error)) {
+    const retry = await supabase
+      .from('chapters')
+      .insert(toChapterInsertBase(examId, input, userResult.data))
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return fail(normalizeError(error).message, normalizeError(error).code);
 
@@ -248,7 +338,7 @@ async function updateRealChapter(examId, chapterId, patch) {
   const userResult = await requireAuthenticatedUserId();
   if (userResult.error) return userResult;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('chapters')
     .update(toChapterPatch(patch))
     .eq('id', chapterId)
@@ -256,6 +346,19 @@ async function updateRealChapter(examId, chapterId, patch) {
     .eq('user_id', userResult.data)
     .select()
     .maybeSingle();
+
+  if (error && isMissingColumnError(error)) {
+    const retry = await supabase
+      .from('chapters')
+      .update(toChapterPatchBase(patch))
+      .eq('id', chapterId)
+      .eq('exam_id', examId)
+      .eq('user_id', userResult.data)
+      .select()
+      .maybeSingle();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return fail(normalizeError(error).message, normalizeError(error).code);
   if (!data) return fail('Chapter not found.', 'CHAPTER_NOT_FOUND');
