@@ -1,10 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   onAuthStateChange,
+  requestPasswordReset as requestPasswordResetService,
   restoreSession,
   signIn as signInService,
+  signInWithGoogle as signInWithGoogleService,
   signOut as signOutService,
   signUp as signUpService,
+  updatePassword as updatePasswordService,
 } from '../services/auth';
 
 const AuthContext = createContext(null);
@@ -13,6 +16,7 @@ const INITIAL_STATE = {
   user: null,
   status: 'loading',
   error: null,
+  authEvent: null,
 };
 
 export function AuthProvider({ children }) {
@@ -32,6 +36,7 @@ export function AuthProvider({ children }) {
         user: null,
         status: 'error',
         error: result.error,
+        authEvent: null,
       });
       return result;
     }
@@ -40,6 +45,7 @@ export function AuthProvider({ children }) {
       user: result.data.user,
       status: result.data.status,
       error: null,
+      authEvent: null,
     });
 
     return result;
@@ -53,6 +59,7 @@ export function AuthProvider({ children }) {
         user: session.user,
         status: session.status,
         error: session.error || null,
+        authEvent: session.event || null,
       });
     });
   }, [refreshSession]);
@@ -71,6 +78,7 @@ export function AuthProvider({ children }) {
         user: null,
         status: 'anonymous',
         error: result.error,
+        authEvent: null,
       });
       return result;
     }
@@ -79,6 +87,7 @@ export function AuthProvider({ children }) {
       user: result.data.user,
       status: result.data.status,
       error: null,
+      authEvent: null,
     });
 
     return result;
@@ -98,6 +107,7 @@ export function AuthProvider({ children }) {
         user: null,
         status: 'anonymous',
         error: result.error,
+        authEvent: null,
       });
       return result;
     }
@@ -106,6 +116,69 @@ export function AuthProvider({ children }) {
       user: result.data.user,
       status: result.data.status,
       error: null,
+      authEvent: null,
+    });
+
+    return result;
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    setState((current) => ({
+      ...current,
+      status: 'loading',
+      error: null,
+    }));
+
+    const result = await signInWithGoogleService();
+
+    if (result.error) {
+      setState({
+        user: null,
+        status: 'anonymous',
+        error: result.error,
+        authEvent: null,
+      });
+      return result;
+    }
+
+    if (result.data?.status === 'authenticated') {
+      setState({
+        user: result.data.user,
+        status: result.data.status,
+        error: null,
+        authEvent: null,
+      });
+    }
+
+    return result;
+  }, []);
+
+  const requestPasswordReset = useCallback(async (input) => requestPasswordResetService(input), []);
+
+  const updatePassword = useCallback(async (input) => {
+    setState((current) => ({
+      ...current,
+      status: 'loading',
+      error: null,
+    }));
+
+    const result = await updatePasswordService(input);
+
+    if (result.error) {
+      setState((current) => ({
+        ...current,
+        status: current.user ? 'authenticated' : 'anonymous',
+        error: result.error,
+        authEvent: null,
+      }));
+      return result;
+    }
+
+    setState({
+      user: result.data.user,
+      status: result.data.status,
+      error: null,
+      authEvent: null,
     });
 
     return result;
@@ -119,6 +192,7 @@ export function AuthProvider({ children }) {
         ...current,
         status: 'error',
         error: result.error,
+        authEvent: null,
       }));
       return result;
     }
@@ -127,6 +201,7 @@ export function AuthProvider({ children }) {
       user: null,
       status: 'anonymous',
       error: null,
+      authEvent: null,
     });
 
     return result;
@@ -137,14 +212,18 @@ export function AuthProvider({ children }) {
       user: state.user,
       status: state.status,
       error: state.error,
+      authEvent: state.authEvent,
       isAuthenticated: state.status === 'authenticated',
       isLoading: state.status === 'loading',
+      requestPasswordReset,
       signIn,
+      signInWithGoogle,
       signUp,
       signOut,
+      updatePassword,
       refreshSession,
     }),
-    [refreshSession, signIn, signOut, signUp, state.error, state.status, state.user],
+    [refreshSession, requestPasswordReset, signIn, signInWithGoogle, signOut, signUp, state.authEvent, state.error, state.status, state.user, updatePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

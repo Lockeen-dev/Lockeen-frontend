@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 import { Clock, Flame, Trend, Trophy } from '../lib/icons';
-import { formatExamDate, getSubjectPalette, seedExams } from '../data/mockData';
+import { formatExamDate, getSubjectPalette } from '../data/mockData';
 import useIsMobile from '../lib/useIsMobile';
 import { gradeS } from './common/ExamControls';
 import { homeS } from '../styles/dashboardStyles';
@@ -139,10 +139,10 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
   const isMobile = useIsMobile();
   const maxMin = Math.max(...weekData.map(d => d.mins), 1);
   const totalMin = weekData.reduce((a, b) => a + b.mins, 0);
-  const trackedNotes = notes && notes.length ? notes : seedExams;
+  const trackedNotes = notes || [];
   const avgTarget = trackedNotes.length
     ? (trackedNotes.reduce((sum, n) => sum + (n.targetGrade || 27), 0) / trackedNotes.length).toFixed(1)
-    : '27.0';
+    : '0.0';
 
   const [chartRef, chartInView] = useInView('-40px');
   const [summary, setSummary] = useState(null);
@@ -199,10 +199,7 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
     ...(summary.averageQuizScore != null
       ? [{ label: 'Avg. quiz score', displayValue: `${summary.averageQuizScore}%`, Icon: Trend, tint: '#ECFDF5', col: '#10B981' }]
       : []),
-  ] : [
-    { label: 'Study time this week', displayValue: `${studyH}h ${studyM}m`, Icon: Clock,  tint: 'var(--lavender)', col: 'var(--indigo)' },
-    { label: 'Voto medio target', displayValue: `${(avgVal/10).toFixed(1)}`, Icon: Trophy, tint: '#FEF9C3', col: '#CA8A04' },
-  ];
+  ] : [];
 
   return (
     <div>
@@ -221,12 +218,13 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
         <div style={{ ...analS.noticeCard, marginBottom:22 }}>No analytics data yet. Add notes, materials, flashcards, or quiz attempts to populate this view.</div>
       )}
 
-      {!analyticsLoading && !analyticsError && (
+      {!analyticsLoading && !analyticsError && kpiCards.length > 0 && (
         <div style={{ ...analS.statsGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)' }}>
           {kpiCards.map(s => <KpiStat key={s.label} {...s} />)}
         </div>
       )}
 
+      {!analyticsLoading && !analyticsError && hasReadModelData && (
       <div ref={chartRef} style={{ ...analS.row, gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr' }}>
         <div style={analS.chartCard}>
           <div style={analS.cardHeader}>
@@ -261,7 +259,9 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
           </div>
         </div>
       </div>
+      )}
 
+      {!analyticsLoading && !analyticsError && trackedNotes.length > 0 && (
       <div style={gradeS.section}>
         <div style={gradeS.sectionHead}>
           <h3 style={gradeS.sectionTitle}>Grade Predictor</h3>
@@ -280,6 +280,7 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }

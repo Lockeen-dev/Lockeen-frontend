@@ -338,6 +338,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   const [newName, setNewName] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
   const inputRef = useRef(null);
   const idRef = useRef(1);
@@ -349,7 +350,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
     if (!arr.length) return;
     setFiles((prev) => {
       const next = [...prev];
-      arr.forEach((f) => { next.push({ id: idRef.current++, name: f.name, size: f.size }); });
+      arr.forEach((f) => { next.push({ id: idRef.current++, name: f.name, size: f.size, file: f }); });
       return next;
     });
     setNewName((cur) => (selection === '__new' ? (cur || stripExt(arr[0].name)) : cur));
@@ -369,9 +370,10 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   const isNew = selection === '__new';
   const canSubmit = files.length > 0 && (!isNew || newName.trim().length > 0);
 
-  const submit = () => {
+  const submit = async () => {
     if (!canSubmit || uploading) return;
     setUploading(true);
+    setError('');
     setProgress(0);
     const start = Date.now();
     const tick = () => {
@@ -380,11 +382,17 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
       setProgress(pct);
       if (pct < 100) requestAnimationFrame(tick);
       else {
-        if (isNew) {
-          onUpload({ chapterId: null, chapterName: newName.trim().slice(0, 80), fileCount: files.length });
-        } else {
-          onUpload({ chapterId: selection, chapterName: null, fileCount: files.length });
-        }
+        const payload = {
+          chapterId: isNew ? null : selection,
+          chapterName: isNew ? newName.trim().slice(0, 80) : null,
+          fileCount: files.length,
+          files: files.map((f) => f.file).filter(Boolean),
+        };
+        Promise.resolve(onUpload(payload)).catch((err) => {
+          setError(err?.message || 'Unable to save chapter.');
+          setUploading(false);
+          setProgress(0);
+        });
       }
     };
     requestAnimationFrame(tick);
@@ -407,8 +415,8 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
           <div style={uploadS.dropTitle}>Drag &amp; drop your files here</div>
           <div style={uploadS.dropOr}>or</div>
           <button type="button" onClick={browse} style={uploadS.browseBtn}>Browse Files</button>
-          <div style={uploadS.dropHint}>Supports PDF, DOCX, TXT, images • Max 50MB per file</div>
-          <input ref={inputRef} type="file" multiple onChange={onPick} style={{ display: 'none' }} accept=".pdf,.doc,.docx,.txt,image/*" />
+          <div style={uploadS.dropHint}>Supports PDF, TXT, PNG, JPG • Max 10MB per file</div>
+          <input ref={inputRef} type="file" multiple onChange={onPick} style={{ display: 'none' }} accept=".pdf,.txt,.png,.jpg,.jpeg,application/pdf,text/plain,image/png,image/jpeg" />
         </div>
 
         {files.length > 0 && (
@@ -454,9 +462,11 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
         {uploading && (
           <div style={uploadS.loading}>
             <div style={uploadS.progressTrack}><div style={{ ...uploadS.progressFill, width: progress + '%' }} /></div>
-            <div style={uploadS.loadingText}>Generating study materials…</div>
+            <div style={uploadS.loadingText}>{progress >= 100 ? 'Saving chapter…' : 'Preparing upload…'}</div>
           </div>
         )}
+
+        {error && <div style={uploadS.errorText}>{error}</div>}
 
         <div style={uploadS.actions}>
           <button onClick={() => !uploading && onClose && onClose()} style={uploadS.cancelBtn} disabled={uploading}>Cancel</button>
@@ -476,6 +486,19 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
 function EditChapterModal({ chapter, onClose, onSave, onDelete }) {
   const [title, setTitle] = useState(chapter.title || '');
   const [confirmDel, setConfirmDel] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const runAction = async (action) => {
+    if (saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      await action();
+    } catch (err) {
+      setError(err?.message || 'Unable to save chapter.');
+      setSaving(false);
+    }
+  };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,16,53,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', borderRadius: 18, padding: 24, boxShadow: '0 20px 60px -20px rgba(15,16,53,.4)' }}>
@@ -493,18 +516,19 @@ function EditChapterModal({ chapter, onClose, onSave, onDelete }) {
           <div style={{ padding: 12, background: '#FEE2E2', borderRadius: 12, marginBottom: 14 }}>
             <p style={{ margin: '0 0 10px', fontSize: 12, color: '#991B1B', fontWeight: 600 }}>Delete this chapter? This cannot be undone.</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={onDelete} style={{ padding: '8px 14px', borderRadius: 8, background: '#EF4444', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>Yes, delete</button>
-              <button onClick={() => setConfirmDel(false)} style={{ padding: '8px 14px', borderRadius: 8, background: 'transparent', color: '#991B1B', border: '1px solid #FCA5A5', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => runAction(onDelete)} disabled={saving} style={{ padding: '8px 14px', borderRadius: 8, background: '#EF4444', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .65 : 1 }}>{saving ? 'Deleting...' : 'Yes, delete'}</button>
+              <button onClick={() => setConfirmDel(false)} disabled={saving} style={{ padding: '8px 14px', borderRadius: 8, background: 'transparent', color: '#991B1B', border: '1px solid #FCA5A5', fontWeight: 600, fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .65 : 1 }}>Cancel</button>
             </div>
           </div>
         ) : null}
+        {error && <div style={uploadS.errorText}>{error}</div>}
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-          <button onClick={() => setConfirmDel(true)} style={{ padding: '10px 14px', borderRadius: 10, background: 'transparent', color: '#EF4444', border: '1px solid #FCA5A5', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => setConfirmDel(true)} disabled={saving} style={{ padding: '10px 14px', borderRadius: 10, background: 'transparent', color: '#EF4444', border: '1px solid #FCA5A5', fontWeight: 600, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: saving ? .65 : 1 }}>
             <Trash size={13} /> Delete
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-            <button onClick={() => onSave(title)} disabled={!title.trim()} style={{ padding: '10px 16px', borderRadius: 10, background: 'var(--indigo)', border: 'none', color: '#fff', fontWeight: 600, fontSize: 13, cursor: title.trim() ? 'pointer' : 'not-allowed', opacity: title.trim() ? 1 : .5 }}>Save</button>
+            <button onClick={onClose} disabled={saving} style={{ padding: '10px 16px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .65 : 1 }}>Cancel</button>
+            <button onClick={() => runAction(() => onSave(title))} disabled={!title.trim() || saving} style={{ padding: '10px 16px', borderRadius: 10, background: 'var(--indigo)', border: 'none', color: '#fff', fontWeight: 600, fontSize: 13, cursor: title.trim() && !saving ? 'pointer' : 'not-allowed', opacity: title.trim() && !saving ? 1 : .5 }}>{saving ? 'Saving...' : 'Save'}</button>
           </div>
         </div>
       </div>

@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 
 import { FileText, Layers, LockeenLogo, Pencil, Plus, Search, Sparkles, Trash2 } from '../lib/icons';
 import { tt } from '../lib/i18n';
-import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, inferSubjectFromName, makeSampleChapter } from '../data/mockData';
+import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, inferSubjectFromName } from '../data/mockData';
 import { getExamEmoji } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
-import { createExam, deleteExam, listExams, updateExam } from '../services/exams';
+import { createChapter, createExam, deleteChapter, deleteExam, listExams, updateChapter, updateExam } from '../services/exams';
 import { createMaterial, deleteMaterial, getMaterialDownloadUrl, listMaterials } from '../services/materials';
 import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
 import { deleteStudyMaterialFile, uploadStudyMaterialFile, validateStudyMaterialFile } from '../services/storage';
@@ -135,37 +135,61 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
   const activeExam = exams.find((x) => x.id === activeId);
 
   if (activeExam) {
-    const onAddChapter = ({ chapterId, chapterName, fileCount }) => {
-      setExams((prev) => prev.map((x) => {
-        if (x.id !== activeId) return x;
-        if (chapterId) {
-          // Append files to existing chapter
-          const chapters = x.chapters.map((c) => c.id === chapterId
-            ? { ...c, files: (c.files || 1) + fileCount, pages: (c.pages || 0) + fileCount * 6, updated: 'Just now' }
-            : c);
-          return { ...x, chapters, updated: 'Just now' };
-        }
-        // Create a new chapter
-        const idx = x.chapters.length;
-        const newChapter = makeSampleChapter(Date.now(), chapterName, 'Just now', Math.max(1, fileCount * 6), fileCount, idx);
-        return { ...x, chapters: [newChapter, ...x.chapters], updated: 'Just now' };
-      }));
+    const refreshExams = async () => {
+      const result = await listExams();
+      if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to reload exams.'));
+      setExams(result.data || []);
     };
-    const onEditChapter = ({ chapterId, newTitle }) => {
+    const onAddChapter = async ({ chapterId, chapterName, fileCount, files = [] }) => {
+      let targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
+      const pageCount = Math.max(1, fileCount * 6);
+
+      if (chapterId) {
+        const result = await updateChapter(activeId, chapterId, {
+          files: (targetChapter?.files || 0) + fileCount,
+          pages: (targetChapter?.pages || 0) + pageCount,
+        });
+        if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
+        targetChapter = result.data;
+      } else {
+        const result = await createChapter(activeId, {
+          title: chapterName,
+          position: activeExam.chapters?.length || 0,
+          files: fileCount,
+          pages: pageCount,
+        });
+        if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to create chapter.'));
+        targetChapter = result.data;
+      }
+
+      for (const file of files) {
+        const uploadResult = await uploadStudyMaterialFile({ file, materialId: crypto.randomUUID() });
+        if (uploadResult.error) throw new Error(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
+        const materialResult = await createMaterial({
+          examId: activeId,
+          chapterId: targetChapter.id,
+          title: file.name,
+          storagePath: uploadResult.data.path,
+          mimeType: uploadResult.data.mimeType,
+          sizeBytes: uploadResult.data.sizeBytes,
+          type: 'file',
+        });
+        if (materialResult.error) throw new Error(formatStudyServiceError(materialResult.error, 'Unable to save material.'));
+      }
+
+      await refreshExams();
+    };
+    const onEditChapter = async ({ chapterId, newTitle }) => {
       const cleanTitle = (newTitle || '').trim();
       if (!cleanTitle) return;
-      setExams((prev) => prev.map((x) => x.id !== activeId ? x : ({
-        ...x,
-        chapters: x.chapters.map((c) => c.id === chapterId ? { ...c, title: cleanTitle, updated: 'Just now' } : c),
-        updated: 'Just now',
-      })));
+      const result = await updateChapter(activeId, chapterId, { title: cleanTitle });
+      if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
+      await refreshExams();
     };
-    const onDeleteChapter = (chapterId) => {
-      setExams((prev) => prev.map((x) => x.id !== activeId ? x : ({
-        ...x,
-        chapters: x.chapters.filter((c) => c.id !== chapterId),
-        updated: 'Just now',
-      })));
+    const onDeleteChapter = async (chapterId) => {
+      const result = await deleteChapter(activeId, chapterId);
+      if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to delete chapter.'));
+      await refreshExams();
     };
     return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
   }
@@ -645,7 +669,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         <UploadChapterModal
           existingChapters={exam.chapters}
           onClose={() => setShowUpload(false)}
-          onUpload={(payload) => { onAddChapter(payload); setShowUpload(false); }}
+          onUpload={async (payload) => { await onAddChapter(payload); setShowUpload(false); }}
         />
       )}
 
@@ -895,8 +919,8 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         <EditChapterModal
           chapter={editingChapter}
           onClose={() => setEditingChapter(null)}
-          onSave={(newTitle) => { onEditChapter && onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
-          onDelete={() => { onDeleteChapter && onDeleteChapter(editingChapter.id); setEditingChapter(null); }}
+          onSave={async (newTitle) => { await onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
+          onDelete={async () => { await onDeleteChapter(editingChapter.id); setEditingChapter(null); }}
         />
       )}
       {pdfChapter && (

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, Google } from '../lib/icons';
 import { useAuth } from '../context/AuthContext';
-import { isMockAuthMode } from '../lib/authClient';
 
 const AUTH_STYLES = `
   @keyframes authCardIn { from { opacity:0; transform:scale(.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
@@ -11,21 +10,66 @@ const AUTH_STYLES = `
 
 /* ===================== AUTH SCREEN ===================== */
 export default function AuthModal({ initialMode = "signin", onAuth, onClose, darkMode }) {
-  const { signIn, signUp } = useAuth();
+  const { requestPasswordReset, signIn, signInWithGoogle, signUp, updatePassword } = useAuth();
   const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
   const [focusedField, setFocusedField] = useState(null);
   const [modeKey, setModeKey] = useState(0);
 
   const submit = async (e) => {
     e.preventDefault();
     if (loading) return;
-    if (!email.trim()) {
+    if (mode === 'forgot') {
+      if (!email.trim()) {
+        setError('Email is required.');
+        return;
+      }
+      setError(null);
+      setNotice(null);
+      setLoading(true);
+      const result = await requestPasswordReset({ email });
+      setLoading(false);
+      if (result.error) {
+        setError(result.error.message || 'Unable to send reset email.');
+        return;
+      }
+      setNotice('Password reset email sent. Check your inbox.');
+      return;
+    }
+    if (mode === 'reset') {
+      if (!password) {
+        setError('New password is required.');
+        return;
+      }
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+      setError(null);
+      setNotice(null);
+      setLoading(true);
+      const result = await updatePassword({ password });
+      setLoading(false);
+      if (result.error) {
+        setError(result.error.message || 'Unable to update password.');
+        return;
+      }
+      onAuth && onAuth(result.data.user);
+      return;
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
       setError('Email is required.');
       return;
     }
@@ -34,8 +78,9 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
       return;
     }
     setError(null);
+    setNotice(null);
     setLoading(true);
-    const input = { name: name || email.split('@')[0] || 'Alex', email, password };
+    const input = { name: name || normalizedEmail.split('@')[0] || 'Alex', email: normalizedEmail, password };
     const result = mode === 'signin' ? await signIn(input) : await signUp(input);
     setLoading(false);
     if (result.error) {
@@ -47,19 +92,25 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
 
   const google = async () => {
     if (loading) return;
-    if (!isMockAuthMode()) {
-      setError('Google sign-in is not enabled for beta. Use email and password.');
-      return;
-    }
     setError(null);
+    setNotice(null);
     setLoading(true);
-    const result = await signIn({ name: 'Alex', email: 'alex@gmail.com', provider: 'google' });
+    const result = await signInWithGoogle();
     setLoading(false);
     if (result.error) {
       setError(result.error.message || 'Unable to authenticate.');
       return;
     }
-    onAuth && onAuth(result.data.user);
+    if (result.data?.user) onAuth && onAuth(result.data.user);
+  };
+
+  const switchMode = (nextMode) => {
+    setError(null);
+    setNotice(null);
+    setPassword('');
+    setConfirmPassword('');
+    setMode(nextMode);
+    setModeKey(k => k + 1);
   };
 
   const focusStyle = (field) => focusedField === field
@@ -83,23 +134,37 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
         </div>
 
         <h1 style={authS.title}>
-          {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+          {mode === 'signin'
+            ? 'Welcome back'
+            : mode === 'signup'
+              ? 'Create your account'
+              : mode === 'forgot'
+                ? 'Reset your password'
+                : 'Choose a new password'}
         </h1>
         <p style={authS.sub}>
           {mode === 'signin'
             ? 'Sign in to continue your learning journey'
-            : 'Start studying smarter with AI in seconds'}
+            : mode === 'signup'
+              ? 'Start studying smarter with AI in seconds'
+              : mode === 'forgot'
+                ? 'Enter your email and we will send a reset link'
+                : 'Create a secure password for your account'}
         </p>
 
-        <button onClick={google} style={{ ...authS.googleBtn, background: darkMode ? '#1e293b' : '#fff' }} disabled={loading}>
-          <Google /> Continue with Google
-        </button>
+        {mode !== 'forgot' && mode !== 'reset' && (
+          <button onClick={google} style={{ ...authS.googleBtn, background: darkMode ? '#1e293b' : '#fff' }} disabled={loading}>
+            <Google /> Continue with Google
+          </button>
+        )}
 
-        <div style={authS.divider}>
-          <span style={authS.dividerLine} />
-          <span style={authS.dividerText}>or</span>
-          <span style={authS.dividerLine} />
-        </div>
+        {mode !== 'forgot' && mode !== 'reset' && (
+          <div style={authS.divider}>
+            <span style={authS.dividerLine} />
+            <span style={authS.dividerText}>or</span>
+            <span style={authS.dividerLine} />
+          </div>
+        )}
 
         <form key={modeKey} onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'authModeSwitch .22s ease' }}>
           {mode === 'signup' && (
@@ -109,41 +174,61 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
                 style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('name') }} />
             </Field>
           )}
-          <Field label="Email">
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
-              required
-              disabled={loading}
-              autoComplete={mode === 'signin' ? 'email' : 'username'}
-              onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
-              style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('email') }} />
-          </Field>
-          <Field label="Password" right={mode === 'signin' && <a href="#" style={authS.forgot}>Forgot?</a>}>
-            <div style={{ position: 'relative' }}>
-              <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+          {mode !== 'reset' && (
+            <Field label="Email">
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
+                required
+                disabled={loading}
+                autoComplete={mode === 'signin' ? 'email' : 'username'}
+                onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
+                style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('email') }} />
+            </Field>
+          )}
+          {mode !== 'forgot' && (
+            <Field label={mode === 'reset' ? 'New password' : 'Password'} right={mode === 'signin' && <button type="button" onClick={() => switchMode('forgot')} style={authS.forgot}>Forgot?</button>}>
+              <div style={{ position: 'relative' }}>
+                <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                  required
+                  minLength={6}
+                  disabled={loading}
+                  autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                  onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
+                  style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', paddingRight: 44, ...focusStyle('password') }} />
+                <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password" style={authS.eyeBtn}>
+                  {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </Field>
+          )}
+          {mode === 'reset' && (
+            <Field label="Confirm password">
+              <input type={showPw ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••"
                 required
                 minLength={6}
                 disabled={loading}
-                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
-                style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', paddingRight: 44, ...focusStyle('password') }} />
-              <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password" style={authS.eyeBtn}>
-                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </Field>
+                autoComplete="new-password"
+                onFocus={() => setFocusedField('confirmPassword')} onBlur={() => setFocusedField(null)}
+                style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('confirmPassword') }} />
+            </Field>
+          )}
 
           {error && <div style={authS.error}>{error}</div>}
+          {notice && <div style={authS.notice}>{notice}</div>}
 
           <button type="submit" disabled={loading} style={{ ...authS.submit, opacity: loading ? .85 : 1 }}>
             {loading
               ? <><span style={{ width: 18, height: 18, border: '2.5px solid rgba(255,255,255,.35)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'authSpin .7s linear infinite' }} /> Just a sec…</>
-              : <>{mode === 'signin' ? 'Sign In' : 'Create Account'} <ArrowRight size={18} /></>}
+              : <>{mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : mode === 'forgot' ? 'Send Reset Link' : 'Update Password'} <ArrowRight size={18} /></>}
           </button>
         </form>
 
         <p style={authS.toggle}>
-          {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
-          <button onClick={() => { setError(null); setMode(mode === 'signin' ? 'signup' : 'signin'); setModeKey(k => k + 1); }} style={authS.toggleLink}>
+          {mode === 'signin'
+            ? "Don't have an account?"
+            : mode === 'signup'
+              ? 'Already have an account?'
+              : 'Remembered your password?'}{' '}
+          <button onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')} style={authS.toggleLink}>
             {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </button>
         </p>
@@ -183,6 +268,7 @@ const authS = {
   dividerText: { color: 'var(--gray-2)', fontSize: 13 },
   input: { width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 15, color: 'var(--ink)', background: 'var(--input-bg)', outline: 'none', transition: 'border-color .15s' },
   error: { padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600, lineHeight: 1.4 },
+  notice: { padding: '10px 12px', borderRadius: 12, background: '#ECFDF5', border: '1px solid #86EFAC', color: '#166534', fontSize: 13, fontWeight: 600, lineHeight: 1.4 },
   eyeBtn: { position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', padding: 8, color: 'var(--gray)', borderRadius: 8 },
   forgot: { fontSize: 13, color: 'var(--indigo)', fontWeight: 600 },
   submit: { width: '100%', marginTop: 8, padding: '13px 16px', background: 'var(--indigo)', color: '#fff', borderRadius: 12, fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 10px 30px -8px rgba(55,48,232,.45)' },

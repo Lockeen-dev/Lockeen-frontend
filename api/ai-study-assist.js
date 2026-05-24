@@ -126,18 +126,107 @@ async function checkPersistentQuota(userKey) {
 function fallbackFor(kind, prompt) {
   if (kind === 'planner') {
     return [
-      '1. Pick one exam or chapter as focus.',
-      '2. Split study into 25 minute blocks with 5 minute breaks.',
-      '3. Start with weak chapters, then quiz yourself.',
-      '4. End with 10 flashcards and one written summary.',
+      '## Study plan',
+      '',
+      '**Key idea:** use one focused loop: review, practice, check, repeat.',
+      '',
+      '### Session structure',
+      '1. Pick one exam or chapter.',
+      '2. Study for 25 minutes.',
+      '3. Write 5 key points from memory.',
+      '4. Do one short quiz or 5 flashcards.',
+      '',
+      '**Next action:** start a 25 minute session on that weak point now.',
     ].join('\n');
   }
 
   return [
-    'I can help, but the AI provider is not configured yet.',
-    'Use this safe fallback: restate the topic, list what you know, identify the first unclear point, then make one flashcard and one quiz question from it.',
-    prompt ? `Your prompt focus: ${prompt.slice(0, 220)}` : '',
-  ].filter(Boolean).join('\n\n');
+    '## Quick explanation',
+    '',
+    prompt
+      ? `Focus on: ${prompt.slice(0, 180)}`
+      : 'Break the topic into one core idea and one useful example.',
+    '',
+    '**Core idea:** define it simply, then test it with one example.',
+    '',
+    '### How to study it',
+    '1. Define the topic in one sentence.',
+    '2. Connect it to one concrete example.',
+    '3. Identify the confusing part.',
+    '4. Practice that part once.',
+  ].filter(Boolean).join('\n');
+}
+
+function inferResponseMode(prompt, kind) {
+  const text = String(prompt || '').toLowerCase();
+  if (kind === 'planner' || /plan|schedule|timetable|study routine/.test(text)) return 'study_plan';
+  if (/quiz|test me|ask me questions|questions only/.test(text)) return 'quiz_mode';
+  if (/flashcard|flash card|anki/.test(text)) return 'flashcard_mode';
+  if (/compare|difference|versus| vs |table/.test(text)) return 'comparison_table';
+  if (/exam answer|formal answer|academic answer|write an answer/.test(text)) return 'exam_answer';
+  if (/case study|case analysis|business case|scenario/.test(text)) return 'case_study';
+  if (/formula|equation|derive|breakdown/.test(text)) return 'formula_breakdown';
+  if (/step by step|tutorial|how do i|solve/.test(text)) return 'step_by_step';
+  if (/make notes|study notes|notes/.test(text)) return 'study_notes';
+  if (/summary|recap|summarize|tl;dr/.test(text)) return 'quick_summary';
+  if (/deep|explain well|in detail|thorough/.test(text)) return 'deep_dive';
+  if (/i don't understand|dont understand|confused|simpler|explain simply/.test(text)) return 'concept_explanation';
+  return 'concept_explanation';
+}
+
+function inferDepth(prompt) {
+  const text = String(prompt || '').toLowerCase();
+  if (/quick|brief|short|tl;dr|in 30 seconds/.test(text)) return 'quick';
+  if (/deep|well|detail|thorough|comprehensive/.test(text)) return 'deep';
+  return 'standard';
+}
+
+function buildTutorSystemText({ mode, depth }) {
+  return [
+    'You are Lockeen AI, a high-quality private tutor for students.',
+    'Tone: clear, direct, encouraging, mature, never childish, never generic.',
+    'Use Markdown for readable educational answers.',
+    '',
+    `Selected response mode: ${mode}.`,
+    `Depth: ${depth}. If quick, keep it very short. If deep, expand progressively. Otherwise default concise.`,
+    '',
+    'Choose structure dynamically. Do NOT force the same headings every time.',
+    'Available internal modes:',
+    '- concept_explanation: use "## Topic", "Core idea", "How it works", "Example".',
+    '- deep_dive: layered explanation with intuition, mechanics, example, edge cases.',
+    '- quick_summary: concise bullets plus one example.',
+    '- study_notes: clean notes with definitions, key points, common mistake, exam tip.',
+    '- quiz_mode: questions only unless user asks for answers; include answer key only when requested.',
+    '- flashcard_mode: Q/A flashcards, short and atomic.',
+    '- exam_answer: formal academic answer, structured and precise.',
+    '- case_study: situation, analysis, implication, recommendation.',
+    '- step_by_step: numbered steps, each with one action.',
+    '- comparison_table: Markdown table with short rows, then one takeaway.',
+    '- formula_breakdown: formula, variables, intuition, worked mini example, common mistake.',
+    '',
+    'Formatting rules:',
+    '- Use headings only when useful.',
+    '- Use **bold** for key terms.',
+    '- Use bullets only when they improve scanning.',
+    '- Use numbered steps for processes.',
+    '- Use Markdown tables for comparisons.',
+    '- Use blockquotes only for useful callouts, e.g. > Key idea: ... or > Exam tip: ...',
+    '- Avoid long text blocks. Max 2-4 lines per paragraph.',
+    '',
+    'Default answer shape when user gives no special request:',
+    'clear explanation, key points, example, optional next action.',
+    'Do not add "Quick check" sections or callouts unless the user explicitly asks for a quiz/check.',
+    '',
+    'Personalization:',
+    '- Use current subject, exam goals, preferred depth, weak topics, previous chat, and uploaded note context when provided.',
+    '- If attachments only contain filenames, say you can use filename context only; do not pretend to read files.',
+    '- If user says they are confused, simplify and build from intuition first.',
+    '',
+    'Length:',
+    '- Default max about 220 words.',
+    '- Quick answers max about 90 words.',
+    '- Deep answers can be longer but must use sections and avoid dense blocks.',
+  ].join('\n');
 }
 
 async function callOpenAI({ kind, prompt, context }) {
@@ -150,12 +239,9 @@ async function callOpenAI({ kind, prompt, context }) {
     };
   }
 
-  const systemText = [
-    'You are Lockeen AI, a concise study assistant.',
-    'Help students study safely and practically.',
-    'Do not claim to have parsed private files unless context is provided.',
-    'Keep answers short, structured, and actionable.',
-  ].join(' ');
+  const mode = inferResponseMode(prompt, kind);
+  const depth = inferDepth(prompt);
+  const systemText = buildTutorSystemText({ mode, depth });
 
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -171,12 +257,15 @@ async function callOpenAI({ kind, prompt, context }) {
           role: 'user',
           content: JSON.stringify({
             kind,
+            responseMode: mode,
+            depth,
             prompt,
             context: context || {},
           }),
         },
       ],
-      max_output_tokens: 700,
+      max_output_tokens: depth === 'deep' ? 900 : 520,
+      temperature: 0.35,
     }),
   });
 
@@ -202,6 +291,8 @@ async function callOpenAI({ kind, prompt, context }) {
     text: text || fallbackFor(kind, prompt),
     provider: 'openai',
     fallback: !text,
+    responseMode: mode,
+    depth,
   };
 }
 
