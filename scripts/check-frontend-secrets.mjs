@@ -25,6 +25,8 @@ const allowedContentFiles = new Set([
   'docs/setup/week2-environment.md',
   'docs/release/week3-handoff.md',
   'docs/release/week3-beta-preview-checklist.md',
+  'docs/release/week3-release-notes.md',
+  'docs/release/week4-handoff.md',
   'docs/security/week3-ai-quota.md',
   'docs/openai.md',
 ]);
