@@ -4,7 +4,6 @@ import { getExamEmoji, SubjectIcon } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { getSubjectPalette } from '../data/mockData';
 import { createFlashcard, deleteFlashcard, listFlashcards, updateFlashcard } from '../services/flashcards';
-import { tt } from '../lib/i18n';
 
 function FlashStyles() {
   return (
@@ -26,7 +25,7 @@ function normalizeFlashcard(card) {
   };
 }
 
-function FlashResultScreen({ percent, correct, total, palette, title, subject, subjectStyle, onReset, onBack, lang = 'en' }) {
+function FlashResultScreen({ percent, correct, total, palette, title, subject, subjectStyle, onReset, onBack }) {
   const [p, setP] = useState(0);
   useEffect(() => {
     let raf;
@@ -63,15 +62,15 @@ function FlashResultScreen({ percent, correct, total, palette, title, subject, s
         <h2 style={flashS.resultTitle}>{titleText}</h2>
         <p style={flashS.resultSub}>{title}</p>
         <div style={flashS.resultActions}>
-          <button onClick={onReset} style={{ ...flashS.tryAgainBtn, background: palette.dot }}>{tt(lang, 'tryAgain')}</button>
-          <button onClick={onBack} style={flashS.backBtn}>{tt(lang, 'backToDecks')}</button>
+          <button onClick={onReset} style={{ ...flashS.tryAgainBtn, background: palette.dot }}>Try again</button>
+          <button onClick={onBack} style={flashS.backBtn}>Torna ai mazzi</button>
         </div>
       </div>
     </>
   );
 }
 
-export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [], lang = 'en' }) {
+export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [] }) {
   const isMobile = useIsMobile();
   const [selectedExamId, setSelectedExamId] = useState(exams[0]?.id ?? null);
   const [cards, setCards] = useState([]);
@@ -168,14 +167,14 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
         <div>
           <h2 style={{ margin:'0 0 4px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>Flashcards</h2>
-          <p style={{ margin:0, color:'var(--gray)', fontSize:14 }}>{tt(lang, 'flashSub')}</p>
+          <p style={{ margin:0, color:'var(--gray)', fontSize:14 }}>Rivedi i tuoi mazzi o studia per capitolo</p>
         </div>
       </div>
 
       {/* Exam selector */}
       {exams.length > 0 && (
         <div>
-          <div style={sL}>{tt(lang, 'chooseExam')}</div>
+          <div style={sL}>Scegli esame</div>
           <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
@@ -196,7 +195,7 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
       {/* Chapter cards */}
       {selectedExam && (
         <div>
-          <div style={sL}>{tt(lang, 'chaptersLabel')} — {selectedExam.name}</div>
+          <div style={sL}>Capitoli — {selectedExam.name}</div>
           <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap:12 }}>
             {selectedExam.chapters.map(ch => {
               const pal = getSubjectPalette(selectedExam.subject, {}, darkMode);
@@ -223,7 +222,7 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ch.title}</div>
                         <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>
-                          {hasCards ? `${cardCount} ${tt(lang, 'cards')}` : tt(lang, 'noFlashcards')}
+                          {hasCards ? `${cardCount} carte` : 'Nessuna flashcard'}
                         </div>
                       </div>
                       {scoreStyle && (
@@ -242,20 +241,20 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
                       disabled={!hasCards}
                       onClick={e => { e.stopPropagation(); if(hasCards) onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: chapterCards, _meta: { examId: selectedExam.id, chapterId: ch.id } }); }}
                       style={{ width:'100%', padding:'10px', borderRadius:12, background: hasCards ? pal.dot : 'var(--border)', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor: hasCards ? 'pointer' : 'not-allowed', letterSpacing:'.01em' }}>
-                      {studied ? `🔄 ${tt(lang, 'review')}` : `▶ ${tt(lang, 'study')}`}
+                      {studied ? '🔄 Rivedi' : '▶ Studia'}
                     </button>
                   </div>
                 </div>
               );
             })}
           </div>
-          {loadingCards && <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>{tt(lang, 'loading')}</p>}
+          {loadingCards && <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>Loading flashcards...</p>}
           {cardsError && <p style={{ margin:'12px 0 0', color:'#DC2626', fontSize:13 }}>{cardsError}</p>}
           {!loadingCards && !cardsError && cards.length === 0 && (
-            <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>{tt(lang, 'noFlashcardsYet')}</p>
+            <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>No flashcards yet.</p>
           )}
           <form onSubmit={submitCardForm} style={{ marginTop:16, padding:16, border:'1px solid var(--border)', borderRadius:16, background:'var(--surface)', display:'grid', gap:10 }}>
-            <div style={sL}>{editingId ? tt(lang, 'editFlashcard') : tt(lang, 'newFlashcard')}</div>
+            <div style={sL}>{editingId ? 'Modifica flashcard' : 'Nuova flashcard'}</div>
             <select value={form.chapterId} onChange={e => setForm(f => ({ ...f, chapterId: e.target.value }))}
               style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)' }}>
               {(selectedExam.chapters || []).map(ch => <option key={ch.id} value={ch.id}>{ch.title}</option>)}
@@ -266,12 +265,12 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
               style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)', resize:'vertical' }} />
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               <button type="submit" style={{ padding:'10px 14px', borderRadius:10, border:'none', background:'var(--indigo)', color:'#fff', fontWeight:700 }}>
-                {editingId ? tt(lang, 'save') : tt(lang, 'create')}
+                {editingId ? 'Salva' : 'Crea'}
               </button>
               {editingId && (
                 <button type="button" onClick={() => { setEditingId(null); setForm(f => ({ ...f, front:'', back:'' })); }}
                   style={{ padding:'10px 14px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700 }}>
-                  {tt(lang, 'cancel')}
+                  Annulla
                 </button>
               )}
             </div>
@@ -284,8 +283,8 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
                     <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{card.front}</div>
                     <div style={{ fontSize:12, color:'var(--gray)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{card.back}</div>
                   </div>
-                  <button type="button" onClick={() => startEditCard(card)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:12 }}>{tt(lang, 'edit')}</button>
-                  <button type="button" onClick={() => removeCard(card.id)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid #fca5a5', background:'#FEE2E2', color:'#991B1B', fontWeight:700, fontSize:12 }}>{tt(lang, 'delete')}</button>
+                  <button type="button" onClick={() => startEditCard(card)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:12 }}>Edit</button>
+                  <button type="button" onClick={() => removeCard(card.id)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid #fca5a5', background:'#FEE2E2', color:'#991B1B', fontWeight:700, fontSize:12 }}>Delete</button>
                 </div>
               ))}
             </div>
@@ -297,7 +296,7 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
       {recentDecks.length > 0 && (
         <div>
           <div style={{ height:1, background:'var(--border)', marginBottom:20 }} />
-          <div style={sL}>{tt(lang, 'recentSessions')}</div>
+          <div style={sL}>Sessioni recenti</div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {recentDecks.map((deck, i) => {
               const sc = deck.lastScore != null ? fmtScore(deck.lastScore) : null;
@@ -311,12 +310,12 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
                   <SubjectIcon subject={deck.subject} size={40} radius={10} dot={pal.dot} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deck.title}</div>
-                    <div style={{ fontSize:12, color:'var(--gray)', marginTop:1 }}>{deck.subject} · {(deck.cards||[]).length} {tt(lang, 'cards')}{deck.ts ? ' · ' + fmtDate(deck.ts) : ''}</div>
+                    <div style={{ fontSize:12, color:'var(--gray)', marginTop:1 }}>{deck.subject} · {(deck.cards||[]).length} carte{deck.ts ? ' · ' + fmtDate(deck.ts) : ''}</div>
                   </div>
                   {sc && <span style={{ fontSize:12, fontWeight:700, color:sc.color, background:sc.bg, padding:'3px 9px', borderRadius:999, flexShrink:0 }}>{sc.label}</span>}
                   <button onClick={e => { e.stopPropagation(); onOpenDeck(deck); }}
                     style={{ padding:'7px 16px', borderRadius:10, background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:12, border:'none', cursor:'pointer', flexShrink:0 }}>
-                    {tt(lang, 'review')}
+                    Rivedi
                   </button>
                 </div>
               );
@@ -328,7 +327,7 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
   );
 }
 
-export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFlashComplete, onBackToLanding, lang = 'en' }) {
+export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFlashComplete, onBackToLanding }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const total = cards.length;
   const [idx, setIdx] = useState(0);
@@ -416,7 +415,6 @@ export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMod
         subjectStyle={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}
         onReset={reset}
         onBack={() => onBackToLanding ? onBackToLanding() : setTab('notes')}
-        lang={lang}
       />
     );
   }

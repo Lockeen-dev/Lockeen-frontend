@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, GripDots, Pause, Play, RefreshCw, Stop } from '../lib/icons';
-import { tt } from '../lib/i18n';
 
 /* ===================== STUDY TIMER ===================== */
-export default function StudyTimer({ onSessionSaved, startTrigger, lang = 'en' }) {
+export default function StudyTimer({ onSessionSaved, startTrigger }) {
   const PS = 1500;
   const PB = 300;
   const CIRC = 376.99;
@@ -248,14 +247,14 @@ export default function StudyTimer({ onSessionSaved, startTrigger, lang = 'en' }
       {showToast && (
         <div style={timerS.toast}>
           <Check size={14} />
-          <span>{showToast}m {tt(lang, 'addedAnalytics')}</span>
+          <span>{showToast}m aggiunti ad Analytics!</span>
         </div>
       )}
       <div ref={fwRef} style={timerS.card}>
         <div style={timerS.header}>
           <div onMouseDown={onHandleDown} style={timerS.dragHandle}>
             <GripDots size={12} color="var(--gray)" style={{ opacity: .4 }} />
-            <span style={{ fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{tt(lang, 'studyTimer')}</span>
+            <span style={{ fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Study Timer</span>
           </div>
           <button style={timerS.closeBtn} onClick={() => setExpanded(false)} aria-label="Minimize timer">
             <ChevronDown size={15} />
@@ -263,9 +262,9 @@ export default function StudyTimer({ onSessionSaved, startTrigger, lang = 'en' }
         </div>
 
         <div style={timerS.toggle}>
-          <button style={{ ...timerS.tab, ...(mode === 'free' ? timerS.tabActive : null) }} onClick={() => setMode('free')}>{tt(lang, 'free')}</button>
+          <button style={{ ...timerS.tab, ...(mode === 'free' ? timerS.tabActive : null) }} onClick={() => setMode('free')}>Free</button>
           <button style={{ ...timerS.tab, ...(mode === 'pomodoro' ? timerS.tabActive : null) }} onClick={() => setMode('pomodoro')}>🍅</button>
-          <button style={{ ...timerS.tab, ...(mode === 'custom' ? { ...timerS.tabActive, background: '#8B5CF6' } : null) }} onClick={() => setMode('custom')}>{tt(lang, 'custom')}</button>
+          <button style={{ ...timerS.tab, ...(mode === 'custom' ? { ...timerS.tabActive, background: '#8B5CF6' } : null) }} onClick={() => setMode('custom')}>Custom</button>
         </div>
         {isPomo && <div style={timerS.pomoHint}>25 min studio · 5 min pausa automatica</div>}
         {isCustom && !running && (
@@ -285,7 +284,7 @@ export default function StudyTimer({ onSessionSaved, startTrigger, lang = 'en' }
               style={{ flex: 1, padding: '8px 10px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--sidebar-bg)', color: 'var(--ink)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', textAlign: 'center', outline: 'none' }}
               placeholder="25"
             />
-            <span style={{ fontSize: 12, color: 'var(--gray)', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>{tt(lang, 'minutes')}</span>
+            <span style={{ fontSize: 12, color: 'var(--gray)', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>minuti</span>
           </div>
         )}
 
@@ -298,15 +297,15 @@ export default function StudyTimer({ onSessionSaved, startTrigger, lang = 'en' }
             <div style={timerS.ringTime}>{fmt(displaySeconds)}</div>
             {isPomo && <div style={timerS.ringPhase}>{pomoPhase === 'study' ? 'Studio' : 'Pausa'}</div>}
             {isCustom && <div style={timerS.ringPhase}>Custom</div>}
-            {!isPomo && !isCustom && <div style={timerS.ringPhase}>{tt(lang, 'startNowUpper')}</div>}
+            {!isPomo && !isCustom && <div style={timerS.ringPhase}>INIZIA ORA</div>}
           </div>
-          <div style={timerS.session}>{tt(lang, 'session')} {sessionCount}</div>
+          <div style={timerS.session}>Sessione {sessionCount}</div>
         </div>
 
         <div style={timerS.controls}>
           <button style={{ ...timerS.playBtn, ...(running ? timerS.pauseBtn : (elapsed > 0 || pomoElapsed > 0) ? timerS.resumeBtn : null) }} onClick={toggleRun}>
             {running ? <Pause size={15} /> : <Play size={15} />}
-            <span>{running ? tt(lang, 'pause') : (elapsed > 0 || pomoElapsed > 0) ? tt(lang, 'resume') : tt(lang, 'start')}</span>
+            <span>{running ? 'Pausa' : (elapsed > 0 || pomoElapsed > 0) ? 'Riprendi' : 'Avvia'}</span>
           </button>
           <button style={{ ...timerS.stopBtn, opacity: disabledStop ? .3 : 1 }} disabled={disabledStop} onClick={stopSession} aria-label="Stop session">
             <Stop size={15} />
@@ -318,7 +317,7 @@ export default function StudyTimer({ onSessionSaved, startTrigger, lang = 'en' }
 
         {sessions.length > 0 && (
           <div style={timerS.log}>
-            <div style={timerS.logTitle}>{tt(lang, 'todaySessions')}</div>
+            <div style={timerS.logTitle}>SESSIONI DI OGGI</div>
             <div style={timerS.logList}>
               {sessions.map((s, i) => (
                 <div key={`${s.time}-${i}`} style={timerS.logRow}>

@@ -1,36 +1,18 @@
 import { BookOpen, Calendar, CreditCard, LayoutDashboard, MessageSquare, Star, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ContainerScroll } from './ui/container-scroll-animation';
-import { useEffect, useState } from 'react';
 
-const PREVIEW_T = {
-  en: { dashboard:'Dashboard', exams:'My Exams', flashcards:'Flashcards', quiz:'Quiz', tutor:'AI Tutor', analytics:'Analytics', calendar:'Calendar', weeklyGoal:'Weekly Goal', greeting:'Good morning, Alex', ready:'Ready to continue your learning journey?', schedule:'Today schedule', completed:'0/2 completed', recommended:'RECOMMENDED TODAY', media:'Medium', practice:'Practice', qMeta:'15 questions • 20 min', startQuiz:'Start Quiz', flashMeta:'48 cards • Review', reviewCards:'Review Cards', assistant:'AI Study Assistant', assistantPrompt:'Explain photosynthesis in simple terms', title:'A workspace designed for', titleAccent:'modern learners', sub:'Clean, intuitive, and packed with intelligent features' },
-  it: { dashboard:'Dashboard', exams:'I miei esami', flashcards:'Flashcard', quiz:'Quiz', tutor:'Tutor AI', analytics:'Analytics', calendar:'Calendario', weeklyGoal:'Obiettivo settimanale', greeting:'Buongiorno, Alex', ready:'Pronto a continuare il tuo percorso?', schedule:'Programma di oggi', completed:'0/2 completati', recommended:'CONSIGLIATI OGGI', media:'Media', practice:'Pratica', qMeta:'15 domande • 20 min', startQuiz:'Inizia Quiz', flashMeta:'48 carte • Ripasso', reviewCards:'Rivedi carte', assistant:'Assistente studio AI', assistantPrompt:'Spiega la fotosintesi in parole semplici', title:'Uno spazio pensato per', titleAccent:'studenti moderni', sub:'Pulito, intuitivo e pieno di funzioni intelligenti' },
-  de: { dashboard:'Dashboard', exams:'Meine Prüfungen', flashcards:'Karten', quiz:'Quiz', tutor:'KI-Tutor', analytics:'Analytics', calendar:'Kalender', weeklyGoal:'Wochenziel', greeting:'Guten Morgen, Alex', ready:'Bereit, weiterzulernen?', schedule:'Heutiger Plan', completed:'0/2 erledigt', recommended:'HEUTE EMPFOHLEN', media:'Mittel', practice:'Übung', qMeta:'15 Fragen • 20 min', startQuiz:'Quiz starten', flashMeta:'48 Karten • Wiederholen', reviewCards:'Karten wiederholen', assistant:'KI-Lernassistent', assistantPrompt:'Erkläre Photosynthese einfach', title:'Ein Workspace für', titleAccent:'moderne Lernende', sub:'Klar, intuitiv und voller intelligenter Funktionen' },
-  es: { dashboard:'Dashboard', exams:'Mis exámenes', flashcards:'Tarjetas', quiz:'Quiz', tutor:'Tutor IA', analytics:'Analíticas', calendar:'Calendario', weeklyGoal:'Objetivo semanal', greeting:'Buenos días, Alex', ready:'¿Listo para seguir aprendiendo?', schedule:'Programa de hoy', completed:'0/2 completados', recommended:'RECOMENDADO HOY', media:'Medio', practice:'Práctica', qMeta:'15 preguntas • 20 min', startQuiz:'Empezar quiz', flashMeta:'48 tarjetas • Repaso', reviewCards:'Repasar tarjetas', assistant:'Asistente de estudio IA', assistantPrompt:'Explica la fotosíntesis simple', title:'Un espacio diseñado para', titleAccent:'estudiantes modernos', sub:'Limpio, intuitivo y lleno de funciones inteligentes' },
-  fr: { dashboard:'Dashboard', exams:'Mes examens', flashcards:'Cartes', quiz:'Quiz', tutor:'Tuteur IA', analytics:'Analytics', calendar:'Calendrier', weeklyGoal:'Objectif hebdo', greeting:'Bonjour, Alex', ready:'Prêt à continuer ?', schedule:'Planning du jour', completed:'0/2 terminés', recommended:'RECOMMANDÉ AUJOURD’HUI', media:'Moyen', practice:'Pratique', qMeta:'15 questions • 20 min', startQuiz:'Lancer quiz', flashMeta:'48 cartes • Révision', reviewCards:'Réviser cartes', assistant:'Assistant étude IA', assistantPrompt:'Explique la photosynthèse simplement', title:'Un espace conçu pour', titleAccent:'les étudiants modernes', sub:'Clair, intuitif et rempli de fonctions intelligentes' },
-  pt: { dashboard:'Dashboard', exams:'Meus exames', flashcards:'Flashcards', quiz:'Quiz', tutor:'Tutor IA', analytics:'Analytics', calendar:'Calendário', weeklyGoal:'Meta semanal', greeting:'Bom dia, Alex', ready:'Pronto para continuar?', schedule:'Agenda de hoje', completed:'0/2 concluídos', recommended:'RECOMENDADO HOJE', media:'Médio', practice:'Prática', qMeta:'15 perguntas • 20 min', startQuiz:'Iniciar quiz', flashMeta:'48 cartões • Revisão', reviewCards:'Rever cartões', assistant:'Assistente de estudo IA', assistantPrompt:'Explica a fotossíntese simples', title:'Um workspace feito para', titleAccent:'estudantes modernos', sub:'Limpo, intuitivo e cheio de recursos inteligentes' },
-};
-function usePreviewCopy() {
-  const [lang, setLang] = useState(() => localStorage.getItem('lockeen-lang') || 'en');
-  useEffect(() => {
-    const onLang = (e) => setLang(e.detail?.lang || localStorage.getItem('lockeen-lang') || 'en');
-    window.addEventListener('lockeen-language', onLang);
-    return () => window.removeEventListener('lockeen-language', onLang);
-  }, []);
-  return PREVIEW_T[lang] || PREVIEW_T.en;
-}
+const navItems = [
+  { icon: Zap, label: 'Dashboard', active: true },
+  { icon: BookOpen, label: 'My Exams' },
+  { icon: CreditCard, label: 'Flashcards' },
+  { icon: Star, label: 'Quiz' },
+  { icon: MessageSquare, label: 'AI Tutor' },
+  { icon: LayoutDashboard, label: 'Analytics' },
+  { icon: Calendar, label: 'Calendar' },
+];
 
-function Sidebar({ t }) {
-  const navItems = [
-    { icon: Zap, label: t.dashboard, active: true },
-    { icon: BookOpen, label: t.exams },
-    { icon: CreditCard, label: t.flashcards },
-    { icon: Star, label: t.quiz },
-    { icon: MessageSquare, label: t.tutor },
-    { icon: LayoutDashboard, label: t.analytics },
-    { icon: Calendar, label: t.calendar },
-  ];
+function Sidebar() {
   return (
     <aside className="hidden w-[260px] shrink-0 flex-col justify-between border-r border-[#E4E7F0] bg-[#F7F8FC] p-5 lg:flex">
       <div className="space-y-2">
@@ -61,7 +43,7 @@ function Sidebar({ t }) {
         viewport={{ once: true }}
         transition={{ duration: 0.45, delay: 0.2 }}
       >
-        <p className="text-sm font-medium text-[#565B73]">{t.weeklyGoal}</p>
+        <p className="text-sm font-medium text-[#565B73]">Weekly Goal</p>
         <p className="mt-3 text-4xl font-extrabold tracking-normal text-[#332BFF]">78%</p>
         <div className="mt-4 h-2 rounded-full bg-[#DCDDF4]">
           <motion.div
@@ -145,7 +127,6 @@ function RecommendationCard({ tone, label, title, meta, cta }) {
 }
 
 function DashboardPreview() {
-  const t = usePreviewLang();
   return (
     <motion.div
       className="relative h-full overflow-hidden rounded-[22px] bg-white"
@@ -155,7 +136,7 @@ function DashboardPreview() {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-white/60 to-transparent" />
       <BrowserChrome />
       <div className="flex h-[calc(100%-3.5rem)]">
-        <Sidebar t={t} />
+        <Sidebar />
         <main className="min-w-0 flex-1 overflow-hidden p-5 sm:p-8 lg:p-10">
           <div className="mb-6">
             <h2 className="text-2xl font-extrabold tracking-normal text-[#12142F] sm:text-3xl">

@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Brain, CalendarIcon, ChevronDown, FileText, GripDots, Paperclip, Plus, Trash } from '../lib/icons';
 import { listCalendarEvents } from '../services/calendar';
 import { homeS } from '../styles/dashboardStyles';
-import { tt } from '../lib/i18n';
 
 export const LIFE_CATS = [
   { id:'study',   label:'Study',   color:'#3730E8', bg:'#EEF2FF', text:'#3730E8' },
@@ -12,15 +11,6 @@ export const LIFE_CATS = [
   { id:'rest',    label:'Rest',    color:'#8B5CF6', bg:'#F5F3FF', text:'#5B21B6' },
   { id:'other',   label:'Other',   color:'#6B7280', bg:'#F3F4F6', text:'#374151' },
 ];
-const CAT_LABELS = {
-  en: { study:'Study', fitness:'Fitness', social:'Social', rest:'Rest', other:'Other' },
-  it: { study:'Studio', fitness:'Fitness', social:'Sociale', rest:'Riposo', other:'Altro' },
-  de: { study:'Lernen', fitness:'Fitness', social:'Sozial', rest:'Pause', other:'Andere' },
-  es: { study:'Estudio', fitness:'Fitness', social:'Social', rest:'Descanso', other:'Otro' },
-  fr: { study:'Étude', fitness:'Fitness', social:'Social', rest:'Repos', other:'Autre' },
-  pt: { study:'Estudo', fitness:'Fitness', social:'Social', rest:'Descanso', other:'Outro' },
-};
-const catLabel = (lang, id, fallback) => CAT_LABELS[lang]?.[id] || CAT_LABELS.en[id] || fallback;
 
 /* ===================== CALENDAR HELPERS ===================== */
 const CAL_MONTHS   = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -111,7 +101,7 @@ function serviceEventToCalendarEvent(event) {
   };
 }
 
-export function CalendarView({ events, setEvents, setTab, onOpenPlanner, lang = 'en' }) {
+export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const [view, setView]           = useState('week');
   const [weekStart, setWeekStart] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
@@ -763,8 +753,8 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, lang = 
   return (
     <div style={calS.wrap}>
       <div style={{ marginBottom:22 }}>
-        <h2 style={homeS.h1}>{tt(lang, 'calendar')}</h2>
-        <p style={homeS.sub}>{tt(lang, 'calendarSub')}</p>
+        <h2 style={homeS.h1}>Calendar</h2>
+        <p style={homeS.sub}>Plan your week, track your life balance</p>
       </div>
       <div style={calS.header}>
         <div style={calS.navGroup}>
@@ -777,13 +767,13 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, lang = 
           <div style={{ position:'relative' }}>
             <button onClick={() => setViewDropOpen(o => !o)}
               style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:999, fontSize:13, fontWeight:600, color:'var(--ink)', cursor:'pointer', userSelect:'none' }}>
-              {view === 'week' ? tt(lang, 'week') : tt(lang, 'month')}
+              {view === 'week' ? 'Settimana' : 'Mese'}
               <ChevronDown size={14} color="var(--gray)" />
             </button>
             {viewDropOpen && (
               <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'0 12px 32px rgba(0,0,0,.18)', zIndex:300, minWidth:160, overflow:'hidden' }}
                 onMouseLeave={() => setViewDropOpen(false)}>
-                {[{v:'week',label:tt(lang, 'week'),key:'W'},{v:'month',label:tt(lang, 'month'),key:'M'}].map(({v, label, key}) => (
+                {[{v:'week',label:'Settimana',key:'W'},{v:'month',label:'Mese',key:'M'}].map(({v, label, key}) => (
                   <button key={v} onClick={() => { setView(v); setViewDropOpen(false); }}
                     style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 18px', background: view===v ? 'var(--lavender)' : 'transparent', color: view===v ? 'var(--indigo)' : 'var(--ink)', fontSize:14, fontWeight: view===v ? 700 : 500, borderBottom:'1px solid var(--border)', cursor:'pointer', textAlign:'left' }}>
                     <span>{label}</span>
@@ -794,7 +784,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, lang = 
             )}
           </div>
           <button onClick={onOpenPlanner} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 16px', background:'var(--indigo)', color:'#fff', borderRadius:999, fontSize:13, fontWeight:600, border:'none', cursor:'pointer' }}>
-            <Brain size={14} /> {tt(lang, 'aiStudy')}
+            <Brain size={14} /> Studio AI
           </button>
         </div>
       </div>
@@ -802,7 +792,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, lang = 
         {LIFE_CATS.map(c => (
           <button key={c.id} onClick={() => toggleCat(c.id)}
             style={{ ...calS.catChip, opacity:activeCats.has(c.id)?1:0.3, background:c.bg, color:c.text, border:`1.5px solid ${c.color}33` }}>
-            <span style={{ ...calS.catDot, background:c.color }} />{catLabel(lang, c.id, c.label)}
+            <span style={{ ...calS.catDot, background:c.color }} />{c.label}
           </button>
         ))}
       </div>

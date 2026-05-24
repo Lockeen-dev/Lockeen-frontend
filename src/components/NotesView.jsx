@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { FileText, Layers, LockeenLogo, Pencil, Plus, Search, Sparkles, Trash2 } from '../lib/icons';
 import { tt } from '../lib/i18n';
@@ -151,12 +151,12 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         return { ...x, chapters: [newChapter, ...x.chapters], updated: 'Just now' };
       }));
     };
-    const onEditChapter = ({ chapterId, newTitle, changes = {} }) => {
+    const onEditChapter = ({ chapterId, newTitle }) => {
       const cleanTitle = (newTitle || '').trim();
-      if (!cleanTitle && Object.keys(changes).length === 0) return;
+      if (!cleanTitle) return;
       setExams((prev) => prev.map((x) => x.id !== activeId ? x : ({
         ...x,
-        chapters: x.chapters.map((c) => c.id === chapterId ? { ...c, ...changes, ...(cleanTitle ? { title: cleanTitle } : {}), updated: 'Just now' } : c),
+        chapters: x.chapters.map((c) => c.id === chapterId ? { ...c, title: cleanTitle, updated: 'Just now' } : c),
         updated: 'Just now',
       })));
     };
@@ -167,7 +167,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         updated: 'Just now',
       })));
     };
-    return <ExamDetail exam={activeExam} lang={lang} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
+    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
   }
 
   const filtered = exams.filter((x) => (x.name + ' ' + (x.subject || '')).toLowerCase().includes(q.toLowerCase()));
@@ -222,7 +222,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         <div style={examsS.empty}>
           <div style={examsS.emptyIcon}><FileText size={22} /></div>
           <div style={examsS.emptyTitle}>Loading exams...</div>
-          <div style={examsS.emptySub}>Preparing your exam list.</div>
+          <div style={examsS.emptySub}>Fetching your mock exam list.</div>
         </div>
       )}
 
@@ -266,7 +266,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                       </span>
                       {dl >= 0 && (
                         <span style={{ position:'absolute', top:12, right:12, fontSize:11, fontWeight:700, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--indigo)', lineHeight:1.3 }}>
-                          {dl === 0 ? tt(lang, 'today') : `${dl} ${tt(lang, 'days')}`}
+                          {dl === 0 ? 'Oggi!' : `${dl} giorni`}
                         </span>
                       )}
                     </>
@@ -297,19 +297,19 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                   </div>
                 </div>
                 <p style={notesS.meta}>
-                  {x.chapters.length} {tt(lang, x.chapters.length === 1 ? 'chapter' : 'chapters')}
+                  {x.chapters.length} {x.chapters.length === 1 ? 'chapter' : 'chapters'}
                 </p>
                 <div style={gradeS.cardTarget}>
                   <span style={{ width: 7, height: 7, borderRadius: 999, background: palette.dot }} />
-                  <span style={gradeS.cardTargetLabel}>{tt(lang, 'target')}</span>
+                  <span style={gradeS.cardTargetLabel}>Target</span>
                   <GradeValue value={x.targetGrade || 27} color={palette.dot} size={18} />
                 </div>
                 <div style={notesS.actions}>
                   <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
-                    <LockeenLogo size={16} /> {tt(lang, 'openExam')}
+                    <LockeenLogo size={16} /> Open Exam
                   </button>
                   <button style={notesS.ghostSmall} onClick={() => onOpenQuizForExam && onOpenQuizForExam(x.id)}>
-                    <Sparkles size={14} /> {tt(lang, 'quickQuiz')}
+                    <Sparkles size={14} /> Quick Quiz
                   </button>
                 </div>
               </div>
@@ -321,7 +321,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
   );
 }
 
-function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, onDeleteChapter, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
+function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
   const [q, setQ] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const [readinessView, setReadinessView] = useState('exam');
@@ -348,34 +348,6 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
   const examFlashDecks = recentFlashDecks.filter(d => belongsToExam(d.noteId)).slice(0, 5);
   const palette = getSubjectPalette(exam.subject, exam, darkMode);
   const filtered = exam.chapters.filter((c) => c.title.toLowerCase().includes(q.toLowerCase()));
-  const patchPdfChapter = (chapterId, updater) => {
-    setPdfChapter((prev) => {
-      if (!prev || String(prev.id) !== String(chapterId)) return prev;
-      return updater(prev);
-    });
-  };
-  const addDocumentsToChapter = (chapterId, fileCount) => {
-    if (!fileCount) return;
-    onAddChapter && onAddChapter({ chapterId, fileCount });
-    patchPdfChapter(chapterId, (chapter) => ({
-      ...chapter,
-      files: (chapter.files || 1) + fileCount,
-      pages: (chapter.pages || 0) + fileCount * 6,
-      updated: 'Just now',
-    }));
-  };
-  const removeDocumentFromChapter = (chapterId) => {
-    const chapter = exam.chapters.find((c) => String(c.id) === String(chapterId)) || pdfChapter;
-    if (!chapter) return;
-    const currentFiles = Math.max(0, chapter.files ?? 1);
-    const currentPages = Math.max(0, chapter.pages || 0);
-    const pagesToRemove = currentFiles > 0 ? Math.max(1, Math.round(currentPages / currentFiles)) : 0;
-    const nextFiles = Math.max(0, currentFiles - 1);
-    const nextPages = nextFiles === 0 ? 0 : Math.max(1, currentPages - pagesToRemove);
-    const changes = { files: nextFiles, pages: nextPages };
-    onEditChapter && onEditChapter({ chapterId, changes });
-    patchPdfChapter(chapterId, (item) => ({ ...item, ...changes, updated: 'Just now' }));
-  };
   const chapterKey = (chapter) => String(chapter.id ?? chapter.name ?? chapter.title);
   const allQuiz = quizHistory[exam.id] || [];
   const allFlash = [
@@ -658,12 +630,12 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
               </span>
             )}
           </div>
-          <p style={homeS.sub}>{exam.chapters.length} {tt(lang, exam.chapters.length === 1 ? 'chapter' : 'chapters')}</p>
+          <p style={homeS.sub}>{exam.chapters.length} {exam.chapters.length === 1 ? 'chapter' : 'chapters'}</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <div style={notesS.search}>
             <Search size={16} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt(lang, 'searchExams')} style={notesS.searchInput} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search chapters…" style={notesS.searchInput} />
           </div>
           <button style={notesS.newBtn} onClick={() => setShowUpload(true)}><Plus size={16} /> New Chapter</button>
         </div>
@@ -677,10 +649,167 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
         />
       )}
 
+      <section style={studyS.wrap}>
+        <div style={studyS.column}>
+          <div style={studyS.sectionHead}>
+            <div>
+              <h3 style={studyS.title}>Study notes</h3>
+              <p style={studyS.sub}>Notes saved through the Week 2 notes service.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleCreateNote} style={studyS.form}>
+            <input
+              value={noteTitle}
+              onChange={(e) => setNoteTitle(e.target.value)}
+              placeholder="Note title"
+              disabled={savingStudyAction === 'create-note'}
+              style={studyS.input}
+            />
+            <textarea
+              value={noteBody}
+              onChange={(e) => setNoteBody(e.target.value)}
+              placeholder="Short note body"
+              disabled={savingStudyAction === 'create-note'}
+              style={{ ...studyS.input, minHeight: 72, resize: 'vertical', fontFamily: 'inherit' }}
+            />
+            <button type="submit" disabled={savingStudyAction === 'create-note'} style={studyS.primaryBtn}>
+              {savingStudyAction === 'create-note' ? 'Saving...' : 'Create note'}
+            </button>
+          </form>
+
+          {notesError && <div style={studyS.error}>{notesError}</div>}
+          {notesLoading && <div style={studyS.empty}>Loading notes...</div>}
+          {!notesLoading && !notesError && notes.length === 0 && <div style={studyS.empty}>No notes yet.</div>}
+          {!notesLoading && notes.map((note) => (
+            <div key={note.id} style={studyS.item}>
+              {editingNoteId === note.id ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input
+                    value={editingNoteTitle}
+                    onChange={(e) => setEditingNoteTitle(e.target.value)}
+                    disabled={savingStudyAction === `edit-note-${note.id}`}
+                    style={studyS.input}
+                  />
+                  <textarea
+                    value={editingNoteBody}
+                    onChange={(e) => setEditingNoteBody(e.target.value)}
+                    disabled={savingStudyAction === `edit-note-${note.id}`}
+                    style={{ ...studyS.input, minHeight: 64, resize: 'vertical', fontFamily: 'inherit' }}
+                  />
+                  <div style={studyS.actions}>
+                    <button type="button" onClick={() => handleUpdateNote(note.id)} disabled={savingStudyAction === `edit-note-${note.id}`} style={studyS.primaryMini}>
+                      {savingStudyAction === `edit-note-${note.id}` ? 'Saving...' : 'Save'}
+                    </button>
+                    <button type="button" onClick={cancelEditNote} style={studyS.ghostMini}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={studyS.itemTitle}>{note.title}</div>
+                  {note.body && <div style={studyS.itemBody}>{note.body}</div>}
+                  <div style={studyS.actions}>
+                    <button type="button" onClick={() => beginEditNote(note)} style={studyS.ghostMini}>Edit</button>
+                    <button type="button" onClick={() => handleDeleteNote(note.id)} disabled={savingStudyAction === `delete-note-${note.id}`} style={studyS.dangerMini}>
+                      {savingStudyAction === `delete-note-${note.id}` ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={studyS.column}>
+          <div style={studyS.sectionHead}>
+            <div>
+              <h3 style={studyS.title}>Materials</h3>
+              <p style={studyS.sub}>Metadata only. No PDF parsing or advanced upload.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleCreateMaterial} style={studyS.form}>
+            <input
+              value={materialTitle}
+              onChange={(e) => setMaterialTitle(e.target.value)}
+              placeholder="Material title"
+              disabled={savingStudyAction === 'create-material'}
+              style={studyS.input}
+            />
+            <input
+              value={materialUrl}
+              onChange={(e) => setMaterialUrl(e.target.value)}
+              placeholder={materialFile ? 'Source URL disabled when file selected' : 'Optional source URL'}
+              disabled={savingStudyAction === 'create-material' || Boolean(materialFile)}
+              style={studyS.input}
+            />
+            <label style={studyS.fileLabel}>
+              <span style={studyS.fileText}>{materialFile ? materialFile.name : 'Optional PDF, PNG, JPG, or TXT file'}</span>
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain"
+                disabled={savingStudyAction === 'create-material'}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setMaterialFile(file);
+                  setMaterialsError(null);
+                  if (file) {
+                    const validation = validateStudyMaterialFile(file);
+                    if (validation.error) setMaterialsError(formatStudyServiceError(validation.error, 'File is not valid.'));
+                  }
+                }}
+                style={studyS.fileInput}
+              />
+            </label>
+            {materialFile && (
+              <button
+                type="button"
+                onClick={() => setMaterialFile(null)}
+                disabled={savingStudyAction === 'create-material'}
+                style={studyS.ghostMini}
+              >
+                Remove file
+              </button>
+            )}
+            <button type="submit" disabled={savingStudyAction === 'create-material'} style={studyS.primaryBtn}>
+              {savingStudyAction === 'create-material' ? (materialFile ? 'Uploading...' : 'Saving...') : 'Add material'}
+            </button>
+          </form>
+
+          {materialsError && <div style={studyS.error}>{materialsError}</div>}
+          {materialsLoading && <div style={studyS.empty}>Loading materials...</div>}
+          {!materialsLoading && !materialsError && materials.length === 0 && <div style={studyS.empty}>No materials yet.</div>}
+          {!materialsLoading && materials.map((material) => (
+            <div key={material.id} style={studyS.item}>
+              <div style={studyS.itemTitle}>{material.title}</div>
+              <div style={studyS.itemBody}>
+                {material.sourceUrl || material.storagePath || material.type || 'metadata'}
+                {material.sizeBytes ? ` · ${Math.round(material.sizeBytes / 1024)} KB` : ''}
+              </div>
+              <div style={studyS.actions}>
+                {(material.sourceUrl || material.storagePath) && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenMaterial(material.id)}
+                    disabled={savingStudyAction === `open-material-${material.id}`}
+                    style={studyS.ghostMini}
+                  >
+                    {savingStudyAction === `open-material-${material.id}` ? 'Opening...' : 'Open'}
+                  </button>
+                )}
+                <button type="button" onClick={() => handleDeleteMaterial(material.id)} disabled={savingStudyAction === `delete-material-${material.id}`} style={studyS.dangerMini}>
+                  {savingStudyAction === `delete-material-${material.id}` ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {filtered.length === 0 ? (
         <div style={examsS.empty}>
           <div style={examsS.emptyIcon}><FileText size={22} /></div>
-          <div style={examsS.emptyTitle}>{tt(lang, 'noData')}</div>
+          <div style={examsS.emptyTitle}>No chapters yet</div>
           <div style={examsS.emptySub}>Click “+ New Chapter” to upload your first study material.</div>
         </div>
       ) : (
@@ -773,8 +902,6 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
       {pdfChapter && (
         <PDFModal
           chapter={pdfChapter}
-          onAddDocuments={(fileCount) => addDocumentsToChapter(pdfChapter.id, fileCount)}
-          onDeleteDocument={() => removeDocumentFromChapter(pdfChapter.id)}
           onClose={() => setPdfChapter(null)}
         />
       )}
@@ -899,14 +1026,13 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
   );
 }
 
-function PDFModal({ chapter, onClose, onAddDocuments, onDeleteDocument }) {
+function PDFModal({ chapter, onClose }) {
   const [selectedPdf, setSelectedPdf] = useState(null);
   const [page, setPage] = useState(1);
-  const fileInputRef = useRef(null);
   const title = chapter.title || chapter.name || 'Chapter';
-  const fileCount = Math.max(0, chapter.files ?? 1);
+  const fileCount = Math.max(1, chapter.files || 1);
   const pdfs = Array.from({ length: fileCount }, (_, i) => {
-    const basePages = Math.max(1, Math.round((chapter.pages || 8) / Math.max(1, fileCount)));
+    const basePages = Math.max(1, Math.round((chapter.pages || 8) / fileCount));
     return {
       id: i + 1,
       name: i === 0 ? 'chapter.pdf' : 'chapter-' + (i + 1) + '.pdf',
@@ -918,18 +1044,6 @@ function PDFModal({ chapter, onClose, onAddDocuments, onDeleteDocument }) {
   useEffect(() => {
     setPage(1);
   }, [chapter.id, selectedPdf && selectedPdf.id]);
-
-  useEffect(() => {
-    if (selectedPdf && !pdfs.some((pdf) => pdf.id === selectedPdf.id)) {
-      setSelectedPdf(null);
-    }
-  }, [pdfs, selectedPdf]);
-
-  const handleFiles = (event) => {
-    const count = event.target.files ? event.target.files.length : 0;
-    if (count > 0) onAddDocuments && onAddDocuments(count);
-    event.target.value = '';
-  };
 
   return (
     <div
@@ -975,78 +1089,26 @@ function PDFModal({ chapter, onClose, onAddDocuments, onDeleteDocument }) {
               <div style={{ fontSize: 12, color: 'var(--gray)', marginTop: 2 }}>{selectedPdf ? selectedPdf.name : fileCount + ' PDF ' + (fileCount === 1 ? 'file' : 'files')}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {!selectedPdf && (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept=".pdf,.png,.jpg,.jpeg,.txt"
-                  onChange={handleFiles}
-                  style={{ display: 'none' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                  title="Add document"
-                  style={{ height: 34, padding: '0 12px', borderRadius: 10, border: '1px solid rgba(55,48,232,.18)', background: 'var(--lavender)', color: 'var(--indigo)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 800 }}
-                >
-                  <Plus size={14} /> Add document
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              title="Close PDF"
-              style={{ width: 30, height: 30, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--gray)', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 18, lineHeight: 1 }}
-            >
-              ×
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            title="Close PDF"
+            style={{ width: 30, height: 30, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--gray)', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 18, lineHeight: 1 }}
+          >
+            ×
+          </button>
         </div>
 
         {!selectedPdf ? (
           <div style={{ flex: 1, background: '#F8FAFC', padding: 22, overflow: 'auto' }}>
-            {pdfs.length === 0 ? (
-              <div style={{ minHeight: '100%', border: '1px dashed var(--border)', borderRadius: 18, background: '#fff', display: 'grid', placeItems: 'center', textAlign: 'center', padding: 24 }}>
-                <div>
-                  <div style={{ width: 54, height: 54, borderRadius: 14, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.18)', color: 'var(--indigo)', display: 'grid', placeItems: 'center', margin: '0 auto 12px' }}>
-                    <FileText size={24} />
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>No documents here</div>
-                  <div style={{ fontSize: 13, color: 'var(--gray)', marginTop: 4, marginBottom: 16 }}>Upload a file inside this chapter.</div>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                    style={{ height: 40, padding: '0 16px', borderRadius: 12, border: '0', background: 'var(--indigo)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 800 }}
-                  >
-                    <Plus size={15} /> Add document
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
               {pdfs.map((pdf) => (
-                <div
+                <button
                   key={pdf.id}
-                  role="button"
-                  tabIndex={0}
+                  type="button"
                   onClick={() => setSelectedPdf(pdf)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedPdf(pdf); } }}
-                  style={{ position: 'relative', textAlign: 'left', border: '1px solid var(--border)', background: '#fff', borderRadius: 16, padding: 14, cursor: 'pointer', boxShadow: '0 10px 30px rgba(15,16,53,.06)' }}
+                  style={{ textAlign: 'left', border: '1px solid var(--border)', background: '#fff', borderRadius: 16, padding: 14, cursor: 'pointer', boxShadow: '0 10px 30px rgba(15,16,53,.06)' }}
                 >
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); onDeleteDocument && onDeleteDocument(pdf.id); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onDeleteDocument && onDeleteDocument(pdf.id); } }}
-                    title="Remove document"
-                    style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 9, border: '1px solid rgba(239,68,68,.18)', background: '#FEF2F2', color: '#EF4444', display: 'grid', placeItems: 'center', cursor: 'pointer' }}
-                  >
-                    <Trash2 size={13} />
-                  </span>
                   <div style={{ width: 44, height: 52, borderRadius: 10, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.18)', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 12 }}>
                     <FileText size={22} />
                   </div>
@@ -1054,10 +1116,9 @@ function PDFModal({ chapter, onClose, onAddDocuments, onDeleteDocument }) {
                   <div style={{ fontSize: 11, color: 'var(--gray)', marginTop: 4 }}>{pdf.pages} {pdf.pages === 1 ? 'page' : 'pages'}</div>
                   <div style={{ height: 6, borderRadius: 999, background: '#E5E7EB', marginTop: 12, width: '88%' }} />
                   <div style={{ height: 6, borderRadius: 999, background: '#E5E7EB', marginTop: 6, width: '64%' }} />
-                </div>
+                </button>
               ))}
-              </div>
-            )}
+            </div>
           </div>
         ) : (
           <>

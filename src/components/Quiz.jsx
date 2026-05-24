@@ -3,13 +3,12 @@ import { Check, Clock, XMark } from '../lib/icons';
 import { getExamEmoji } from '../lib/examUi';
 import { getSubjectPalette } from '../data/mockData';
 import { getQuiz, listQuizzes, submitQuizAttempt } from '../services/quiz';
-import { tt } from '../lib/i18n';
 
 function QuizStyles() {
   return (
     <style>{`
       @keyframes qSlideIn { from { opacity:0; transform:translateX(22px); } to { opacity:1; transform:translateX(0); } }
-      @keyframes qShake { 0%,100%{transform:translateX(0)} 22%{transform:translateX(-5px)} 48%{transform:translateX(4px)} 72%{transform:translateX(-2px)} }
+      @keyframes qShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(7px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(3px)} }
       @keyframes qFadeUp { from { opacity:0; transform:translateY(18px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
     `}</style>
   );
@@ -77,7 +76,7 @@ function QuizResultScreen({ percent, correct, total, palette, resultTitle, subje
   );
 }
 
-export function QuizView({ noteId, quizId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = true, initialDifficulty = 'medium', timerOn: initialTimerOn = false, timerSecs: initialTimerSecs = 30, lang = 'en' }) {
+export function QuizView({ noteId, quizId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = true, initialDifficulty = 'medium', timerOn: initialTimerOn = false, timerSecs: initialTimerSecs = 30 }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const normalizedQuestions = (questions || []).map(normalizeQuestion);
   const total = normalizedQuestions.length;
@@ -296,24 +295,22 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
           <div style={{ ...quizS.progressFill, width: `${progress}%`, background: palette.dot }} />
         </div>
 
-        <div key={qKey} style={{ ...quizS.card, animation: 'qSlideIn .28s cubic-bezier(.22,1,.36,1)' }}>
-          <div style={{ ...quizS.cardInner, animation: shake ? 'qShake .32s cubic-bezier(.36,0,.2,1)' : 'none' }}>
-            <span style={quizS.questionLabel}>Question {idx + 1}</span>
-            <div style={quizS.questionText}>{q.q}</div>
-            <div style={quizS.options}>
-              {q.options.map((option, i) => (
-                <button key={option} className={!answered && pendingIdx === null ? 'quiz-option-ready' : ''} disabled={answered} onClick={() => handleSelect(i)} style={{ ...quizS.optionBase, ...optionStyle(i) }}>
-                  <span style={quizS.optionLetter}>{String.fromCharCode(65 + i)}</span>
-                  <span>{option}</span>
-                </button>
-              ))}
-            </div>
-            {answered && (
-              <div style={ok ? quizS.feedbackOk : quizS.feedbackKo}>
-                {ok ? <Check size={15} /> : <XMark size={15} />} {feedbackText}
-              </div>
-            )}
+        <div key={qKey} style={{ ...quizS.card, animation: shake ? 'qShake .42s ease' : 'qSlideIn .28s cubic-bezier(.22,1,.36,1)' }}>
+          <span style={quizS.questionLabel}>Question {idx + 1}</span>
+          <div style={quizS.questionText}>{q.q}</div>
+          <div style={quizS.options}>
+            {q.options.map((option, i) => (
+              <button key={option} className={!answered && pendingIdx === null ? 'quiz-option-ready' : ''} disabled={answered} onClick={() => handleSelect(i)} style={{ ...quizS.optionBase, ...optionStyle(i) }}>
+                <span style={quizS.optionLetter}>{String.fromCharCode(65 + i)}</span>
+                <span>{option}</span>
+              </button>
+            ))}
           </div>
+          {answered && (
+            <div style={ok ? quizS.feedbackOk : quizS.feedbackKo}>
+              {ok ? <Check size={15} /> : <XMark size={15} />} {feedbackText}
+            </div>
+          )}
         </div>
 
         <button onClick={nextQuestion} style={{ ...quizS.nextBtn, background: palette.dot, display: answered ? 'flex' : 'none' }}>
@@ -346,7 +343,6 @@ const quizS = {
   progressTrack: { width: '100%', height: 4, borderRadius: 999, background: '#E5E7EB', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 999, transition: 'width .4s' },
   card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 },
-  cardInner: { display: 'flex', flexDirection: 'column', gap: 16 },
   questionLabel: { color: 'var(--gray)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.12em' },
   questionText: { color: 'var(--ink)', fontSize: 18, fontWeight: 700, lineHeight: 1.4 },
   options: { display: 'flex', flexDirection: 'column', gap: 10 },
@@ -421,7 +417,7 @@ export function QuizReview({ run, onBack, darkMode }) {
   );
 }
 
-export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode, lang = 'en' }) {
+export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
   const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? exams[0]?.id ?? null);
   const [selectedChapterId, setSelectedChapterId] = useState('all');
   const [numQ, setNumQ] = useState(10);
@@ -501,7 +497,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       ? (exam?.chapters || []).flatMap(c => c.questions || [])
       : (exam?.chapters.find(c => c.id === chapterId)?.questions || []);
     const qs = serviceQuiz?.questions?.length ? serviceQuiz.questions : fallbackQs;
-    const chapterName = chapterId === 'all' ? tt(lang, 'wholeExam') : (exam?.chapters.find(c => c.id === chapterId)?.title || '');
+    const chapterName = chapterId === 'all' ? 'Intero esame' : (exam?.chapters.find(c => c.id === chapterId)?.title || '');
     const n = overrides.numQ ?? effectiveNumQ;
     setActiveDeck({
       noteId: chapterId === 'all' ? examId : chapterId,
@@ -547,7 +543,6 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         initialDifficulty={activeDeck._difficulty || 'medium'}
         timerOn={!!activeDeck._timerOn}
         timerSecs={activeDeck._timerSecs || 30}
-        lang={lang}
       />
     );
   }
@@ -570,7 +565,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         <div>
           <h2 style={{ margin:'0 0 3px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>Quiz</h2>
           <p style={{ margin:0, fontSize:13, color:'var(--gray)' }}>
-            {selectedExam ? `${selectedExam.name} · ${loadingQuizzes ? tt(lang, 'loading') : maxQ > 0 ? effectiveNumQ + ' ' + tt(lang, 'questionCount').toLowerCase() : tt(lang, 'noData')}` : tt(lang, 'configureQuiz')}
+            {selectedExam ? `${selectedExam.name} · ${loadingQuizzes ? 'loading...' : maxQ > 0 ? effectiveNumQ + ' domande' : 'nessuna domanda'}` : 'Configura il tuo quiz'}
           </p>
         </div>
       </div>
@@ -581,7 +576,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
 
         {/* 1 — Exam */}
         <div style={{ padding:'20px 22px' }}>
-          <div style={secLabel}>{tt(lang, 'exam')}</div>
+          <div style={secLabel}>Esame</div>
           <div style={{ display:'flex', gap:8, overflowX:'auto', scrollbarWidth:'none', paddingBottom:2, WebkitOverflowScrolling:'touch' }}>
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
@@ -605,7 +600,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             <div style={{ padding:'20px 22px' }}>
               <div style={secLabel}>Capitolo</div>
               <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
-                {[{ id:'all', title:tt(lang, 'wholeExam'), qCount: selectedExam.chapters.flatMap(c => c.questions||[]).length }, ...selectedExam.chapters.map(ch => ({ id:ch.id, title:ch.title, qCount:(ch.questions||[]).length }))].map(ch => {
+                {[{ id:'all', title:'Intero esame', qCount: selectedExam.chapters.flatMap(c => c.questions||[]).length }, ...selectedExam.chapters.map(ch => ({ id:ch.id, title:ch.title, qCount:(ch.questions||[]).length }))].map(ch => {
                   const active = selectedChapterId === ch.id;
                   return (
                     <button key={ch.id} onClick={() => setSelectedChapterId(ch.id)}
@@ -628,9 +623,9 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             <div style={divider} />
             <div style={{ padding:'20px 22px' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                <div style={secLabel}>{tt(lang, 'questionCount')}</div>
+                <div style={secLabel}>Domande</div>
                 <span style={{ fontSize:12, color:'var(--gray)', fontWeight:500 }}>
-                  {maxQ < 20 && `${tt(lang, 'availableMax')}: ${maxQ}`}
+                  {maxQ < 20 && `Max disponibili: ${maxQ}`}
                 </span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
@@ -656,8 +651,8 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             <div style={divider} />
             <div style={{ padding:'20px 22px' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                <div style={secLabel}>{tt(lang, 'questionDifficulty')}</div>
-                <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>{tt(lang, 'aiFilterSoon')}</span>
+                <div style={secLabel}>Difficoltà domande</div>
+                <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>filtro AI disponibile presto</span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
                 {DIFF.map(d => (
@@ -683,7 +678,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             <div style={{ padding:'20px 22px' }}>
               <div style={quizS.timerCard}>
                 <div style={quizS.timerTop}>
-                  <span style={quizS.timerLabel}><Clock size={16} /> {tt(lang, 'questionTimer')}</span>
+                  <span style={quizS.timerLabel}><Clock size={16} /> Timer per domanda</span>
                   <button onClick={() => setTimerOn((v) => !v)} style={{ ...quizS.toggle, ...(timerOn ? quizS.toggleOn : null) }}>
                     <span style={{ ...quizS.toggleKnob, ...(timerOn ? quizS.toggleKnobOn : null) }} />
                   </button>
@@ -693,7 +688,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
                     <input type="number" min="5" max="300" value={timerSecs}
                       onChange={e => { const v = Math.max(5, Math.min(300, Number(e.target.value)||5)); setTimerSecs(v); }}
                       style={{ width:70, padding:'7px 10px', borderRadius:10, border:'1.5px solid var(--border)', background:'var(--sidebar-bg)', color:'var(--ink)', fontSize:15, fontWeight:700, fontFamily:'inherit', textAlign:'center', outline:'none' }} />
-                    <span style={{fontSize:12, color:'var(--gray)'}}>{tt(lang, 'seconds')}</span>
+                    <span style={{fontSize:12, color:'var(--gray)'}}>secondi</span>
                     <div style={{display:'flex', gap:4, marginLeft:'auto'}}>
                       {[15,30,60,90].map(s => {
                         const diff = DIFF.find(d => d.id === selectedDiff) || DIFF[1];
@@ -718,7 +713,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 && !loadingQuizzes ? 'linear-gradient(135deg, var(--indigo) 0%, #5B53F0 100%)' : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 && !loadingQuizzes ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 && !loadingQuizzes ? '0 4px 16px rgba(55,48,232,.35)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
         onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.9'; }}
         onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}>
-        {loadingQuizzes ? tt(lang, 'loading') : tt(lang, 'startQuiz')}
+        {loadingQuizzes ? 'Loading...' : 'Inizia Quiz'}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       </button>
 
@@ -726,7 +721,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       {filteredRuns.length > 0 && (
         <div style={{ maxWidth: 580, margin: '32px auto 0' }}>
           <div style={{ height: 1, background: 'var(--border)', marginBottom: 24 }} />
-          <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{tt(lang, 'previousQuizzes')}</h3>
+          <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Quiz precedenti</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {filteredRuns.map(run => {
               const sc = run.score >= 80 ? '#10B981' : run.score >= 60 ? '#F59E0B' : '#EF4444';

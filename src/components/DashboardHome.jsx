@@ -1,22 +1,70 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { ArrowRight, CalendarIcon, Check, CheckCircle, MsgCircle } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import { mockDashboard } from '../data/mockData';
+import { getDashboardSummary } from '../services/dashboard';
 import useIsMobile from '../lib/useIsMobile';
 import { LIFE_CATS, dayKey } from './CalendarView';
 import { homeS } from '../styles/dashboardStyles';
+
+function formatDashboardError(error) {
+  if (!error) return 'Unable to load dashboard data.';
+  if (error.code === 'AUTH_REQUIRED') {
+    return 'Real mode requires an authenticated Supabase session.';
+  }
+  if (error.code === 'SUPABASE_CONFIG_MISSING') {
+    return 'Supabase config is missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
+  }
+  return error.message || 'Unable to load dashboard data.';
+}
 
 function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, recommendedQuizDone = false, recommendedFlashDone = false, onOpenPlanner, darkMode, calEvents, onMarkEventDone, onStartTimer }) {
   const isMobile = useIsMobile();
   const todayKey = dayKey(new Date());
   const todayEvents = (calEvents && calEvents[todayKey]) || [];
+  const [summary, setSummary] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState(null);
   const [checked, setChecked] = React.useState({});
   const [confirmModal, setConfirmModal] = React.useState(null);
   const toggleCheck = (idx) => setChecked(prev => ({ ...prev, [idx]: !prev[idx] }));
   const doneCount = Object.values(checked).filter(Boolean).length;
   const recommendedDoneCount = (recommendedQuizDone ? 1 : 0) + (recommendedFlashDone ? 1 : 0);
   const fmtDur = (mins) => mins >= 60 ? (mins % 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${Math.floor(mins/60)}h`) : `${mins}m`;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReadModels() {
+      setDashboardLoading(true);
+      setDashboardError(null);
+      const summaryResult = await getDashboardSummary();
+      if (cancelled) return;
+      const error = summaryResult.error;
+      if (error) {
+        setDashboardError(formatDashboardError(error));
+        setSummary(null);
+      } else {
+        setSummary(summaryResult.data || null);
+      }
+      setDashboardLoading(false);
+    }
+
+    loadReadModels();
+    return () => { cancelled = true; };
+  }, []);
+
+  const upcomingExams = summary?.upcomingExams || [];
+  const nextExam = summary?.nextExam || upcomingExams[0] || null;
+  const countCards = [
+    ['Exams', summary?.totalExams],
+    ['Notes', summary?.notesCount],
+    ['Materials', summary?.materialsCount],
+    ['Flashcards', summary?.flashcardsCount],
+    ['Quizzes', summary?.quizzesCount],
+    ['Attempts', summary?.quizAttemptsCount],
+  ].filter(([, value]) => Number.isFinite(Number(value)));
 
   return (
     <div style={homeS.wrap}>
@@ -26,18 +74,18 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
             <div style={{ width:44, height:44, borderRadius:'50%', background:'var(--lavender)', display:'grid', placeItems:'center', margin:'0 auto 16px' }}>
               <CheckCircle size={22} color="var(--indigo)" />
             </div>
-            <h3 style={{ margin:'0 0 8px', fontSize:17, fontWeight:700, color:'var(--ink)', textAlign:'center' }}>{tt(lang, 'activityCompleted')}</h3>
+            <h3 style={{ margin:'0 0 8px', fontSize:17, fontWeight:700, color:'var(--ink)', textAlign:'center' }}>Attività completata?</h3>
             <p style={{ margin:'0 0 22px', fontSize:13, color:'var(--gray)', textAlign:'center', lineHeight:1.5 }}>
-              {tt(lang, 'completeQuestion')} <strong style={{ color:'var(--ink)' }}>{confirmModal.ev.name}</strong>?
+              Hai completato <strong style={{ color:'var(--ink)' }}>{confirmModal.ev.name}</strong>?
             </p>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               <button onClick={() => { toggleCheck(confirmModal.idx); onMarkEventDone && onMarkEventDone(todayKey, confirmModal.idx, confirmModal.ev.name); setConfirmModal(null); }}
                 style={{ padding:'12px 16px', borderRadius:12, background:'var(--indigo)', color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer', width:'100%' }}>
-                {tt(lang, 'yesComplete')}
+                Sì, completata!
               </button>
               <button onClick={() => setConfirmModal(null)}
                 style={{ padding:'12px 16px', borderRadius:12, background:'var(--sidebar-bg)', border:'1px solid var(--border)', color:'var(--gray)', fontWeight:600, fontSize:14, cursor:'pointer', width:'100%' }}>
-                {tt(lang, 'cancel')}
+                Annulla
               </button>
             </div>
           </div>
@@ -54,13 +102,13 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
           <CalendarIcon size={18} color="var(--indigo)" />
           <h3 style={homeS.scheduleTitle}>
             {tt(lang, 'todaySchedule')}
-            {todayEvents.length > 0 && <span style={{ marginLeft:8, fontSize:12, fontWeight:600, color:'var(--gray)' }}>{doneCount}/{todayEvents.length} {tt(lang, 'completed')}</span>}
+            {todayEvents.length > 0 && <span style={{ marginLeft:8, fontSize:12, fontWeight:600, color:'var(--gray)' }}>{doneCount}/{todayEvents.length} completati</span>}
           </h3>
         </div>
 
         {todayEvents.length === 0 ? (
           <div style={{ textAlign:'center', padding:'24px 0', color:'var(--gray)', fontSize:14 }}>
-            {tt(lang, 'noToday')}
+            Nessun impegno oggi — aggiungine uno dal Calendario!
           </div>
         ) : (
           <div style={{ display:'flex', flexDirection:'column', gap:2, marginBottom:18 }}>
@@ -93,6 +141,66 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
         </button>
       </div>
 
+      <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>📝 Prossimi esami</h3></div>
+      <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', marginBottom: 24 }}>
+        {dashboardLoading && (
+          <div style={{ ...homeS.bigCard, gridColumn: '1 / -1', background:'var(--surface)', textAlign:'center', color:'var(--gray)', fontSize:14 }}>
+            Caricamento esami...
+          </div>
+        )}
+        {!dashboardLoading && dashboardError && (
+          <div style={{ ...homeS.bigCard, gridColumn: '1 / -1', background:'#FEF2F2', border:'1px solid #FCA5A5', color:'#991B1B', fontSize:13, fontWeight:700 }}>
+            {dashboardError}
+          </div>
+        )}
+        {!dashboardLoading && !dashboardError && (!summary || summary.totalExams === 0) && (
+          <div style={{ ...homeS.bigCard, gridColumn: '1 / -1', background:'var(--surface)', textAlign:'center', color:'var(--gray)', fontSize:14 }}>
+            Nessun esame ancora — crea il primo da Notes.
+          </div>
+        )}
+        {!dashboardLoading && !dashboardError && summary && summary.totalExams > 0 && upcomingExams.length === 0 && (
+          <div style={{ ...homeS.bigCard, gridColumn: '1 / -1', background:'var(--surface)', textAlign:'center', color:'var(--gray)', fontSize:14 }}>
+            Nessun esame imminente con data.
+          </div>
+        )}
+        {!dashboardLoading && !dashboardError && nextExam && (
+          <div style={{ ...homeS.bigCard, background:'var(--bigcard-bio)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:8 }}>
+              <div style={{ width:9, height:9, borderRadius:999, background:nextExam.dot || nextExam.color || 'var(--indigo)', flexShrink:0 }} />
+              <span style={{ fontSize:11, fontWeight:700, color:'var(--indigo)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Next exam</span>
+            </div>
+            <h3 style={{ margin:'0 0 6px', fontSize:17, fontWeight:700, color:'var(--ink)', lineHeight:1.3 }}>{nextExam.name}</h3>
+            <p style={{ ...homeS.cardMeta, marginBottom:14 }}>{nextExam.date || 'No date'}</p>
+            <button style={{ ...homeS.primaryBtn, width:'100%' }} onClick={() => setTab('notes')}>Open Notes</button>
+          </div>
+        )}
+        {!dashboardLoading && !dashboardError && upcomingExams.filter((exam) => String(exam.id) !== String(nextExam?.id)).map((exam) => (
+          <div key={exam.id} style={{ ...homeS.bigCard, background:'var(--surface)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:8 }}>
+              <div style={{ width:9, height:9, borderRadius:999, background:exam.dot || exam.color || 'var(--indigo)', flexShrink:0 }} />
+              <span style={{ fontSize:11, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'0.05em' }}>{exam.subject || 'Exam'}</span>
+            </div>
+            <h3 style={{ margin:'0 0 6px', fontSize:17, fontWeight:700, color:'var(--ink)', lineHeight:1.3 }}>{exam.name}</h3>
+            <p style={{ ...homeS.cardMeta, marginBottom:14 }}>{exam.date || 'No date'}</p>
+            <button style={{ ...homeS.outlineBtn, width:'100%' }} onClick={() => setTab('notes')}>Open Notes</button>
+          </div>
+        ))}
+      </div>
+
+      {countCards.length > 0 && (
+        <>
+          <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>📊 Study summary</h3></div>
+          <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', marginBottom: 24 }}>
+            {countCards.map(([label, value]) => (
+              <div key={label} style={{ ...homeS.bigCard, background:'var(--surface)', padding:14 }}>
+                <div style={{ fontSize:20, fontWeight:800, color:'var(--ink)', lineHeight:1 }}>{value}</div>
+                <div style={{ marginTop:6, fontSize:11, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'.04em' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* Task del giorno */}
       <div style={{ marginBottom: 8 }}><h3 style={homeS.sectionLabel}>📅 {tt(lang, 'dailyTasks')}</h3></div>
       <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', marginBottom: 24 }}>
@@ -109,7 +217,7 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
                 <span>⏱ {fmtDur(task.durationMinutes)}</span>
               </div>
             </div>
-            <button style={{ ...homeS.primaryBtn, marginTop:0, background:task.accentColor }} onClick={() => onStartTimer && onStartTimer(task.durationMinutes)}>{tt(lang, 'startNow')}</button>
+            <button style={{ ...homeS.primaryBtn, marginTop:0, background:task.accentColor }} onClick={() => onStartTimer && onStartTimer(task.durationMinutes)}>Inizia ora</button>
           </div>
         ))}
       </div>
@@ -118,7 +226,7 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
       <div style={{ marginBottom: 8, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap' }}>
         <h3 style={homeS.sectionLabel}>⭐ {tt(lang, 'recommended')}</h3>
         <span style={{ fontSize:12, fontWeight:800, color: recommendedDoneCount === 2 ? '#166534' : 'var(--gray)', background: recommendedDoneCount === 2 ? '#DCFCE7' : 'var(--sidebar-bg)', border:'1px solid var(--border)', borderRadius:999, padding:'5px 10px' }}>
-          {recommendedDoneCount}/2 {tt(lang, 'completedToday')}
+          {recommendedDoneCount}/2 completati oggi
         </span>
       </div>
       <div style={{ ...homeS.cardsRow, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', marginBottom: 24 }}>
