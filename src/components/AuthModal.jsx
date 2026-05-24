@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, Google } from '../lib/icons';
 import { useAuth } from '../context/AuthContext';
+import { isMockAuthMode } from '../lib/authClient';
 
 const AUTH_STYLES = `
   @keyframes authCardIn { from { opacity:0; transform:scale(.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
@@ -13,8 +14,8 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('alex@lockeen.com');
-  const [password, setPassword] = useState('••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -26,6 +27,10 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     if (loading) return;
     if (!email.trim()) {
       setError('Email is required.');
+      return;
+    }
+    if (!password) {
+      setError('Password is required.');
       return;
     }
     setError(null);
@@ -42,6 +47,10 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
 
   const google = async () => {
     if (loading) return;
+    if (!isMockAuthMode()) {
+      setError('Google sign-in is not enabled for beta. Use email and password.');
+      return;
+    }
     setError(null);
     setLoading(true);
     const result = await signIn({ name: 'Alex', email: 'alex@gmail.com', provider: 'google' });
@@ -104,13 +113,17 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
               required
               disabled={loading}
+              autoComplete={mode === 'signin' ? 'email' : 'username'}
               onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
               style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('email') }} />
           </Field>
           <Field label="Password" right={mode === 'signin' && <a href="#" style={authS.forgot}>Forgot?</a>}>
             <div style={{ position: 'relative' }}>
               <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                required
+                minLength={6}
                 disabled={loading}
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
                 style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', paddingRight: 44, ...focusStyle('password') }} />
               <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password" style={authS.eyeBtn}>
