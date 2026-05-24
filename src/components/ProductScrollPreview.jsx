@@ -145,6 +145,7 @@ function RecommendationCard({ tone, label, title, meta, cta }) {
 }
 
 function DashboardPreview() {
+  const t = usePreviewLang();
   return (
     <motion.div
       className="relative h-full overflow-hidden rounded-[22px] bg-white"
@@ -154,7 +155,7 @@ function DashboardPreview() {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-white/60 to-transparent" />
       <BrowserChrome />
       <div className="flex h-[calc(100%-3.5rem)]">
-        <Sidebar />
+        <Sidebar t={t} />
         <main className="min-w-0 flex-1 overflow-hidden p-5 sm:p-8 lg:p-10">
           <div className="mb-6">
             <h2 className="text-2xl font-extrabold tracking-normal text-[#12142F] sm:text-3xl">
