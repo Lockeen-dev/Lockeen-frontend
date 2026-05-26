@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-import { BarChart3, Bell, BookOpen, Layers, LogOut, Moon, Pencil, Sparkles, Sun, ZapSolid } from '../lib/icons';
+import { BarChart3, Bell, BookOpen, Layers, LogOut, Pencil, Sparkles, XMark, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import { isMockMode } from '../lib/apiClient';
 import { cellularRespirationCards, cellularRespirationQuestions, chemistryCards, mockDashboard, seedExams } from '../data/mockData';
@@ -19,6 +19,9 @@ import { AccountView, EarnView } from './AccountViews';
 import { CalendarView, initCalEvents } from './CalendarView';
 import AIStudyPlanner from './AIStudyPlanner';
 import DashboardHome from './DashboardHome';
+import { createStudySession, listStudySessions, sessionsToWeekData } from '../services/analytics';
+import { listExams } from '../services/exams';
+import { listFlashcards } from '../services/flashcards';
 
 /* ===================== DASHBOARD SHELL ===================== */
 function BottomNav({ tab, setTab, lang = 'en' }) {
@@ -46,7 +49,7 @@ function BottomNav({ tab, setTab, lang = 'en' }) {
   );
 }
 
-function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangChange }) {
+function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange }) {
   const { signOut } = useAuth();
   const [tab, setTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -91,7 +94,6 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   function clearAll() { setNotifications([]); setShowNotifPanel(false); }
   const [exams, setExams] = useState(() => realMode ? [] : seedExams);
   const [activeExamId, setActiveExamId] = useState(null);
-  const [themeSpin, setThemeSpin] = useState(0);
   const [flashcardDeck, setFlashcardDeck] = useState(() => realMode ? null : {
     noteId: 1,
     subject: 'Biology',
@@ -109,15 +111,53 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   const [flashHistory, setFlashHistory] = useState({});
   const [recentFlashDecks, setRecentFlashDecks] = useState([]);
   const [flashLanding, setFlashLanding] = useState(true);
+  const [practiceConfig, setPracticeConfig] = useState(null);
   const [weekData, setWeekData] = useState(() => realMode ? initialWeekData.map((day) => ({ ...day, mins: 0 })) : initialWeekData);
+  const [studySessions, setStudySessions] = useState([]);
   const [recommendedQuizDone, setRecommendedQuizDone] = useState(false);
   const [recommendedFlashDone, setRecommendedFlashDone] = useState(false);
 
-  function handleSessionSaved(mins) {
-    const labels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    const today = labels[new Date().getDay()];
-    setWeekData(prev => prev.map(d => d.day === today ? { ...d, mins: d.mins + mins } : d));
+  useEffect(() => {
+    let cancelled = false;
+    async function loadExams() {
+      const result = await listExams();
+      if (cancelled || result.error) return;
+      setExams(result.data || []);
+    }
+    loadExams();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadStudySessions() {
+      const result = await listStudySessions({ days: 30 });
+      if (cancelled || result.error) return;
+      const sessions = result.data || [];
+      setStudySessions(sessions);
+      if (realMode || sessions.length > 0) setWeekData(sessionsToWeekData(sessions));
+    }
+    loadStudySessions();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function handleSessionSaved(mins) {
+    const studiedAt = new Date().toISOString();
+    const localSession = { id: `pending-study-session-${Date.now()}`, minutes: mins, studiedAt, source: 'timer' };
+    setStudySessions(prev => {
+      const next = [localSession, ...prev];
+      setWeekData(sessionsToWeekData(next));
+      return next;
+    });
     addNotification(`Study session logged: ${mins} min`, 'timer');
+    const result = await createStudySession({ minutes: mins, studiedAt, source: 'timer' });
+    if (!result.error && result.data) {
+      setStudySessions(prev => {
+        const next = [result.data, ...prev.filter((session) => session.id !== localSession.id)];
+        setWeekData(sessionsToWeekData(next));
+        return next;
+      });
+    }
   }
 
   const [plannerOpen, setPlannerOpen]       = useState(false);
@@ -199,8 +239,72 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
   };
 
   const openQuizForExam = (examId) => {
-    setQuizDeck({ _examId: examId, questions: [] });
+    const exam = exams.find((item) => String(item.id) === String(examId));
+    if (!exam) return;
+    setPracticeConfig({
+      exam,
+      mode: 'flashcards',
+      scopeId: 'all',
+      difficulty: 'medium',
+      count: 10,
+      timerOn: true,
+      timerSecs: 30,
+    });
+  };
+
+  const startConfiguredPractice = async (config) => {
+    const exam = config.exam;
+    const chapter = config.scopeId === 'all' ? null : (exam.chapters || []).find((item) => String(item.id) === String(config.scopeId));
+    const chapterId = chapter?.id || 'all';
+    const scopeTitle = chapter ? chapter.title || chapter.name : 'Whole exam';
+    const practicePayload = {
+      source: 'analytics-grade-predictor',
+      mode: config.mode,
+      examId: exam.id,
+      examName: exam.name,
+      chapterId,
+      chapterName: scopeTitle,
+      difficulty: config.difficulty,
+      count: config.count,
+      timerOn: config.timerOn !== false,
+      timerSecs: config.timerSecs,
+      requestedAt: new Date().toISOString(),
+    };
+
+    setPracticeConfig(null);
     setActiveExamId(null);
+
+    if (config.mode === 'flashcards') {
+      const localCards = chapter
+        ? (chapter.cards || [])
+        : (exam.chapters || []).flatMap((item) => item.cards || []);
+      const filters = chapter ? { examId: exam.id, chapterId: chapter.id } : { examId: exam.id };
+      const result = await listFlashcards(filters);
+      const serviceCards = result.error ? [] : (result.data || []).map((card) => ({
+        ...card,
+        q: card.q ?? card.front ?? '',
+        a: card.a ?? card.back ?? '',
+        front: card.front ?? card.q ?? '',
+        back: card.back ?? card.a ?? '',
+      }));
+      const cards = serviceCards.length ? serviceCards : localCards;
+      setFlashcardDeck({
+        noteId: chapter ? chapter.id : exam.id,
+        subject: exam.subject,
+        title: chapter ? chapter.title || chapter.name : exam.name,
+        cards: cards.slice(0, config.count),
+        _meta: practicePayload,
+      });
+      setFlashLanding(false);
+      setTab('flashcards');
+      return;
+    }
+
+    setQuizDeck({
+      _examId: exam.id,
+      _practiceConfig: { ...practicePayload, autoStart: true },
+      questions: [],
+    });
     setTab('quiz');
   };
 
@@ -285,15 +389,6 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
                 </div>
               )}
             </div>}
-            <button
-              onClick={() => { setThemeSpin((n) => n + 1); toggleDark(); }}
-              style={{ ...shellS.themeBtn, background: darkMode ? '#1e293b' : '#fff' }}
-              aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              <span key={themeSpin} style={{ ...shellS.themeIcon, animation: themeSpin ? 'spin-once .4s ease' : 'none' }}>
-                {darkMode ? <Moon size={18} /> : <Sun size={18} />}
-              </span>
-            </button>
             <div ref={profileRef} style={{ position: 'relative' }}>
               <button
                 type="button"
@@ -330,8 +425,8 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
         className="outerCard"
         style={{
           ...shellS.outerCard,
-          background: darkMode ? '#1e293b' : '#fff',
-          boxShadow: darkMode ? '0 30px 60px -30px rgba(0,0,0,.5)' : '0 30px 60px -30px rgba(55,48,232,.25)',
+          background: '#fff',
+          boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)',
           borderRadius: isMobile ? 0 : 24,
           border: isMobile ? 'none' : '2px solid var(--indigo)',
         }}
@@ -356,7 +451,7 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
                 )}
                 {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={darkMode} />}
                 {tab === 'tutor'     && <TutorView />}
-                {tab === 'analytics' && <AnalyticsView weekData={weekData} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuiz={openQuiz} />}
+                {tab === 'analytics' && <AnalyticsView weekData={weekData} studySessions={studySessions} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuizForExam={openQuizForExam} />}
                 {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} />}
                 {tab === 'earn'      && <EarnView />}
                 {tab === 'account'   && <AccountView user={user} lang={lang} onLangChange={onLangChange} onLogout={handleLogout} />}
@@ -367,9 +462,143 @@ function Dashboard({ user, onLogout, darkMode, toggleDark, lang = 'en', onLangCh
       </div>
       {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
       {plannerOpen && <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} initialNoteId={plannerNoteId} existingEvents={calEvents} />}
+      {practiceConfig && (
+        <PracticeConfigModal
+          config={practiceConfig}
+          onChange={setPracticeConfig}
+          onClose={() => setPracticeConfig(null)}
+          onStart={startConfiguredPractice}
+        />
+      )}
       {isMobile && <BottomNav tab={tab} setTab={handleSetTab} lang={lang} />}
     </div>
   );
+}
+
+function PracticeConfigModal({ config, onChange, onClose, onStart }) {
+  const { exam, mode, scopeId, difficulty, count, timerOn = true, timerSecs = 30 } = config;
+  const chapters = exam.chapters || [];
+  const setField = (key, value) => onChange({ ...config, [key]: value });
+  const scopeOptions = [
+    { id: 'all', label: 'Whole exam', count: Math.max(12, chapters.reduce((sum, chapter) => sum + (chapter.questions?.length || chapter.cards?.length || 0), 0) || 12) },
+    ...chapters.map((chapter) => ({
+      id: chapter.id,
+      label: chapter.title || chapter.name || 'Chapter',
+      count: Math.max(1, chapter.questions?.length || chapter.cards?.length || 6),
+    })),
+  ];
+  const modes = [
+    { id: 'quiz', title: 'Quiz', sub: 'Questions + Timer', Icon: Sparkles },
+    { id: 'flashcards', title: 'Flashcards', sub: 'Review practice', Icon: Layers },
+  ];
+  const difficulties = [
+    { id: 'easy', title: 'Easy', sub: 'Warm-up' },
+    { id: 'medium', title: 'Medium', sub: 'Balanced' },
+    { id: 'hard', title: 'Hard', sub: 'Exam mode' },
+  ];
+  const counts = [10, 20, 30, 50];
+  const timerOptions = [15, 30, 60, 90];
+
+  return (
+    <div style={practiceS.overlay} role="dialog" aria-modal="true" aria-label="Configure practice">
+      <div style={practiceS.modal}>
+        <button type="button" onClick={onClose} style={practiceS.close} aria-label="Close"><XMark size={24} /></button>
+        <div style={practiceS.kicker}>CONFIGURE PRACTICE</div>
+        <h2 style={practiceS.title}>{exam.name}</h2>
+        <p style={practiceS.subtitle}>Prediction based on quiz, flashcards, and target grade</p>
+
+        <div style={practiceS.modeGrid}>
+          {modes.map(({ id, title, sub, Icon: ModeIcon }) => {
+            const active = mode === id;
+            return (
+              <button key={id} type="button" onClick={() => setField('mode', id)} style={{ ...practiceS.modeCard, ...(active ? practiceS.modeCardActive : null) }}>
+                <span style={{ ...practiceS.modeIcon, color: 'var(--indigo)', background: '#EEF2FF' }}><ModeIcon size={26} /></span>
+                <span style={practiceS.modeTitle}>{title}</span>
+                <span style={practiceS.modeSub}>{sub}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={practiceS.divider} />
+        <SectionLabel>Scope</SectionLabel>
+        <div style={practiceS.scopeRow}>
+          {scopeOptions.map((option) => {
+            const active = String(scopeId) === String(option.id);
+            return (
+              <button key={option.id} type="button" onClick={() => setField('scopeId', option.id)} style={{ ...practiceS.scopePill, ...(active ? practiceS.scopePillActive : null) }}>
+                <span>{option.label}</span>
+                <span style={{ ...practiceS.countBadge, ...(active ? practiceS.countBadgeActive : null) }}>{option.count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={practiceS.divider} />
+        <SectionLabel>Difficulty</SectionLabel>
+        <div style={practiceS.difficultyGrid}>
+          {difficulties.map((option) => {
+            const active = difficulty === option.id;
+            return (
+              <button key={option.id} type="button" onClick={() => setField('difficulty', option.id)} style={{ ...practiceS.difficultyCard, ...(active ? practiceS.difficultyCardActive : null) }}>
+                <span style={practiceS.diffTitle}>{option.title}</span>
+                <span style={practiceS.diffSub}>{option.sub}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={practiceS.divider} />
+        <SectionLabel>{mode === 'flashcards' ? 'Cards' : 'Questions'}</SectionLabel>
+        <div style={practiceS.countGrid}>
+          {counts.map((value) => {
+            const active = count === value;
+            return (
+              <button key={value} type="button" onClick={() => setField('count', value)} style={{ ...practiceS.countButton, ...(active ? practiceS.countButtonActive : null) }}>
+                {value}
+              </button>
+            );
+          })}
+        </div>
+
+        {mode === 'quiz' && (
+          <>
+            <div style={practiceS.divider} />
+            <div style={practiceS.timerHead}>
+              <div>
+                <SectionLabel compact>Timer</SectionLabel>
+                <div style={practiceS.timerSub}>Seconds per question</div>
+              </div>
+              <button type="button" onClick={() => setField('timerOn', !timerOn)} style={{ ...practiceS.timerSwitch, ...(timerOn ? practiceS.timerSwitchOn : null) }} aria-pressed={timerOn}>
+                <span style={{ ...practiceS.timerKnob, transform: timerOn ? 'translateX(34px)' : 'translateX(0)' }} />
+              </button>
+            </div>
+            {timerOn && (
+              <div style={practiceS.timerGrid}>
+                {timerOptions.map((value) => {
+                  const active = Number(timerSecs) === value;
+                  return (
+                    <button key={value} type="button" onClick={() => setField('timerSecs', value)} style={{ ...practiceS.countButton, ...(active ? practiceS.countButtonActive : null) }}>
+                      {value}s
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        <div style={practiceS.actions}>
+          <button type="button" onClick={onClose} style={practiceS.cancelBtn}>Cancel</button>
+          <button type="button" onClick={() => onStart(config)} style={practiceS.startBtn}>Start practice</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionLabel({ children, compact = false }) {
+  return <div style={{ ...practiceS.sectionLabel, ...(compact ? { marginBottom: 0 } : null) }}>{children}</div>;
 }
 
 const shellS = {
@@ -385,6 +614,45 @@ const shellS = {
   outerCard: { width: '100%', maxWidth: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
   grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 132px)', width: '100%', minWidth: 0 },
   main: { padding: '32px clamp(28px, 3vw, 56px)', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box' },
+};
+
+const practiceS = {
+  overlay: { position: 'fixed', inset: 0, zIndex: 5000, background: 'rgba(15,16,53,.42)', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', padding: 18 },
+  modal: { position: 'relative', width: 'min(660px, 96vw)', maxHeight: '90vh', overflowY: 'auto', background: '#fff', border: '1px solid #DDE1EA', borderRadius: 24, boxShadow: '0 28px 80px rgba(15,16,53,.28)', padding: '26px 26px 24px', boxSizing: 'border-box' },
+  close: { position: 'absolute', top: 18, right: 18, width: 38, height: 38, borderRadius: 999, border: '1px solid #E5E7EB', background: '#fff', color: '#6B7280', display: 'grid', placeItems: 'center', cursor: 'pointer' },
+  kicker: { color: 'var(--indigo)', fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 14 },
+  title: { margin: 0, color: 'var(--ink)', fontSize: 25, lineHeight: 1, fontWeight: 900, letterSpacing: '-0.04em' },
+  subtitle: { margin: '16px 0 20px', color: '#6B7280', fontSize: 15, lineHeight: 1.35, fontWeight: 600 },
+  modeGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 },
+  modeCard: { minHeight: 122, border: '1.5px solid #E5E7EB', borderRadius: 18, background: '#fff', padding: 18, textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 9 },
+  modeCardActive: { border: '2px solid var(--indigo)', background: '#EEF2FF' },
+  modeIcon: { width: 44, height: 44, borderRadius: 14, display: 'grid', placeItems: 'center' },
+  modeTitle: { color: 'var(--ink)', fontSize: 19, fontWeight: 900, lineHeight: 1 },
+  modeSub: { color: '#6B7280', fontSize: 13, fontWeight: 800 },
+  divider: { height: 1, background: '#E5E7EB', margin: '18px 0 15px' },
+  sectionLabel: { color: '#6B7280', fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 10 },
+  scopeRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  scopePill: { minHeight: 40, borderRadius: 999, border: '1.5px solid #E5E7EB', background: '#fff', padding: '0 13px', color: '#6B7280', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 900, cursor: 'pointer' },
+  scopePillActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)' },
+  countBadge: { minWidth: 24, height: 24, borderRadius: 999, background: '#F1F5F9', color: '#6B7280', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 900, padding: '0 7px' },
+  countBadgeActive: { background: 'var(--indigo)', color: '#fff' },
+  difficultyGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 },
+  difficultyCard: { minHeight: 68, borderRadius: 16, border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', gap: 5, padding: 12 },
+  difficultyCardActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)' },
+  diffTitle: { color: 'inherit', fontSize: 17, fontWeight: 900, lineHeight: 1 },
+  diffSub: { color: 'inherit', fontSize: 12, fontWeight: 900, opacity: .86 },
+  countGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 9 },
+  timerGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 9 },
+  timerHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  timerSub: { marginTop: 8, color: '#6B7280', fontSize: 14, fontWeight: 900 },
+  timerSwitch: { position: 'relative', width: 64, height: 34, borderRadius: 999, border: '1px solid #D1D5DB', background: '#E5E7EB', padding: 2, cursor: 'pointer', transition: 'background .15s, border-color .15s', flexShrink: 0 },
+  timerSwitchOn: { background: 'var(--indigo)', borderColor: 'var(--indigo)' },
+  timerKnob: { position: 'absolute', left: 3, top: 3, width: 26, height: 26, borderRadius: 999, background: '#fff', boxShadow: '0 1px 4px rgba(15,23,42,.2)', transition: 'transform .15s ease' },
+  countButton: { height: 46, borderRadius: 14, border: '1.5px solid #E5E7EB', background: '#fff', color: '#A1A6B5', fontSize: 17, fontWeight: 900, cursor: 'pointer' },
+  countButtonActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)', boxShadow: 'none' },
+  actions: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 18 },
+  cancelBtn: { height: 50, borderRadius: 16, border: '1px solid #E5E7EB', background: '#F8FAFC', color: '#6B7280', fontSize: 15, fontWeight: 900, cursor: 'pointer' },
+  startBtn: { height: 50, borderRadius: 16, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer' },
 };
 
 /* ===================== ANALYTICS ===================== */

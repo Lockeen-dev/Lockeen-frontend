@@ -83,6 +83,11 @@ const expectedTables = [
     parentChecks: ['public.quizzes', 'quizzes.user_id = auth.uid()'],
   },
   {
+    table: 'study_sessions',
+    ownerColumn: 'user_id',
+    operations: ['select', 'insert', 'update', 'delete'],
+  },
+  {
     table: 'ai_usage',
     ownerColumn: 'user_id',
     operations: ['select'],

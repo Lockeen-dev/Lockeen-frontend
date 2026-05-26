@@ -9,19 +9,13 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 function AuthShell() {
   const { user, status, error: authError, authEvent, isAuthenticated, isLoading, refreshSession } = useAuth();
   const [modal, setModal] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
   const [lang, setLang] = useState(() => localStorage.getItem('lockeen-lang') || 'en');
   const [pageAppEl, setPageAppEl] = useState(null);
 
   useEffect(() => {
     setPageAppEl(document.getElementById('page-app'));
-    const saved = localStorage.getItem('lockeen-theme');
-    if (saved === 'dark') {
-      setDarkMode(true);
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      document.documentElement.setAttribute('data-theme', 'light');
-    }
+    localStorage.removeItem('lockeen-theme');
+    document.documentElement.setAttribute('data-theme', 'light');
   }, []);
 
   useEffect(() => {
@@ -77,13 +71,6 @@ function AuthShell() {
     if (window.showPage) window.showPage('page-landing');
   };
 
-  function toggleDark() {
-    const next = !darkMode;
-    setDarkMode(next);
-    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
-    localStorage.setItem('lockeen-theme', next ? 'dark' : 'light');
-  }
-
   return (
     <React.Fragment>
       {isLoading && <div style={runtimeS.state}>Loading session...</div>}
@@ -100,11 +87,11 @@ function AuthShell() {
           initialMode={modal}
           onAuth={handleAuth}
           onClose={() => setModal(null)}
-          darkMode={darkMode}
+          darkMode={false}
         />
       )}
       {isAuthenticated && pageAppEl && createPortal(
-        <Dashboard user={user} onLogout={handleLogout} darkMode={darkMode} toggleDark={toggleDark} lang={lang} onLangChange={changeLang} />,
+        <Dashboard user={user} onLogout={handleLogout} darkMode={false} lang={lang} onLangChange={changeLang} />,
         pageAppEl
       )}
     </React.Fragment>

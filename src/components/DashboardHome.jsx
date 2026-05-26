@@ -5,7 +5,7 @@ import { tt } from '../lib/i18n';
 import { mockDashboard } from '../data/mockData';
 import { getDashboardSummary } from '../services/dashboard';
 import useIsMobile from '../lib/useIsMobile';
-import { LIFE_CATS, dayKey } from './CalendarView';
+import { LIFE_CATS, dayKey, resolveEventPalette } from './CalendarView';
 import { homeS } from '../styles/dashboardStyles';
 
 function formatDashboardError(error) {
@@ -114,9 +114,10 @@ function DashboardHome({ user, lang = 'en', setTab, openQuiz, openFlashcards, re
           <div style={{ display:'flex', flexDirection:'column', gap:2, marginBottom:18 }}>
             {todayEvents.map((ev, idx) => {
               const cat = LIFE_CATS.find(c => c.id === ev.cat);
-              const accentColor = ev.noteColor || cat?.color || 'var(--indigo)';
-              const catBg = ev.noteBg || cat?.bg || 'var(--lavender)';
-              const catText = ev.noteText || cat?.text || 'var(--indigo)';
+              const eventPalette = resolveEventPalette(ev);
+              const accentColor = eventPalette.color || cat?.color || 'var(--indigo)';
+              const catBg = eventPalette.bg || cat?.bg || 'var(--lavender)';
+              const catText = eventPalette.text || cat?.text || 'var(--indigo)';
               const done = !!checked[idx];
               return (
                 <div key={idx} onClick={() => { if (!done) setConfirmModal({ idx, ev }); else toggleCheck(idx); }} style={{ display:'flex', alignItems:'center', gap: isMobile ? 8 : 14, padding: isMobile ? '10px 10px' : '12px 14px', borderRadius:12, cursor:'pointer', transition:'background .12s', background: done ? 'transparent' : 'var(--sidebar-bg)', opacity: done ? 0.45 : 1, width:'100%', minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>

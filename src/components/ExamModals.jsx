@@ -213,11 +213,6 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
         </div>
 
         <div style={uploadS.field}>
-          <label style={uploadS.label}>Priorità</label>
-          <PrioritySelector value={priority} onChange={setPriority} />
-        </div>
-
-        <div style={uploadS.field}>
           <label style={dateS.label}>Exam date</label>
           <div style={dateS.row}>
             <select value={day} onChange={(e) => setDay(Number(e.target.value))} disabled={saving} style={dateS.select} aria-label="Day">

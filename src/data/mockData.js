@@ -25,6 +25,7 @@ export const SUBJECT_COLORS = {
   'History':    { bg:'#FEF3C7', dot:'#F59E0B', text:'#92400E', border:'#fcd34d' },
   'Math':       { bg:'#ECFEFF', dot:'#06B6D4', text:'#0E7490', border:'#a5f3fc' },
   'Economics':  { bg:'#DCFCE7', dot:'#10B981', text:'#065F46', border:'#86efac' },
+  'Finance':    { bg:'#DCFCE7', dot:'#10B981', text:'#065F46', border:'#86efac' },
   'Literature': { bg:'#FEE2E2', dot:'#EF4444', text:'#991B1B', border:'#fca5a5' },
 };
 
@@ -34,6 +35,7 @@ export const SUBJECT_COLORS_DARK = {
   'History':    { bg:'#292524', dot:'#fbbf24', text:'#fcd34d', border:'#92400e' },
   'Math':       { bg:'#0c2626', dot:'#22d3ee', text:'#67e8f9', border:'#0e7490' },
   'Economics':  { bg:'#052e16', dot:'#34d399', text:'#6ee7b7', border:'#065f46' },
+  'Finance':    { bg:'#052e16', dot:'#34d399', text:'#6ee7b7', border:'#065f46' },
   'Literature': { bg:'#450a0a', dot:'#f87171', text:'#fca5a5', border:'#991b1b' },
 };
 
@@ -50,8 +52,9 @@ export const EXTRA_SUBJECT_COLORS_DARK = {
 export function getSubjectPalette(subject, fallback = {}, darkMode = false) {
   const primary = darkMode ? SUBJECT_COLORS_DARK : SUBJECT_COLORS;
   const extra = darkMode ? EXTRA_SUBJECT_COLORS_DARK : EXTRA_SUBJECT_COLORS;
-  return primary[subject]
-    || extra[subject]
+  const inferred = subject && !primary[subject] && !extra[subject] ? inferSubjectFromName(subject) : subject;
+  return primary[inferred]
+    || extra[inferred]
     || {
       bg: fallback.bg || fallback.color || '#F3F4F6',
       dot: fallback.dot || '#6B7280',
@@ -67,7 +70,7 @@ export function inferSubjectFromName(value) {
     ['Chemistry', ['chemistry', 'chimica', 'organic', 'reaction']],
     ['History', ['history', 'storia', 'war', 'wwii']],
     ['Math', ['math', 'matematica', 'calculus', 'algebra']],
-    ['Economics', ['economics', 'economia', 'macro', 'micro']],
+    ['Finance', ['finance', 'finanza', 'finanzi', 'financial', 'economics', 'economia', 'macro', 'micro']],
     ['Literature', ['literature', 'letteratura', 'english', 'shakespeare']],
     ['Physics', ['physics', 'fisica', 'quantum']],
   ];

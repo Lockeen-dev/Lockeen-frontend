@@ -7,6 +7,9 @@ import { listMaterials } from './materials';
 import { listNotes } from './notes';
 import { listQuizzes } from './quiz';
 
+const STUDY_SESSIONS_TABLE = 'study_sessions';
+const LOCAL_STUDY_SESSIONS_KEY = 'lockeen.studySessions.v1';
+
 function ok(data) {
   return { data: structuredClone(data), error: null };
 }
@@ -64,6 +67,157 @@ function averageScore(attempts = []) {
 
   if (!percentages.length) return null;
   return Math.round(percentages.reduce((sum, value) => sum + value, 0) / percentages.length);
+}
+
+function readLocalStudySessions() {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STUDY_SESSIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function writeLocalStudySessions(sessions) {
+  try {
+    window.localStorage.setItem(LOCAL_STUDY_SESSIONS_KEY, JSON.stringify(sessions.slice(0, 300)));
+  } catch (_) {}
+}
+
+function toStudySession(row) {
+  return {
+    id: row.id,
+    minutes: Number(row.minutes ?? row.mins ?? 0),
+    studiedAt: row.studied_at || row.studiedAt || row.created_at || row.createdAt || new Date().toISOString(),
+    source: row.source || 'timer',
+  };
+}
+
+function isMissingStudySessionsTable(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.code === '42P01' || error?.code === 'PGRST205' || message.includes(STUDY_SESSIONS_TABLE);
+}
+
+function weekStartMonday(now = new Date()) {
+  const start = new Date(now);
+  const day = start.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + diff);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+export function sessionsToWeekData(sessions = [], now = new Date()) {
+  const start = weekStartMonday(now);
+  const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const week = labels.map((day) => ({ day, mins: 0 }));
+  sessions.forEach((session) => {
+    const date = parseDate(session.studiedAt);
+    if (!date) return;
+    const index = Math.floor((date.getTime() - start.getTime()) / 86400000);
+    if (index >= 0 && index < 7) {
+      week[index].mins += Math.max(0, Number(session.minutes || 0));
+    }
+  });
+  return week.map((day) => ({ ...day, mins: Math.round(day.mins) }));
+}
+
+export function getStudyStreak(sessions = [], now = new Date()) {
+  const studiedDays = new Set(
+    sessions
+      .filter((session) => Number(session.minutes) > 0)
+      .map((session) => {
+        const date = parseDate(session.studiedAt);
+        if (!date) return null;
+        date.setHours(0, 0, 0, 0);
+        return date.toISOString().slice(0, 10);
+      })
+      .filter(Boolean),
+  );
+
+  let streak = 0;
+  const cursor = new Date(now);
+  cursor.setHours(0, 0, 0, 0);
+  while (studiedDays.has(cursor.toISOString().slice(0, 10))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+export async function listStudySessions({ days = 30 } = {}) {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  since.setHours(0, 0, 0, 0);
+
+  if (isMockMode()) {
+    return ok(readLocalStudySessions().filter((session) => (parseDate(session.studiedAt)?.getTime() || 0) >= since.getTime()));
+  }
+
+  const clientError = requireSupabaseClient();
+  if (clientError) return ok(readLocalStudySessions());
+
+  const userResult = await requireAuthenticatedUserId();
+  if (userResult.error) return ok(readLocalStudySessions());
+
+  const { data, error } = await supabase
+    .from(STUDY_SESSIONS_TABLE)
+    .select('id, minutes, studied_at, source, created_at')
+    .eq('user_id', userResult.data)
+    .gte('studied_at', since.toISOString())
+    .order('studied_at', { ascending: false });
+
+  if (error) {
+    if (isMissingStudySessionsTable(error)) return ok(readLocalStudySessions());
+    const normalized = normalizeError(error);
+    return fail(normalized.message, normalized.code);
+  }
+
+  return ok((data || []).map(toStudySession));
+}
+
+export async function createStudySession(input = {}) {
+  const minutes = Math.max(1, Math.round(Number(input.minutes || 0)));
+  if (!Number.isFinite(minutes) || minutes < 1) {
+    return fail('Study session minutes must be at least 1.', 'VALIDATION_ERROR');
+  }
+  const session = {
+    id: input.id || `local-study-session-${crypto.randomUUID()}`,
+    minutes,
+    studiedAt: input.studiedAt || new Date().toISOString(),
+    source: input.source || 'timer',
+  };
+
+  const localSessions = [session, ...readLocalStudySessions()];
+  writeLocalStudySessions(localSessions);
+
+  if (isMockMode()) return ok(session);
+
+  const clientError = requireSupabaseClient();
+  if (clientError) return ok(session);
+
+  const userResult = await requireAuthenticatedUserId();
+  if (userResult.error) return ok(session);
+
+  const { data, error } = await supabase
+    .from(STUDY_SESSIONS_TABLE)
+    .insert({
+      user_id: userResult.data,
+      minutes: session.minutes,
+      studied_at: session.studiedAt,
+      source: session.source,
+    })
+    .select('id, minutes, studied_at, source, created_at')
+    .single();
+
+  if (error) {
+    if (isMissingStudySessionsTable(error)) return ok(session);
+    const normalized = normalizeError(error);
+    return fail(normalized.message, normalized.code);
+  }
+
+  return ok(toStudySession(data));
 }
 
 async function countTable(table, userId) {

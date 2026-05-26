@@ -419,12 +419,13 @@ export function QuizReview({ run, onBack, darkMode }) {
 
 export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode }) {
   const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? exams[0]?.id ?? null);
-  const [selectedChapterId, setSelectedChapterId] = useState('all');
-  const [numQ, setNumQ] = useState(10);
-  const [selectedDiff, setSelectedDiff] = useState('medium');
-  const [timerOn, setTimerOn] = useState(false);
+  const [selectedChapterId, setSelectedChapterId] = useState(deck?._practiceConfig?.chapterId ?? 'all');
+  const [numQ, setNumQ] = useState(deck?._practiceConfig?.count ?? 10);
+  const [selectedDiff, setSelectedDiff] = useState(deck?._practiceConfig?.difficulty ?? 'medium');
+  const [timerOn, setTimerOn] = useState(deck?._practiceConfig?.mode === 'quiz');
   const [timerSecs, setTimerSecs] = useState(30);
   const [activeDeck, setActiveDeck] = useState(deck && deck.questions && deck.questions.length > 0 ? deck : null);
+  const autoStartedRef = React.useRef(false);
   const [reviewRun, setReviewRun] = useState(null);
   const [serviceQuizzes, setServiceQuizzes] = useState([]);
   const [loadingQuizzes, setLoadingQuizzes] = useState(false);
@@ -505,13 +506,28 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       subject: exam?.subject || '',
       title: serviceQuiz?.title || chapterName,
       questions: qs.map(normalizeQuestion).slice(0, n),
-      _meta: { examId, examName: exam?.name || '', chapterId, chapterName, numQ: Math.min(n, qs.length) },
+      _meta: { ...(deck?._practiceConfig || {}), examId, examName: exam?.name || '', chapterId, chapterName, numQ: Math.min(n, qs.length) },
       _autoStart: overrides._autoStart || false,
       _difficulty: overrides._difficulty || null,
       _timerOn: overrides._timerOn || false,
       _timerSecs: overrides._timerSecs || 30,
     });
   };
+
+  useEffect(() => {
+    if (!deck?._practiceConfig?.autoStart || autoStartedRef.current || activeDeck) return;
+    if (!deck._examId) return;
+    autoStartedRef.current = true;
+    startQuiz({
+      examId: deck._examId,
+      chapterId: deck._practiceConfig.chapterId || 'all',
+      numQ: deck._practiceConfig.count || 10,
+      _difficulty: deck._practiceConfig.difficulty || 'medium',
+      _timerOn: deck._practiceConfig.mode === 'quiz' && deck._practiceConfig.timerOn !== false,
+      _timerSecs: deck._practiceConfig.timerSecs || 30,
+      _autoStart: true,
+    });
+  }, [deck, activeDeck]);
 
   const handleQuizComplete = (noteId, scorePct, answers) => {
     onQuizComplete(noteId, scorePct, {

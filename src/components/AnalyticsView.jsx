@@ -3,9 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Flame, Trend, Trophy } from '../lib/icons';
 import { formatExamDate, getSubjectPalette } from '../data/mockData';
 import useIsMobile from '../lib/useIsMobile';
-import { gradeS } from './common/ExamControls';
 import { homeS } from '../styles/dashboardStyles';
-import { getStudySummary, listRecentActivity } from '../services/analytics';
+import { getStudyStreak, getStudySummary } from '../services/analytics';
 
 function useCountUp(target, duration = 1000, delay = 0) {
   const [value, setValue] = useState(0);
@@ -50,14 +49,6 @@ export const initialWeekData = [
   { day: 'Sat', mins: 140 },
   { day: 'Sun', mins: 75 },
 ];
-const subjects = [
-  { name: 'Biology',    progress: 84, color: 'var(--indigo)' },
-  { name: 'Chemistry',  progress: 67, color: 'var(--purple)' },
-  { name: 'Math',       progress: 92, color: '#06B6D4' },
-  { name: 'History',    progress: 41, color: '#F59E0B' },
-  { name: 'Literature', progress: 58, color: '#EF4444' },
-];
-
 function formatAnalyticsError(error) {
   if (!error) return 'Unable to load analytics data.';
   if (error.code === 'AUTH_REQUIRED') return 'Real mode requires an authenticated Supabase session.';
@@ -65,31 +56,141 @@ function formatAnalyticsError(error) {
   return error.message || 'Unable to load analytics data.';
 }
 
-function formatActivityDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('it-IT', { day:'numeric', month:'short' });
+function getCurrentGradeFromScore(score) {
+  if (score == null) return null;
+  return Math.round((18 + (Number(score) / 100) * 12) * 10) / 10;
 }
 
-function KpiStat({ label, rawValue, displayValue, Icon, tint, col, delay = 0 }) {
+function getLocalQuizScores(quizHistory = {}) {
+  return Object.values(quizHistory).flat().filter((score) => Number.isFinite(Number(score))).map(Number);
+}
+
+function getAverage(values = []) {
+  if (!values.length) return null;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function getSubjectMastery(notes = [], quizHistory = {}, flashHistory = {}) {
+  const colors = ['var(--indigo)', 'var(--purple)', '#06B6D4', '#F59E0B', '#EF4444'];
+  const groups = new Map();
+  (notes || []).forEach((exam) => {
+    const name = exam.subject || exam.name || 'General';
+    const current = groups.get(name) || { name, scores: [], mastery: [] };
+    const ids = [exam.id, ...(exam.chapters || []).map((chapter) => chapter.id)];
+    ids.forEach((id) => {
+      current.scores.push(...((quizHistory || {})[id] || []), ...((flashHistory || {})[id] || []));
+    });
+    (exam.chapters || []).forEach((chapter) => {
+      if (Number.isFinite(Number(chapter.mastery))) current.mastery.push(Number(chapter.mastery));
+    });
+    groups.set(name, current);
+  });
+
+  return Array.from(groups.values()).slice(0, 5).map((group, index) => ({
+    name: group.name,
+    progress: getAverage(group.scores) ?? getAverage(group.mastery) ?? 0,
+    color: colors[index % colors.length],
+  }));
+}
+
+function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}) {
+  const ids = [exam.id, ...(exam.chapters || []).map((chapter) => chapter.id)];
+  const scores = ids.flatMap((id) => [
+    ...((quizHistory || {})[id] || []),
+    ...((flashHistory || {})[id] || []),
+  ]).filter((score) => Number.isFinite(Number(score))).map(Number);
+  const backendPrediction = exam.gradePrediction ?? exam.predictedGrade ?? exam.prediction;
+  const backendConfidence = exam.gradePredictionConfidence ?? exam.predictionConfidence;
+  const backendStatus = exam.gradePredictionStatus ?? exam.predictionStatus;
+
+  if (!scores.length && !Number.isFinite(Number(backendPrediction))) {
+    return {
+      prediction: null,
+      confidence: 0,
+      confidenceLabel: 'No data',
+      delta: null,
+      status: 'needs-practice',
+      statusLabel: 'Needs practice',
+      helper: 'Needs practice',
+    };
+  }
+
+  const avgScore = getAverage(scores);
+  const prediction = Number.isFinite(Number(backendPrediction))
+    ? Math.round(Number(backendPrediction))
+    : Math.round(18 + (avgScore / 100) * 12);
+  const target = exam.targetGrade || 27;
+  const delta = prediction - target;
+  const lastScore = scores.at(-1);
+  const previousScores = scores.slice(0, -1);
+  const previousAvg = getAverage(previousScores);
+  const improving = previousAvg == null || lastScore == null ? false : lastScore >= previousAvg;
+  const confidence = Number.isFinite(Number(backendConfidence)) ? Math.round(Number(backendConfidence)) : Math.min(100, Math.max(20, scores.length * 20));
+  const confidenceLabel = confidence >= 70 ? 'High confidence' : confidence >= 40 ? 'Medium confidence' : 'Low confidence';
+  const status = backendStatus || (delta >= 0 ? 'on-track' : delta >= -2 ? 'close' : delta >= -4 ? 'at-risk' : 'needs-practice');
+  const labels = {
+    'on-track': 'On track',
+    close: 'Close',
+    'at-risk': 'At risk',
+    'needs-practice': 'Needs practice',
+  };
+  const helpers = {
+    'on-track': improving ? 'Keep going' : 'Keep steady',
+    close: improving ? 'Keep going' : 'Close',
+    'at-risk': 'At risk',
+    'needs-practice': 'Needs practice',
+  };
+  return {
+    prediction,
+    confidence,
+    confidenceLabel,
+    delta,
+    status,
+    statusLabel: labels[status] || labels['needs-practice'],
+    helper: helpers[status] || helpers['needs-practice'],
+  };
+}
+
+function getGradeStatusStyle(status) {
+  if (status === 'on-track') return { bg: '#ECFDF5', color: '#047857' };
+  if (status === 'close') return { bg: '#EEF2FF', color: 'var(--indigo)' };
+  if (status === 'at-risk') return { bg: '#FEF2F2', color: '#DC2626' };
+  return { bg: '#FFF7ED', color: '#F97316' };
+}
+
+const GRADE_STATUS_LEGEND = [
+  { key: 'on-track', label: 'On track' },
+  { key: 'close', label: 'Close' },
+  { key: 'at-risk', label: 'At risk' },
+  { key: 'needs-practice', label: 'Needs practice' },
+];
+
+function getChartMaxMinutes(values = []) {
+  const max = Math.max(...values.map((value) => Number(value) || 0), 0);
+  return Math.max(60, Math.ceil(max / 60) * 60);
+}
+
+function KpiStat({ label, displayValue, Icon, tint, col }) {
   const I = Icon;
   return (
     <div style={{ ...analS.kpiCard, background: tint }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <div style={{ ...analS.statIcon, background: 'rgba(255,255,255,.6)', color: col }}><I size={18} /></div>
       </div>
-      <div style={{ fontSize: 28, fontWeight: 800, color: col, letterSpacing: '-0.02em', lineHeight: 1 }}>{displayValue}</div>
-      <div style={{ fontSize: 12, color: col, opacity: 0.7, marginTop: 6, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: 30, fontWeight: 900, color: col, letterSpacing: '-0.03em', lineHeight: 1 }}>{displayValue}</div>
+      <div style={{ fontSize: 13, color: col, opacity: 0.7, marginTop: 8, fontWeight: 800 }}>{label}</div>
     </div>
   );
 }
 
 function AnimatedBar({ mins, maxMin, day, animate }) {
-  const targetH = Math.round((mins / maxMin) * 180);
+  const targetH = mins > 0 ? Math.max(8, Math.round((mins / maxMin) * 180)) : 0;
   const [h, setH] = useState(0);
   useEffect(() => {
-    if (!animate) return;
+    if (!animate) {
+      setH(targetH);
+      return;
+    }
     let raf;
     const start = performance.now();
     const duration = 700;
@@ -135,18 +236,14 @@ function AnimatedProgress({ progress, color }) {
   );
 }
 
-function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, openQuiz }) {
+function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flashHistory, setTab, openQuizForExam }) {
   const isMobile = useIsMobile();
-  const maxMin = Math.max(...weekData.map(d => d.mins), 1);
+  const maxMin = getChartMaxMinutes(weekData.map(d => d.mins));
   const totalMin = weekData.reduce((a, b) => a + b.mins, 0);
   const trackedNotes = notes || [];
-  const avgTarget = trackedNotes.length
-    ? (trackedNotes.reduce((sum, n) => sum + (n.targetGrade || 27), 0) / trackedNotes.length).toFixed(1)
-    : '0.0';
 
   const [chartRef, chartInView] = useInView('-40px');
   const [summary, setSummary] = useState(null);
-  const [activity, setActivity] = useState([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState('');
 
@@ -155,19 +252,14 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
     async function loadAnalytics() {
       setAnalyticsLoading(true);
       setAnalyticsError('');
-      const [summaryResult, activityResult] = await Promise.all([
-        getStudySummary(),
-        listRecentActivity({ limit: 8 }),
-      ]);
+      const summaryResult = await getStudySummary();
       if (cancelled) return;
-      const error = summaryResult.error || activityResult.error;
+      const error = summaryResult.error;
       if (error) {
         setAnalyticsError(formatAnalyticsError(error));
         setSummary(null);
-        setActivity([]);
       } else {
         setSummary(summaryResult.data || null);
-        setActivity(activityResult.data || summaryResult.data?.latestActivity || []);
       }
       setAnalyticsLoading(false);
     }
@@ -175,31 +267,24 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
     return () => { cancelled = true; };
   }, []);
 
-  const hasReadModelData = summary && [
-    summary.totalExams,
-    summary.notesCount,
-    summary.materialsCount,
-    summary.flashcardsCount,
-    summary.quizzesCount,
-    summary.quizAttemptsCount,
-  ].some((value) => Number(value) > 0);
+  const localQuizScores = getLocalQuizScores(quizHistory);
+  const averageQuizScore = summary?.averageQuizScore ?? getAverage(localQuizScores);
+  const hasQuizData = Number(summary?.quizAttemptsCount || 0) > 0 || localQuizScores.length > 0 || averageQuizScore != null;
+  const currentGrade = hasQuizData ? getCurrentGradeFromScore(averageQuizScore) : null;
+  const streakDays = getStudyStreak(studySessions);
+  const subjectMastery = getSubjectMastery(trackedNotes, quizHistory, flashHistory);
 
   // Count-up values
   const studyH = useCountUp(Math.floor(totalMin / 60), 900, 0);
   const studyM = useCountUp(totalMin % 60, 900, 0);
-  const avgVal = useCountUp(Math.round(parseFloat(avgTarget) * 10), 900, 240);
-
-  const kpiCards = summary ? [
-    { label: 'Exams', displayValue: summary.totalExams ?? 0, Icon: Trophy, tint: '#FEF9C3', col: '#CA8A04' },
-    { label: 'Notes', displayValue: summary.notesCount ?? 0, Icon: Clock, tint: 'var(--lavender)', col: 'var(--indigo)' },
-    { label: 'Materials', displayValue: summary.materialsCount ?? 0, Icon: Flame, tint: '#FFF7ED', col: '#F97316' },
-    { label: 'Flashcards', displayValue: summary.flashcardsCount ?? 0, Icon: Trend, tint: '#ECFDF5', col: '#10B981' },
-    { label: 'Quizzes', displayValue: summary.quizzesCount ?? 0, Icon: Trend, tint: '#EEF2FF', col: 'var(--indigo)' },
-    { label: 'Quiz attempts', displayValue: summary.quizAttemptsCount ?? 0, Icon: Trophy, tint: '#F5F3FF', col: 'var(--purple)' },
-    ...(summary.averageQuizScore != null
-      ? [{ label: 'Avg. quiz score', displayValue: `${summary.averageQuizScore}%`, Icon: Trend, tint: '#ECFDF5', col: '#10B981' }]
-      : []),
-  ] : [];
+  const quizScoreDisplay = hasQuizData && averageQuizScore != null ? `${averageQuizScore}%` : 'n.a.';
+  const currentGradeDisplay = currentGrade != null ? currentGrade.toFixed(1) : 'n.a.';
+  const kpiCards = [
+    { label: 'Study time this week', displayValue: `${studyH}h ${studyM}m`, Icon: Clock, tint: 'var(--lavender)', col: 'var(--indigo)' },
+    { label: 'Current streak', displayValue: `${streakDays} ${streakDays === 1 ? 'day' : 'days'}`, Icon: Flame, tint: '#FFF7ED', col: '#F97316' },
+    { label: 'Avg. quiz score', displayValue: quizScoreDisplay, Icon: Trend, tint: '#ECFDF5', col: '#10B981' },
+    { label: 'Voto medio attuale', displayValue: currentGradeDisplay, Icon: Trophy, tint: '#FEF9C3', col: '#CA8A04' },
+  ];
 
   return (
     <div>
@@ -214,17 +299,13 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
       {!analyticsLoading && analyticsError && (
         <div style={{ ...analS.noticeCard, marginBottom:22, background:'#FEF2F2', borderColor:'#FCA5A5', color:'#991B1B', fontWeight:700 }}>{analyticsError}</div>
       )}
-      {!analyticsLoading && !analyticsError && !hasReadModelData && (
-        <div style={{ ...analS.noticeCard, marginBottom:22 }}>No analytics data yet. Add notes, materials, flashcards, or quiz attempts to populate this view.</div>
-      )}
-
-      {!analyticsLoading && !analyticsError && kpiCards.length > 0 && (
+      {!analyticsLoading && !analyticsError && (
         <div style={{ ...analS.statsGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)' }}>
           {kpiCards.map(s => <KpiStat key={s.label} {...s} />)}
         </div>
       )}
 
-      {!analyticsLoading && !analyticsError && hasReadModelData && (
+      {!analyticsLoading && !analyticsError && (
       <div ref={chartRef} style={{ ...analS.row, gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr' }}>
         <div style={analS.chartCard}>
           <div style={analS.cardHeader}>
@@ -242,18 +323,18 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
         </div>
 
         <div style={analS.subjectCard}>
-          <h3 style={{ ...analS.cardTitle, marginBottom: 4 }}>Latest activity</h3>
-          <p style={{ ...analS.cardSub, marginBottom: 18 }}>Recent items from the read model</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {activity.length === 0 ? (
-              <p style={{ margin:0, color:'var(--gray)', fontSize:13 }}>No recent activity yet.</p>
-            ) : activity.map(item => (
-              <div key={item.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
-                <span style={{ width:8, height:8, borderRadius:999, background:'var(--indigo)', flexShrink:0 }} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.title || item.type}</div>
-                  <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>{item.type}{formatActivityDate(item.at) ? ` · ${formatActivityDate(item.at)}` : ''}</div>
+          <h3 style={{ ...analS.cardTitle, marginBottom: 4 }}>Subject mastery</h3>
+          <p style={{ ...analS.cardSub, marginBottom: 24 }}>Your progress per subject</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+            {subjectMastery.length === 0 ? (
+              <p style={{ margin:0, color:'var(--gray)', fontSize:13 }}>No subject data yet.</p>
+            ) : subjectMastery.map(subject => (
+              <div key={subject.name}>
+                <div style={analS.subjRow}>
+                  <span style={analS.subjName}>{subject.name}</span>
+                  <span style={analS.subjPct}>{subject.progress}%</span>
                 </div>
+                <AnimatedProgress progress={subject.progress} color={subject.color} />
               </div>
             ))}
           </div>
@@ -261,121 +342,90 @@ function AnalyticsView({ weekData, notes, quizHistory, flashHistory, setTab, ope
       </div>
       )}
 
-      {!analyticsLoading && !analyticsError && trackedNotes.length > 0 && (
-      <div style={gradeS.section}>
-        <div style={gradeS.sectionHead}>
-          <h3 style={gradeS.sectionTitle}>Grade Predictor</h3>
-          <p style={gradeS.sectionSub}>Previsione basata sui tuoi quiz e flashcard</p>
+      {!analyticsLoading && !analyticsError && (
+      <section style={analS.gradeSection}>
+        <div style={analS.gradeHead}>
+          <div style={analS.gradeTitleBlock}>
+            <h3 style={analS.gradeTitle}>Grade Predictor</h3>
+            <p style={analS.gradeSub}>Prediction based on quiz, flashcards, and target grade</p>
+          </div>
+          <div style={analS.gradeLegend}>
+            {GRADE_STATUS_LEGEND.map((item) => {
+              const style = getGradeStatusStyle(item.key);
+              return <span key={item.key} style={{ ...analS.statusPill, background: style.bg, color: style.color }}>{item.label}</span>;
+            })}
+          </div>
         </div>
-        <div style={gradeS.grid}>
-          {trackedNotes.map(note => (
+        <div style={analS.gradeList}>
+          {trackedNotes.length === 0 ? (
+            <div style={{ padding: 24, color: 'var(--gray)', fontWeight: 700 }}>Nessun esame ancora.</div>
+          ) : trackedNotes.map(note => (
             <GradePredictorCard
               key={note.id}
               note={note}
               quizHistory={quizHistory || {}}
               flashHistory={flashHistory || {}}
               setTab={setTab}
-              openQuiz={openQuiz}
+              openQuizForExam={openQuizForExam}
+              isMobile={isMobile}
             />
           ))}
         </div>
-      </div>
+      </section>
       )}
     </div>
   );
 }
 
-function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuiz }) {
+function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuizForExam, isMobile = false }) {
   const palette = getSubjectPalette(note.subject, note, false);
   const targetGrade = note.targetGrade || 27;
-  const allScores = [
-    ...(quizHistory[note.id] || []),
-    ...(flashHistory[note.id] || [])
-  ];
-  const hasScores = allScores.length > 0;
-  const avgScore = allScores.length > 0
-    ? allScores.reduce((a,b)=>a+b,0) / allScores.length
-    : 50;
-  const predictedGrade = Math.round(18 + (avgScore / 100) * 12);
-  const gap = targetGrade - predictedGrade;
-  const predPct = hasScores ? Math.max(0, Math.min(100, ((predictedGrade - 18) / 12) * 100)) : 0;
+  const prediction = estimateGradePrediction(note, quizHistory, flashHistory);
   const targetPct = Math.max(0, Math.min(100, ((targetGrade - 18) / 12) * 100));
-  const onTarget = hasScores && predictedGrade === targetGrade;
-  const overlap = !onTarget && Math.abs(gap) < 2;
-  const gradeText = (v) => v;
-
-  let messageStyle = gradeS.msgEmpty;
-  let message = 'Fai il primo quiz per vedere la previsione del voto.';
-  if (allScores.length > 0 && gap > 4) {
-    messageStyle = gradeS.msgWarn;
-    message = `Sei a ${gap} punti dall'obiettivo. Fai più quiz per migliorare la previsione.`;
-  } else if (allScores.length > 0 && gap > 0) {
-    messageStyle = gradeS.msgAlmost;
-    message = `Quasi lì. Ti mancano ${gap} punti. Continua così.`;
-  } else if (allScores.length > 0 && gap <= 0) {
-    messageStyle = gradeS.msgGood;
-    message = 'Sei sulla strada giusta. Al ritmo attuale puoi raggiungere il tuo obiettivo.';
-  }
+  const predictionPct = prediction.prediction == null ? null : Math.max(0, Math.min(100, ((prediction.prediction - 18) / 12) * 100));
+  const statusStyle = getGradeStatusStyle(prediction.status);
+  const examDate = formatExamDate(note.date || note.examDate);
+  const subtitle = `${examDate || 'No date'} · ${prediction.prediction == null ? 'No data' : prediction.confidenceLabel}`;
+  const hasProgress = predictionPct != null;
+  const progressPct = hasProgress ? predictionPct : targetPct;
+  const deltaDisplay = prediction.delta == null ? '—' : prediction.delta > 0 ? `+${prediction.delta}` : String(prediction.delta);
+  const practiceLabel = prediction.status === 'on-track' ? 'Keep going' : 'Start practice';
+  const openPractice = () => {
+    if (openQuizForExam && note.id) {
+      openQuizForExam(note.id);
+      return;
+    }
+    setTab && setTab('quiz');
+  };
 
   return (
-    <div style={gradeS.card}>
-      <div style={gradeS.cardHead}>
-        <div style={gradeS.noteName}>
-          <span style={{ ...gradeS.noteDot, background: palette.dot }} />
-          <span>{note.name || note.title}</span>
-        </div>
-        <span style={gradeS.examDate}>{formatExamDate(note.date || note.examDate)}</span>
-      </div>
-
-      <div style={gradeS.barWrap}>
-        <div style={gradeS.track} />
-        <div style={{ ...gradeS.fill, width: `${predPct}%` }} />
-        {!hasScores ? null : onTarget ? (
-          <div style={{ ...gradeS.point, ...gradeS.pointGood, left: `${targetPct}%` }}>
-            <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelGood, width: 60, left: -22 }}>On target</span>
-          </div>
-        ) : overlap ? (
-          <div style={{ ...gradeS.point, ...gradeS.pointTarget, left: `${targetPct}%`, zIndex: 3 }}>
-            <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelTarget }}>{gradeText(targetGrade)}</span>
-          </div>
-        ) : (
-          <React.Fragment>
-            <div style={{ ...gradeS.point, ...gradeS.pointPred, left: `${predPct}%`, zIndex: 2 }}>
-              <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelPred }}>{gradeText(predictedGrade)}</span>
-            </div>
-            <div style={{ ...gradeS.point, ...gradeS.pointTarget, left: `${targetPct}%`, zIndex: 3 }}>
-              <span style={{ ...gradeS.pointLabel, ...gradeS.pointLabelTarget }}>{gradeText(targetGrade)}</span>
-            </div>
-          </React.Fragment>
-        )}
-        <span style={gradeS.minLabel}>18</span>
-        <span style={gradeS.maxLabel}>30</span>
-      </div>
-
-      <div style={gradeS.nums}>
+    <div style={{ ...analS.gradeRow, ...(isMobile ? analS.gradeRowMobile : null) }}>
+      <div style={analS.gradeCourse}>
+        <span style={{ ...analS.courseDot, background: palette.dot }} />
         <div>
-          <div style={{ ...gradeS.num, ...gradeS.numPred }}>{hasScores ? gradeText(predictedGrade) : '—'}</div>
-          <div style={gradeS.numLabel}>Previsione attuale</div>
-        </div>
-        <div>
-          <div style={{ ...gradeS.num, ...gradeS.numTarget }}>{gradeText(targetGrade)}</div>
-          <div style={gradeS.numLabel}>Il tuo obiettivo</div>
-        </div>
-        <div>
-          <div style={{ ...gradeS.num, color: hasScores && gap > 0 ? '#B91C1C' : '#047857' }}>{hasScores ? (gap > 0 ? `-${gap}` : `+${Math.abs(gap)}`) : '—'}</div>
-          <div style={gradeS.numLabel}>Punti da recuperare</div>
+          <div style={analS.courseName}>{note.name || note.title}</div>
+          <div style={analS.courseMeta}>{subtitle}</div>
         </div>
       </div>
-
-      <div style={{ ...gradeS.message, ...messageStyle }}>{message}</div>
-      <button style={gradeS.quizBtn} onClick={() => {
-        const ch = note.chapters && note.chapters[0];
-        if (openQuiz && ch) {
-          openQuiz({ noteId: note.id, subject: note.subject, title: ch.title || note.name, questions: ch.questions || [] });
-        } else {
-          setTab && setTab('quiz');
-        }
-      }}>Vai al Quiz →</button>
+      <div style={analS.gradeNumberBox}>
+        <div style={analS.gradeNumber}>{targetGrade}</div>
+        <div style={analS.gradeLabel}>TARGET</div>
+      </div>
+      <div style={analS.gradeNumberBox}>
+        <div style={{ ...analS.gradeNumber, color: prediction.prediction == null ? 'var(--gray-2)' : 'var(--ink)' }}>{prediction.prediction ?? '—'}</div>
+        <div style={analS.gradeLabel}>PREDICTION</div>
+      </div>
+      <div style={analS.gradeTrackBlock}>
+        <div style={{ ...analS.statusPill, background: statusStyle.bg, color: statusStyle.color, alignSelf: 'flex-start' }}>{prediction.statusLabel}</div>
+        <div style={analS.gradeTrack}>
+          <span style={{ ...analS.gradeTrackFill, width: `${progressPct}%`, background: hasProgress ? statusStyle.color : 'transparent' }} />
+          <span style={{ ...analS.targetMarker, left: `${targetPct}%`, background: hasProgress ? 'var(--gray)' : '#F97316' }} />
+          {hasProgress && <span style={{ ...analS.predictionMarker, left: `${predictionPct}%`, background: statusStyle.color }} />}
+        </div>
+        <div style={analS.gradeHelper}>{prediction.helper}</div>
+      </div>
+      <div style={{ ...analS.gradeDelta, color: prediction.delta == null ? '#F97316' : statusStyle.color }}>{deltaDisplay}</div>
+      <button style={{ ...analS.practiceBtn, ...(isMobile ? { justifySelf: 'stretch' } : null) }} onClick={openPractice}>{practiceLabel}</button>
     </div>
   );
 }
@@ -407,6 +457,31 @@ const analS = {
   subjPct: { fontSize: 13, color: 'var(--gray)', fontWeight: 600 },
   progTrack: { height: 8, background: 'var(--chart-track)', borderRadius: 999, overflow: 'hidden' },
   progFill: { height: '100%', borderRadius: 999, transition: 'width .4s ease' },
+  gradeSection: { marginTop: 32 },
+  gradeHead: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'end', columnGap: 32, rowGap: 10, marginBottom: 18 },
+  gradeTitleBlock: { minWidth: 0 },
+  gradeTitle: { margin: 0, fontSize: 24, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-0.04em' },
+  gradeSub: { margin: '12px 0 0', color: 'var(--gray)', fontSize: 16, fontWeight: 600 },
+  gradeLegend: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', paddingBottom: 4 },
+  statusPill: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, padding: '9px 15px', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
+  gradeList: { border: '1px solid var(--border)', borderRadius: 22, background: 'var(--surface)', overflow: 'hidden', marginRight: 14 },
+  gradeRow: { display: 'grid', gridTemplateColumns: 'minmax(250px, 1.25fr) 86px 110px minmax(300px, 1fr) 44px minmax(128px, auto)', alignItems: 'center', gap: 14, padding: '24px 22px', borderBottom: '1px solid var(--border)' },
+  gradeRowMobile: { gridTemplateColumns: '1fr', alignItems: 'stretch', padding: 18 },
+  gradeCourse: { display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 },
+  courseDot: { width: 10, height: 10, borderRadius: 999, flexShrink: 0 },
+  courseName: { fontSize: 17, fontWeight: 900, color: 'var(--ink)', lineHeight: 1.2 },
+  courseMeta: { marginTop: 8, fontSize: 13, color: 'var(--gray)', fontWeight: 800 },
+  gradeNumberBox: { minWidth: 0 },
+  gradeNumber: { fontSize: 29, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-0.04em', lineHeight: 1 },
+  gradeLabel: { marginTop: 6, color: 'var(--gray)', fontSize: 10, fontWeight: 900, letterSpacing: '.03em' },
+  gradeTrackBlock: { display: 'flex', flexDirection: 'column', gap: 9, minWidth: 0 },
+  gradeTrack: { position: 'relative', height: 9, borderRadius: 999, background: 'var(--chart-track)', overflow: 'visible' },
+  gradeTrackFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 999, transition: 'width .35s ease' },
+  targetMarker: { position: 'absolute', top: -4, width: 3, height: 16, borderRadius: 999, background: 'var(--gray)', transform: 'translateX(-50%)' },
+  predictionMarker: { position: 'absolute', top: -4, width: 3, height: 16, borderRadius: 999, transform: 'translateX(-50%)' },
+  gradeHelper: { color: 'var(--gray)', fontSize: 13, fontWeight: 900, lineHeight: 1.35 },
+  gradeDelta: { justifySelf: 'center', fontSize: 18, fontWeight: 900, lineHeight: 1 },
+  practiceBtn: { justifySelf: 'end', width: 128, maxWidth: '100%', padding: '11px 12px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
 };
 
 export { AnalyticsView, GradePredictorCard };

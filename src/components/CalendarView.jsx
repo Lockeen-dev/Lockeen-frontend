@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Brain, CalendarIcon, ChevronDown, FileText, GripDots, Paperclip, Plus, Trash } from '../lib/icons';
+import { getSubjectPalette, inferSubjectFromName } from '../data/mockData';
 import { listCalendarEvents } from '../services/calendar';
 import { homeS } from '../styles/dashboardStyles';
 
@@ -28,8 +29,15 @@ export const SUBJECT_NOTE_MAP = {
   History:    { noteId:3, bg:'#FEF3C7', color:'#F59E0B', text:'#92400E' },
   Math:       { noteId:4, bg:'#ECFEFF', color:'#06B6D4', text:'#0E7490' },
   Economics:  { noteId:5, bg:'#DCFCE7', color:'#10B981', text:'#065F46' },
+  Finance:    { noteId:5, bg:'#DCFCE7', color:'#10B981', text:'#065F46' },
   Literature: { noteId:6, bg:'#FEE2E2', color:'#EF4444', text:'#991B1B' },
 };
+
+const NEUTRAL_EXAM_COLORS = new Set(['#374151', '#6B7280', '#9CA3AF', '#94A3B8', '#F3F4F6', '#E5E7EB']);
+
+function isNeutralExamColor(color) {
+  return color ? NEUTRAL_EXAM_COLORS.has(String(color).trim().toUpperCase()) : true;
+}
 
 const calSeedNotes = [
   { id:1, title:'Cellular Respiration' }, { id:2, title:'Organic Chemistry Reactions' },
@@ -81,9 +89,38 @@ function calendarKeyFromDate(value) {
   return `${year}-${month}-${day}`;
 }
 
+function resolveStudyPalette(input = {}) {
+  const rawText = [input.subject, input.noteSubject, input.title, input.name].filter(Boolean).join(' ');
+  const inferred = inferSubjectFromName(rawText);
+  const subject = input.subject || input.noteSubject || inferred || 'Study';
+  const subjectInfo = SUBJECT_NOTE_MAP[subject];
+  const palette = getSubjectPalette(inferred || subject, {}, false);
+  const inputColor = input.color || input.noteColor;
+  const useInferredPalette = Boolean(inferred);
+  const color = useInferredPalette || isNeutralExamColor(inputColor) ? (subjectInfo?.color || palette.dot || '#3730E8') : inputColor;
+  return {
+    subject,
+    color,
+    bg: useInferredPalette || isNeutralExamColor(input.noteBg) ? (subjectInfo?.bg || palette.bg || '#EEF2FF') : input.noteBg,
+    text: useInferredPalette || isNeutralExamColor(input.noteText) ? (subjectInfo?.text || palette.text || color) : input.noteText,
+  };
+}
+
+export function resolveEventPalette(ev = {}) {
+  const cat = LIFE_CATS.find(c => c.id === ev.cat);
+  if (ev.cat === 'study' || ev.noteSubject || ev.noteId || String(ev.name || '').toLowerCase().includes('exam')) {
+    return resolveStudyPalette(ev);
+  }
+  return {
+    subject: ev.noteSubject || cat?.label || 'Task',
+    color: ev.noteColor || cat?.color || '#3730E8',
+    bg: ev.noteBg || cat?.bg || '#EEF2FF',
+    text: ev.noteText || cat?.text || ev.noteColor || cat?.color || '#3730E8',
+  };
+}
+
 function serviceEventToCalendarEvent(event) {
-  const subjectInfo = event.subject ? SUBJECT_NOTE_MAP[event.subject] : null;
-  const color = event.color || subjectInfo?.color || '#3730E8';
+  const palette = resolveStudyPalette(event);
   return {
     type: event.type,
     source: 'exam-service',
@@ -94,10 +131,10 @@ function serviceEventToCalendarEvent(event) {
     dur: '2h',
     cat: 'study',
     noteId: event.examId,
-    noteColor: color,
-    noteBg: subjectInfo?.bg || '#EEF2FF',
-    noteText: subjectInfo?.text || color,
-    noteSubject: event.subject || 'Exam',
+    noteColor: palette.color,
+    noteBg: palette.bg,
+    noteText: palette.text,
+    noteSubject: palette.subject,
   };
 }
 
@@ -179,9 +216,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
   const startDrag = (e, ev, key, idx) => {
     e.preventDefault(); e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-    const cat   = LIFE_CATS.find(c => c.id === ev.cat);
-    const color = ev.noteColor || (cat?.color || 'var(--indigo)');
-    const bg    = ev.noteBg    || (cat?.bg    || 'var(--lavender)');
+    const { color, bg } = resolveEventPalette(ev);
     const evH   = Math.max(CAL_HOUR_H * 0.45, durToMins(ev.dur || '30m') / 60 * CAL_HOUR_H) - 2;
     dragMeta.current = { active:true, ev, fromKey:key, fromIdx:idx, color, bg, evH,
       offsetY: e.clientY - rect.top, offsetX: e.clientX - rect.left,
@@ -485,18 +520,16 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
                   ))}
                   {/* Absolute events */}
                   {dayEvs.map((ev, idx) => {
-                    const cat   = LIFE_CATS.find(c => c.id === ev.cat);
-                    const color = ev.noteColor || (cat?.color || 'var(--indigo)');
-                    const bg    = ev.noteBg    || (cat?.bg    || 'var(--lavender)');
+                    const { color, bg, text } = resolveEventPalette(ev);
                     const top   = timeToY(ev.time);
                     const h     = durToH(ev.dur);
                     return (
                       <div key={idx}
                         onMouseDown={e => startDrag(e, ev, key, idx)}
                         onClick={e => { e.stopPropagation(); handleEvClick(ev, key, (events[key]||[]).indexOf(ev)); }}
-                        style={{ position:'absolute', top, left:3, right:3, height: h - 2, borderRadius:7, background:bg, borderLeft:`3px solid ${color}`, padding:'4px 6px', cursor:'grab', overflow:'hidden', zIndex:1, boxSizing:'border-box', opacity: drag && drag.fromKey===key && drag.fromIdx===idx ? 0.25 : ev.completed ? 0.5 : 1, userSelect:'none' }}>
-                        <div style={{ fontSize:11, fontWeight:700, color, lineHeight:1.2, overflow:'hidden', textDecoration: ev.completed ? 'line-through' : 'none' }}>{ev.name}</div>
-                        {h > 32 && <div style={{ fontSize:10, color, opacity:.75, marginTop:2 }}>{ev.time}{ev.dur ? ` · ${ev.dur}` : ''}</div>}
+                        style={{ position:'absolute', top, left:3, right:3, height: h - 2, borderRadius:7, background:bg, borderLeft:`3px solid ${color}`, boxShadow:`inset 0 0 0 1px ${color}22`, padding:'4px 6px', cursor:'grab', overflow:'hidden', zIndex:1, boxSizing:'border-box', opacity: drag && drag.fromKey===key && drag.fromIdx===idx ? 0.25 : ev.completed ? 0.5 : 1, userSelect:'none' }}>
+                        <div style={{ fontSize:11, fontWeight:800, color:text, lineHeight:1.2, overflow:'hidden', textDecoration: ev.completed ? 'line-through' : 'none' }}>{ev.name}</div>
+                        {h > 32 && <div style={{ fontSize:10, color:text, opacity:.75, marginTop:2 }}>{ev.time}{ev.dur ? ` · ${ev.dur}` : ''}</div>}
                         <button onClick={e => { e.stopPropagation(); deleteEvent(key, (events[key]||[]).indexOf(ev)); }}
                           style={{ position:'absolute', bottom:2, right:2, background:'transparent', border:'none', cursor:'pointer', padding:2, opacity:.6, display:'flex', alignItems:'center', justifyContent:'center' }}>
                           <Trash size={10} color={color} />
@@ -538,12 +571,12 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
               <span style={{ ...calS.monthDayNum, ...(isToday?calS.monthDayToday:{}) }}>{day.getDate()}</span>
               <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:3 }}>
                 {dayEvs.slice(0,2).map((ev, idx) => {
-                  const cat = LIFE_CATS.find(c => c.id === ev.cat);
+                  const { color, bg, text } = resolveEventPalette(ev);
                   const origIdx = (events[key] || []).indexOf(ev);
                   const isDragging = monthDrag && monthDrag.fromKey === key && monthDrag.ev === ev;
                   return <div key={idx}
                     onMouseDown={e => startMonthDrag(e, ev, key, origIdx)}
-                    style={{ ...calS.monthPill, background:ev.noteColor||cat?.color, opacity:isDragging?0.3:(ev.completed?0.5:1), textDecoration:ev.completed?'line-through':'none', cursor:'grab', userSelect:'none' }}>{ev.name}</div>;
+                    style={{ ...calS.monthPill, background:bg, color:text, border:`1px solid ${color}33`, opacity:isDragging?0.3:(ev.completed?0.5:1), textDecoration:ev.completed?'line-through':'none', cursor:'grab', userSelect:'none' }}>{ev.name}</div>;
                 })}
                 {dayEvs.length > 2 && <div style={calS.monthMore}>+{dayEvs.length-2} more</div>}
               </div>
@@ -552,7 +585,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
         })}
       </div>
       {monthDrag && monthDrag.started !== false && (
-        <div style={{ position:'fixed', left:monthDrag.ghostX+8, top:monthDrag.ghostY+8, pointerEvents:'none', zIndex:9999, background: monthDrag.ev.noteColor || (LIFE_CATS.find(c => c.id === monthDrag.ev.cat)?.color || 'var(--indigo)'), color:'#fff', fontSize:10, fontWeight:600, padding:'4px 8px', borderRadius:4, boxShadow:'0 4px 12px rgba(0,0,0,.2)' }}>
+        <div style={{ position:'fixed', left:monthDrag.ghostX+8, top:monthDrag.ghostY+8, pointerEvents:'none', zIndex:9999, background: resolveEventPalette(monthDrag.ev).bg, color:resolveEventPalette(monthDrag.ev).text, fontSize:10, fontWeight:600, padding:'4px 8px', borderRadius:4, boxShadow:'0 4px 12px rgba(0,0,0,.2)' }}>
           {monthDrag.ev.name}
         </div>
       )}
@@ -846,10 +879,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
                 {dayEvs.length === 0 ? (
                   <div style={{ textAlign:'center', padding:'32px 0', color:'var(--gray)', fontSize:13 }}>Nessuna attività — aggiungine una!</div>
                 ) : dayEvs.map((ev, idx) => {
-                  const cat = LIFE_CATS.find(c => c.id === ev.cat);
-                  const bg = ev.noteBg || cat?.bg;
-                  const color = ev.noteColor || cat?.color;
-                  const text = ev.noteText || cat?.text;
+                  const { bg, color, text } = resolveEventPalette(ev);
                   const origIdx = (events[key]||[]).indexOf(ev);
                   const isDragging = reorderDragIdx === origIdx;
                   const isDropTarget = reorderOverIdx === origIdx && reorderDragIdx !== null && reorderDragIdx !== origIdx;

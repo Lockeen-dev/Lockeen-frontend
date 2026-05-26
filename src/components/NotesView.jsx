@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-import { FileText, Layers, LockeenLogo, Pencil, Plus, Search, Sparkles, Trash2 } from '../lib/icons';
+import { BarChart3, BookOpen, ChevronDown, Eye, FileText, Layers, LockeenLogo, Paperclip, Pencil, Plus, Search, Sparkles, Trash2 } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, inferSubjectFromName } from '../data/mockData';
 import { getExamEmoji } from '../lib/examUi';
@@ -107,8 +107,9 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       return;
     }
     setSavingAction('create');
-    const palette = getSubjectPalette(inferSubjectFromName(exam.subject), EXTRA_SUBJECT_COLORS.Other);
-    const enriched = { ...exam, color: palette.bg, dot: palette.dot };
+    const inferredSubject = inferSubjectFromName(`${exam.subject || ''} ${exam.name || ''}`);
+    const palette = getSubjectPalette(inferredSubject, EXTRA_SUBJECT_COLORS.Other);
+    const enriched = { ...exam, subject: exam.subject || inferredSubject, color: palette.bg, dot: palette.dot };
     const { data, error } = await createExam(enriched);
     if (error) {
       setActionError(formatExamServiceError(error, 'Unable to create exam.'));
@@ -191,7 +192,17 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to delete chapter.'));
       await refreshExams();
     };
-    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
+    const onDeleteChapterDocument = async ({ chapterId, pages = 6 }) => {
+      const targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
+      if (!targetChapter) return;
+      const result = await updateChapter(activeId, chapterId, {
+        files: Math.max(0, (targetChapter.files || 0) - 1),
+        pages: Math.max(0, (targetChapter.pages || 0) - pages),
+      });
+      if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
+      await refreshExams();
+    };
+    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onDeleteChapterDocument={onDeleteChapterDocument} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
   }
 
   const filtered = exams.filter((x) => (x.name + ' ' + (x.subject || '')).toLowerCase().includes(q.toLowerCase()));
@@ -345,9 +356,700 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
   );
 }
 
-function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
+const READINESS_FALLBACKS = { studyTime: 70, planProgress: 55 };
+
+function isUuidLike(value = '') {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getDisplayFileName(material = {}) {
+  const rawName = material.title || material.storagePath || material.sourceUrl || 'Study material';
+  const lastPart = decodeURIComponent(String(rawName).split('?')[0].split('/').filter(Boolean).pop() || rawName);
+  const clean = lastPart
+    .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_]/i, '')
+    .split(/[-_]/g)
+    .filter((part) => part && !isUuidLike(part))
+    .join(' ')
+    .replace(/\s+\./g, '.')
+    .trim();
+  return clean || 'Study material';
+}
+
+function formatFileSize(sizeBytes) {
+  if (!sizeBytes) return null;
+  if (sizeBytes < 1024 * 1024) return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+  return `${(sizeBytes / (1024 * 1024)).toFixed(sizeBytes > 10 * 1024 * 1024 ? 0 : 1)} MB`;
+}
+
+function getFileTypeLabel(material = {}) {
+  const name = getDisplayFileName(material).toLowerCase();
+  if (material.mimeType?.includes('pdf') || name.endsWith('.pdf')) return 'PDF';
+  if (material.mimeType?.includes('png') || name.endsWith('.png')) return 'PNG';
+  if (material.mimeType?.includes('jpeg') || name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'JPG';
+  if (material.mimeType?.includes('text') || name.endsWith('.txt')) return 'TXT';
+  if (material.sourceUrl) return 'LINK';
+  return (material.type || 'FILE').toUpperCase();
+}
+
+function formatStudyDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function getReadinessStatus(score) {
+  if (score >= 90) return { label: 'Exam ready', recommendation: 'Keep momentum with quick review sessions.' };
+  if (score >= 70) return { label: 'Almost ready', recommendation: 'Focus on weak topics first.' };
+  if (score >= 40) return { label: 'More practice needed', recommendation: 'Focus on weak topics first.' };
+  return { label: 'Getting started', recommendation: 'Upload material and generate your first quiz.' };
+}
+
+function EmptyState({ icon: IconCmp = FileText, title, copy, actionLabel, onAction, secondary = false }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-7 text-center">
+      <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-500 shadow-sm">
+        <IconCmp size={20} />
+      </div>
+      <div className="text-sm font-semibold text-slate-950">{title}</div>
+      {copy && <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-slate-500">{copy}</p>}
+      {actionLabel && (
+        <button
+          type="button"
+          onClick={onAction}
+          className={secondary ? 'mt-4 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm' : 'mt-4 inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm'}
+        >
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ExamHeader({ exam, palette, stats, onBack, onStartStudy, onAddMaterial }) {
+  const statItems = [
+    ['Chapters', stats.chapters],
+    ['Materials', stats.materials],
+    ['Notes', stats.notes],
+    ['Quizzes', stats.quizzes],
+    ['Flashcards', stats.flashcards],
+  ];
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm">
+        <span aria-hidden="true">←</span> Back to My Exams
+      </button>
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-500">Your study workspace</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="m-0 text-3xl font-bold leading-tight text-slate-950 sm:text-4xl">{exam.name}</h1>
+            {exam.date && (
+              <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold text-slate-700" style={{ background: palette.bg, borderColor: `${palette.dot}33` }}>
+                <span className="h-2 w-2 rounded-full" style={{ background: palette.dot }} />
+                {formatExamDate(exam.date)}
+              </span>
+            )}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {statItems.map(([label, value]) => (
+              <span key={label} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                {value} {label}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button type="button" onClick={onStartStudy} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm">
+            <Sparkles size={16} /> Start studying
+          </button>
+          <button type="button" onClick={onAddMaterial} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
+            <Plus size={16} /> Add material
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ReadinessCard({ score, bars, exam, chapters, readinessView, setReadinessView, chapterKey, palette }) {
+  const status = getReadinessStatus(score);
+  const circumference = 251.33;
+  const dashOffset = circumference - (score / 100) * circumference;
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="m-0 text-base font-bold text-slate-950">Readiness score</h2>
+          <p className="mt-1 text-sm text-slate-500">{status.label}</p>
+        </div>
+        <label className="relative">
+          <select
+            value={readinessView}
+            onChange={(e) => setReadinessView(e.target.value)}
+            className="w-32 appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 pr-8 text-sm font-semibold text-slate-700 outline-none"
+          >
+            <option value="exam">Exam</option>
+            {chapters.map((chapter) => (
+              <option key={chapterKey(chapter)} value={chapterKey(chapter)}>{chapter.name || chapter.title || 'Chapter'}</option>
+            ))}
+          </select>
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <ChevronDown size={14} />
+          </span>
+        </label>
+      </div>
+      <div className="flex items-center gap-5">
+        <div className="relative h-28 w-28 shrink-0">
+          <svg width="112" height="112" viewBox="0 0 96 96" className="-rotate-90">
+            <circle cx="48" cy="48" r="40" fill="none" stroke="#E2E8F0" strokeWidth="7" />
+            <circle cx="48" cy="48" r="40" fill="none" stroke={palette.dot} strokeWidth="7" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-2xl font-bold text-slate-950">{score}%</span>
+            <span className="text-xs font-medium text-slate-500">ready</span>
+          </div>
+        </div>
+        <p className="text-sm leading-6 text-slate-600">{status.recommendation}</p>
+      </div>
+      <div className="mt-5 space-y-3">
+        {bars.map((bar) => (
+          <div key={bar.label}>
+            <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-600">
+              <span>{bar.label}</span>
+              <span>{bar.value}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+        <div className="text-sm font-semibold text-slate-950">{exam.targetGrade ? `Target ${exam.targetGrade}/30` : 'Keep building consistency'}</div>
+        <p className="mt-1 text-sm text-slate-500">Small sessions plus quick quizzes are best next step.</p>
+      </div>
+    </section>
+  );
+}
+
+function QuickActionsCard({ onAddMaterial, onNewChapter, onQuiz, onFlashcards }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="m-0 text-base font-bold text-slate-950">Quick actions</h2>
+      <div className="mt-4 grid gap-2">
+        <button type="button" onClick={onQuiz} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white">
+          <Sparkles size={16} /> Generate quiz
+        </button>
+        <button type="button" onClick={onFlashcards} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+          <Layers size={16} /> Create flashcards
+        </button>
+        <button type="button" onClick={onAddMaterial} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+          <Paperclip size={16} /> Upload material
+        </button>
+        <button type="button" onClick={onNewChapter} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+          <BookOpen size={16} /> New chapter
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function UploadMaterialCard({ materialTitle, setMaterialTitle, materialUrl, setMaterialUrl, materialFile, setMaterialFile, showUrlField, setShowUrlField, savingStudyAction, materialsError, onSubmit, onValidateFile, onClearFile }) {
+  const busy = savingStudyAction === 'create-material';
+  return (
+    <section id="upload-material" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="m-0 text-base font-bold text-slate-950">Upload material</h2>
+          <p className="mt-1 text-sm text-slate-500">PDF, PNG, JPG, or TXT. Add a clean title students can recognize.</p>
+        </div>
+      </div>
+      <form onSubmit={onSubmit} className="mt-4 grid gap-3">
+        <label className="grid gap-1 text-sm font-semibold text-slate-700">
+          Material title
+          <input value={materialTitle} onChange={(e) => setMaterialTitle(e.target.value)} disabled={busy} placeholder="Paper LBO" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-indigo-300" />
+        </label>
+        <label className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-center">
+          <span className="mb-2 text-slate-500">
+            <Paperclip size={22} />
+          </span>
+          <span className="text-sm font-semibold text-slate-800">{materialFile ? materialFile.name : 'Drop file here or browse'}</span>
+          <span className="mt-1 text-xs text-slate-500">Supported files: PDF, PNG, JPG, TXT</span>
+          <input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain"
+            disabled={busy}
+            onChange={(e) => onValidateFile(e.target.files?.[0] || null)}
+            className="sr-only"
+          />
+        </label>
+        {materialFile && (
+          <button type="button" onClick={onClearFile} disabled={busy} className="justify-self-start rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600">
+            Remove file
+          </button>
+        )}
+        <button type="button" onClick={() => setShowUrlField((value) => !value)} className="justify-self-start text-sm font-semibold text-slate-600">
+          {showUrlField ? 'Hide source URL' : 'Add source URL instead'}
+        </button>
+        {showUrlField && (
+          <label className="grid gap-1 text-sm font-semibold text-slate-700">
+            Optional source URL
+            <input value={materialUrl} onChange={(e) => setMaterialUrl(e.target.value)} disabled={busy || Boolean(materialFile)} placeholder="https://..." className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-indigo-300" />
+          </label>
+        )}
+        {materialsError && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{materialsError}</div>}
+        <button type="submit" disabled={busy} className="inline-flex h-11 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white disabled:opacity-60">
+          {busy ? (materialFile ? 'Uploading...' : 'Saving...') : 'Upload material'}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, onFlashcards }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const displayName = getDisplayFileName(material);
+  const fileSize = formatFileSize(material.sizeBytes);
+  const uploaded = formatStudyDate(material.createdAt);
+  const canOpen = Boolean(material.sourceUrl || material.storagePath);
+
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex gap-4">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-600">
+          <FileText size={22} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="m-0 min-w-0 break-words text-base font-bold text-slate-950">{displayName}</h3>
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">{getFileTypeLabel(material)}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs font-medium text-slate-500">
+            {fileSize && <span>{fileSize}</span>}
+            {uploaded && <span>Uploaded {uploaded}</span>}
+            <span>{material.status === 'active' ? 'Ready for quiz generation' : 'Uploaded'}</span>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {canOpen && (
+              <button type="button" onClick={() => onOpen(material.id)} disabled={savingStudyAction === `open-material-${material.id}`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+                <Eye size={15} /> {savingStudyAction === `open-material-${material.id}` ? 'Opening...' : 'Open'}
+              </button>
+            )}
+            <button type="button" onClick={onQuiz} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">
+              <Sparkles size={15} /> Generate Quiz
+            </button>
+            <button type="button" onClick={onFlashcards} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+              <Layers size={15} /> Create Flashcards
+            </button>
+            <div className="relative">
+              <button type="button" onClick={() => setMenuOpen((value) => !value)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+                More
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 z-20 mt-2 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); onDelete(material.id); }}
+                    disabled={savingStudyAction === `delete-material-${material.id}`}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                  >
+                    <Trash2 size={15} /> {savingStudyAction === `delete-material-${material.id}` ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function MaterialsPanel({ materials, materialsLoading, materialsError, savingStudyAction, onOpen, onDelete, onQuiz, onFlashcards, onAddMaterial }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="m-0 text-lg font-bold text-slate-950">Study materials</h2>
+          <p className="mt-1 text-sm text-slate-500">Clean files ready for practice.</p>
+        </div>
+        <button type="button" onClick={onAddMaterial} className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 sm:inline-flex">
+          Add material
+        </button>
+      </div>
+      {materialsLoading && <EmptyState icon={FileText} title="Loading materials..." copy="Fetching your study files." />}
+      {!materialsLoading && materialsError && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{materialsError}</div>}
+      {!materialsLoading && !materialsError && materials.length === 0 && (
+        <EmptyState icon={Paperclip} title="No materials yet" copy="Upload your first material to generate quizzes and flashcards." actionLabel="Upload material" onAction={onAddMaterial} />
+      )}
+      <div className="grid gap-3">
+        {!materialsLoading && materials.map((material) => (
+          <MaterialCard key={material.id} material={material} savingStudyAction={savingStudyAction} onOpen={onOpen} onDelete={onDelete} onQuiz={() => onQuiz(material)} onFlashcards={() => onFlashcards(material)} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ChaptersPanel({ chapters, filtered, q, setQ, onNewChapter, onEditChapter, onOpenPdf, onQuiz, onFlashcards, quizRuns }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="m-0 text-lg font-bold text-slate-950">Chapters</h2>
+          <p className="mt-1 text-sm text-slate-500">Organize materials by topic.</p>
+        </div>
+        <div className="flex gap-2">
+          <label className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-500">
+            <Search size={15} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search chapters" className="w-32 border-0 bg-transparent text-sm font-medium text-slate-900 outline-none sm:w-40" />
+          </label>
+          <button type="button" onClick={onNewChapter} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">
+            <Plus size={15} /> New chapter
+          </button>
+        </div>
+      </div>
+      {chapters.length === 0 ? (
+        <EmptyState icon={BookOpen} title="Create a chapter to organize your materials." actionLabel="New chapter" onAction={onNewChapter} />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={Search} title="No chapters found" copy="Try a different search." />
+      ) : (
+        <div className="grid gap-3">
+          {filtered.map((chapter) => {
+            const lastRun = quizRuns.find((run) => String(run.chapterId) === String(chapter.id));
+            return (
+              <article key={chapter.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <h3 className="m-0 text-base font-bold text-slate-950">{chapter.title}</h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {chapter.files || 0} materials · {(chapter.questions || []).length} quizzes · {chapter.updated ? `Updated ${chapter.updated}` : 'Ready to organize'}
+                    </p>
+                    {lastRun && <p className="mt-2 text-xs font-semibold text-slate-600">Last quiz {lastRun.score}% · {lastRun.date}</p>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => onOpenPdf(chapter)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">Open chapter</button>
+                    <button type="button" onClick={() => onQuiz(chapter)} className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">Generate quiz</button>
+                    <button type="button" onClick={() => onFlashcards(chapter)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">Flashcards</button>
+                    <button type="button" onClick={() => onEditChapter(chapter)} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500" title="Edit chapter"><Pencil size={15} /></button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function NotesPanel({ notes, notesLoading, notesError, showNoteForm, setShowNoteForm, noteTitle, setNoteTitle, noteBody, setNoteBody, savingStudyAction, onCreateNote, editingNoteId, editingNoteTitle, setEditingNoteTitle, editingNoteBody, setEditingNoteBody, beginEditNote, cancelEditNote, onUpdateNote, onDeleteNote }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="m-0 text-lg font-bold text-slate-950">Study notes</h2>
+          <p className="mt-1 text-sm text-slate-500">Summaries, reminders, weak topics.</p>
+        </div>
+        <button type="button" onClick={() => setShowNoteForm((value) => !value)} className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">New note</button>
+      </div>
+      {showNoteForm && (
+        <form onSubmit={onCreateNote} className="mb-4 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <input value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} disabled={savingStudyAction === 'create-note'} placeholder="Note title" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-950 outline-none" />
+          <textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} disabled={savingStudyAction === 'create-note'} placeholder="Summarize key concepts..." className="min-h-[88px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-950 outline-none" />
+          <button type="submit" disabled={savingStudyAction === 'create-note'} className="justify-self-start rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{savingStudyAction === 'create-note' ? 'Saving...' : 'Create note'}</button>
+        </form>
+      )}
+      {notesError && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{notesError}</div>}
+      {notesLoading && <EmptyState icon={FileText} title="Loading notes..." />}
+      {!notesLoading && !notesError && notes.length === 0 && (
+        <EmptyState icon={FileText} title="No notes yet" copy="Create your first note to summarize key concepts." actionLabel="New note" onAction={() => setShowNoteForm(true)} />
+      )}
+      <div className="grid gap-3">
+        {!notesLoading && notes.map((note) => (
+          <article key={note.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            {editingNoteId === note.id ? (
+              <div className="grid gap-3">
+                <input value={editingNoteTitle} onChange={(e) => setEditingNoteTitle(e.target.value)} disabled={savingStudyAction === `edit-note-${note.id}`} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-950 outline-none" />
+                <textarea value={editingNoteBody} onChange={(e) => setEditingNoteBody(e.target.value)} disabled={savingStudyAction === `edit-note-${note.id}`} className="min-h-[76px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-950 outline-none" />
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => onUpdateNote(note.id)} disabled={savingStudyAction === `edit-note-${note.id}`} className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">Save</button>
+                  <button type="button" onClick={cancelEditNote} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h3 className="m-0 text-base font-bold text-slate-950">{note.title}</h3>
+                {note.body && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{note.body}</p>}
+                <div className="mt-4 flex gap-2">
+                  <button type="button" onClick={() => beginEditNote(note)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">Edit</button>
+                  <button type="button" onClick={() => onDeleteNote(note.id)} disabled={savingStudyAction === `delete-note-${note.id}`} className="rounded-xl border border-red-100 bg-white px-3 py-2 text-sm font-semibold text-red-600">{savingStudyAction === `delete-note-${note.id}` ? 'Deleting...' : 'Delete'}</button>
+                </div>
+              </>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ActivityPanel({ quizHistory, flashHistory, exam, onQuiz, onFlashcards }) {
+  const qh = quizHistory[exam.id] || [];
+  const fh = [
+    ...(flashHistory[exam.id] || []),
+    ...(exam.chapters || []).flatMap((c) => flashHistory[c.id] || []),
+  ];
+  const avgQ = qh.length ? Math.round(qh.reduce((a, b) => a + b, 0) / qh.length) : null;
+  const avgFlash = fh.length ? Math.round(fh.reduce((a, b) => a + b, 0) / fh.length) : null;
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="m-0 text-lg font-bold text-slate-950">Study history</h2>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {avgQ !== null ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="text-sm font-semibold text-slate-600">Quiz</div><div className="mt-2 text-2xl font-bold text-slate-950">{avgQ}%</div><p className="mt-1 text-sm text-slate-500">{qh.length} sessions completed</p></div>
+        ) : (
+          <EmptyState icon={Sparkles} title="No quizzes yet" copy="Generate your first quiz from your uploaded material." actionLabel="Generate quiz" onAction={onQuiz} />
+        )}
+        {avgFlash !== null ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="text-sm font-semibold text-slate-600">Flashcards</div><div className="mt-2 text-2xl font-bold text-slate-950">{avgFlash}%</div><p className="mt-1 text-sm text-slate-500">{fh.length} sessions completed</p></div>
+        ) : (
+          <EmptyState icon={Layers} title="No flashcards yet" copy="Create flashcards from your uploaded material." actionLabel="Create flashcards" onAction={onFlashcards} secondary />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CleanExamHeader({ exam, palette, chapters, q, setQ, onBack, onNewChapter }) {
+  return (
+    <section className="space-y-7">
+      <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-base font-bold text-slate-950 shadow-sm">
+        <span aria-hidden="true">←</span> My Exams
+      </button>
+
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="m-0 text-4xl font-black leading-tight tracking-normal text-slate-950 sm:text-5xl">{exam.name}</h1>
+            {exam.date && (
+              <span className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-base font-extrabold text-slate-950" style={{ background: palette.bg }}>
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: palette.dot }} />
+                {formatExamDate(exam.date)}
+              </span>
+            )}
+          </div>
+          <p className="mt-4 text-xl font-semibold text-slate-500">{chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'}</p>
+        </div>
+
+        <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+          <label className="flex h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-slate-400 shadow-sm xl:w-[360px]">
+            <Search size={22} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search chapters..." className="min-w-0 flex-1 border-0 bg-transparent text-base font-semibold text-slate-950 outline-none placeholder:text-slate-400" />
+          </label>
+          <button type="button" onClick={onNewChapter} className="inline-flex h-14 items-center justify-center gap-3 rounded-2xl bg-indigo-600 px-6 text-base font-extrabold text-white shadow-sm">
+            <Plus size={22} /> New Chapter
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditChapter, onOpenPdf, onQuiz, onFlashcards, quizRuns }) {
+  if (!chapters.length) {
+    return <EmptyState icon={BookOpen} title="Create a chapter to organize your materials." actionLabel="New chapter" onAction={onNewChapter} />;
+  }
+  if (!filtered.length) {
+    return <EmptyState icon={Search} title="No chapters found" copy="Try a different search." />;
+  }
+
+  return (
+    <section className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
+      {filtered.map((chapter, index) => {
+        const lastRun = quizRuns.find((run) => String(run.chapterId) === String(chapter.id));
+        const files = chapter.files || chapter.fileCount || 0;
+        const pages = chapter.pages || chapter.pageCount || Math.max(0, files * 6);
+        const updated = chapter.updated || (chapter.updatedAt ? formatStudyDate(chapter.updatedAt) : null) || 'Just now';
+        const coverBg = index % 2 === 0 ? palette.bg : '#FFF1F8';
+        const dot = index % 2 === 0 ? palette.dot : '#8B5CF6';
+
+        return (
+          <article key={chapter.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="relative grid h-36 place-items-center" style={{ background: coverBg }}>
+              <div className="h-12 w-12 rounded-2xl shadow-sm" style={{ background: dot }} />
+              <div className="absolute right-4 top-4 flex gap-3">
+                <button type="button" onClick={() => onEditChapter(chapter)} className="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-800 shadow-sm" aria-label="Edit chapter">
+                  <Pencil size={18} />
+                </button>
+                <button type="button" onClick={() => onOpenPdf(chapter)} className="grid h-11 w-11 place-items-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600 shadow-sm" aria-label="Open chapter">
+                  <FileText size={19} />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <h2 className="m-0 text-xl font-black text-slate-950">{chapter.title || chapter.name || 'Untitled chapter'}</h2>
+              <p className="mt-3 text-base font-semibold text-slate-500">
+                {files} {files === 1 ? 'file' : 'files'} · {pages} {pages === 1 ? 'page' : 'pages'} · Updated {updated}
+              </p>
+              {lastRun && <p className="mt-2 text-sm font-bold text-slate-600">Last quiz {lastRun.score}% · {lastRun.date}</p>}
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => onQuiz(chapter)} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-extrabold text-white">
+                  <Sparkles size={17} /> Generate Quiz
+                </button>
+                <button type="button" onClick={() => onFlashcards(chapter)} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-950">
+                  <Layers size={18} /> Flashcards
+                </button>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+function WideReadinessCard({ score, bars, chapters, readinessView, setReadinessView, chapterKey, palette }) {
+  const status = getReadinessStatus(score);
+  const circumference = 251.33;
+  const dashOffset = circumference - (score / 100) * circumference;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h2 className="m-0 inline-flex items-center gap-2 text-xl font-black text-slate-950"><BarChart3 size={22} /> Readiness Score</h2>
+        <label className="flex items-center gap-3 text-sm font-extrabold text-slate-500">
+          View
+          <span className="relative">
+            <select value={readinessView} onChange={(e) => setReadinessView(e.target.value)} className="h-12 min-w-44 appearance-none rounded-full border border-slate-200 bg-white px-5 pr-10 text-base font-extrabold text-slate-700 outline-none">
+              <option value="exam">Exam</option>
+              {chapters.map((chapter) => (
+                <option key={chapterKey(chapter)} value={chapterKey(chapter)}>{chapter.name || chapter.title || 'Chapter'}</option>
+              ))}
+            </select>
+            <ChevronDown size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          </span>
+        </label>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[160px_minmax(0,1fr)] lg:items-center">
+        <div className="relative mx-auto h-36 w-36 lg:mx-0">
+          <svg width="144" height="144" viewBox="0 0 96 96" className="-rotate-90">
+            <circle cx="48" cy="48" r="40" fill="none" stroke="#E5E7EB" strokeWidth="7" />
+            <circle cx="48" cy="48" r="40" fill="none" stroke={palette.dot} strokeWidth="7" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-3xl font-black text-indigo-600">{score}%</span>
+            <span className="text-sm font-semibold text-slate-500">ready</span>
+          </div>
+        </div>
+        <div className="min-w-0">
+          <div className="mb-5">
+            <div className="text-lg font-black text-slate-950">{score >= 40 ? '⚠ More practice needed' : status.label}</div>
+            <p className="mt-2 text-base font-semibold text-slate-500">{status.recommendation}</p>
+          </div>
+          <div className="space-y-4">
+            {bars.map((bar) => (
+              <div key={bar.label} className="grid grid-cols-[150px_minmax(0,1fr)_42px] items-center gap-4">
+                <span className="text-base font-semibold text-slate-500">{bar.label}</span>
+                <span className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <span className="block h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
+                </span>
+                <span className="text-right text-base font-extrabold" style={{ color: bar.color }}>{bar.value}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDecks, exam, onQuiz, onFlashcards }) {
+  const qh = quizHistory[exam.id] || [];
+  const examRuns = quizRuns.filter((run) => String(run.examId || run.noteId) === String(exam.id));
+  const quizItems = examRuns.length
+    ? examRuns.map((run) => ({ id: run.id, label: run.chapterName || run.title || run.examName || exam.name, score: run.score, meta: run.date || 'Recent' }))
+    : qh.map((score, index) => ({ id: `quiz-${index}`, label: `Quiz ${index + 1}`, score, meta: 'Saved session' }));
+  const flashScores = [
+    ...(flashHistory[exam.id] || []),
+    ...(exam.chapters || []).flatMap((chapter) => flashHistory[chapter.id] || []),
+  ];
+  const flashItems = recentFlashDecks
+    .filter((deck) => String(deck.noteId) === String(exam.id) || (exam.chapters || []).some((chapter) => String(chapter.id) === String(deck.noteId)))
+    .map((deck) => ({ id: deck.ts || deck.title, label: deck.title || exam.name, score: deck.lastScore ?? null, meta: deck.subject || 'Flashcards' }));
+  const fallbackFlashItems = flashItems.length ? flashItems : flashScores.map((score, index) => ({ id: `flash-${index}`, label: `Flashcard session ${index + 1}`, score, meta: 'Saved session' }));
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="m-0 text-lg font-black uppercase tracking-normal text-slate-500">Storico attività</h2>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="m-0 text-lg font-black text-slate-950">Quiz history</h3>
+            <button type="button" onClick={onQuiz} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-extrabold text-white">
+              <Sparkles size={17} /> Genera Quiz
+            </button>
+          </div>
+          {quizItems.length === 0 ? (
+            <p className="m-0 text-base font-semibold text-slate-500">Nessun quiz ancora</p>
+          ) : (
+            <div className="space-y-3">
+              {quizItems.slice(0, 5).map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-extrabold text-slate-950">{item.label}</div>
+                    <div className="mt-1 text-xs font-semibold text-slate-500">{item.meta}</div>
+                  </div>
+                  <div className="text-xl font-black text-indigo-600">{item.score}%</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="m-0 text-lg font-black text-slate-950">Flashcard history</h3>
+            <button type="button" onClick={onFlashcards} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-950">
+              <Layers size={17} /> Flashcard
+            </button>
+          </div>
+          {fallbackFlashItems.length === 0 ? (
+            <p className="m-0 text-base font-semibold text-slate-500">Nessuna flashcard ancora</p>
+          ) : (
+            <div className="space-y-3">
+              {fallbackFlashItems.slice(0, 5).map((item) => {
+                const score = Number.isFinite(Number(item.score)) ? Number(item.score) : 0;
+                return (
+                  <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-extrabold text-slate-950">{item.label}</div>
+                      <div className="mt-1 text-xs font-semibold text-slate-500">{item.meta}</div>
+                    </div>
+                    <div className="text-right text-sm font-extrabold">
+                      <div className="text-emerald-600">Giuste {score}%</div>
+                      <div className="text-orange-500">Da ripassare {Math.max(0, 100 - score)}%</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter, onDeleteChapterDocument, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
   const [q, setQ] = useState('');
   const [showUpload, setShowUpload] = useState(false);
+  const [showNoteForm, setShowNoteForm] = useState(false);
+  const [showUrlField, setShowUrlField] = useState(false);
   const [readinessView, setReadinessView] = useState('exam');
   const [editingChapter, setEditingChapter] = useState(null);
   const [pdfChapter, setPdfChapter] = useState(null);
@@ -366,46 +1068,47 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [materialUrl, setMaterialUrl] = useState('');
   const [materialFile, setMaterialFile] = useState(null);
   const [savingStudyAction, setSavingStudyAction] = useState(null);
-  const examChapterIds = (exam.chapters || []).map((c) => c.id);
-  const belongsToExam = (noteId) => String(noteId) === String(exam.id) || examChapterIds.some((id) => String(id) === String(noteId));
-  const examRuns = quizRuns.filter(r => r.examId === exam.id).slice(0, 5);
-  const examFlashDecks = recentFlashDecks.filter(d => belongsToExam(d.noteId)).slice(0, 5);
   const palette = getSubjectPalette(exam.subject, exam, darkMode);
-  const filtered = exam.chapters.filter((c) => c.title.toLowerCase().includes(q.toLowerCase()));
+  const chapters = exam.chapters || [];
+  const filtered = chapters.filter((c) => (c.title || '').toLowerCase().includes(q.toLowerCase()));
   const chapterKey = (chapter) => String(chapter.id ?? chapter.name ?? chapter.title);
+  const selectedChapter = readinessView === 'exam' ? null : chapters.find((c) => chapterKey(c) === readinessView);
+  const selectedChapterKey = selectedChapter ? chapterKey(selectedChapter) : null;
   const allQuiz = quizHistory[exam.id] || [];
   const allFlash = [
     ...(flashHistory[exam.id] || []),
-    ...(exam.chapters || []).flatMap((c) => flashHistory[c.id] || []),
+    ...chapters.flatMap((c) => flashHistory[c.id] || []),
   ];
-  const quizAvg = allQuiz.length > 0
-    ? Math.round(allQuiz.reduce((a, b) => a + b, 0) / allQuiz.length)
-    : 50;
-  const flashAvg = allFlash.length > 0
-    ? Math.round(allFlash.reduce((a, b) => a + b, 0) / allFlash.length)
-    : 50;
-  const readiness = Math.round(quizAvg * 0.4 + flashAvg * 0.3 + 70 * 0.2 + 55 * 0.1);
-  const selectedChapter = readinessView === 'exam'
-    ? null
-    : (exam.chapters || []).find((c) => chapterKey(c) === readinessView);
-  const selectedChapterKey = selectedChapter ? chapterKey(selectedChapter) : null;
-  const chapterName = selectedChapter ? (selectedChapter.name || selectedChapter.title || 'Chapter') : '';
+  const quizAvg = allQuiz.length ? Math.round(allQuiz.reduce((a, b) => a + b, 0) / allQuiz.length) : 50;
+  const flashAvg = allFlash.length ? Math.round(allFlash.reduce((a, b) => a + b, 0) / allFlash.length) : 50;
   const chQuiz = selectedChapterKey != null ? (quizHistory[selectedChapterKey] || []) : [];
   const chFlash = selectedChapterKey != null ? (flashHistory[selectedChapterKey] || []) : [];
-  const chQuizAvg = selectedChapter
-    ? (chQuiz.length > 0 ? Math.round(chQuiz.reduce((a, b) => a + b, 0) / chQuiz.length) : (selectedChapter.mastery || 50))
-    : 50;
-  const chFlashAvg = selectedChapter
-    ? (chFlash.length > 0 ? Math.round(chFlash.reduce((a, b) => a + b, 0) / chFlash.length) : (selectedChapter.mastery || 50))
-    : 50;
+  const chQuizAvg = selectedChapter ? (chQuiz.length ? Math.round(chQuiz.reduce((a, b) => a + b, 0) / chQuiz.length) : (selectedChapter.mastery || 50)) : 50;
+  const chFlashAvg = selectedChapter ? (chFlash.length ? Math.round(chFlash.reduce((a, b) => a + b, 0) / chFlash.length) : (selectedChapter.mastery || 50)) : 50;
+  const readiness = Math.round(quizAvg * 0.4 + flashAvg * 0.3 + READINESS_FALLBACKS.studyTime * 0.2 + READINESS_FALLBACKS.planProgress * 0.1);
   const chReadiness = Math.round(chQuizAvg * 0.5 + chFlashAvg * 0.5);
   const currentReadiness = selectedChapter ? chReadiness : readiness;
-  const circumference = 251.33;
-  const dashOffset = circumference - (currentReadiness / 100) * circumference;
+  const readinessBars = selectedChapter
+    ? [
+      { label: 'Quiz performance', value: chQuizAvg, color: '#4F46E5' },
+      { label: 'Flashcard mastery', value: chFlashAvg, color: '#7C3AED' },
+    ]
+    : [
+      { label: 'Quiz performance', value: quizAvg, color: '#4F46E5' },
+      { label: 'Flashcard mastery', value: flashAvg, color: '#7C3AED' },
+      { label: 'Study time', value: READINESS_FALLBACKS.studyTime, color: '#059669' },
+      { label: 'Plan progress', value: READINESS_FALLBACKS.planProgress, color: '#D97706' },
+    ];
+  const stats = {
+    chapters: chapters.length,
+    materials: materials.length,
+    notes: notes.length,
+    quizzes: allQuiz.length,
+    flashcards: allFlash.length,
+  };
 
   useEffect(() => {
     let cancelled = false;
-
     async function loadStudyData() {
       setNotesLoading(true);
       setMaterialsLoading(true);
@@ -416,34 +1119,52 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         listMaterials({ examId: exam.id }),
       ]);
       if (cancelled) return;
-
       if (notesResult.error) {
         setNotesError(formatStudyServiceError(notesResult.error, 'Unable to load notes.'));
         setNotes([]);
       } else {
         setNotes(notesResult.data || []);
       }
-
       if (materialsResult.error) {
         setMaterialsError(formatStudyServiceError(materialsResult.error, 'Unable to load materials.'));
         setMaterials([]);
       } else {
         setMaterials(materialsResult.data || []);
       }
-
       setNotesLoading(false);
       setMaterialsLoading(false);
     }
-
     loadStudyData();
     return () => { cancelled = true; };
   }, [exam.id]);
+
+  const reloadMaterials = async () => {
+    const result = await listMaterials({ examId: exam.id });
+    if (result.error) {
+      setMaterialsError(formatStudyServiceError(result.error, 'Unable to load materials.'));
+      return;
+    }
+    setMaterials(result.data || []);
+  };
+
+  const quizPayload = (title = exam.name, questions = chapters.flatMap((c) => c.questions || []), noteId = exam.id) => ({
+    noteId,
+    subject: exam.subject,
+    title,
+    questions,
+  });
+  const flashPayload = (title = exam.name, cards = chapters.flatMap((c) => c.cards || []), noteId = exam.id) => ({
+    noteId,
+    subject: exam.subject,
+    title,
+    cards,
+  });
+  const startStudy = () => onOpenQuiz && onOpenQuiz(quizPayload());
 
   const resetNoteForm = () => {
     setNoteTitle('');
     setNoteBody('');
   };
-
   const handleCreateNote = async (e) => {
     e.preventDefault();
     setNotesError(null);
@@ -460,22 +1181,20 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     }
     setNotes((prev) => [data, ...prev]);
     resetNoteForm();
+    setShowNoteForm(false);
     setSavingStudyAction(null);
   };
-
   const beginEditNote = (note) => {
     setNotesError(null);
     setEditingNoteId(note.id);
     setEditingNoteTitle(note.title || '');
     setEditingNoteBody(note.body || '');
   };
-
   const cancelEditNote = () => {
     setEditingNoteId(null);
     setEditingNoteTitle('');
     setEditingNoteBody('');
   };
-
   const handleUpdateNote = async (id) => {
     setNotesError(null);
     if (!editingNoteTitle.trim()) {
@@ -493,7 +1212,6 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     cancelEditNote();
     setSavingStudyAction(null);
   };
-
   const handleDeleteNote = async (id) => {
     setNotesError(null);
     setSavingStudyAction(`delete-note-${id}`);
@@ -507,7 +1225,6 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterials((prev) => prev.filter((material) => String(material.noteId) !== String(id)));
     setSavingStudyAction(null);
   };
-
   const handleCreateMaterial = async (e) => {
     e.preventDefault();
     setMaterialsError(null);
@@ -525,10 +1242,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setSavingStudyAction('create-material');
     let uploadedFile = null;
     if (materialFile) {
-      const uploadResult = await uploadStudyMaterialFile({
-        file: materialFile,
-        materialId: crypto.randomUUID(),
-      });
+      const uploadResult = await uploadStudyMaterialFile({ file: materialFile, materialId: crypto.randomUUID() });
       if (uploadResult.error) {
         setMaterialsError(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
         setSavingStudyAction(null);
@@ -554,9 +1268,9 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterialTitle('');
     setMaterialUrl('');
     setMaterialFile(null);
+    setShowUrlField(false);
     setSavingStudyAction(null);
   };
-
   const handleDeleteMaterial = async (id) => {
     setMaterialsError(null);
     setSavingStudyAction(`delete-material-${id}`);
@@ -578,7 +1292,6 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterials((prev) => prev.filter((material) => String(material.id) !== String(id)));
     setSavingStudyAction(null);
   };
-
   const handleOpenMaterial = async (id) => {
     setMaterialsError(null);
     setSavingStudyAction(`open-material-${id}`);
@@ -590,467 +1303,298 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     }
     window.open(data.url, '_blank', 'noopener,noreferrer');
   };
+  const handleValidateFile = (file) => {
+    setMaterialFile(file);
+    setMaterialsError(null);
+    if (!file) return;
+    if (!materialTitle.trim()) setMaterialTitle(getDisplayFileName({ title: file.name }));
+    const validation = validateStudyMaterialFile(file);
+    if (validation.error) setMaterialsError(formatStudyServiceError(validation.error, 'File is not valid.'));
+  };
+  const handleMaterialQuiz = (material) => onOpenQuiz && onOpenQuiz(quizPayload(getDisplayFileName(material)));
+  const handleMaterialFlashcards = (material) => onOpenFlashcards && onOpenFlashcards(flashPayload(getDisplayFileName(material)));
+  const handleAddChapterDocuments = async (chapter, files) => {
+    const pickedFiles = Array.from(files || []);
+    if (!pickedFiles.length) return;
+    await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
+    await reloadMaterials();
+  };
+  const handleDeleteChapterDocument = async (chapter, material) => {
+    if (material?.id) await handleDeleteMaterial(material.id);
+    if (onDeleteChapterDocument) await onDeleteChapterDocument({ chapterId: chapter.id, pages: Math.max(1, Math.round((chapter.pages || 6) / Math.max(1, chapter.files || 1))) });
+  };
 
-  function readinessMsg() {
-    if (readiness >= 80) return {
-      icon: '🎉',
-      msg: 'Excellent! You\'re well prepared.',
-      sub: 'Keep it up for the last few sessions.'
-    };
-    if (readiness >= 60) return {
-      icon: '💪',
-      msg: 'On track for ' + (exam.targetGrade || 27) + '/30',
-      sub: 'Need ' + Math.ceil((80 - readiness) / 10) + ' more strong sessions.'
-    };
-    return {
-      icon: '⚠️',
-      msg: 'More practice needed',
-      sub: 'Focus on weak topics and increase study sessions.'
-    };
-  }
-
-  function chReadinessMsg() {
-    if (chReadiness >= 80) return {
-      icon: '✅',
-      msg: chapterName + ' — Strong!',
-      sub: 'This chapter is well covered.'
-    };
-    if (chReadiness >= 55) return {
-      icon: '📘',
-      msg: chapterName + ' — Getting there',
-      sub: 'A few more sessions to master this chapter.'
-    };
-    return {
-      icon: '🔴',
-      msg: chapterName + ' — Needs work',
-      sub: 'This is a weak chapter — prioritize it.'
-    };
-  }
-
-  const rm = selectedChapter ? chReadinessMsg() : readinessMsg();
-  const readinessBars = selectedChapter
-    ? [
-      { label: 'Quiz performance', value: chQuizAvg, color: '#3730E8' },
-      { label: 'Flashcard mastery', value: chFlashAvg, color: '#8B5CF6' },
-    ]
-    : [
-      { label: 'Quiz performance', value: quizAvg, color: '#3730E8' },
-      { label: 'Flashcard mastery', value: flashAvg, color: '#8B5CF6' },
-      { label: 'Study time', value: 70, color: '#10B981' },
-      { label: 'Plan progress', value: 55, color: '#F59E0B' },
-    ];
   return (
-    <div>
-      <button onClick={onBack} style={examsS.backBtn}>← My Exams</button>
+    <div className="mx-auto max-w-7xl bg-white pb-10 text-slate-950">
+      <div className="space-y-8">
+        <CleanExamHeader
+          exam={exam}
+          palette={palette}
+          chapters={chapters}
+          q={q}
+          setQ={setQ}
+          onBack={onBack}
+          onNewChapter={() => setShowUpload(true)}
+        />
 
-      <div style={notesS.headRow}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <h2 style={homeS.h1}>{exam.name}</h2>
-            {exam.date && (
-              <span style={{ ...examsS.subjectBadge, background: palette.bg }}>
-                <span style={{ width: 8, height: 8, borderRadius: 999, background: palette.dot }} />
-                {formatExamDate(exam.date)}
-              </span>
-            )}
-          </div>
-          <p style={homeS.sub}>{exam.chapters.length} {exam.chapters.length === 1 ? 'chapter' : 'chapters'}</p>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={notesS.search}>
-            <Search size={16} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search chapters…" style={notesS.searchInput} />
-          </div>
-          <button style={notesS.newBtn} onClick={() => setShowUpload(true)}><Plus size={16} /> New Chapter</button>
-        </div>
+        {showUpload && (
+          <UploadChapterModal
+            existingChapters={chapters}
+            onClose={() => setShowUpload(false)}
+            onUpload={async (payload) => { await onAddChapter(payload); setShowUpload(false); }}
+          />
+        )}
+
+        <CleanChapterGrid
+          chapters={chapters}
+          filtered={filtered}
+          palette={palette}
+          onNewChapter={() => setShowUpload(true)}
+          onEditChapter={setEditingChapter}
+          onOpenPdf={setPdfChapter}
+          onQuiz={(chapter) => onOpenQuiz && onOpenQuiz(quizPayload(chapter.title, chapter.questions || [], exam.id))}
+          onFlashcards={(chapter) => onOpenFlashcards && onOpenFlashcards(flashPayload(chapter.title, chapter.cards || [], exam.id))}
+          quizRuns={quizRuns}
+        />
+
+        <WideReadinessCard
+          score={currentReadiness}
+          bars={readinessBars}
+          chapters={chapters}
+          readinessView={readinessView}
+          setReadinessView={setReadinessView}
+          chapterKey={chapterKey}
+          palette={palette}
+        />
+
+        <StudyHistoryPanel
+          quizHistory={quizHistory}
+          flashHistory={flashHistory}
+          quizRuns={quizRuns}
+          recentFlashDecks={recentFlashDecks}
+          exam={exam}
+          onQuiz={startStudy}
+          onFlashcards={() => onOpenFlashcards && onOpenFlashcards(flashPayload())}
+        />
+
+        {editingChapter && (
+          <EditChapterModal
+            chapter={editingChapter}
+            onClose={() => setEditingChapter(null)}
+            onSave={async (newTitle) => { await onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
+            onDelete={async () => { await onDeleteChapter(editingChapter.id); setEditingChapter(null); }}
+          />
+        )}
+        {pdfChapter && (
+          <PDFModal
+            chapter={pdfChapter}
+            materials={materials.filter((material) => String(material.chapterId) === String(pdfChapter.id))}
+            onClose={() => setPdfChapter(null)}
+            onAddDocument={handleAddChapterDocuments}
+            onDeleteDocument={handleDeleteChapterDocument}
+            saving={savingStudyAction}
+          />
+        )}
       </div>
-
-      {showUpload && (
-        <UploadChapterModal
-          existingChapters={exam.chapters}
-          onClose={() => setShowUpload(false)}
-          onUpload={async (payload) => { await onAddChapter(payload); setShowUpload(false); }}
-        />
-      )}
-
-      <section style={studyS.wrap}>
-        <div style={studyS.column}>
-          <div style={studyS.sectionHead}>
-            <div>
-              <h3 style={studyS.title}>Study notes</h3>
-              <p style={studyS.sub}>Notes saved through the Week 2 notes service.</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleCreateNote} style={studyS.form}>
-            <input
-              value={noteTitle}
-              onChange={(e) => setNoteTitle(e.target.value)}
-              placeholder="Note title"
-              disabled={savingStudyAction === 'create-note'}
-              style={studyS.input}
-            />
-            <textarea
-              value={noteBody}
-              onChange={(e) => setNoteBody(e.target.value)}
-              placeholder="Short note body"
-              disabled={savingStudyAction === 'create-note'}
-              style={{ ...studyS.input, minHeight: 72, resize: 'vertical', fontFamily: 'inherit' }}
-            />
-            <button type="submit" disabled={savingStudyAction === 'create-note'} style={studyS.primaryBtn}>
-              {savingStudyAction === 'create-note' ? 'Saving...' : 'Create note'}
-            </button>
-          </form>
-
-          {notesError && <div style={studyS.error}>{notesError}</div>}
-          {notesLoading && <div style={studyS.empty}>Loading notes...</div>}
-          {!notesLoading && !notesError && notes.length === 0 && <div style={studyS.empty}>No notes yet.</div>}
-          {!notesLoading && notes.map((note) => (
-            <div key={note.id} style={studyS.item}>
-              {editingNoteId === note.id ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <input
-                    value={editingNoteTitle}
-                    onChange={(e) => setEditingNoteTitle(e.target.value)}
-                    disabled={savingStudyAction === `edit-note-${note.id}`}
-                    style={studyS.input}
-                  />
-                  <textarea
-                    value={editingNoteBody}
-                    onChange={(e) => setEditingNoteBody(e.target.value)}
-                    disabled={savingStudyAction === `edit-note-${note.id}`}
-                    style={{ ...studyS.input, minHeight: 64, resize: 'vertical', fontFamily: 'inherit' }}
-                  />
-                  <div style={studyS.actions}>
-                    <button type="button" onClick={() => handleUpdateNote(note.id)} disabled={savingStudyAction === `edit-note-${note.id}`} style={studyS.primaryMini}>
-                      {savingStudyAction === `edit-note-${note.id}` ? 'Saving...' : 'Save'}
-                    </button>
-                    <button type="button" onClick={cancelEditNote} style={studyS.ghostMini}>Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div style={studyS.itemTitle}>{note.title}</div>
-                  {note.body && <div style={studyS.itemBody}>{note.body}</div>}
-                  <div style={studyS.actions}>
-                    <button type="button" onClick={() => beginEditNote(note)} style={studyS.ghostMini}>Edit</button>
-                    <button type="button" onClick={() => handleDeleteNote(note.id)} disabled={savingStudyAction === `delete-note-${note.id}`} style={studyS.dangerMini}>
-                      {savingStudyAction === `delete-note-${note.id}` ? 'Deleting...' : 'Delete'}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div style={studyS.column}>
-          <div style={studyS.sectionHead}>
-            <div>
-              <h3 style={studyS.title}>Materials</h3>
-              <p style={studyS.sub}>Metadata only. No PDF parsing or advanced upload.</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleCreateMaterial} style={studyS.form}>
-            <input
-              value={materialTitle}
-              onChange={(e) => setMaterialTitle(e.target.value)}
-              placeholder="Material title"
-              disabled={savingStudyAction === 'create-material'}
-              style={studyS.input}
-            />
-            <input
-              value={materialUrl}
-              onChange={(e) => setMaterialUrl(e.target.value)}
-              placeholder={materialFile ? 'Source URL disabled when file selected' : 'Optional source URL'}
-              disabled={savingStudyAction === 'create-material' || Boolean(materialFile)}
-              style={studyS.input}
-            />
-            <label style={studyS.fileLabel}>
-              <span style={studyS.fileText}>{materialFile ? materialFile.name : 'Optional PDF, PNG, JPG, or TXT file'}</span>
-              <input
-                type="file"
-                accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain"
-                disabled={savingStudyAction === 'create-material'}
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setMaterialFile(file);
-                  setMaterialsError(null);
-                  if (file) {
-                    const validation = validateStudyMaterialFile(file);
-                    if (validation.error) setMaterialsError(formatStudyServiceError(validation.error, 'File is not valid.'));
-                  }
-                }}
-                style={studyS.fileInput}
-              />
-            </label>
-            {materialFile && (
-              <button
-                type="button"
-                onClick={() => setMaterialFile(null)}
-                disabled={savingStudyAction === 'create-material'}
-                style={studyS.ghostMini}
-              >
-                Remove file
-              </button>
-            )}
-            <button type="submit" disabled={savingStudyAction === 'create-material'} style={studyS.primaryBtn}>
-              {savingStudyAction === 'create-material' ? (materialFile ? 'Uploading...' : 'Saving...') : 'Add material'}
-            </button>
-          </form>
-
-          {materialsError && <div style={studyS.error}>{materialsError}</div>}
-          {materialsLoading && <div style={studyS.empty}>Loading materials...</div>}
-          {!materialsLoading && !materialsError && materials.length === 0 && <div style={studyS.empty}>No materials yet.</div>}
-          {!materialsLoading && materials.map((material) => (
-            <div key={material.id} style={studyS.item}>
-              <div style={studyS.itemTitle}>{material.title}</div>
-              <div style={studyS.itemBody}>
-                {material.sourceUrl || material.storagePath || material.type || 'metadata'}
-                {material.sizeBytes ? ` · ${Math.round(material.sizeBytes / 1024)} KB` : ''}
-              </div>
-              <div style={studyS.actions}>
-                {(material.sourceUrl || material.storagePath) && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenMaterial(material.id)}
-                    disabled={savingStudyAction === `open-material-${material.id}`}
-                    style={studyS.ghostMini}
-                  >
-                    {savingStudyAction === `open-material-${material.id}` ? 'Opening...' : 'Open'}
-                  </button>
-                )}
-                <button type="button" onClick={() => handleDeleteMaterial(material.id)} disabled={savingStudyAction === `delete-material-${material.id}`} style={studyS.dangerMini}>
-                  {savingStudyAction === `delete-material-${material.id}` ? 'Deleting...' : 'Delete'}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {filtered.length === 0 ? (
-        <div style={examsS.empty}>
-          <div style={examsS.emptyIcon}><FileText size={22} /></div>
-          <div style={examsS.emptyTitle}>No chapters yet</div>
-          <div style={examsS.emptySub}>Click “+ New Chapter” to upload your first study material.</div>
-        </div>
-      ) : (
-        <div style={examsS.grid}>
-          {filtered.map((n) => (
-            <div key={n.id} style={{ ...notesS.card, position: 'relative' }}>
-              <div style={{ ...notesS.cover, background: n.color, position: 'relative' }}>
-                <div style={{ ...notesS.coverDot, background: n.dot }} />
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setEditingChapter(n); }}
-                  title="Edit chapter"
-                  style={{ position: 'absolute', top: 10, right: 48, width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,.9)', border: '1px solid var(--border)', cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--ink)' }}
-                >
-                  <Pencil size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setPdfChapter(n); }}
-                  title="Open PDF"
-                  style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 8, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.18)', cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--indigo)' }}
-                >
-                  <FileText size={15} />
-                </button>
-              </div>
-              <div style={{ padding: 18 }}>
-                <h3 style={notesS.title}>{n.title}</h3>
-                <p style={notesS.meta}>{n.files || 1} {(n.files || 1) === 1 ? 'file' : 'files'} • {n.pages} pages • Updated {n.updated}</p>
-                <div style={notesS.actions}>
-                  <button style={notesS.primarySmall} onClick={() => onOpenQuiz && onOpenQuiz({ noteId: exam.id, subject: exam.subject, title: n.title, questions: n.questions || [] })}>
-                    <Sparkles size={14} /> Generate Quiz
-                  </button>
-                  <button style={notesS.ghostSmall} onClick={() => onOpenFlashcards && onOpenFlashcards({ noteId: exam.id, subject: exam.subject, title: n.title, cards: n.cards || [] })}>
-                    <Layers size={14} /> Flashcards
-                  </button>
-                </div>
-                {(() => {
-                  const chRuns = quizRuns.filter(r => String(r.chapterId) === String(n.id));
-                  const lastRun = chRuns[0];
-                  if (!lastRun) return null;
-                  const sc = lastRun.score >= 80 ? '#10B981' : lastRun.score >= 60 ? '#F59E0B' : '#EF4444';
-                  return (
-                    <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: `${sc}12`, border: `1px solid ${sc}30`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 16, fontWeight: 800, color: sc, lineHeight: 1 }}>{lastRun.score}%</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>Ultimo quiz</div>
-                        <div style={{ fontSize: 10, color: 'var(--gray)' }}>{lastRun.numQ} domande · {lastRun.date}</div>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Aggregate stats: avg quiz score + flashcard session count */}
-      {(examRuns.length > 0 || examFlashDecks.length > 0) && (() => {
-        const avgScore = examRuns.length > 0 ? Math.round(examRuns.reduce((s, r) => s + r.score, 0) / examRuns.length) : null;
-        const flashSessions = examFlashDecks.length;
-        return (
-          <section style={{ marginTop: 24, padding: '16px 20px', borderRadius: 18, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', gap: 12 }}>
-            {avgScore !== null && (
-              <div style={{ flex: 1, padding: '14px 18px', borderRadius: 14, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.12)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--indigo)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Avg quiz score</span>
-                <span style={{ fontSize: 28, fontWeight: 800, color: 'var(--indigo)', letterSpacing: '-0.02em', lineHeight: 1 }}>{avgScore}%</span>
-                <span style={{ fontSize: 11, color: 'var(--gray)' }}>{examRuns.length} quiz{examRuns.length !== 1 ? 'zes' : ''} completed</span>
-              </div>
-            )}
-            {flashSessions > 0 && (
-              <div style={{ flex: 1, padding: '14px 18px', borderRadius: 14, background: '#F5F3FF', border: '1px solid rgba(139,92,246,.15)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--purple)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Flashcard sessions</span>
-                <span style={{ fontSize: 28, fontWeight: 800, color: 'var(--purple)', letterSpacing: '-0.02em', lineHeight: 1 }}>{flashSessions}</span>
-                <span style={{ fontSize: 11, color: 'var(--gray)' }}>deck{flashSessions !== 1 ? 's' : ''} completed</span>
-              </div>
-            )}
-          </section>
-        );
-      })()}
-
-      {editingChapter && (
-        <EditChapterModal
-          chapter={editingChapter}
-          onClose={() => setEditingChapter(null)}
-          onSave={async (newTitle) => { await onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
-          onDelete={async () => { await onDeleteChapter(editingChapter.id); setEditingChapter(null); }}
-        />
-      )}
-      {pdfChapter && (
-        <PDFModal
-          chapter={pdfChapter}
-          onClose={() => setPdfChapter(null)}
-        />
-      )}
-      <section style={examS.readinessCard}>
-        <div style={examS.readinessHead}>
-          <h3 style={examS.sectionTitle}>📊 Readiness Score</h3>
-          <label style={examS.viewMenuWrap}>
-            <span style={examS.viewMenuLabel}>View</span>
-            <select
-              value={readinessView}
-              onChange={(e) => setReadinessView(e.target.value)}
-              style={{ ...examS.viewMenu, borderColor: readinessView === 'exam' ? 'var(--border)' : palette.dot, color: readinessView === 'exam' ? 'var(--gray)' : palette.text, backgroundColor: readinessView === 'exam' ? 'var(--surface)' : palette.bg }}
-            >
-              <option value="exam">Exam</option>
-              {(exam.chapters || []).map((chapter) => (
-                <option key={chapterKey(chapter)} value={chapterKey(chapter)}>
-                  {chapter.name || chapter.title || 'Chapter'}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div style={examS.readinessGrid}>
-          <div style={examS.ringBox}>
-            <svg width="96" height="96" viewBox="0 0 96 96" style={examS.ringSvg}>
-              <circle cx="48" cy="48" r="40" fill="none" stroke="var(--border)" strokeWidth="7" />
-              <circle
-                cx="48"
-                cy="48"
-                r="40"
-                fill="none"
-                stroke={palette.dot}
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={dashOffset}
-              />
-            </svg>
-            <div style={examS.ringCenter}>
-              <div style={{ ...examS.ringPct, color: palette.dot }}>{currentReadiness}%</div>
-              <div style={examS.ringLabel}>ready</div>
-            </div>
-          </div>
-
-          <div>
-            <div style={examS.msg}>{rm.icon} {rm.msg}</div>
-            <div style={examS.sub}>{rm.sub}</div>
-            <div style={examS.bars}>
-              {readinessBars.map((b) => (
-                <div key={b.label} style={examS.barRow}>
-                  <span style={examS.barLabel}>{b.label}</span>
-                  <span style={examS.track}>
-                    <span style={{ ...examS.fill, width: b.value + '%', background: b.color }} />
-                  </span>
-                  <span style={{ ...examS.barValue, color: b.color }}>{b.value}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-      {(() => {
-        const qh = quizHistory[exam.id] || [];
-        const fh = [
-          ...(flashHistory[exam.id] || []),
-          ...(exam.chapters || []).flatMap((c) => flashHistory[c.id] || []),
-        ];
-        const avgQ = qh.length ? Math.round(qh.reduce((a,b)=>a+b,0)/qh.length) : null;
-        const avgQColor = avgQ !== null ? (avgQ >= 80 ? '#10B981' : avgQ >= 60 ? '#F59E0B' : '#EF4444') : null;
-        const flashCount = fh.length;
-        const avgFlash = fh.length ? Math.round(fh.reduce((a,b)=>a+b,0)/fh.length) : null;
-        const avgFlashColor = avgFlash !== null ? (avgFlash >= 80 ? '#10B981' : avgFlash >= 60 ? '#F59E0B' : '#EF4444') : null;
-        return (
-          <div style={{ marginTop:28 }}>
-            <h3 style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Storico attività</h3>
-            <div style={{ display:'flex', gap:10 }}>
-              {avgQ !== null ? (
-                <div style={{ flex:1, padding:'14px 16px', borderRadius:14, background:'var(--surface)', border:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12 }}>
-                  <span style={{ fontSize:20 }}>🧠</span>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>Quiz</div>
-                    <div style={{ fontSize:11, color:'var(--gray)', marginTop:2 }}>{qh.length} sessioni completate</div>
-                  </div>
-                  <div style={{ fontSize:20, fontWeight:800, color:avgQColor }}>{avgQ}%</div>
-                </div>
-              ) : (
-                <div style={{ flex:1, padding:'14px 16px', borderRadius:14, background:'var(--surface)', border:'1.5px dashed var(--border)', display:'flex', alignItems:'center', gap:12 }}>
-                  <span style={{ fontSize:20 }}>🧠</span>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:12, color:'var(--gray)' }}>Nessun quiz ancora</div>
-                  </div>
-                  <button style={notesS.primarySmall} onClick={() => onOpenQuiz && onOpenQuiz({ noteId: exam.id, subject: exam.subject, title: exam.name, questions: (exam.chapters||[]).flatMap(c=>c.questions||[]) })}>
-                    <Sparkles size={13} /> Genera Quiz
-                  </button>
-                </div>
-              )}
-              {flashCount > 0 ? (
-                <div style={{ flex:1, padding:'14px 16px', borderRadius:14, background:'var(--surface)', border:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12 }}>
-                  <span style={{ fontSize:20 }}>🃏</span>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>Flashcard</div>
-                    <div style={{ fontSize:11, color:'var(--gray)', marginTop:2 }}>{flashCount} sessioni completate</div>
-                  </div>
-                  <div style={{ fontSize:20, fontWeight:800, color:avgFlashColor }}>{avgFlash}%</div>
-                </div>
-              ) : (
-                <div style={{ flex:1, padding:'14px 16px', borderRadius:14, background:'var(--surface)', border:'1.5px dashed var(--border)', display:'flex', alignItems:'center', gap:12 }}>
-                  <span style={{ fontSize:20 }}>🃏</span>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:12, color:'var(--gray)' }}>Nessuna flashcard ancora</div>
-                  </div>
-                  <button style={notesS.ghostSmall} onClick={() => onOpenFlashcards && onOpenFlashcards({ noteId: exam.id, subject: exam.subject, title: exam.name, cards: (exam.chapters||[]).flatMap(c=>c.cards||[]) })}>
-                    <Layers size={13} /> Flashcard
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 }
 
-function PDFModal({ chapter, onClose }) {
+function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDocument, saving }) {
+  const inputRef = useRef(null);
+  const [previewUrls, setPreviewUrls] = useState({});
+  const [selectedDocId, setSelectedDocId] = useState(null);
+  const title = chapter.title || chapter.name || 'Chapter';
+  const fallbackCount = Math.max(1, chapter.files || (chapter.pages ? 1 : 0));
+  const docs = materials.length
+    ? materials
+    : Array.from({ length: fallbackCount }, (_, i) => {
+      const basePages = Math.max(1, Math.round((chapter.pages || 8) / Math.max(1, fallbackCount)));
+      return {
+        id: `fallback-${chapter.id}-${i}`,
+        title: i === 0 ? 'chapter.pdf' : `chapter-${i + 1}.pdf`,
+        pages: i === fallbackCount - 1 ? Math.max(1, (chapter.pages || 8) - basePages * i) : basePages,
+        mock: true,
+      };
+    });
+  const docCount = docs.length;
+  const pagesFor = (doc, index) => {
+    if (doc.pages) return doc.pages;
+    if (doc.pageCount) return doc.pageCount;
+    if (doc.mock) return doc.pages;
+    const divisor = Math.max(1, docCount || chapter.files || 1);
+    const base = Math.max(1, Math.round((chapter.pages || 1) / divisor));
+    return index === docCount - 1 ? Math.max(1, (chapter.pages || base) - base * index) : base;
+  };
+  const handleFilePick = async (event) => {
+    const picked = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!picked.length) return;
+    await onAddDocument(chapter, picked);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPreviews() {
+      const entries = await Promise.all(docs.filter((doc) => !doc.mock).map(async (doc) => {
+        if (doc.sourceUrl) return [doc.id, doc.sourceUrl];
+        if (!doc.id) return [doc.id, null];
+        const result = await getMaterialDownloadUrl(doc.id);
+        return [doc.id, result.error ? null : result.data?.url || null];
+      }));
+      if (!cancelled) {
+        setPreviewUrls(Object.fromEntries(entries.filter(([, url]) => Boolean(url))));
+      }
+    }
+    loadPreviews();
+    return () => { cancelled = true; };
+  }, [docs.map((doc) => doc.id).join('|')]);
+  const selectedDocIndex = selectedDocId ? docs.findIndex((doc) => String(doc.id) === String(selectedDocId)) : -1;
+  const selectedDoc = selectedDocIndex >= 0 ? docs[selectedDocIndex] : null;
+  const selectedName = selectedDoc ? getDisplayFileName(selectedDoc) : '';
+  const selectedUrl = selectedDoc ? previewUrls[selectedDoc.id] : null;
+  const selectedIsImage = selectedDoc ? (/\.(png|jpe?g|webp|gif)$/i.test(selectedName) || selectedDoc.mimeType?.startsWith('image/')) : false;
+  const selectedIsPdf = selectedDoc ? (/\.pdf$/i.test(selectedName) || selectedDoc.mimeType?.includes('pdf')) : false;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1200,
+        display: 'grid',
+        placeItems: 'center',
+        padding: 14,
+        background: 'rgba(15,16,53,.45)'
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 'min(960px, 96vw)',
+          height: 'min(740px, 92vh)',
+          background: '#fff',
+          border: '1px solid #D9DDE7',
+          borderRadius: 28,
+          boxShadow: '0 30px 90px rgba(15,16,53,.28)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, padding: '26px 28px 24px', borderBottom: '1px solid #E5E7EB' }}>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ margin: 0, color: 'var(--ink)', fontSize: 24, fontWeight: 900, lineHeight: 1.1 }}>{selectedDoc ? selectedName : title}</h2>
+            <p style={{ margin: '12px 0 0', color: 'var(--gray)', fontSize: 18, fontWeight: 600 }}>{selectedDoc ? `${title} · preview` : `${docCount} PDF ${docCount === 1 ? 'file' : 'files'}`}</p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {selectedDoc ? (
+              <button
+                type="button"
+                onClick={() => setSelectedDocId(null)}
+                style={{ height: 50, borderRadius: 14, border: '1.5px solid #E5E7EB', background: '#fff', color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 10, padding: '0 20px', fontSize: 16, fontWeight: 900, cursor: 'pointer' }}
+              >
+                ← Documents
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                style={{ height: 50, borderRadius: 14, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'inline-flex', alignItems: 'center', gap: 12, padding: '0 22px', fontSize: 17, fontWeight: 900, cursor: 'pointer' }}
+              >
+                <Plus size={22} /> Add document
+              </button>
+            )}
+            <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain" multiple onChange={handleFilePick} style={{ display: 'none' }} />
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ width: 50, height: 50, borderRadius: 999, border: '1.5px solid #E5E7EB', background: '#fff', color: '#6B7280', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 30, fontWeight: 700, lineHeight: 1 }}
+              aria-label="Close documents"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, background: '#F3F6FB', padding: 32, overflow: 'auto' }}>
+          {selectedDoc ? (
+            <div style={{ height: '100%', minHeight: 480, border: '1px solid #DDE3EE', borderRadius: 22, background: '#fff', boxShadow: '0 18px 44px rgba(15,23,42,.08)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ flex: 1, minHeight: 0, background: '#EEF2F7', display: 'grid', placeItems: 'center', padding: 22 }}>
+                {selectedUrl && selectedIsImage ? (
+                  <img src={selectedUrl} alt={selectedName} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 12, boxShadow: '0 18px 44px rgba(15,23,42,.18)' }} />
+                ) : selectedUrl && selectedIsPdf ? (
+                  <iframe src={selectedUrl} title={selectedName} style={{ width: '100%', height: '100%', minHeight: 440, border: 'none', borderRadius: 12, background: '#fff' }} />
+                ) : selectedUrl ? (
+                  <iframe src={selectedUrl} title={selectedName} style={{ width: '100%', height: '100%', minHeight: 440, border: 'none', borderRadius: 12, background: '#fff' }} />
+                ) : (
+                  <div style={{ width: 'min(420px, 86%)', minHeight: 520, borderRadius: 12, background: '#fff', boxShadow: '0 18px 44px rgba(15,23,42,.18)', padding: 34, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ width: 58, height: 70, borderRadius: 12, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 14 }}>
+                      <FileText size={30} />
+                    </div>
+                    {Array.from({ length: 16 }, (_, i) => (
+                      <span key={i} style={{ height: 9, width: `${i % 5 === 0 ? 58 : i % 3 === 0 ? 74 : 96}%`, borderRadius: 999, background: '#E5E7EB' }} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ borderTop: '1px solid #DDE3EE', background: '#fff', padding: '14px 18px', color: 'var(--ink)', fontSize: 15, fontWeight: 900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {selectedName}
+              </div>
+            </div>
+          ) : docCount === 0 ? (
+            <div style={{ minHeight: 260, border: '1px dashed #CBD5E1', borderRadius: 22, background: '#fff', display: 'grid', placeItems: 'center', textAlign: 'center', color: 'var(--gray)', fontWeight: 700, boxShadow: '0 14px 34px rgba(15,23,42,.06)' }}>
+              No documents yet. Add first document.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 18 }}>
+              {docs.map((doc, index) => {
+                const canDelete = !doc.mock && doc.id;
+                const name = getDisplayFileName(doc);
+                const pages = pagesFor(doc, index);
+                return (
+                  <article
+                    key={doc.id || name}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedDocId(doc.id)}
+                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelectedDocId(doc.id); }}
+                    style={{ position: 'relative', minHeight: 210, border: '1px solid #DDE3EE', background: '#fff', borderRadius: 22, padding: '22px 88px 22px 22px', boxShadow: '0 18px 44px rgba(15,23,42,.08)', cursor: 'pointer' }}
+                  >
+                    <div style={{ width: 64, height: 76, borderRadius: 14, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 24 }}>
+                      <FileText size={30} />
+                    </div>
+                    <h3 style={{ margin: 0, color: 'var(--ink)', fontSize: 20, fontWeight: 900 }}>{name}</h3>
+                    <p style={{ margin: '12px 0 24px', color: 'var(--gray)', fontSize: 17, fontWeight: 600 }}>{pages} {pages === 1 ? 'page' : 'pages'}</p>
+                    <div style={{ height: 9, width: '86%', borderRadius: 999, background: '#E5E7EB', marginBottom: 10 }} />
+                    <div style={{ height: 9, width: '62%', borderRadius: 999, background: '#E5E7EB' }} />
+                    <div style={{ position: 'absolute', left: 22, bottom: 14, maxWidth: 'calc(100% - 120px)', color: 'var(--ink)', fontSize: 12, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {name}
+                    </div>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); onDeleteDocument(chapter, doc); }}
+                        disabled={saving === `delete-material-${doc.id}`}
+                        style={{ position: 'absolute', top: 18, right: 18, width: 44, height: 44, borderRadius: 14, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#EF4444', display: 'grid', placeItems: 'center', cursor: 'pointer', opacity: saving === `delete-material-${doc.id}` ? .6 : 1 }}
+                        aria-label={`Delete ${name}`}
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LegacyPDFModal({ chapter, onClose }) {
   const [selectedPdf, setSelectedPdf] = useState(null);
   const [page, setPage] = useState(1);
   const title = chapter.title || chapter.name || 'Chapter';

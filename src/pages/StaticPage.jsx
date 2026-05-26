@@ -25,7 +25,8 @@ export default function StaticPage() {
 
   useEffect(() => {
     document.title = pageTitles[pageName] || 'Lockeen';
-    document.documentElement.setAttribute('data-theme', localStorage.getItem('lockeen-theme') || 'light');
+    localStorage.removeItem('lockeen-theme');
+    document.documentElement.setAttribute('data-theme', 'light');
     const root = document.getElementById('static-page-root');
     if (!root) return undefined;
 
