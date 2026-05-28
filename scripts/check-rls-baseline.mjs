@@ -69,9 +69,11 @@ const expectedTables = [
       'public.exams',
       'public.chapters',
       'public.notes',
+      'public.study_materials',
       'exams.user_id = auth.uid()',
       'chapters.user_id = auth.uid()',
       'notes.user_id = auth.uid()',
+      'study_materials.user_id = auth.uid()',
     ],
   },
   {
