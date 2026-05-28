@@ -211,8 +211,11 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
     };
     const onAddChapter = async ({ chapterId, chapterName, fileCount, files = [] }) => {
       let targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
-      const pageCounts = await Promise.all((files || []).map(getFilePageCount));
-      const knownPageTotal = pageCounts.reduce((sum, count) => sum + (Number(count) || 0), 0);
+      const materialMetadataResults = await Promise.all((files || []).map(buildMaterialFileMetadata));
+      const metadataError = materialMetadataResults.find((result) => result.error);
+      if (metadataError) throw new Error(formatStudyServiceError(metadataError.error, 'Unable to inspect material file.'));
+      const materialMetadata = materialMetadataResults.map((result) => result.data);
+      const knownPageTotal = materialMetadata.reduce((sum, metadata) => sum + (Number(metadata?.pageCount) || 0), 0);
       const pageCount = Math.max(1, knownPageTotal || fileCount);
 
       if (chapterId) {
@@ -244,11 +247,19 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
           storagePath: uploadResult.data.path,
           mimeType: uploadResult.data.mimeType,
           sizeBytes: uploadResult.data.sizeBytes,
+          pageCount: materialMetadata[index]?.pageCount ?? null,
+          processingStatus: materialMetadata[index]?.processingStatus,
+          extractedText: materialMetadata[index]?.extractedText,
+          extractionError: materialMetadata[index]?.extractionError,
+          processedAt: materialMetadata[index]?.processedAt,
           type: 'file',
         });
         if (materialResult.error) throw new Error(formatStudyServiceError(materialResult.error, 'Unable to save material.'));
         if (materialResult.data) {
-          createdMaterials.push({ ...materialResult.data, pageCount: pageCounts[index] || null });
+          createdMaterials.push({
+            ...materialResult.data,
+            pageCount: materialResult.data.pageCount ?? materialMetadata[index]?.pageCount ?? null,
+          });
         }
       }
 
@@ -463,6 +474,23 @@ async function getFilePageCount(file) {
   }
   if (file.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(file.name || '')) return 1;
   return null;
+}
+
+async function buildMaterialFileMetadata(file) {
+  const [pageCount, extractionResult] = await Promise.all([
+    getFilePageCount(file),
+    extractTextFromFile(file),
+  ]);
+  if (extractionResult.error) return { error: extractionResult.error };
+  return {
+    data: {
+      pageCount,
+      processingStatus: extractionResult.data?.processingStatus || 'uploaded',
+      extractedText: extractionResult.data?.extractedText || null,
+      extractionError: extractionResult.data?.extractionError || null,
+      processedAt: extractionResult.data?.processedAt || null,
+    },
+  };
 }
 
 function isUuidLike(value = '') {
@@ -1486,22 +1514,21 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     }
     setSavingStudyAction('create-material');
     let uploadedFile = null;
-    let pageCount = null;
-    let extraction = {
+    let materialMetadata = {
+      pageCount: null,
       processingStatus: 'uploaded',
       extractedText: null,
       extractionError: null,
       processedAt: null,
     };
     if (materialFile) {
-      pageCount = await getFilePageCount(materialFile);
-      const extractionResult = await extractTextFromFile(materialFile);
-      if (extractionResult.error) {
-        setMaterialsError(formatStudyServiceError(extractionResult.error, 'Unable to inspect material file.'));
+      const metadataResult = await buildMaterialFileMetadata(materialFile);
+      if (metadataResult.error) {
+        setMaterialsError(formatStudyServiceError(metadataResult.error, 'Unable to inspect material file.'));
         setSavingStudyAction(null);
         return;
       }
-      extraction = extractionResult.data;
+      materialMetadata = metadataResult.data;
       const uploadResult = await uploadStudyMaterialFile({ file: materialFile, materialId: crypto.randomUUID() });
       if (uploadResult.error) {
         setMaterialsError(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
@@ -1517,11 +1544,11 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       storagePath: uploadedFile?.path || null,
       mimeType: uploadedFile?.mimeType || null,
       sizeBytes: uploadedFile?.sizeBytes ?? null,
-      pageCount,
-      processingStatus: extraction.processingStatus,
-      extractedText: extraction.extractedText,
-      extractionError: extraction.extractionError,
-      processedAt: extraction.processedAt,
+      pageCount: materialMetadata.pageCount,
+      processingStatus: materialMetadata.processingStatus,
+      extractedText: materialMetadata.extractedText,
+      extractionError: materialMetadata.extractionError,
+      processedAt: materialMetadata.processedAt,
       type: uploadedFile ? 'file' : (materialUrl.trim() ? 'link' : 'metadata'),
     });
     if (error) {
