@@ -8,7 +8,7 @@ import useIsMobile from '../lib/useIsMobile';
 import { createChapter, createExam, deleteChapter, deleteExam, listExams, updateChapter, updateExam } from '../services/exams';
 import { createMaterial, deleteMaterial, getMaterialDownloadUrl, listMaterials, updateMaterial } from '../services/materials';
 import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
-import { createQuiz } from '../services/quiz';
+import { createQuiz, listQuizzes } from '../services/quiz';
 import { createFlashcard, listFlashcards } from '../services/flashcards';
 import { createStudyMaterialSignedUrl, deleteStudyMaterialFile, uploadStudyMaterialFile, validateStudyMaterialFile } from '../services/storage';
 import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, UploadChapterModal } from './ExamModals';
@@ -724,6 +724,7 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
   const canOpen = Boolean(material.sourceUrl || material.storagePath);
   const quizBusy = savingStudyAction === `generate-quiz-material-${material.id}`;
   const flashBusy = savingStudyAction === `generate-flashcards-material-${material.id}`;
+  const scopeLabel = material.chapterId ? 'chapter' : 'exam';
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -748,10 +749,10 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
               </button>
             )}
             <button type="button" onClick={onQuiz} disabled={quizBusy} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
-              <Sparkles size={15} /> {quizBusy ? 'Generating...' : 'Generate Quiz'}
+              <Sparkles size={15} /> {quizBusy ? 'Opening...' : `Generate ${scopeLabel} quiz`}
             </button>
             <button type="button" onClick={onFlashcards} disabled={flashBusy} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60">
-              <Layers size={15} /> {flashBusy ? 'Creating...' : 'Create Flashcards'}
+              <Layers size={15} /> {flashBusy ? 'Opening...' : `Create ${scopeLabel} flashcards`}
             </button>
             <div className="relative">
               <button type="button" onClick={() => setMenuOpen((value) => !value)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
@@ -1293,6 +1294,31 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     if (!onOpenQuiz) return null;
     setMaterialsError(null);
     setSavingStudyAction(`generate-quiz-${actionKey}`);
+
+    const filters = chapterId ? { examId: exam.id, chapterId } : { examId: exam.id };
+    const existing = await listQuizzes(filters);
+    if (!existing.error) {
+      const existingQuiz = (existing.data || []).find((quiz) => (quiz.questions || []).length > 0);
+      if (existingQuiz) {
+        setSavingStudyAction(null);
+        onOpenQuiz({
+          noteId: chapterId || noteId || exam.id,
+          quizId: existingQuiz.id,
+          subject: exam.subject,
+          title: existingQuiz.title || cleanPracticeTitle(title, exam.name),
+          questions: existingQuiz.questions || [],
+          _meta: {
+            examId: exam.id,
+            examName: exam.name,
+            chapterId: chapterId || 'all',
+            chapterName: title,
+            numQ: (existingQuiz.questions || []).length,
+          },
+        });
+        return existingQuiz;
+      }
+    }
+
     const questions = buildGeneratedQuestions(title, seedQuestions);
     const result = await createQuiz({
       examId: exam.id,
