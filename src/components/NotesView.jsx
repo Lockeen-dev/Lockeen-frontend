@@ -6,9 +6,9 @@ import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, infe
 import { getExamEmoji } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { createChapter, createExam, deleteChapter, deleteExam, listExams, updateChapter, updateExam } from '../services/exams';
-import { createMaterial, deleteMaterial, getMaterialDownloadUrl, listMaterials } from '../services/materials';
+import { createMaterial, deleteMaterial, getMaterialDownloadUrl, listMaterials, updateMaterial } from '../services/materials';
 import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
-import { deleteStudyMaterialFile, uploadStudyMaterialFile, validateStudyMaterialFile } from '../services/storage';
+import { createStudyMaterialSignedUrl, deleteStudyMaterialFile, uploadStudyMaterialFile, validateStudyMaterialFile } from '../services/storage';
 import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, UploadChapterModal } from './ExamModals';
 import { EmojiPickerButton, GradeValue, getPriorityMeta, gradeS } from './common/ExamControls';
 import { homeS } from '../styles/dashboardStyles';
@@ -143,7 +143,9 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
     };
     const onAddChapter = async ({ chapterId, chapterName, fileCount, files = [] }) => {
       let targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
-      const pageCount = Math.max(1, fileCount * 6);
+      const pageCounts = await Promise.all((files || []).map(getFilePageCount));
+      const knownPageTotal = pageCounts.reduce((sum, count) => sum + (Number(count) || 0), 0);
+      const pageCount = Math.max(1, knownPageTotal || fileCount);
 
       if (chapterId) {
         const result = await updateChapter(activeId, chapterId, {
@@ -164,7 +166,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       }
 
       const createdMaterials = [];
-      for (const file of files) {
+      for (const [index, file] of files.entries()) {
         const uploadResult = await uploadStudyMaterialFile({ file, materialId: crypto.randomUUID() });
         if (uploadResult.error) throw new Error(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
         const materialResult = await createMaterial({
@@ -177,7 +179,9 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
           type: 'file',
         });
         if (materialResult.error) throw new Error(formatStudyServiceError(materialResult.error, 'Unable to save material.'));
-        if (materialResult.data) createdMaterials.push(materialResult.data);
+        if (materialResult.data) {
+          createdMaterials.push({ ...materialResult.data, pageCount: pageCounts[index] || null });
+        }
       }
 
       await refreshExams();
@@ -360,6 +364,38 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
 }
 
 const READINESS_FALLBACKS = { studyTime: 70, planProgress: 55 };
+const MATERIAL_UI_META_KEY = 'lockeen.materialUiMeta.v1';
+
+function readMaterialUiMeta() {
+  try {
+    const raw = window.localStorage.getItem(MATERIAL_UI_META_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function writeMaterialUiMeta(meta) {
+  try {
+    window.localStorage.setItem(MATERIAL_UI_META_KEY, JSON.stringify(meta));
+  } catch (_) {}
+}
+
+async function getFilePageCount(file) {
+  if (!file) return null;
+  if (file.type?.includes('pdf') || /\.pdf$/i.test(file.name || '')) {
+    try {
+      const text = new TextDecoder('latin1').decode(await file.arrayBuffer());
+      const matches = text.match(/\/Type\s*\/Page\b/g);
+      return Math.max(1, matches?.length || 1);
+    } catch (_) {
+      return 1;
+    }
+  }
+  if (file.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(file.name || '')) return 1;
+  return null;
+}
 
 function isUuidLike(value = '') {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -1062,6 +1098,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [materialsLoading, setMaterialsLoading] = useState(true);
   const [materialsError, setMaterialsError] = useState(null);
   const [materials, setMaterials] = useState([]);
+  const [materialUiMeta, setMaterialUiMeta] = useState(() => readMaterialUiMeta());
   const [noteTitle, setNoteTitle] = useState('');
   const [noteBody, setNoteBody] = useState('');
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -1132,7 +1169,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         setMaterialsError(formatStudyServiceError(materialsResult.error, 'Unable to load materials.'));
         setMaterials([]);
       } else {
-        setMaterials(materialsResult.data || []);
+        setMaterials((materialsResult.data || []).map((material) => ({ ...material, ...(materialUiMeta[material.id] || {}) })));
       }
       setNotesLoading(false);
       setMaterialsLoading(false);
@@ -1147,7 +1184,21 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       setMaterialsError(formatStudyServiceError(result.error, 'Unable to load materials.'));
       return;
     }
-    setMaterials(result.data || []);
+    setMaterials((result.data || []).map((material) => ({ ...material, ...(materialUiMeta[material.id] || {}) })));
+  };
+
+  const rememberMaterialUiMeta = (entries = []) => {
+    const nextMeta = { ...materialUiMeta };
+    for (const entry of entries) {
+      if (!entry?.id) continue;
+      nextMeta[entry.id] = {
+        ...(nextMeta[entry.id] || {}),
+        ...(entry.pageCount ? { pageCount: entry.pageCount } : {}),
+      };
+    }
+    setMaterialUiMeta(nextMeta);
+    writeMaterialUiMeta(nextMeta);
+    return nextMeta;
   };
 
   const quizPayload = (title = exam.name, questions = chapters.flatMap((c) => c.questions || []), noteId = exam.id) => ({
@@ -1244,7 +1295,9 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     }
     setSavingStudyAction('create-material');
     let uploadedFile = null;
+    let pageCount = null;
     if (materialFile) {
+      pageCount = await getFilePageCount(materialFile);
       const uploadResult = await uploadStudyMaterialFile({ file: materialFile, materialId: crypto.randomUUID() });
       if (uploadResult.error) {
         setMaterialsError(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
@@ -1267,7 +1320,9 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       setSavingStudyAction(null);
       return;
     }
-    setMaterials((prev) => [data, ...prev]);
+    const material = { ...data, pageCount };
+    if (pageCount) rememberMaterialUiMeta([material]);
+    setMaterials((prev) => [material, ...prev]);
     setMaterialTitle('');
     setMaterialUrl('');
     setMaterialFile(null);
@@ -1322,15 +1377,36 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     const result = await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
     const createdMaterials = result?.materials || [];
     if (createdMaterials.length) {
+      const nextMeta = rememberMaterialUiMeta(createdMaterials);
       setMaterials((prev) => {
         const existingIds = new Set(prev.map((material) => String(material.id)));
-        return [...createdMaterials.filter((material) => !existingIds.has(String(material.id))), ...prev];
+        return [
+          ...createdMaterials
+            .filter((material) => !existingIds.has(String(material.id)))
+            .map((material) => ({ ...material, ...(nextMeta[material.id] || {}) })),
+          ...prev,
+        ];
       });
     }
     if (result?.chapter) {
       setPdfChapter((current) => current && String(current.id) === String(chapter.id) ? { ...current, ...result.chapter } : current);
     }
     await reloadMaterials();
+  };
+  const handleRenameChapterDocument = async (material, title) => {
+    const cleanTitle = String(title || '').trim();
+    if (!material?.id || !cleanTitle) return;
+    setMaterialsError(null);
+    setSavingStudyAction(`rename-material-${material.id}`);
+    const { data, error } = await updateMaterial(material.id, { title: cleanTitle });
+    setSavingStudyAction(null);
+    if (error) {
+      setMaterialsError(formatStudyServiceError(error, 'Unable to rename material.'));
+      return;
+    }
+    setMaterials((prev) => prev.map((item) => String(item.id) === String(material.id)
+      ? { ...item, ...data, ...(materialUiMeta[material.id] || {}) }
+      : item));
   };
   const handleDeleteChapterDocument = async (chapter, material) => {
     if (material?.id) await handleDeleteMaterial(material.id);
@@ -1405,6 +1481,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
             onClose={() => setPdfChapter(null)}
             onAddDocument={handleAddChapterDocuments}
             onDeleteDocument={handleDeleteChapterDocument}
+            onRenameDocument={handleRenameChapterDocument}
             saving={savingStudyAction}
           />
         )}
@@ -1413,31 +1490,22 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   );
 }
 
-function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDocument, saving }) {
+function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDocument, onRenameDocument, saving }) {
   const inputRef = useRef(null);
   const [previewUrls, setPreviewUrls] = useState({});
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [selectedDocId, setSelectedDocId] = useState(null);
+  const [editingDocId, setEditingDocId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const title = chapter.title || chapter.name || 'Chapter';
-  const fallbackCount = Math.max(1, chapter.files || (chapter.pages ? 1 : 0));
-  const docs = materials.length
-    ? materials
-    : Array.from({ length: fallbackCount }, (_, i) => {
-      const basePages = Math.max(1, Math.round((chapter.pages || 8) / Math.max(1, fallbackCount)));
-      return {
-        id: `fallback-${chapter.id}-${i}`,
-        title: i === 0 ? 'chapter.pdf' : `chapter-${i + 1}.pdf`,
-        pages: i === fallbackCount - 1 ? Math.max(1, (chapter.pages || 8) - basePages * i) : basePages,
-        mock: true,
-      };
-    });
+  const docs = materials;
   const docCount = docs.length;
-  const pagesFor = (doc, index) => {
-    if (doc.pages) return doc.pages;
+  const docsPreviewKey = docs.map((doc) => `${doc.id}:${doc.storagePath || doc.sourceUrl || ''}`).join('|');
+  const pagesFor = (doc) => {
     if (doc.pageCount) return doc.pageCount;
-    if (doc.mock) return doc.pages;
-    const divisor = Math.max(1, docCount || chapter.files || 1);
-    const base = Math.max(1, Math.round((chapter.pages || 1) / divisor));
-    return index === docCount - 1 ? Math.max(1, (chapter.pages || base) - base * index) : base;
+    if (doc.page_count) return doc.page_count;
+    if (doc.pages) return doc.pages;
+    return null;
   };
   const handleFilePick = async (event) => {
     const picked = Array.from(event.target.files || []);
@@ -1449,25 +1517,45 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
   useEffect(() => {
     let cancelled = false;
     async function loadPreviews() {
+      setPreviewLoading(true);
       const entries = await Promise.all(docs.filter((doc) => !doc.mock).map(async (doc) => {
         if (doc.sourceUrl) return [doc.id, doc.sourceUrl];
+        if (doc.storagePath) {
+          const result = await createStudyMaterialSignedUrl(doc.storagePath);
+          return [doc.id, result.error ? null : result.data?.url || null];
+        }
         if (!doc.id) return [doc.id, null];
         const result = await getMaterialDownloadUrl(doc.id);
         return [doc.id, result.error ? null : result.data?.url || null];
       }));
       if (!cancelled) {
-        setPreviewUrls(Object.fromEntries(entries.filter(([, url]) => Boolean(url))));
+        setPreviewUrls(Object.fromEntries(entries));
+        setPreviewLoading(false);
       }
     }
     loadPreviews();
     return () => { cancelled = true; };
-  }, [docs.map((doc) => doc.id).join('|')]);
+  }, [docsPreviewKey]);
   const selectedDocIndex = selectedDocId ? docs.findIndex((doc) => String(doc.id) === String(selectedDocId)) : -1;
   const selectedDoc = selectedDocIndex >= 0 ? docs[selectedDocIndex] : null;
   const selectedName = selectedDoc ? getDisplayFileName(selectedDoc) : '';
   const selectedUrl = selectedDoc ? previewUrls[selectedDoc.id] : null;
+  const selectedPreviewReady = selectedDoc ? Object.prototype.hasOwnProperty.call(previewUrls, selectedDoc.id) : false;
   const selectedIsImage = selectedDoc ? (/\.(png|jpe?g|webp|gif)$/i.test(selectedName) || selectedDoc.mimeType?.startsWith('image/')) : false;
   const selectedIsPdf = selectedDoc ? (/\.pdf$/i.test(selectedName) || selectedDoc.mimeType?.includes('pdf')) : false;
+  const beginRename = (doc) => {
+    setEditingDocId(doc.id);
+    setEditingTitle(getDisplayFileName(doc));
+  };
+  const cancelRename = () => {
+    setEditingDocId(null);
+    setEditingTitle('');
+  };
+  const saveRename = async (doc) => {
+    await onRenameDocument?.(doc, editingTitle);
+    cancelRename();
+  };
+  const isRenaming = (doc) => saving === `rename-material-${doc.id}`;
 
   return (
     <div
@@ -1541,14 +1629,19 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                   <iframe src={selectedUrl} title={selectedName} style={{ width: '100%', height: '100%', minHeight: 440, border: 'none', borderRadius: 12, background: '#fff' }} />
                 ) : selectedUrl ? (
                   <iframe src={selectedUrl} title={selectedName} style={{ width: '100%', height: '100%', minHeight: 440, border: 'none', borderRadius: 12, background: '#fff' }} />
-                ) : (
-                  <div style={{ width: 'min(420px, 86%)', minHeight: 520, borderRadius: 12, background: '#fff', boxShadow: '0 18px 44px rgba(15,23,42,.18)', padding: 34, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div style={{ width: 58, height: 70, borderRadius: 12, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 14 }}>
+                ) : !selectedPreviewReady || previewLoading ? (
+                  <div style={{ width: 'min(360px, 86%)', borderRadius: 18, background: '#fff', boxShadow: '0 18px 44px rgba(15,23,42,.14)', padding: 28, boxSizing: 'border-box', display: 'grid', justifyItems: 'center', gap: 16, color: 'var(--gray)', textAlign: 'center', fontWeight: 800 }}>
+                    <div style={{ width: 58, height: 70, borderRadius: 12, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center' }}>
                       <FileText size={30} />
                     </div>
-                    {Array.from({ length: 16 }, (_, i) => (
-                      <span key={i} style={{ height: 9, width: `${i % 5 === 0 ? 58 : i % 3 === 0 ? 74 : 96}%`, borderRadius: 999, background: '#E5E7EB' }} />
-                    ))}
+                    Loading preview...
+                  </div>
+                ) : (
+                  <div style={{ width: 'min(360px, 86%)', borderRadius: 18, background: '#fff', boxShadow: '0 18px 44px rgba(15,23,42,.14)', padding: 28, boxSizing: 'border-box', display: 'grid', justifyItems: 'center', gap: 16, color: 'var(--gray)', textAlign: 'center', fontWeight: 800 }}>
+                    <div style={{ width: 58, height: 70, borderRadius: 12, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#EF4444', display: 'grid', placeItems: 'center' }}>
+                      <FileText size={30} />
+                    </div>
+                    Preview unavailable. Try reopening the document.
                   </div>
                 )}
               </div>
@@ -1562,10 +1655,16 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 18 }}>
-              {docs.map((doc, index) => {
+              {docs.map((doc) => {
                 const canDelete = !doc.mock && doc.id;
                 const name = getDisplayFileName(doc);
-                const pages = pagesFor(doc, index);
+                const pages = pagesFor(doc);
+                const meta = [
+                  pages ? `${pages} ${pages === 1 ? 'page' : 'pages'}` : null,
+                  formatFileSize(doc.sizeBytes),
+                  getFileTypeLabel(doc),
+                ].filter(Boolean).join(' · ');
+                const editing = editingDocId === doc.id;
                 return (
                   <article
                     key={doc.id || name}
@@ -1578,23 +1677,50 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                     <div style={{ width: 64, height: 76, borderRadius: 14, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 24 }}>
                       <FileText size={30} />
                     </div>
-                    <h3 style={{ margin: 0, color: 'var(--ink)', fontSize: 20, fontWeight: 900 }}>{name}</h3>
-                    <p style={{ margin: '12px 0 24px', color: 'var(--gray)', fontSize: 17, fontWeight: 600 }}>{pages} {pages === 1 ? 'page' : 'pages'}</p>
-                    <div style={{ height: 9, width: '86%', borderRadius: 999, background: '#E5E7EB', marginBottom: 10 }} />
-                    <div style={{ height: 9, width: '62%', borderRadius: 999, background: '#E5E7EB' }} />
+                    {editing ? (
+                      <div onClick={(event) => event.stopPropagation()} style={{ display: 'grid', gap: 10, maxWidth: 560 }}>
+                        <input
+                          value={editingTitle}
+                          onChange={(event) => setEditingTitle(event.target.value)}
+                          disabled={isRenaming(doc)}
+                          autoFocus
+                          style={{ height: 44, borderRadius: 12, border: '1.5px solid #C7CAFF', padding: '0 12px', color: 'var(--ink)', fontSize: 16, fontWeight: 800, outline: 'none' }}
+                        />
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button type="button" onClick={() => saveRename(doc)} disabled={isRenaming(doc) || !editingTitle.trim()} style={{ border: 'none', borderRadius: 12, background: 'var(--indigo)', color: '#fff', padding: '9px 13px', fontSize: 13, fontWeight: 900, cursor: 'pointer', opacity: isRenaming(doc) ? .65 : 1 }}>Save</button>
+                          <button type="button" onClick={cancelRename} disabled={isRenaming(doc)} style={{ border: '1px solid #E5E7EB', borderRadius: 12, background: '#fff', color: 'var(--gray)', padding: '9px 13px', fontSize: 13, fontWeight: 900, cursor: 'pointer' }}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <h3 style={{ margin: 0, color: 'var(--ink)', fontSize: 20, fontWeight: 900, overflowWrap: 'anywhere' }}>{name}</h3>
+                        <p style={{ margin: '12px 0 0', color: 'var(--gray)', fontSize: 16, fontWeight: 700 }}>{meta || 'Uploaded file'}</p>
+                      </>
+                    )}
                     <div style={{ position: 'absolute', left: 22, bottom: 14, maxWidth: 'calc(100% - 120px)', color: 'var(--ink)', fontSize: 12, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {name}
                     </div>
                     {canDelete && (
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); onDeleteDocument(chapter, doc); }}
-                        disabled={saving === `delete-material-${doc.id}`}
-                        style={{ position: 'absolute', top: 18, right: 18, width: 44, height: 44, borderRadius: 14, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#EF4444', display: 'grid', placeItems: 'center', cursor: 'pointer', opacity: saving === `delete-material-${doc.id}` ? .6 : 1 }}
-                        aria-label={`Delete ${name}`}
-                      >
-                        <Trash2 size={20} />
-                      </button>
+                      <div style={{ position: 'absolute', top: 18, right: 18, display: 'flex', gap: 8 }}>
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); beginRename(doc); }}
+                          disabled={isRenaming(doc)}
+                          style={{ width: 44, height: 44, borderRadius: 14, border: '1.5px solid #DDE3EE', background: '#fff', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer' }}
+                          aria-label={`Rename ${name}`}
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); onDeleteDocument(chapter, doc); }}
+                          disabled={saving === `delete-material-${doc.id}`}
+                          style={{ width: 44, height: 44, borderRadius: 14, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#EF4444', display: 'grid', placeItems: 'center', cursor: 'pointer', opacity: saving === `delete-material-${doc.id}` ? .6 : 1 }}
+                          aria-label={`Delete ${name}`}
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
                     )}
                   </article>
                 );

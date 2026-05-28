@@ -74,6 +74,19 @@ function toMaterialInsert(input, userId) {
   };
 }
 
+function toMaterialPatch(patch) {
+  return {
+    ...(patch.title !== undefined ? { title: patch.title } : {}),
+    ...(patch.sourceUrl !== undefined ? { source_url: patch.sourceUrl || null } : {}),
+    ...(patch.storagePath !== undefined ? { storage_path: patch.storagePath || null } : {}),
+    ...(patch.mimeType !== undefined ? { mime_type: patch.mimeType || null } : {}),
+    ...(patch.sizeBytes !== undefined ? { size_bytes: patch.sizeBytes ?? null } : {}),
+    ...(patch.type !== undefined ? { type: patch.type } : {}),
+    ...(patch.status !== undefined ? { status: patch.status } : {}),
+    updated_at: new Date().toISOString(),
+  };
+}
+
 function toMockMaterial(input) {
   const now = new Date().toISOString();
   return {
@@ -189,6 +202,30 @@ async function deleteRealMaterial(id) {
   return ok(toMaterial(data));
 }
 
+async function updateRealMaterial(id, patch = {}) {
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+
+  const userResult = await requireAuthenticatedUserId();
+  if (userResult.error) return userResult;
+
+  const { data, error } = await supabase
+    .from('study_materials')
+    .update(toMaterialPatch(patch))
+    .eq('id', id)
+    .eq('user_id', userResult.data)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    const normalized = normalizeError(error);
+    return fail(normalized.message, normalized.code);
+  }
+  if (!data) return fail('Material not found.', 'NOT_FOUND');
+
+  return ok(toMaterial(data));
+}
+
 export async function listMaterials(filters = {}) {
   if (!isMockMode()) return listRealMaterials(filters);
 
@@ -218,6 +255,20 @@ export async function deleteMaterial(id) {
 
   const [deleted] = mockMaterials.splice(index, 1);
   return ok(deleted);
+}
+
+export async function updateMaterial(id, patch = {}) {
+  if (!isMockMode()) return updateRealMaterial(id, patch);
+
+  const index = mockMaterials.findIndex((material) => String(material.id) === String(id));
+  if (index === -1) return fail('Material not found.', 'NOT_FOUND');
+
+  mockMaterials[index] = {
+    ...mockMaterials[index],
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  };
+  return ok(mockMaterials[index]);
 }
 
 export async function getMaterialDownloadUrl(id) {
