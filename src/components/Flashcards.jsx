@@ -329,7 +329,8 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
 
 export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFlashComplete, onBackToLanding }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
-  const total = cards.length;
+  const normalizedCards = (cards || []).map(normalizeFlashcard);
+  const total = normalizedCards.length;
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -376,7 +377,7 @@ export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMod
 
   const isAnswered = answered[idx] !== undefined;
   const progress = ((idx + 1) / total) * 100;
-  const current = cards[idx];
+  const current = normalizedCards[idx];
 
   const goTo = (nextIdx) => {
     if (nextIdx < 0 || nextIdx >= total) return;
