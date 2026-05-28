@@ -1556,8 +1556,9 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       setSavingStudyAction(null);
       return;
     }
-    const material = { ...data, pageCount: data.pageCount ?? pageCount };
-    if (pageCount) rememberMaterialUiMeta([material]);
+    const resolvedPageCount = data.pageCount ?? materialMetadata.pageCount ?? null;
+    const material = { ...data, pageCount: resolvedPageCount };
+    if (resolvedPageCount) rememberMaterialUiMeta([material]);
     setMaterials((prev) => [material, ...prev]);
     setMaterialTitle('');
     setMaterialUrl('');
