@@ -1200,6 +1200,19 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     writeMaterialUiMeta(nextMeta);
     return nextMeta;
   };
+  const mergeCreatedMaterials = (createdMaterials = []) => {
+    if (!createdMaterials.length) return;
+    const nextMeta = rememberMaterialUiMeta(createdMaterials);
+    setMaterials((prev) => {
+      const existingIds = new Set(prev.map((material) => String(material.id)));
+      return [
+        ...createdMaterials
+          .filter((material) => !existingIds.has(String(material.id)))
+          .map((material) => ({ ...material, ...(nextMeta[material.id] || {}) })),
+        ...prev,
+      ];
+    });
+  };
 
   const quizPayload = (title = exam.name, questions = chapters.flatMap((c) => c.questions || []), noteId = exam.id) => ({
     noteId,
@@ -1376,18 +1389,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     if (!pickedFiles.length) return;
     const result = await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
     const createdMaterials = result?.materials || [];
-    if (createdMaterials.length) {
-      const nextMeta = rememberMaterialUiMeta(createdMaterials);
-      setMaterials((prev) => {
-        const existingIds = new Set(prev.map((material) => String(material.id)));
-        return [
-          ...createdMaterials
-            .filter((material) => !existingIds.has(String(material.id)))
-            .map((material) => ({ ...material, ...(nextMeta[material.id] || {}) })),
-          ...prev,
-        ];
-      });
-    }
+    mergeCreatedMaterials(createdMaterials);
     if (result?.chapter) {
       setPdfChapter((current) => current && String(current.id) === String(chapter.id) ? { ...current, ...result.chapter } : current);
     }
@@ -1430,7 +1432,11 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           <UploadChapterModal
             existingChapters={chapters}
             onClose={() => setShowUpload(false)}
-            onUpload={async (payload) => { await onAddChapter(payload); setShowUpload(false); }}
+            onUpload={async (payload) => {
+              const result = await onAddChapter(payload);
+              mergeCreatedMaterials(result?.materials || []);
+              setShowUpload(false);
+            }}
           />
         )}
 
@@ -1697,9 +1703,6 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                         <p style={{ margin: '12px 0 0', color: 'var(--gray)', fontSize: 16, fontWeight: 700 }}>{meta || 'Uploaded file'}</p>
                       </>
                     )}
-                    <div style={{ position: 'absolute', left: 22, bottom: 14, maxWidth: 'calc(100% - 120px)', color: 'var(--ink)', fontSize: 12, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {name}
-                    </div>
                     {canDelete && (
                       <div style={{ position: 'absolute', top: 18, right: 18, display: 'flex', gap: 8 }}>
                         <button
