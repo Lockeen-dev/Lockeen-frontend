@@ -1,5 +1,18 @@
 import { existsSync, readFileSync } from 'node:fs';
 
+function normalizeEnvValue(value = '') {
+  const trimmed = String(value ?? '').trim();
+
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+
+  return trimmed;
+}
+
 function readEnvFile(path) {
   if (!existsSync(path)) {
     return {};
@@ -15,7 +28,7 @@ function readEnvFile(path) {
         if (separator === -1) {
           return [line, ''];
         }
-        return [line.slice(0, separator), line.slice(separator + 1)];
+        return [line.slice(0, separator), normalizeEnvValue(line.slice(separator + 1))];
       }),
   );
 }
