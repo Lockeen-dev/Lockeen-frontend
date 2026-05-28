@@ -232,8 +232,8 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   };
 
   const openQuiz = (deck) => {
-    const { noteId, subject, title, questions } = deck;
-    setQuizDeck({ noteId, subject, title, questions, _meta: deck._meta });
+    const { noteId, quizId, subject, title, questions } = deck;
+    setQuizDeck({ noteId, quizId, subject, title, questions, _meta: deck._meta });
     setActiveExamId(null);
     setTab('quiz');
   };

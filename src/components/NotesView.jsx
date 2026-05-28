@@ -8,6 +8,8 @@ import useIsMobile from '../lib/useIsMobile';
 import { createChapter, createExam, deleteChapter, deleteExam, listExams, updateChapter, updateExam } from '../services/exams';
 import { createMaterial, deleteMaterial, getMaterialDownloadUrl, listMaterials, updateMaterial } from '../services/materials';
 import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
+import { createQuiz } from '../services/quiz';
+import { createFlashcard, listFlashcards } from '../services/flashcards';
 import { createStudyMaterialSignedUrl, deleteStudyMaterialFile, uploadStudyMaterialFile, validateStudyMaterialFile } from '../services/storage';
 import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, UploadChapterModal } from './ExamModals';
 import { EmojiPickerButton, GradeValue, getPriorityMeta, gradeS } from './common/ExamControls';
@@ -39,6 +41,72 @@ function formatStudyServiceError(error, fallback) {
     return error.message || 'Check required fields.';
   }
   return error.message || fallback;
+}
+
+function cleanPracticeTitle(value, fallback = 'Study practice') {
+  return String(value || fallback).replace(/\s+/g, ' ').trim().slice(0, 120) || fallback;
+}
+
+function buildGeneratedQuestions(title, seedQuestions = []) {
+  const normalizedSeeds = (seedQuestions || [])
+    .filter((question) => (question.q || question.prompt) && Array.isArray(question.options) && question.options.length >= 2)
+    .map((question) => ({
+      q: question.q || question.prompt,
+      options: question.options,
+      correct: Number(question.correct ?? question.correctAnswer ?? 0),
+      explanation: question.explanation || '',
+    }));
+  if (normalizedSeeds.length) return normalizedSeeds.slice(0, 10);
+
+  const topic = cleanPracticeTitle(title, 'this topic');
+  return [
+    {
+      q: `What is the best first step when reviewing ${topic}?`,
+      options: ['Define the core idea', 'Skip examples', 'Ignore weak points', 'Memorize random dates'],
+      correct: 0,
+      explanation: 'Start by naming the core idea before details.',
+    },
+    {
+      q: `Which action helps test understanding of ${topic}?`,
+      options: ['Explain it in your own words', 'Only reread headings', 'Avoid practice', 'Study without checking answers'],
+      correct: 0,
+      explanation: 'Self-explanation reveals gaps quickly.',
+    },
+    {
+      q: `What should you do after missing a question on ${topic}?`,
+      options: ['Review the reason and retry', 'Delete the topic', 'Move on forever', 'Lower the target'],
+      correct: 0,
+      explanation: 'Correction plus retry turns mistakes into usable feedback.',
+    },
+    {
+      q: `Which note is most useful for ${topic}?`,
+      options: ['A concise rule plus one example', 'A copied paragraph only', 'An unrelated summary', 'A blank note'],
+      correct: 0,
+      explanation: 'Rule plus example is easier to recall and apply.',
+    },
+    {
+      q: `When should ${topic} be reviewed again?`,
+      options: ['After a short delay with active recall', 'Only once before the exam', 'Never after success', 'Only while distracted'],
+      correct: 0,
+      explanation: 'Spaced active recall improves retention.',
+    },
+  ];
+}
+
+function buildGeneratedFlashcards(title, seedCards = []) {
+  const normalizedSeeds = (seedCards || [])
+    .filter((card) => (card.front || card.q) && (card.back || card.a))
+    .map((card) => ({ front: card.front || card.q, back: card.back || card.a }));
+  if (normalizedSeeds.length) return normalizedSeeds.slice(0, 12);
+
+  const topic = cleanPracticeTitle(title, 'this topic');
+  return [
+    { front: `Core idea of ${topic}`, back: 'Write the main concept in one clear sentence, then connect one example.' },
+    { front: `Best review method for ${topic}`, back: 'Use active recall: answer first, then check and correct.' },
+    { front: `Common weak point in ${topic}`, back: 'The part you cannot explain without looking should become the next practice target.' },
+    { front: `Example check for ${topic}`, back: 'Create one concrete example and explain why it matches the rule.' },
+    { front: `Next step after a mistake in ${topic}`, back: 'Record why the answer was wrong, review the concept, and retry later.' },
+  ];
 }
 
 function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
@@ -654,6 +722,8 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
   const fileSize = formatFileSize(material.sizeBytes);
   const uploaded = formatStudyDate(material.createdAt);
   const canOpen = Boolean(material.sourceUrl || material.storagePath);
+  const quizBusy = savingStudyAction === `generate-quiz-material-${material.id}`;
+  const flashBusy = savingStudyAction === `generate-flashcards-material-${material.id}`;
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -677,11 +747,11 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
                 <Eye size={15} /> {savingStudyAction === `open-material-${material.id}` ? 'Opening...' : 'Open'}
               </button>
             )}
-            <button type="button" onClick={onQuiz} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">
-              <Sparkles size={15} /> Generate Quiz
+            <button type="button" onClick={onQuiz} disabled={quizBusy} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+              <Sparkles size={15} /> {quizBusy ? 'Generating...' : 'Generate Quiz'}
             </button>
-            <button type="button" onClick={onFlashcards} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
-              <Layers size={15} /> Create Flashcards
+            <button type="button" onClick={onFlashcards} disabled={flashBusy} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60">
+              <Layers size={15} /> {flashBusy ? 'Creating...' : 'Create Flashcards'}
             </button>
             <div className="relative">
               <button type="button" onClick={() => setMenuOpen((value) => !value)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
@@ -1214,19 +1284,88 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     });
   };
 
-  const quizPayload = (title = exam.name, questions = chapters.flatMap((c) => c.questions || []), noteId = exam.id) => ({
-    noteId,
-    subject: exam.subject,
-    title,
-    questions,
-  });
-  const flashPayload = (title = exam.name, cards = chapters.flatMap((c) => c.cards || []), noteId = exam.id) => ({
-    noteId,
-    subject: exam.subject,
-    title,
-    cards,
-  });
-  const startStudy = () => onOpenQuiz && onOpenQuiz(quizPayload());
+  const startStudy = async () => {
+    const result = await handleGenerateQuiz({ title: exam.name, seedQuestions: chapters.flatMap((c) => c.questions || []), actionKey: 'exam' });
+    return result;
+  };
+
+  const handleGenerateQuiz = async ({ title, chapterId = null, noteId = null, seedQuestions = [], actionKey = 'exam' }) => {
+    if (!onOpenQuiz) return null;
+    setMaterialsError(null);
+    setSavingStudyAction(`generate-quiz-${actionKey}`);
+    const questions = buildGeneratedQuestions(title, seedQuestions);
+    const result = await createQuiz({
+      examId: exam.id,
+      chapterId,
+      noteId,
+      title: cleanPracticeTitle(title, exam.name),
+      questions,
+    });
+    setSavingStudyAction(null);
+    if (result.error) {
+      setMaterialsError(formatStudyServiceError(result.error, 'Unable to generate quiz.'));
+      return null;
+    }
+    const quiz = result.data;
+    onOpenQuiz({
+      noteId: chapterId || noteId || exam.id,
+      quizId: quiz.id,
+      subject: exam.subject,
+      title: quiz.title,
+      questions: quiz.questions || questions,
+      _meta: { examId: exam.id, examName: exam.name, chapterId: chapterId || 'all', chapterName: title, numQ: (quiz.questions || questions).length },
+    });
+    return quiz;
+  };
+
+  const handleGenerateFlashcards = async ({ title, chapterId = null, noteId = null, seedCards = [], actionKey = 'exam' }) => {
+    if (!onOpenFlashcards) return null;
+    setMaterialsError(null);
+    setSavingStudyAction(`generate-flashcards-${actionKey}`);
+
+    if (chapterId) {
+      const existing = await listFlashcards({ examId: exam.id, chapterId });
+      if (!existing.error && existing.data?.length) {
+        setSavingStudyAction(null);
+        onOpenFlashcards({
+          noteId: chapterId,
+          subject: exam.subject,
+          title: cleanPracticeTitle(title, exam.name),
+          cards: existing.data,
+          _meta: { examId: exam.id, chapterId },
+        });
+        return existing.data;
+      }
+    }
+
+    const cards = buildGeneratedFlashcards(title, seedCards);
+    const created = [];
+    for (const card of cards) {
+      const result = await createFlashcard({
+        examId: exam.id,
+        chapterId,
+        noteId,
+        front: card.front,
+        back: card.back,
+      });
+      if (result.error) {
+        setSavingStudyAction(null);
+        setMaterialsError(formatStudyServiceError(result.error, 'Unable to create flashcards.'));
+        return null;
+      }
+      created.push(result.data);
+    }
+
+    setSavingStudyAction(null);
+    onOpenFlashcards({
+      noteId: chapterId || noteId || exam.id,
+      subject: exam.subject,
+      title: cleanPracticeTitle(title, exam.name),
+      cards: created,
+      _meta: { examId: exam.id, chapterId: chapterId || 'all' },
+    });
+    return created;
+  };
 
   const resetNoteForm = () => {
     setNoteTitle('');
@@ -1382,8 +1521,18 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     const validation = validateStudyMaterialFile(file);
     if (validation.error) setMaterialsError(formatStudyServiceError(validation.error, 'File is not valid.'));
   };
-  const handleMaterialQuiz = (material) => onOpenQuiz && onOpenQuiz(quizPayload(getDisplayFileName(material)));
-  const handleMaterialFlashcards = (material) => onOpenFlashcards && onOpenFlashcards(flashPayload(getDisplayFileName(material)));
+  const handleMaterialQuiz = (material) => handleGenerateQuiz({
+    title: getDisplayFileName(material),
+    chapterId: material.chapterId || null,
+    noteId: material.noteId || null,
+    actionKey: `material-${material.id}`,
+  });
+  const handleMaterialFlashcards = (material) => handleGenerateFlashcards({
+    title: getDisplayFileName(material),
+    chapterId: material.chapterId || null,
+    noteId: material.noteId || null,
+    actionKey: `material-${material.id}`,
+  });
   const handleAddChapterDocuments = async (chapter, files) => {
     const pickedFiles = Array.from(files || []);
     if (!pickedFiles.length) return;
@@ -1447,8 +1596,8 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           onNewChapter={() => setShowUpload(true)}
           onEditChapter={setEditingChapter}
           onOpenPdf={setPdfChapter}
-          onQuiz={(chapter) => onOpenQuiz && onOpenQuiz(quizPayload(chapter.title, chapter.questions || [], exam.id))}
-          onFlashcards={(chapter) => onOpenFlashcards && onOpenFlashcards(flashPayload(chapter.title, chapter.cards || [], exam.id))}
+          onQuiz={(chapter) => handleGenerateQuiz({ title: chapter.title, chapterId: chapter.id, seedQuestions: chapter.questions || [], actionKey: `chapter-${chapter.id}` })}
+          onFlashcards={(chapter) => handleGenerateFlashcards({ title: chapter.title, chapterId: chapter.id, seedCards: chapter.cards || [], actionKey: `chapter-${chapter.id}` })}
           quizRuns={quizRuns}
         />
 
@@ -1469,7 +1618,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           recentFlashDecks={recentFlashDecks}
           exam={exam}
           onQuiz={startStudy}
-          onFlashcards={() => onOpenFlashcards && onOpenFlashcards(flashPayload())}
+          onFlashcards={() => handleGenerateFlashcards({ title: exam.name, seedCards: chapters.flatMap((c) => c.cards || []), actionKey: 'exam' })}
         />
 
         {editingChapter && (

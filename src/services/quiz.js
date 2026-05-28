@@ -50,6 +50,15 @@ function matchesFilters(quiz, filters = {}) {
   );
 }
 
+function hasKnownMockParent(input = {}) {
+  if (!input.examId && !input.chapterId && !input.noteId) return false;
+  if (input.noteId) return true;
+  if (input.examId && seedExams.some((exam) => String(exam.id) === String(input.examId))) return true;
+  return seedExams.some((exam) =>
+    (exam.chapters || []).some((chapter) => String(chapter.id) === String(input.chapterId)),
+  );
+}
+
 function toQuestion(row) {
   return {
     id: row.id,
@@ -88,6 +97,53 @@ function toAttempt(row) {
     completedAt: row.completed_at,
     createdAt: row.created_at,
   };
+}
+
+function toQuizInsert(input, userId) {
+  return {
+    user_id: userId,
+    exam_id: input.examId || null,
+    chapter_id: input.chapterId || null,
+    note_id: input.noteId || null,
+    title: input.title,
+    status: input.status || 'active',
+  };
+}
+
+function toQuestionInsert(question, quizId, userId, position) {
+  const correct = Number(question.correct ?? question.correctAnswer ?? 0);
+  return {
+    user_id: userId,
+    quiz_id: quizId,
+    prompt: question.prompt || question.q || '',
+    options: question.options || [],
+    correct_answer: String(Number.isFinite(correct) ? correct : 0),
+    explanation: question.explanation || '',
+    position,
+  };
+}
+
+function validateQuiz(input = {}) {
+  if (!input.title?.trim()) return fail('Quiz title is required.', 'VALIDATION_ERROR');
+  if (!input.examId && !input.chapterId && !input.noteId) {
+    return fail('Quiz requires examId, chapterId, or noteId.', 'VALIDATION_ERROR');
+  }
+  if (!Array.isArray(input.questions) || input.questions.length === 0) {
+    return fail('Quiz requires at least one question.', 'VALIDATION_ERROR');
+  }
+  const invalidQuestion = input.questions.find((question) => {
+    const correct = Number(question.correct ?? question.correctAnswer ?? 0);
+    return (
+      !(question.prompt || question.q || '').trim() ||
+      !Array.isArray(question.options) ||
+      question.options.length < 2 ||
+      !Number.isInteger(correct) ||
+      correct < 0 ||
+      correct >= question.options.length
+    );
+  });
+  if (invalidQuestion) return fail('Quiz questions require prompt, options, and valid correct answer.', 'VALIDATION_ERROR');
+  return null;
 }
 
 async function listRealQuizzes(filters = {}) {
@@ -136,6 +192,42 @@ async function getRealQuiz(id) {
   return ok(toQuiz(data));
 }
 
+async function createRealQuiz(input = {}) {
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+  const userResult = await requireAuthenticatedUserId();
+  if (userResult.error) return userResult;
+  const validationError = validateQuiz(input);
+  if (validationError) return validationError;
+
+  const { data: quiz, error: quizError } = await supabase
+    .from('quizzes')
+    .insert(toQuizInsert(input, userResult.data))
+    .select()
+    .single();
+
+  if (quizError) {
+    const normalized = normalizeError(quizError);
+    return fail(normalized.message, normalized.code);
+  }
+
+  const questionRows = input.questions.map((question, index) =>
+    toQuestionInsert(question, quiz.id, userResult.data, index),
+  );
+  const { data: questions, error: questionsError } = await supabase
+    .from('quiz_questions')
+    .insert(questionRows)
+    .select();
+
+  if (questionsError) {
+    await supabase.from('quizzes').delete().eq('id', quiz.id).eq('user_id', userResult.data);
+    const normalized = normalizeError(questionsError);
+    return fail(normalized.message, normalized.code);
+  }
+
+  return ok(toQuiz({ ...quiz, quiz_questions: questions || [] }));
+}
+
 async function submitRealQuizAttempt(quizId, input = {}) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
@@ -177,6 +269,39 @@ export async function getQuiz(id) {
   if (!isMockMode()) return getRealQuiz(id);
   const quiz = mockQuizzes.find((item) => String(item.id) === String(id));
   if (!quiz) return fail('Quiz not found.', 'NOT_FOUND');
+  return ok(quiz);
+}
+
+export async function createQuiz(input = {}) {
+  if (!isMockMode()) return createRealQuiz(input);
+  const validationError = validateQuiz(input);
+  if (validationError) return validationError;
+  if (!hasKnownMockParent(input)) return fail('Quiz requires a known mock parent.', 'VALIDATION_ERROR');
+
+  const now = new Date().toISOString();
+  const quiz = {
+    id: `mock-quiz-${crypto.randomUUID()}`,
+    examId: input.examId || null,
+    chapterId: input.chapterId || null,
+    noteId: input.noteId || null,
+    title: input.title,
+    status: input.status || 'active',
+    questions: input.questions.map((question, index) => ({
+      id: `mock-question-${crypto.randomUUID()}`,
+      quizId: null,
+      prompt: question.prompt || question.q || '',
+      q: question.prompt || question.q || '',
+      options: question.options || [],
+      correctAnswer: String(Number(question.correct ?? question.correctAnswer ?? 0)),
+      correct: Number(question.correct ?? question.correctAnswer ?? 0),
+      explanation: question.explanation || '',
+      position: index,
+    })),
+    createdAt: now,
+    updatedAt: now,
+  };
+  quiz.questions = quiz.questions.map((question) => ({ ...question, quizId: quiz.id }));
+  mockQuizzes.unshift(quiz);
   return ok(quiz);
 }
 
