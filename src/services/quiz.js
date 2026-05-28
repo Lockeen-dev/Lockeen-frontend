@@ -13,6 +13,7 @@ const mockQuizzes = seedExams.flatMap((exam) =>
       examId: exam.id,
       chapterId: chapter.id,
       noteId: null,
+      sourceMaterialId: null,
       title: chapter.title,
       status: 'active',
       questions: questions.map((question, index) => ({
@@ -79,6 +80,7 @@ function toQuiz(row) {
     examId: row.exam_id,
     chapterId: row.chapter_id,
     noteId: row.note_id,
+    sourceMaterialId: row.source_material_id || null,
     title: row.title,
     status: row.status,
     questions: (row.quiz_questions || []).map(toQuestion).sort((a, b) => a.position - b.position),
@@ -105,6 +107,7 @@ function toQuizInsert(input, userId) {
     exam_id: input.examId || null,
     chapter_id: input.chapterId || null,
     note_id: input.noteId || null,
+    source_material_id: input.sourceMaterialId || null,
     title: input.title,
     status: input.status || 'active',
   };
@@ -284,6 +287,7 @@ export async function createQuiz(input = {}) {
     examId: input.examId || null,
     chapterId: input.chapterId || null,
     noteId: input.noteId || null,
+    sourceMaterialId: input.sourceMaterialId || null,
     title: input.title,
     status: input.status || 'active',
     questions: input.questions.map((question, index) => ({

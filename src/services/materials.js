@@ -5,6 +5,7 @@ import { createStudyMaterialSignedUrl } from './storage';
 import { requireAuthenticatedUserId } from './auth';
 
 const mockMaterials = [];
+const MATERIAL_PROCESSING_STATUSES = new Set(['uploaded', 'processing', 'ready', 'failed', 'unsupported']);
 
 function clone(data) {
   return structuredClone(data);
@@ -53,6 +54,11 @@ function toMaterial(row) {
     mimeType: row.mime_type,
     sizeBytes: row.size_bytes,
     status: row.status,
+    processingStatus: row.processing_status || 'uploaded',
+    extractedText: row.extracted_text || null,
+    extractionError: row.extraction_error || null,
+    processedAt: row.processed_at || null,
+    pageCount: row.page_count ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -71,6 +77,11 @@ function toMaterialInsert(input, userId) {
     mime_type: input.mimeType || null,
     size_bytes: input.sizeBytes ?? null,
     status: input.status || 'active',
+    processing_status: input.processingStatus || 'uploaded',
+    extracted_text: input.extractedText || null,
+    extraction_error: input.extractionError || null,
+    processed_at: input.processedAt || null,
+    page_count: input.pageCount ?? null,
   };
 }
 
@@ -83,6 +94,11 @@ function toMaterialPatch(patch) {
     ...(patch.sizeBytes !== undefined ? { size_bytes: patch.sizeBytes ?? null } : {}),
     ...(patch.type !== undefined ? { type: patch.type } : {}),
     ...(patch.status !== undefined ? { status: patch.status } : {}),
+    ...(patch.processingStatus !== undefined ? { processing_status: patch.processingStatus } : {}),
+    ...(patch.extractedText !== undefined ? { extracted_text: patch.extractedText || null } : {}),
+    ...(patch.extractionError !== undefined ? { extraction_error: patch.extractionError || null } : {}),
+    ...(patch.processedAt !== undefined ? { processed_at: patch.processedAt || null } : {}),
+    ...(patch.pageCount !== undefined ? { page_count: patch.pageCount ?? null } : {}),
     updated_at: new Date().toISOString(),
   };
 }
@@ -101,6 +117,11 @@ function toMockMaterial(input) {
     mimeType: input.mimeType || null,
     sizeBytes: input.sizeBytes ?? null,
     status: input.status || 'active',
+    processingStatus: input.processingStatus || 'uploaded',
+    extractedText: input.extractedText || null,
+    extractionError: input.extractionError || null,
+    processedAt: input.processedAt || null,
+    pageCount: input.pageCount ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -123,7 +144,79 @@ function validateMaterial(input = {}) {
     return fail('Material requires examId, chapterId, or noteId.', 'VALIDATION_ERROR');
   }
 
+  if (input.processingStatus && !MATERIAL_PROCESSING_STATUSES.has(input.processingStatus)) {
+    return fail('Material processing status is invalid.', 'VALIDATION_ERROR');
+  }
+
   return null;
+}
+
+function normalizeWhitespace(text = '') {
+  return String(text).replace(/\u0000/g, '').replace(/\s+/g, ' ').trim();
+}
+
+export async function extractTextFromFile(file) {
+  if (!file) return ok({ processingStatus: 'uploaded', extractedText: null, extractionError: null, processedAt: null });
+
+  const processedAt = new Date().toISOString();
+  if (file.type === 'text/plain' || file.name?.toLowerCase().endsWith('.txt')) {
+    try {
+      const text = normalizeWhitespace(await file.text());
+      if (!text) {
+        return ok({
+          processingStatus: 'failed',
+          extractedText: null,
+          extractionError: 'TXT file has no readable text.',
+          processedAt,
+        });
+      }
+      return ok({ processingStatus: 'ready', extractedText: text, extractionError: null, processedAt });
+    } catch (error) {
+      return ok({
+        processingStatus: 'failed',
+        extractedText: null,
+        extractionError: error?.message || 'TXT extraction failed.',
+        processedAt,
+      });
+    }
+  }
+
+  if (file.type === 'application/pdf') {
+    return ok({
+      processingStatus: 'unsupported',
+      extractedText: null,
+      extractionError: 'PDF text extraction is not available yet.',
+      processedAt,
+    });
+  }
+
+  if (file.type === 'image/png' || file.type === 'image/jpeg') {
+    return ok({
+      processingStatus: 'unsupported',
+      extractedText: null,
+      extractionError: 'OCR not available yet.',
+      processedAt,
+    });
+  }
+
+  return ok({
+    processingStatus: 'unsupported',
+    extractedText: null,
+    extractionError: 'File type is not supported for extraction yet.',
+    processedAt,
+  });
+}
+
+export function getMaterialProcessingLabel(material = {}) {
+  const status = material.processingStatus || 'uploaded';
+  if (status === 'ready') return 'Ready for AI';
+  if (status === 'processing') return 'Processing';
+  if (status === 'failed') return 'Extraction failed';
+  if (status === 'unsupported') {
+    const message = material.extractionError || '';
+    return message.toLowerCase().includes('ocr') ? 'OCR not ready' : 'Extraction not ready';
+  }
+  return 'Uploaded';
 }
 
 async function listRealMaterials(filters = {}) {
@@ -269,6 +362,16 @@ export async function updateMaterial(id, patch = {}) {
     updatedAt: new Date().toISOString(),
   };
   return ok(mockMaterials[index]);
+}
+
+export async function updateMaterialProcessing(id, patch = {}) {
+  return updateMaterial(id, {
+    processingStatus: patch.processingStatus,
+    extractedText: patch.extractedText,
+    extractionError: patch.extractionError,
+    processedAt: patch.processedAt,
+    pageCount: patch.pageCount,
+  });
 }
 
 export async function getMaterialDownloadUrl(id) {

@@ -6,7 +6,7 @@ import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, infe
 import { getExamEmoji } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { createChapter, createExam, deleteChapter, deleteExam, listExams, updateChapter, updateExam } from '../services/exams';
-import { createMaterial, deleteMaterial, getMaterialDownloadUrl, listMaterials, updateMaterial } from '../services/materials';
+import { createMaterial, deleteMaterial, extractTextFromFile, getMaterialDownloadUrl, getMaterialProcessingLabel, listMaterials, updateMaterial } from '../services/materials';
 import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
 import { createQuiz, listQuizzes } from '../services/quiz';
 import { createFlashcard, listFlashcards } from '../services/flashcards';
@@ -498,6 +498,15 @@ function getFileTypeLabel(material = {}) {
   return (material.type || 'FILE').toUpperCase();
 }
 
+function getMaterialStatusTone(material = {}) {
+  const status = material.processingStatus || 'uploaded';
+  if (status === 'ready') return 'bg-emerald-50 text-emerald-700';
+  if (status === 'processing') return 'bg-amber-50 text-amber-700';
+  if (status === 'failed') return 'bg-red-50 text-red-700';
+  if (status === 'unsupported') return 'bg-slate-100 text-slate-600';
+  return 'bg-slate-100 text-slate-600';
+}
+
 function formatStudyDate(value) {
   if (!value) return null;
   const date = new Date(value);
@@ -740,7 +749,9 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
           <div className="mt-2 flex flex-wrap gap-2 text-xs font-medium text-slate-500">
             {fileSize && <span>{fileSize}</span>}
             {uploaded && <span>Uploaded {uploaded}</span>}
-            <span>{material.status === 'active' ? 'Ready for quiz generation' : 'Uploaded'}</span>
+            <span className={`rounded-full px-2 py-0.5 font-bold ${getMaterialStatusTone(material)}`}>
+              {getMaterialProcessingLabel(material)}
+            </span>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {canOpen && (
@@ -1290,7 +1301,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     return result;
   };
 
-  const handleGenerateQuiz = async ({ title, chapterId = null, noteId = null, seedQuestions = [], actionKey = 'exam' }) => {
+  const handleGenerateQuiz = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedQuestions = [], actionKey = 'exam' }) => {
     if (!onOpenQuiz) return null;
     setMaterialsError(null);
     setSavingStudyAction(`generate-quiz-${actionKey}`);
@@ -1324,6 +1335,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       examId: exam.id,
       chapterId,
       noteId,
+      sourceMaterialId,
       title: cleanPracticeTitle(title, exam.name),
       questions,
     });
@@ -1344,7 +1356,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     return quiz;
   };
 
-  const handleGenerateFlashcards = async ({ title, chapterId = null, noteId = null, seedCards = [], actionKey = 'exam' }) => {
+  const handleGenerateFlashcards = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedCards = [], actionKey = 'exam' }) => {
     if (!onOpenFlashcards) return null;
     setMaterialsError(null);
     setSavingStudyAction(`generate-flashcards-${actionKey}`);
@@ -1371,6 +1383,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         examId: exam.id,
         chapterId,
         noteId,
+        sourceMaterialId,
         front: card.front,
         back: card.back,
       });
@@ -1474,8 +1487,21 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setSavingStudyAction('create-material');
     let uploadedFile = null;
     let pageCount = null;
+    let extraction = {
+      processingStatus: 'uploaded',
+      extractedText: null,
+      extractionError: null,
+      processedAt: null,
+    };
     if (materialFile) {
       pageCount = await getFilePageCount(materialFile);
+      const extractionResult = await extractTextFromFile(materialFile);
+      if (extractionResult.error) {
+        setMaterialsError(formatStudyServiceError(extractionResult.error, 'Unable to inspect material file.'));
+        setSavingStudyAction(null);
+        return;
+      }
+      extraction = extractionResult.data;
       const uploadResult = await uploadStudyMaterialFile({ file: materialFile, materialId: crypto.randomUUID() });
       if (uploadResult.error) {
         setMaterialsError(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
@@ -1491,6 +1517,11 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       storagePath: uploadedFile?.path || null,
       mimeType: uploadedFile?.mimeType || null,
       sizeBytes: uploadedFile?.sizeBytes ?? null,
+      pageCount,
+      processingStatus: extraction.processingStatus,
+      extractedText: extraction.extractedText,
+      extractionError: extraction.extractionError,
+      processedAt: extraction.processedAt,
       type: uploadedFile ? 'file' : (materialUrl.trim() ? 'link' : 'metadata'),
     });
     if (error) {
@@ -1498,7 +1529,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       setSavingStudyAction(null);
       return;
     }
-    const material = { ...data, pageCount };
+    const material = { ...data, pageCount: data.pageCount ?? pageCount };
     if (pageCount) rememberMaterialUiMeta([material]);
     setMaterials((prev) => [material, ...prev]);
     setMaterialTitle('');
@@ -1551,12 +1582,14 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     title: getDisplayFileName(material),
     chapterId: material.chapterId || null,
     noteId: material.noteId || null,
+    sourceMaterialId: material.id,
     actionKey: `material-${material.id}`,
   });
   const handleMaterialFlashcards = (material) => handleGenerateFlashcards({
     title: getDisplayFileName(material),
     chapterId: material.chapterId || null,
     noteId: material.noteId || null,
+    sourceMaterialId: material.id,
     actionKey: `material-${material.id}`,
   });
   const handleAddChapterDocuments = async (chapter, files) => {
