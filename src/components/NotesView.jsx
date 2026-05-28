@@ -163,6 +163,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         targetChapter = result.data;
       }
 
+      const createdMaterials = [];
       for (const file of files) {
         const uploadResult = await uploadStudyMaterialFile({ file, materialId: crypto.randomUUID() });
         if (uploadResult.error) throw new Error(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
@@ -176,9 +177,11 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
           type: 'file',
         });
         if (materialResult.error) throw new Error(formatStudyServiceError(materialResult.error, 'Unable to save material.'));
+        if (materialResult.data) createdMaterials.push(materialResult.data);
       }
 
       await refreshExams();
+      return { chapter: targetChapter, materials: createdMaterials };
     };
     const onEditChapter = async ({ chapterId, newTitle }) => {
       const cleanTitle = (newTitle || '').trim();
@@ -1316,7 +1319,17 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const handleAddChapterDocuments = async (chapter, files) => {
     const pickedFiles = Array.from(files || []);
     if (!pickedFiles.length) return;
-    await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
+    const result = await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
+    const createdMaterials = result?.materials || [];
+    if (createdMaterials.length) {
+      setMaterials((prev) => {
+        const existingIds = new Set(prev.map((material) => String(material.id)));
+        return [...createdMaterials.filter((material) => !existingIds.has(String(material.id))), ...prev];
+      });
+    }
+    if (result?.chapter) {
+      setPdfChapter((current) => current && String(current.id) === String(chapter.id) ? { ...current, ...result.chapter } : current);
+    }
     await reloadMaterials();
   };
   const handleDeleteChapterDocument = async (chapter, material) => {

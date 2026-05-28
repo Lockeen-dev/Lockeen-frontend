@@ -8,21 +8,25 @@ import { getStudyStreak, getStudySummary } from '../services/analytics';
 
 function useCountUp(target, duration = 1000, delay = 0) {
   const [value, setValue] = useState(0);
-  const started = useRef(false);
+  const previousTarget = useRef(0);
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+    let raf;
+    const from = previousTarget.current;
+    previousTarget.current = target;
     const timeout = setTimeout(() => {
       const start = performance.now();
       const tick = (now) => {
         const progress = Math.min((now - start) / duration, 1);
         const eased = 1 - Math.pow(1 - progress, 3);
-        setValue(Math.round(eased * target));
-        if (progress < 1) requestAnimationFrame(tick);
+        setValue(Math.round(from + (target - from) * eased));
+        if (progress < 1) raf = requestAnimationFrame(tick);
       };
-      requestAnimationFrame(tick);
+      raf = requestAnimationFrame(tick);
     }, delay);
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [target, duration, delay]);
   return value;
 }
@@ -246,6 +250,7 @@ function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flash
   const [summary, setSummary] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState('');
+  const studySessionsVersion = studySessions.map((session) => `${session.id}:${session.minutes}:${session.studiedAt}`).join('|');
 
   useEffect(() => {
     let cancelled = false;
@@ -265,7 +270,7 @@ function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flash
     }
     loadAnalytics();
     return () => { cancelled = true; };
-  }, []);
+  }, [studySessionsVersion]);
 
   const localQuizScores = getLocalQuizScores(quizHistory);
   const averageQuizScore = summary?.averageQuizScore ?? getAverage(localQuizScores);
