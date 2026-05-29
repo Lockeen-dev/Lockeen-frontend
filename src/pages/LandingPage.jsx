@@ -24,12 +24,13 @@ export default function LandingPage() {
   const heroRef = useRef(null);
 
   useEffect(() => {
-    window.showPage = function showPage(id) {
+    const showPage = function showPage(id) {
       document.querySelectorAll('.page').forEach((page) => { page.style.display = 'none'; });
       const el = document.getElementById(id);
       if (el) el.style.display = 'block';
       try { window.scrollTo({ top: 0, behavior: 'instant' }); } catch { window.scrollTo(0, 0); }
     };
+    window.showPage = showPage;
     initMarketingDom();
     setProductPreviewRoot(document.getElementById('product-scroll-preview-root'));
 
@@ -118,10 +119,7 @@ export default function LandingPage() {
       window.removeEventListener('scroll', onScroll);
       if (gridDiv) gridDiv.remove();
       setHeroGridRoot(null);
-      window.showPage = undefined;
-      window.openAuth = undefined;
-      window.closeAuth = undefined;
-      window.signOut = undefined;
+      if (window.showPage === showPage) window.showPage = undefined;
       window.setLockeenLanguage = undefined;
       observer?.disconnect();
       buttonHandlers.forEach(([button, onPointerDown, onPointerUp]) => {

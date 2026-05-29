@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import AuthModal from './components/AuthModal';
@@ -18,17 +18,20 @@ function AuthShell() {
     document.documentElement.setAttribute('data-theme', 'light');
   }, []);
 
-  useEffect(() => {
-    window.openAuth = (m) => setModal(m === 'signup' ? 'signup' : 'signin');
-    window.closeAuth = () => setModal(null);
-    window.signOut = () => {
+  useLayoutEffect(() => {
+    const openAuth = (m) => setModal(m === 'signup' ? 'signup' : 'signin');
+    const closeAuth = () => setModal(null);
+    const signOut = () => {
       setModal(null);
       if (window.showPage) window.showPage('page-landing');
     };
+    window.openAuth = openAuth;
+    window.closeAuth = closeAuth;
+    window.signOut = signOut;
     return () => {
-      window.openAuth = undefined;
-      window.closeAuth = undefined;
-      window.signOut = undefined;
+      if (window.openAuth === openAuth) window.openAuth = undefined;
+      if (window.closeAuth === closeAuth) window.closeAuth = undefined;
+      if (window.signOut === signOut) window.signOut = undefined;
     };
   }, []);
 
