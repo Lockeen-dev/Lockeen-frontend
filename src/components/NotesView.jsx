@@ -535,6 +535,15 @@ function getMaterialStatusTone(material = {}) {
   return 'bg-slate-100 text-slate-600';
 }
 
+function getMaterialStatusPillStyle(material = {}) {
+  const status = material.processingStatus || 'uploaded';
+  if (status === 'ready') return { background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0' };
+  if (status === 'processing') return { background: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A' };
+  if (status === 'failed') return { background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' };
+  if (status === 'unsupported') return { background: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' };
+  return { background: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' };
+}
+
 function formatStudyDate(value) {
   if (!value) return null;
   const date = new Date(value);
@@ -1829,7 +1838,16 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, padding: '26px 28px 24px', borderBottom: '1px solid #E5E7EB' }}>
           <div style={{ minWidth: 0 }}>
             <h2 style={{ margin: 0, color: 'var(--ink)', fontSize: 24, fontWeight: 900, lineHeight: 1.1 }}>{selectedDoc ? selectedName : title}</h2>
-            <p style={{ margin: '12px 0 0', color: 'var(--gray)', fontSize: 18, fontWeight: 600 }}>{selectedDoc ? `${title} · preview` : `${docCount} PDF ${docCount === 1 ? 'file' : 'files'}`}</p>
+            <div style={{ margin: '12px 0 0', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+              <span style={{ color: 'var(--gray)', fontSize: 18, fontWeight: 600 }}>
+                {selectedDoc ? `${title} · preview` : `${docCount} ${docCount === 1 ? 'document' : 'documents'}`}
+              </span>
+              {selectedDoc && (
+                <span style={{ ...getMaterialStatusPillStyle(selectedDoc), borderRadius: 999, padding: '5px 10px', fontSize: 12, fontWeight: 900 }}>
+                  {getMaterialProcessingLabel(selectedDoc)}
+                </span>
+              )}
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             {selectedDoc ? (
@@ -1887,8 +1905,13 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                   </div>
                 )}
               </div>
-              <div style={{ borderTop: '1px solid #DDE3EE', background: '#fff', padding: '14px 18px', color: 'var(--ink)', fontSize: 15, fontWeight: 900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {selectedName}
+              <div style={{ borderTop: '1px solid #DDE3EE', background: '#fff', padding: '14px 18px', color: 'var(--ink)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 15, fontWeight: 900 }}>
+                  {selectedName}
+                </span>
+                <span style={{ ...getMaterialStatusPillStyle(selectedDoc), borderRadius: 999, padding: '4px 9px', fontSize: 11, fontWeight: 900 }}>
+                  {getMaterialProcessingLabel(selectedDoc)}
+                </span>
               </div>
             </div>
           ) : docCount === 0 ? (
@@ -1907,6 +1930,7 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                   getFileTypeLabel(doc),
                 ].filter(Boolean).join(' · ');
                 const editing = editingDocId === doc.id;
+                const processingLabel = getMaterialProcessingLabel(doc);
                 return (
                   <article
                     key={doc.id || name}
@@ -1936,7 +1960,12 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                     ) : (
                       <>
                         <h3 style={{ margin: 0, color: 'var(--ink)', fontSize: 20, fontWeight: 900, overflowWrap: 'anywhere' }}>{name}</h3>
-                        <p style={{ margin: '12px 0 0', color: 'var(--gray)', fontSize: 16, fontWeight: 700 }}>{meta || 'Uploaded file'}</p>
+                        <div style={{ margin: '12px 0 0', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                          <span style={{ color: 'var(--gray)', fontSize: 16, fontWeight: 700 }}>{meta || 'Uploaded file'}</span>
+                          <span style={{ ...getMaterialStatusPillStyle(doc), borderRadius: 999, padding: '4px 9px', fontSize: 11, fontWeight: 900 }}>
+                            {processingLabel}
+                          </span>
+                        </div>
                       </>
                     )}
                     {canDelete && (
