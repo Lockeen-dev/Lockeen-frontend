@@ -4,8 +4,6 @@ const DEFAULT_VISION_MODEL = 'gpt-4.1-mini';
 const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg']);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
-let supabaseAdmin = null;
-
 function json(res, status, body) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
@@ -29,22 +27,26 @@ function getBearerToken(req) {
   return auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
 }
 
-function getSupabaseAdmin() {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+function getSupabaseUserClient(token) {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const publicKey =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) return null;
+  if (!supabaseUrl || !publicKey || !token) return null;
 
-  if (!supabaseAdmin) {
-    supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
+  return createClient(supabaseUrl, publicKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
       },
-    });
-  }
-
-  return supabaseAdmin;
+    },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
 }
 
 function normalizeWhitespace(text = '') {
@@ -163,14 +165,14 @@ export default async function handler(req, res) {
     return json(res, 405, { error: { code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' } });
   }
 
-  const client = getSupabaseAdmin();
-  if (!client) {
-    return json(res, 503, { error: { code: 'SUPABASE_CONFIG_MISSING', message: 'Supabase server config is missing.' } });
-  }
-
   const token = getBearerToken(req);
   if (!token) {
     return json(res, 401, { error: { code: 'AUTH_REQUIRED', message: 'OCR requires an authenticated session.' } });
+  }
+
+  const client = getSupabaseUserClient(token);
+  if (!client) {
+    return json(res, 503, { error: { code: 'SUPABASE_CONFIG_MISSING', message: 'Supabase server config is missing.' } });
   }
 
   const { data: authData, error: authError } = await client.auth.getUser(token);
