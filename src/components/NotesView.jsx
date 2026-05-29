@@ -800,6 +800,9 @@ function QuickActionsCard({ onAddMaterial, onNewChapter, onQuiz, onFlashcards })
 
 function UploadMaterialCard({ materialTitle, setMaterialTitle, materialUrl, setMaterialUrl, materialFile, setMaterialFile, showUrlField, setShowUrlField, savingStudyAction, materialsError, onSubmit, onValidateFile, onClearFile }) {
   const busy = savingStudyAction === 'create-material';
+  const uploadLabel = materialFile && (materialFile.type === 'image/png' || materialFile.type === 'image/jpeg')
+    ? 'Uploading and reading image...'
+    : 'Uploading...';
   return (
     <section id="upload-material" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -843,7 +846,7 @@ function UploadMaterialCard({ materialTitle, setMaterialTitle, materialUrl, setM
         )}
         {materialsError && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{materialsError}</div>}
         <button type="submit" disabled={busy} className="inline-flex h-11 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white disabled:opacity-60">
-          {busy ? (materialFile ? 'Uploading...' : 'Saving...') : 'Upload material'}
+          {busy ? (materialFile ? uploadLabel : 'Saving...') : 'Upload material'}
         </button>
       </form>
     </section>
@@ -885,10 +888,10 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
               </button>
             )}
             <button type="button" onClick={onQuiz} disabled={quizBusy} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
-              <Sparkles size={15} /> {quizBusy ? 'Opening...' : `Generate ${scopeLabel} quiz`}
+              <Sparkles size={15} /> {quizBusy ? 'Generating...' : `Generate ${scopeLabel} quiz`}
             </button>
             <button type="button" onClick={onFlashcards} disabled={flashBusy} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60">
-              <Layers size={15} /> {flashBusy ? 'Opening...' : `Create ${scopeLabel} flashcards`}
+              <Layers size={15} /> {flashBusy ? 'Creating...' : `Create ${scopeLabel} flashcards`}
             </button>
             <div className="relative">
               <button type="button" onClick={() => setMenuOpen((value) => !value)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
@@ -1105,7 +1108,7 @@ function CleanExamHeader({ exam, palette, chapters, q, setQ, onBack, onNewChapte
   );
 }
 
-function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditChapter, onOpenPdf, onQuiz, onFlashcards, quizRuns }) {
+function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditChapter, onOpenPdf, onQuiz, onFlashcards, quizRuns, savingStudyAction }) {
   if (!chapters.length) {
     return <EmptyState icon={BookOpen} title="Create a chapter to organize your materials." actionLabel="New chapter" onAction={onNewChapter} />;
   }
@@ -1122,6 +1125,8 @@ function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditCha
         const updated = chapter.updated || (chapter.updatedAt ? formatStudyDate(chapter.updatedAt) : null) || 'Just now';
         const coverBg = index % 2 === 0 ? palette.bg : '#FFF1F8';
         const dot = index % 2 === 0 ? palette.dot : '#8B5CF6';
+        const quizBusy = savingStudyAction === `generate-quiz-chapter-${chapter.id}`;
+        const flashBusy = savingStudyAction === `generate-flashcards-chapter-${chapter.id}`;
 
         return (
           <article key={chapter.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -1143,11 +1148,11 @@ function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditCha
               </p>
               {lastRun && <p className="mt-2 text-sm font-bold text-slate-600">Last quiz {lastRun.score}% · {lastRun.date}</p>}
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => onQuiz(chapter)} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-extrabold text-white">
-                  <Sparkles size={17} /> Generate Quiz
+                <button type="button" onClick={() => onQuiz(chapter)} disabled={quizBusy} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-extrabold text-white disabled:opacity-60">
+                  <Sparkles size={17} /> {quizBusy ? 'Generating...' : 'Generate Quiz'}
                 </button>
-                <button type="button" onClick={() => onFlashcards(chapter)} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-950">
-                  <Layers size={18} /> Flashcards
+                <button type="button" onClick={() => onFlashcards(chapter)} disabled={flashBusy} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-950 disabled:opacity-60">
+                  <Layers size={18} /> {flashBusy ? 'Creating...' : 'Flashcards'}
                 </button>
               </div>
             </div>
@@ -1213,7 +1218,7 @@ function WideReadinessCard({ score, bars, chapters, readinessView, setReadinessV
   );
 }
 
-function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDecks, exam, onQuiz, onFlashcards }) {
+function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDecks, exam, onQuiz, onFlashcards, savingStudyAction }) {
   const qh = quizHistory[exam.id] || [];
   const examRuns = quizRuns.filter((run) => String(run.examId || run.noteId) === String(exam.id));
   const quizItems = examRuns.length
@@ -1237,8 +1242,8 @@ function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDec
         <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="m-0 text-lg font-black text-slate-950">Quiz history</h3>
-            <button type="button" onClick={onQuiz} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-extrabold text-white">
-              <Sparkles size={17} /> Genera Quiz
+            <button type="button" onClick={onQuiz} disabled={savingStudyAction === 'generate-quiz-exam'} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-extrabold text-white disabled:opacity-60">
+              <Sparkles size={17} /> {savingStudyAction === 'generate-quiz-exam' ? 'Generating...' : 'Genera Quiz'}
             </button>
           </div>
           {quizItems.length === 0 ? (
@@ -1260,8 +1265,8 @@ function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDec
         <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="m-0 text-lg font-black text-slate-950">Flashcard history</h3>
-            <button type="button" onClick={onFlashcards} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-950">
-              <Layers size={17} /> Flashcard
+            <button type="button" onClick={onFlashcards} disabled={savingStudyAction === 'generate-flashcards-exam'} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-950 disabled:opacity-60">
+              <Layers size={17} /> {savingStudyAction === 'generate-flashcards-exam' ? 'Creating...' : 'Flashcard'}
             </button>
           </div>
           {fallbackFlashItems.length === 0 ? (
@@ -1875,6 +1880,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
             });
           }}
           quizRuns={quizRuns}
+          savingStudyAction={savingStudyAction}
         />
 
         <WideReadinessCard
@@ -1904,6 +1910,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
               actionKey: 'exam',
             });
           }}
+          savingStudyAction={savingStudyAction}
         />
 
         {editingChapter && (
