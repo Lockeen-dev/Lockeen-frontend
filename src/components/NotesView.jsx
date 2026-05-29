@@ -55,12 +55,20 @@ function cleanStudyText(value = '') {
 }
 
 function extractStudyFacts(seedText = '') {
-  const text = cleanStudyText(seedText);
-  if (!text) return [];
-  return text
-    .split(/(?<=[.!?])\s+|(?:\s+-\s+)|(?:\s+\d+[.)]\s+)/)
+  const raw = String(seedText || '')
+    .replace(/[#*_`>]+/g, ' ')
+    .replace(/\r/g, '\n')
+    .trim();
+  if (!raw) return [];
+  return raw
+    .split(/\n+|(?<=[.!?])\s+|(?:\s+-\s+)|(?:\s+\d+[.)]\s+)/)
     .map((item) => cleanStudyText(item))
-    .filter((item) => item.length >= 45 && item.length <= 260)
+    .flatMap((item) => {
+      if (item.length <= 260) return [item];
+      return item.match(/.{80,220}(?:\s|$)/g) || [item.slice(0, 220)];
+    })
+    .map((item) => cleanStudyText(item))
+    .filter((item) => item.length >= 35 && item.length <= 260)
     .filter((item, index, all) => all.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index)
     .slice(0, 12);
 }
@@ -74,7 +82,6 @@ function shortFact(value = '', maxLength = 150) {
 function buildQuestionsFromText(title, seedText = '') {
   const facts = extractStudyFacts(seedText);
   if (facts.length < 2) return [];
-  const topic = cleanPracticeTitle(title, 'the material');
   return facts.slice(0, 5).map((fact, index) => {
     const distractors = facts
       .filter((_, factIndex) => factIndex !== index)
@@ -88,7 +95,7 @@ function buildQuestionsFromText(title, seedText = '') {
       ][distractors.length]);
     }
     return {
-      q: `According to ${topic}, which statement is correct?`,
+      q: 'According to the uploaded material, which statement is correct?',
       options: [shortFact(fact, 140), ...distractors],
       correct: 0,
       explanation: shortFact(fact, 220),
@@ -99,9 +106,8 @@ function buildQuestionsFromText(title, seedText = '') {
 function buildFlashcardsFromText(title, seedText = '') {
   const facts = extractStudyFacts(seedText);
   if (!facts.length) return [];
-  const topic = cleanPracticeTitle(title, 'the material');
   return facts.slice(0, 8).map((fact, index) => ({
-    front: index === 0 ? `Main point in ${topic}` : `Key detail ${index + 1} from ${topic}`,
+    front: index === 0 ? 'Main point from uploaded material' : `Key detail ${index + 1} from uploaded material`,
     back: shortFact(fact, 220),
   }));
 }
@@ -1395,9 +1401,28 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       ];
     });
   };
+  const getReadyMaterialSeed = ({ chapterId = null } = {}) => {
+    const readyMaterials = materials.filter((material) => {
+      if (material.processingStatus !== 'ready' || !material.extractedText) return false;
+      if (chapterId && String(material.chapterId) !== String(chapterId)) return false;
+      return true;
+    });
+    if (!readyMaterials.length) return { seedText: '', sourceMaterialId: null };
+    return {
+      seedText: readyMaterials.map((material) => material.extractedText).join('\n\n'),
+      sourceMaterialId: readyMaterials.length === 1 ? readyMaterials[0].id : null,
+    };
+  };
 
   const startStudy = async () => {
-    const result = await handleGenerateQuiz({ title: exam.name, seedQuestions: chapters.flatMap((c) => c.questions || []), actionKey: 'exam' });
+    const seed = getReadyMaterialSeed();
+    const result = await handleGenerateQuiz({
+      title: exam.name,
+      seedQuestions: seed.seedText ? [] : chapters.flatMap((c) => c.questions || []),
+      seedText: seed.seedText,
+      sourceMaterialId: seed.sourceMaterialId,
+      actionKey: 'exam',
+    });
     return result;
   };
 
@@ -1406,32 +1431,35 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterialsError(null);
     setSavingStudyAction(`generate-quiz-${actionKey}`);
 
+    const shouldReuseExisting = !seedText || sourceMaterialId;
     const filters = {
       examId: exam.id,
       ...(chapterId ? { chapterId } : {}),
       ...(noteId ? { noteId } : {}),
       sourceMaterialId: sourceMaterialId || null,
     };
-    const existing = await listQuizzes(filters);
-    if (!existing.error) {
-      const existingQuiz = (existing.data || []).find((quiz) => (quiz.questions || []).length > 0);
-      if (existingQuiz) {
-        setSavingStudyAction(null);
-        onOpenQuiz({
-          noteId: chapterId || noteId || exam.id,
-          quizId: existingQuiz.id,
-          subject: exam.subject,
-          title: existingQuiz.title || cleanPracticeTitle(title, exam.name),
-          questions: existingQuiz.questions || [],
-          _meta: {
-            examId: exam.id,
-            examName: exam.name,
-            chapterId: chapterId || 'all',
-            chapterName: title,
-            numQ: (existingQuiz.questions || []).length,
-          },
-        });
-        return existingQuiz;
+    if (shouldReuseExisting) {
+      const existing = await listQuizzes(filters);
+      if (!existing.error) {
+        const existingQuiz = (existing.data || []).find((quiz) => (quiz.questions || []).length > 0);
+        if (existingQuiz) {
+          setSavingStudyAction(null);
+          onOpenQuiz({
+            noteId: chapterId || noteId || exam.id,
+            quizId: existingQuiz.id,
+            subject: exam.subject,
+            title: existingQuiz.title || cleanPracticeTitle(title, exam.name),
+            questions: existingQuiz.questions || [],
+            _meta: {
+              examId: exam.id,
+              examName: exam.name,
+              chapterId: chapterId || 'all',
+              chapterName: title,
+              numQ: (existingQuiz.questions || []).length,
+            },
+          });
+          return existingQuiz;
+        }
       }
     }
 
@@ -1466,7 +1494,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterialsError(null);
     setSavingStudyAction(`generate-flashcards-${actionKey}`);
 
-    if (chapterId || noteId || sourceMaterialId) {
+    if ((chapterId || noteId || sourceMaterialId) && (!seedText || sourceMaterialId)) {
       const existing = await listFlashcards({
         examId: exam.id,
         ...(chapterId ? { chapterId } : {}),
@@ -1767,8 +1795,28 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           onNewChapter={() => setShowUpload(true)}
           onEditChapter={setEditingChapter}
           onOpenPdf={setPdfChapter}
-          onQuiz={(chapter) => handleGenerateQuiz({ title: chapter.title, chapterId: chapter.id, seedQuestions: chapter.questions || [], actionKey: `chapter-${chapter.id}` })}
-          onFlashcards={(chapter) => handleGenerateFlashcards({ title: chapter.title, chapterId: chapter.id, seedCards: chapter.cards || [], actionKey: `chapter-${chapter.id}` })}
+          onQuiz={(chapter) => {
+            const seed = getReadyMaterialSeed({ chapterId: chapter.id });
+            return handleGenerateQuiz({
+              title: chapter.title,
+              chapterId: chapter.id,
+              sourceMaterialId: seed.sourceMaterialId,
+              seedQuestions: seed.seedText ? [] : chapter.questions || [],
+              seedText: seed.seedText,
+              actionKey: `chapter-${chapter.id}`,
+            });
+          }}
+          onFlashcards={(chapter) => {
+            const seed = getReadyMaterialSeed({ chapterId: chapter.id });
+            return handleGenerateFlashcards({
+              title: chapter.title,
+              chapterId: chapter.id,
+              sourceMaterialId: seed.sourceMaterialId,
+              seedCards: seed.seedText ? [] : chapter.cards || [],
+              seedText: seed.seedText,
+              actionKey: `chapter-${chapter.id}`,
+            });
+          }}
           quizRuns={quizRuns}
         />
 
@@ -1789,7 +1837,16 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           recentFlashDecks={recentFlashDecks}
           exam={exam}
           onQuiz={startStudy}
-          onFlashcards={() => handleGenerateFlashcards({ title: exam.name, seedCards: chapters.flatMap((c) => c.cards || []), actionKey: 'exam' })}
+          onFlashcards={() => {
+            const seed = getReadyMaterialSeed();
+            return handleGenerateFlashcards({
+              title: exam.name,
+              sourceMaterialId: seed.sourceMaterialId,
+              seedCards: seed.seedText ? [] : chapters.flatMap((c) => c.cards || []),
+              seedText: seed.seedText,
+              actionKey: 'exam',
+            });
+          }}
         />
 
         {editingChapter && (
