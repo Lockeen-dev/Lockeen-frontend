@@ -47,7 +47,66 @@ function cleanPracticeTitle(value, fallback = 'Study practice') {
   return String(value || fallback).replace(/\s+/g, ' ').trim().slice(0, 120) || fallback;
 }
 
-function buildGeneratedQuestions(title, seedQuestions = []) {
+function cleanStudyText(value = '') {
+  return String(value || '')
+    .replace(/[#*_`>]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractStudyFacts(seedText = '') {
+  const text = cleanStudyText(seedText);
+  if (!text) return [];
+  return text
+    .split(/(?<=[.!?])\s+|(?:\s+-\s+)|(?:\s+\d+[.)]\s+)/)
+    .map((item) => cleanStudyText(item))
+    .filter((item) => item.length >= 45 && item.length <= 260)
+    .filter((item, index, all) => all.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index)
+    .slice(0, 12);
+}
+
+function shortFact(value = '', maxLength = 150) {
+  const text = cleanStudyText(value);
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).replace(/\s+\S*$/, '')}...`;
+}
+
+function buildQuestionsFromText(title, seedText = '') {
+  const facts = extractStudyFacts(seedText);
+  if (facts.length < 2) return [];
+  const topic = cleanPracticeTitle(title, 'the material');
+  return facts.slice(0, 5).map((fact, index) => {
+    const distractors = facts
+      .filter((_, factIndex) => factIndex !== index)
+      .slice(0, 3)
+      .map((item) => shortFact(item, 140));
+    while (distractors.length < 3) {
+      distractors.push([
+        'This point is unrelated to the uploaded material.',
+        'The material says the opposite without evidence.',
+        'The document does not support this conclusion.',
+      ][distractors.length]);
+    }
+    return {
+      q: `According to ${topic}, which statement is correct?`,
+      options: [shortFact(fact, 140), ...distractors],
+      correct: 0,
+      explanation: shortFact(fact, 220),
+    };
+  });
+}
+
+function buildFlashcardsFromText(title, seedText = '') {
+  const facts = extractStudyFacts(seedText);
+  if (!facts.length) return [];
+  const topic = cleanPracticeTitle(title, 'the material');
+  return facts.slice(0, 8).map((fact, index) => ({
+    front: index === 0 ? `Main point in ${topic}` : `Key detail ${index + 1} from ${topic}`,
+    back: shortFact(fact, 220),
+  }));
+}
+
+function buildGeneratedQuestions(title, seedQuestions = [], seedText = '') {
   const normalizedSeeds = (seedQuestions || [])
     .filter((question) => (question.q || question.prompt) && Array.isArray(question.options) && question.options.length >= 2)
     .map((question) => ({
@@ -57,6 +116,8 @@ function buildGeneratedQuestions(title, seedQuestions = []) {
       explanation: question.explanation || '',
     }));
   if (normalizedSeeds.length) return normalizedSeeds.slice(0, 10);
+  const textQuestions = buildQuestionsFromText(title, seedText);
+  if (textQuestions.length) return textQuestions;
 
   const topic = cleanPracticeTitle(title, 'this topic');
   return [
@@ -93,11 +154,13 @@ function buildGeneratedQuestions(title, seedQuestions = []) {
   ];
 }
 
-function buildGeneratedFlashcards(title, seedCards = []) {
+function buildGeneratedFlashcards(title, seedCards = [], seedText = '') {
   const normalizedSeeds = (seedCards || [])
     .filter((card) => (card.front || card.q) && (card.back || card.a))
     .map((card) => ({ front: card.front || card.q, back: card.back || card.a }));
   if (normalizedSeeds.length) return normalizedSeeds.slice(0, 12);
+  const textCards = buildFlashcardsFromText(title, seedText);
+  if (textCards.length) return textCards;
 
   const topic = cleanPracticeTitle(title, 'this topic');
   return [
@@ -1338,12 +1401,17 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     return result;
   };
 
-  const handleGenerateQuiz = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedQuestions = [], actionKey = 'exam' }) => {
+  const handleGenerateQuiz = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedQuestions = [], seedText = '', actionKey = 'exam' }) => {
     if (!onOpenQuiz) return null;
     setMaterialsError(null);
     setSavingStudyAction(`generate-quiz-${actionKey}`);
 
-    const filters = chapterId ? { examId: exam.id, chapterId } : { examId: exam.id };
+    const filters = {
+      examId: exam.id,
+      ...(chapterId ? { chapterId } : {}),
+      ...(noteId ? { noteId } : {}),
+      sourceMaterialId: sourceMaterialId || null,
+    };
     const existing = await listQuizzes(filters);
     if (!existing.error) {
       const existingQuiz = (existing.data || []).find((quiz) => (quiz.questions || []).length > 0);
@@ -1367,7 +1435,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       }
     }
 
-    const questions = buildGeneratedQuestions(title, seedQuestions);
+    const questions = buildGeneratedQuestions(title, seedQuestions, seedText);
     const result = await createQuiz({
       examId: exam.id,
       chapterId,
@@ -1393,27 +1461,32 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     return quiz;
   };
 
-  const handleGenerateFlashcards = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedCards = [], actionKey = 'exam' }) => {
+  const handleGenerateFlashcards = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedCards = [], seedText = '', actionKey = 'exam' }) => {
     if (!onOpenFlashcards) return null;
     setMaterialsError(null);
     setSavingStudyAction(`generate-flashcards-${actionKey}`);
 
-    if (chapterId) {
-      const existing = await listFlashcards({ examId: exam.id, chapterId });
+    if (chapterId || noteId || sourceMaterialId) {
+      const existing = await listFlashcards({
+        examId: exam.id,
+        ...(chapterId ? { chapterId } : {}),
+        ...(noteId ? { noteId } : {}),
+        sourceMaterialId: sourceMaterialId || null,
+      });
       if (!existing.error && existing.data?.length) {
         setSavingStudyAction(null);
         onOpenFlashcards({
-          noteId: chapterId,
+          noteId: chapterId || noteId || exam.id,
           subject: exam.subject,
           title: cleanPracticeTitle(title, exam.name),
           cards: existing.data,
-          _meta: { examId: exam.id, chapterId },
+          _meta: { examId: exam.id, chapterId: chapterId || 'all' },
         });
         return existing.data;
       }
     }
 
-    const cards = buildGeneratedFlashcards(title, seedCards);
+    const cards = buildGeneratedFlashcards(title, seedCards, seedText);
     const created = [];
     for (const card of cards) {
       const result = await createFlashcard({
@@ -1620,6 +1693,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     chapterId: material.chapterId || null,
     noteId: material.noteId || null,
     sourceMaterialId: material.id,
+    seedText: material.extractedText || '',
     actionKey: `material-${material.id}`,
   });
   const handleMaterialFlashcards = (material) => handleGenerateFlashcards({
@@ -1627,6 +1701,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     chapterId: material.chapterId || null,
     noteId: material.noteId || null,
     sourceMaterialId: material.id,
+    seedText: material.extractedText || '',
     actionKey: `material-${material.id}`,
   });
   const handleAddChapterDocuments = async (chapter, files) => {

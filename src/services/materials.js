@@ -151,8 +151,35 @@ function validateMaterial(input = {}) {
   return null;
 }
 
+function repairCommonMojibake(text = '') {
+  return String(text)
+    .replace(/â€™/g, "'")
+    .replace(/â€˜/g, "'")
+    .replace(/â€œ/g, '"')
+    .replace(/â€�/g, '"')
+    .replace(/â€“|â€”/g, '-')
+    .replace(/â€¢/g, '-')
+    .replace(/Â/g, '');
+}
+
 function normalizeWhitespace(text = '') {
-  return String(text).replace(/\u0000/g, '').replace(/\s+/g, ' ').trim();
+  return repairCommonMojibake(text)
+    .replace(/\u0000/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+async function readTextFile(file) {
+  const buffer = await file.arrayBuffer();
+  const utf8 = new TextDecoder('utf-8', { fatal: false }).decode(buffer);
+  if (!utf8.includes('\uFFFD')) return utf8;
+  try {
+    return new TextDecoder('windows-1252', { fatal: false }).decode(buffer);
+  } catch {
+    return utf8;
+  }
 }
 
 export async function extractTextFromFile(file) {
@@ -161,7 +188,7 @@ export async function extractTextFromFile(file) {
   const processedAt = new Date().toISOString();
   if (file.type === 'text/plain' || file.name?.toLowerCase().endsWith('.txt')) {
     try {
-      const text = normalizeWhitespace(await file.text());
+      const text = normalizeWhitespace(await readTextFile(file));
       if (!text) {
         return ok({
           processingStatus: 'failed',

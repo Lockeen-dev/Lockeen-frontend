@@ -33,10 +33,15 @@ function normalizeError(error, fallback = 'Request failed.') {
 }
 
 function matchesFilters(card, filters = {}) {
+  const filtersSourceMaterial = Object.prototype.hasOwnProperty.call(filters, 'sourceMaterialId');
   return (
     (!filters.examId || String(card.examId) === String(filters.examId)) &&
     (!filters.chapterId || String(card.chapterId) === String(filters.chapterId)) &&
-    (!filters.noteId || String(card.noteId) === String(filters.noteId))
+    (!filters.noteId || String(card.noteId) === String(filters.noteId)) &&
+    (!filtersSourceMaterial ||
+      (filters.sourceMaterialId
+        ? String(card.sourceMaterialId) === String(filters.sourceMaterialId)
+        : !card.sourceMaterialId))
   );
 }
 
@@ -115,6 +120,11 @@ async function listRealFlashcards(filters = {}) {
   if (filters.examId) query = query.eq('exam_id', filters.examId);
   if (filters.chapterId) query = query.eq('chapter_id', filters.chapterId);
   if (filters.noteId) query = query.eq('note_id', filters.noteId);
+  if (Object.prototype.hasOwnProperty.call(filters, 'sourceMaterialId')) {
+    query = filters.sourceMaterialId
+      ? query.eq('source_material_id', filters.sourceMaterialId)
+      : query.is('source_material_id', null);
+  }
 
   const { data, error } = await query;
   if (error) {
