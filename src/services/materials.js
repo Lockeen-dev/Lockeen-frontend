@@ -182,6 +182,33 @@ async function readTextFile(file) {
   }
 }
 
+async function extractPdfText(file) {
+  const pdfjs = await import('pdfjs-dist');
+  if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString();
+  }
+
+  const data = new Uint8Array(await file.arrayBuffer());
+  const loadingTask = pdfjs.getDocument({ data, useSystemFonts: true });
+  const pdf = await loadingTask.promise;
+  const pages = [];
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const text = content.items
+      .map((item) => ('str' in item ? item.str : ''))
+      .join(' ');
+    const normalized = normalizeWhitespace(text);
+    if (normalized) pages.push(`Page ${pageNumber}\n${normalized}`);
+  }
+
+  return {
+    text: normalizeWhitespace(pages.join('\n\n')),
+    pageCount: pdf.numPages,
+  };
+}
+
 export async function extractTextFromFile(file) {
   if (!file) return ok({ processingStatus: 'uploaded', extractedText: null, extractionError: null, processedAt: null });
 
@@ -209,12 +236,26 @@ export async function extractTextFromFile(file) {
   }
 
   if (file.type === 'application/pdf') {
-    return ok({
-      processingStatus: 'unsupported',
-      extractedText: null,
-      extractionError: 'PDF text extraction is not available yet.',
-      processedAt,
-    });
+    try {
+      const { text, pageCount } = await extractPdfText(file);
+      if (!text) {
+        return ok({
+          processingStatus: 'unsupported',
+          extractedText: null,
+          extractionError: 'PDF has no selectable text. OCR not available yet.',
+          processedAt,
+          pageCount,
+        });
+      }
+      return ok({ processingStatus: 'ready', extractedText: text, extractionError: null, processedAt, pageCount });
+    } catch (error) {
+      return ok({
+        processingStatus: 'failed',
+        extractedText: null,
+        extractionError: error?.message || 'PDF extraction failed.',
+        processedAt,
+      });
+    }
   }
 
   if (file.type === 'image/png' || file.type === 'image/jpeg') {

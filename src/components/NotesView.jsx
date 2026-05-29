@@ -553,7 +553,7 @@ async function buildMaterialFileMetadata(file) {
   if (extractionResult.error) return { error: extractionResult.error };
   return {
     data: {
-      pageCount,
+      pageCount: extractionResult.data?.pageCount ?? pageCount,
       processingStatus: extractionResult.data?.processingStatus || 'uploaded',
       extractedText: extractionResult.data?.extractedText || null,
       extractionError: extractionResult.data?.extractionError || null,
