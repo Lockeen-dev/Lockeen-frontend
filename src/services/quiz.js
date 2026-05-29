@@ -180,6 +180,37 @@ function validateQuiz(input = {}) {
   return null;
 }
 
+function randomIndex(max) {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const values = new Uint32Array(1);
+    crypto.getRandomValues(values);
+    return values[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+}
+
+function shuffleQuestionOptions(question = {}) {
+  const options = Array.isArray(question.options) ? [...question.options] : [];
+  const correct = Number(question.correct ?? question.correctAnswer ?? 0);
+  const entries = options.map((option, index) => ({
+    option,
+    correct: index === correct,
+  }));
+
+  for (let index = entries.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomIndex(index + 1);
+    [entries[index], entries[swapIndex]] = [entries[swapIndex], entries[index]];
+  }
+
+  const nextCorrect = Math.max(0, entries.findIndex((entry) => entry.correct));
+  return {
+    ...question,
+    options: entries.map((entry) => entry.option),
+    correct: nextCorrect,
+    correctAnswer: String(nextCorrect),
+  };
+}
+
 async function listRealQuizzes(filters = {}) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
@@ -250,7 +281,8 @@ async function createRealQuiz(input = {}) {
     return fail(normalized.message, normalized.code);
   }
 
-  const questionRows = input.questions.map((question, index) =>
+  const shuffledQuestions = input.questions.map(shuffleQuestionOptions);
+  const questionRows = shuffledQuestions.map((question, index) =>
     toQuestionInsert(question, quiz.id, userResult.data, index),
   );
   const { data: questions, error: questionsError } = await supabase
@@ -391,7 +423,7 @@ export async function createQuiz(input = {}) {
     sourceMaterialId: input.sourceMaterialId || null,
     title: input.title,
     status: input.status || 'active',
-    questions: input.questions.map((question, index) => ({
+    questions: input.questions.map(shuffleQuestionOptions).map((question, index) => ({
       id: `mock-question-${crypto.randomUUID()}`,
       quizId: null,
       prompt: question.prompt || question.q || '',
