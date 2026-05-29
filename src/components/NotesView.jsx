@@ -10,6 +10,7 @@ import { createMaterial, deleteMaterial, extractTextFromFile, getMaterialDownloa
 import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
 import { createQuiz, listQuizzes } from '../services/quiz';
 import { createFlashcard, listFlashcards } from '../services/flashcards';
+import { generatePracticeFromText } from '../services/practiceGeneration';
 import { createStudyMaterialSignedUrl, deleteStudyMaterialFile, uploadStudyMaterialFile, validateStudyMaterialFile } from '../services/storage';
 import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, UploadChapterModal } from './ExamModals';
 import { EmojiPickerButton, GradeValue, getPriorityMeta, gradeS } from './common/ExamControls';
@@ -1481,7 +1482,15 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       }
     }
 
-    const questions = buildGeneratedQuestions(title, seedQuestions, seedText);
+    let questions = buildGeneratedQuestions(title, seedQuestions, seedText);
+    if (seedText) {
+      const aiResult = await generatePracticeFromText({
+        kind: 'quiz',
+        title: cleanPracticeTitle(title, exam.name),
+        sourceText: seedText,
+      });
+      if (aiResult.data?.questions?.length) questions = aiResult.data.questions;
+    }
     const result = await createQuiz({
       examId: exam.id,
       chapterId,
@@ -1532,7 +1541,15 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       }
     }
 
-    const cards = buildGeneratedFlashcards(title, seedCards, seedText);
+    let cards = buildGeneratedFlashcards(title, seedCards, seedText);
+    if (seedText) {
+      const aiResult = await generatePracticeFromText({
+        kind: 'flashcards',
+        title: cleanPracticeTitle(title, exam.name),
+        sourceText: seedText,
+      });
+      if (aiResult.data?.cards?.length) cards = aiResult.data.cards;
+    }
     const created = [];
     for (const card of cards) {
       const result = await createFlashcard({
