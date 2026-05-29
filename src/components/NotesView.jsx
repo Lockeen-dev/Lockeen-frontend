@@ -1450,70 +1450,75 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterialsError(null);
     setSavingStudyAction(`generate-quiz-${actionKey}`);
 
-    const shouldReuseExisting = !seedText || sourceMaterialId;
-    const filters = {
-      examId: exam.id,
-      ...(chapterId ? { chapterId } : {}),
-      ...(noteId ? { noteId } : {}),
-      sourceMaterialId: sourceMaterialId || null,
-    };
-    if (shouldReuseExisting) {
-      const existing = await listQuizzes(filters);
-      if (!existing.error) {
-        const existingQuiz = (existing.data || []).find((quiz) => (quiz.questions || []).length > 0);
-        if (existingQuiz) {
-          setSavingStudyAction(null);
-          onOpenQuiz({
-            noteId: chapterId || noteId || exam.id,
-            quizId: existingQuiz.id,
-            subject: exam.subject,
-            title: existingQuiz.title || cleanPracticeTitle(title, exam.name),
-            questions: existingQuiz.questions || [],
-            _meta: {
-              examId: exam.id,
-              examName: exam.name,
-              chapterId: chapterId || 'all',
-              chapterName: title,
-              numQ: (existingQuiz.questions || []).length,
-            },
-          });
-          return existingQuiz;
+    try {
+      const shouldReuseExisting = !seedText || sourceMaterialId;
+      const filters = {
+        examId: exam.id,
+        ...(chapterId ? { chapterId } : {}),
+        ...(noteId ? { noteId } : {}),
+        sourceMaterialId: sourceMaterialId || null,
+      };
+      if (shouldReuseExisting) {
+        const existing = await listQuizzes(filters);
+        if (!existing.error) {
+          const existingQuiz = (existing.data || []).find((quiz) => (quiz.questions || []).length > 0);
+          if (existingQuiz) {
+            onOpenQuiz({
+              noteId: chapterId || noteId || exam.id,
+              quizId: existingQuiz.id,
+              subject: exam.subject,
+              title: existingQuiz.title || cleanPracticeTitle(title, exam.name),
+              questions: existingQuiz.questions || [],
+              _meta: {
+                examId: exam.id,
+                examName: exam.name,
+                chapterId: chapterId || 'all',
+                chapterName: title,
+                numQ: (existingQuiz.questions || []).length,
+              },
+            });
+            return existingQuiz;
+          }
         }
       }
-    }
 
-    let questions = buildGeneratedQuestions(title, seedQuestions, seedText);
-    if (seedText) {
-      const aiResult = await generatePracticeFromText({
-        kind: 'quiz',
+      let questions = buildGeneratedQuestions(title, seedQuestions, seedText);
+      if (seedText) {
+        const aiResult = await generatePracticeFromText({
+          kind: 'quiz',
+          title: cleanPracticeTitle(title, exam.name),
+          sourceText: seedText,
+        });
+        if (aiResult.data?.questions?.length) questions = aiResult.data.questions;
+      }
+      const result = await createQuiz({
+        examId: exam.id,
+        chapterId,
+        noteId,
+        sourceMaterialId,
         title: cleanPracticeTitle(title, exam.name),
-        sourceText: seedText,
+        questions,
       });
-      if (aiResult.data?.questions?.length) questions = aiResult.data.questions;
-    }
-    const result = await createQuiz({
-      examId: exam.id,
-      chapterId,
-      noteId,
-      sourceMaterialId,
-      title: cleanPracticeTitle(title, exam.name),
-      questions,
-    });
-    setSavingStudyAction(null);
-    if (result.error) {
-      setMaterialsError(formatStudyServiceError(result.error, 'Unable to generate quiz.'));
+      if (result.error) {
+        setMaterialsError(formatStudyServiceError(result.error, 'Unable to generate quiz.'));
+        return null;
+      }
+      const quiz = result.data;
+      onOpenQuiz({
+        noteId: chapterId || noteId || exam.id,
+        quizId: quiz.id,
+        subject: exam.subject,
+        title: quiz.title,
+        questions: quiz.questions || questions,
+        _meta: { examId: exam.id, examName: exam.name, chapterId: chapterId || 'all', chapterName: title, numQ: (quiz.questions || questions).length },
+      });
+      return quiz;
+    } catch (error) {
+      setMaterialsError(error?.message || 'Unable to generate quiz.');
       return null;
+    } finally {
+      setSavingStudyAction(null);
     }
-    const quiz = result.data;
-    onOpenQuiz({
-      noteId: chapterId || noteId || exam.id,
-      quizId: quiz.id,
-      subject: exam.subject,
-      title: quiz.title,
-      questions: quiz.questions || questions,
-      _meta: { examId: exam.id, examName: exam.name, chapterId: chapterId || 'all', chapterName: title, numQ: (quiz.questions || questions).length },
-    });
-    return quiz;
   };
 
   const handleGenerateFlashcards = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedCards = [], seedText = '', actionKey = 'exam' }) => {
@@ -1521,62 +1526,66 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterialsError(null);
     setSavingStudyAction(`generate-flashcards-${actionKey}`);
 
-    if ((chapterId || noteId || sourceMaterialId) && (!seedText || sourceMaterialId)) {
-      const existing = await listFlashcards({
-        examId: exam.id,
-        ...(chapterId ? { chapterId } : {}),
-        ...(noteId ? { noteId } : {}),
-        sourceMaterialId: sourceMaterialId || null,
-      });
-      if (!existing.error && existing.data?.length) {
-        setSavingStudyAction(null);
-        onOpenFlashcards({
-          noteId: chapterId || noteId || exam.id,
-          subject: exam.subject,
-          title: cleanPracticeTitle(title, exam.name),
-          cards: existing.data,
-          _meta: { examId: exam.id, chapterId: chapterId || 'all' },
+    try {
+      if ((chapterId || noteId || sourceMaterialId) && (!seedText || sourceMaterialId)) {
+        const existing = await listFlashcards({
+          examId: exam.id,
+          ...(chapterId ? { chapterId } : {}),
+          ...(noteId ? { noteId } : {}),
+          sourceMaterialId: sourceMaterialId || null,
         });
-        return existing.data;
+        if (!existing.error && existing.data?.length) {
+          onOpenFlashcards({
+            noteId: chapterId || noteId || exam.id,
+            subject: exam.subject,
+            title: cleanPracticeTitle(title, exam.name),
+            cards: existing.data,
+            _meta: { examId: exam.id, chapterId: chapterId || 'all' },
+          });
+          return existing.data;
+        }
       }
-    }
 
-    let cards = buildGeneratedFlashcards(title, seedCards, seedText);
-    if (seedText) {
-      const aiResult = await generatePracticeFromText({
-        kind: 'flashcards',
+      let cards = buildGeneratedFlashcards(title, seedCards, seedText);
+      if (seedText) {
+        const aiResult = await generatePracticeFromText({
+          kind: 'flashcards',
+          title: cleanPracticeTitle(title, exam.name),
+          sourceText: seedText,
+        });
+        if (aiResult.data?.cards?.length) cards = aiResult.data.cards;
+      }
+      const created = [];
+      for (const card of cards) {
+        const result = await createFlashcard({
+          examId: exam.id,
+          chapterId,
+          noteId,
+          sourceMaterialId,
+          front: card.front,
+          back: card.back,
+        });
+        if (result.error) {
+          setMaterialsError(formatStudyServiceError(result.error, 'Unable to create flashcards.'));
+          return null;
+        }
+        created.push(result.data);
+      }
+
+      onOpenFlashcards({
+        noteId: chapterId || noteId || exam.id,
+        subject: exam.subject,
         title: cleanPracticeTitle(title, exam.name),
-        sourceText: seedText,
+        cards: created,
+        _meta: { examId: exam.id, chapterId: chapterId || 'all' },
       });
-      if (aiResult.data?.cards?.length) cards = aiResult.data.cards;
+      return created;
+    } catch (error) {
+      setMaterialsError(error?.message || 'Unable to create flashcards.');
+      return null;
+    } finally {
+      setSavingStudyAction(null);
     }
-    const created = [];
-    for (const card of cards) {
-      const result = await createFlashcard({
-        examId: exam.id,
-        chapterId,
-        noteId,
-        sourceMaterialId,
-        front: card.front,
-        back: card.back,
-      });
-      if (result.error) {
-        setSavingStudyAction(null);
-        setMaterialsError(formatStudyServiceError(result.error, 'Unable to create flashcards.'));
-        return null;
-      }
-      created.push(result.data);
-    }
-
-    setSavingStudyAction(null);
-    onOpenFlashcards({
-      noteId: chapterId || noteId || exam.id,
-      subject: exam.subject,
-      title: cleanPracticeTitle(title, exam.name),
-      cards: created,
-      _meta: { examId: exam.id, chapterId: chapterId || 'all' },
-    });
-    return created;
   };
 
   const resetNoteForm = () => {

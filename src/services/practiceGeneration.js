@@ -1,6 +1,8 @@
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 
+const PRACTICE_TIMEOUT_MS = 12000;
+
 function ok(data) {
   return { data: structuredClone(data), error: null };
 }
@@ -41,14 +43,28 @@ export async function generatePracticeFromText({ kind = 'quiz', title, sourceTex
     return fail('AI practice generation requires an authenticated Supabase session.', 'AUTH_REQUIRED');
   }
 
-  const response = await fetch('/api/generate-practice', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ kind, title, sourceText }),
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), PRACTICE_TIMEOUT_MS);
+
+  let response;
+  try {
+    response = await fetch('/api/generate-practice', {
+      signal: controller.signal,
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ kind, title, sourceText }),
+    });
+  } catch (error) {
+    return fail(
+      error?.name === 'AbortError' ? 'AI practice generation timed out.' : 'AI practice generation failed.',
+      error?.name || 'AI_PRACTICE_FAILED',
+    );
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   let payload = {};
   try {
