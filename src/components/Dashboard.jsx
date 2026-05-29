@@ -22,6 +22,7 @@ import DashboardHome from './DashboardHome';
 import { createStudySession, listStudySessions, sessionsToWeekData } from '../services/analytics';
 import { listExams } from '../services/exams';
 import { listFlashcards } from '../services/flashcards';
+import { listQuizAttempts } from '../services/quiz';
 
 /* ===================== DASHBOARD SHELL ===================== */
 function BottomNav({ tab, setTab, lang = 'en' }) {
@@ -117,6 +118,19 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const [recommendedQuizDone, setRecommendedQuizDone] = useState(false);
   const [recommendedFlashDone, setRecommendedFlashDone] = useState(false);
 
+  function applyQuizAttempts(attempts = []) {
+    setQuizRuns(attempts);
+    const nextHistory = {};
+    attempts.forEach((attempt) => {
+      const historyKey = attempt.chapterId && attempt.chapterId !== 'all'
+        ? attempt.chapterId
+        : (attempt.examId || attempt.noteId);
+      if (!historyKey) return;
+      nextHistory[historyKey] = [...(nextHistory[historyKey] || []), attempt.score];
+    });
+    setQuizHistory(nextHistory);
+  }
+
   useEffect(() => {
     let cancelled = false;
     async function loadExams() {
@@ -138,6 +152,23 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       if (realMode || sessions.length > 0) setWeekData(sessionsToWeekData(sessions));
     }
     loadStudySessions();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function refreshQuizAttempts() {
+    const result = await listQuizAttempts({ limit: 50 });
+    if (result.error) return;
+    applyQuizAttempts(result.data || []);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadQuizAttempts() {
+      const result = await listQuizAttempts({ limit: 50 });
+      if (cancelled || result.error) return;
+      applyQuizAttempts(result.data || []);
+    }
+    loadQuizAttempts();
     return () => { cancelled = true; };
   }, []);
 
@@ -205,8 +236,9 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       setRecommendedQuizDone(true);
     }
     if (runMeta) {
-      setQuizRuns(prev => [{ id: Date.now(), score: scorePct, date: new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }), ...runMeta }, ...prev]);
+      setQuizRuns(prev => [{ id: `local-${Date.now()}`, score: scorePct, date: new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }), ...runMeta }, ...prev].slice(0, 50));
       addNotification(`Quiz complete: ${runMeta.subject || 'Quiz'} · ${scorePct}%`, 'quiz');
+      refreshQuizAttempts();
     }
   }
 

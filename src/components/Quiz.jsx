@@ -537,7 +537,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
     });
   };
 
-  const filteredRuns = quizRuns.filter(r => r.examId === selectedExamId);
+  const filteredRuns = quizRuns.filter(r => String(r.examId) === String(selectedExamId));
 
   if (reviewRun) {
     return <QuizReview run={reviewRun} onBack={() => setReviewRun(null)} darkMode={darkMode} />;

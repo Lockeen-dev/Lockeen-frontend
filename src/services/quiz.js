@@ -106,6 +106,32 @@ function toAttempt(row) {
   };
 }
 
+function toAttemptRun(row) {
+  const quiz = row.quizzes || row.quiz || {};
+  const questions = (quiz.quiz_questions || []).map(toQuestion).sort((a, b) => a.position - b.position);
+  const percent = Number(row.total) > 0 ? Math.round((Number(row.score) / Number(row.total)) * 100) : 0;
+  return {
+    id: row.id,
+    attemptId: row.id,
+    quizId: row.quiz_id,
+    score: percent,
+    rawScore: Number(row.score || 0),
+    total: Number(row.total || 0),
+    answers: row.answers || [],
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+    date: row.completed_at ? new Date(row.completed_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : 'Recent',
+    examId: quiz.exam_id || null,
+    chapterId: quiz.chapter_id || 'all',
+    noteId: quiz.note_id || null,
+    sourceMaterialId: quiz.source_material_id || null,
+    chapterName: quiz.title || 'Quiz',
+    title: quiz.title || 'Quiz',
+    numQ: Number(row.total || questions.length || 0),
+    questions,
+  };
+}
+
 function toQuizInsert(input, userId) {
   return {
     user_id: userId,
@@ -273,9 +299,74 @@ async function submitRealQuizAttempt(quizId, input = {}) {
   return ok(toAttempt(data));
 }
 
+async function listRealQuizAttempts(filters = {}) {
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+  const userResult = await requireAuthenticatedUserId();
+  if (userResult.error) return userResult;
+
+  let query = supabase
+    .from('quiz_attempts')
+    .select('id, quiz_id, score, total, answers, completed_at, created_at, quizzes(id, title, exam_id, chapter_id, note_id, source_material_id, quiz_questions(*))')
+    .eq('user_id', userResult.data)
+    .order('completed_at', { ascending: false })
+    .limit(Math.max(1, Math.min(100, Number(filters.limit || 50))));
+
+  if (filters.quizId) query = query.eq('quiz_id', filters.quizId);
+
+  const { data, error } = await query;
+  if (error) {
+    const normalized = normalizeError(error);
+    return fail(normalized.message, normalized.code);
+  }
+
+  let attempts = (data || []).map(toAttemptRun);
+  if (filters.examId) attempts = attempts.filter((attempt) => String(attempt.examId) === String(filters.examId));
+  if (filters.chapterId) attempts = attempts.filter((attempt) => String(attempt.chapterId) === String(filters.chapterId));
+  if (filters.sourceMaterialId) attempts = attempts.filter((attempt) => String(attempt.sourceMaterialId) === String(filters.sourceMaterialId));
+  return ok(attempts);
+}
+
 export async function listQuizzes(filters = {}) {
   if (!isMockMode()) return listRealQuizzes(filters);
   return ok(mockQuizzes.filter((quiz) => matchesFilters(quiz, filters)));
+}
+
+export async function listQuizAttempts(filters = {}) {
+  if (!isMockMode()) return listRealQuizAttempts(filters);
+  let attempts = mockAttempts.map((attempt) => {
+    const quiz = mockQuizzes.find((item) => String(item.id) === String(attempt.quizId)) || {};
+    return toAttemptRun({
+      id: attempt.id,
+      quiz_id: attempt.quizId,
+      score: attempt.score,
+      total: attempt.total,
+      answers: attempt.answers,
+      completed_at: attempt.completedAt,
+      created_at: attempt.createdAt,
+      quizzes: {
+        id: quiz.id,
+        title: quiz.title,
+        exam_id: quiz.examId,
+        chapter_id: quiz.chapterId,
+        note_id: quiz.noteId,
+        source_material_id: quiz.sourceMaterialId,
+        quiz_questions: (quiz.questions || []).map((question, index) => ({
+          id: question.id,
+          quiz_id: quiz.id,
+          prompt: question.prompt || question.q,
+          options: question.options || [],
+          correct_answer: String(question.correctAnswer ?? question.correct ?? 0),
+          explanation: question.explanation || '',
+          position: index,
+        })),
+      },
+    });
+  });
+  if (filters.quizId) attempts = attempts.filter((attempt) => String(attempt.quizId) === String(filters.quizId));
+  if (filters.examId) attempts = attempts.filter((attempt) => String(attempt.examId) === String(filters.examId));
+  if (filters.chapterId) attempts = attempts.filter((attempt) => String(attempt.chapterId) === String(filters.chapterId));
+  return ok(attempts.slice(0, Math.max(1, Math.min(100, Number(filters.limit || 50)))));
 }
 
 export async function getQuiz(id) {
