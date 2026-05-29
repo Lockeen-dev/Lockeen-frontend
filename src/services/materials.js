@@ -260,10 +260,11 @@ export async function extractTextFromFile(file) {
 
   if (file.type === 'image/png' || file.type === 'image/jpeg') {
     return ok({
-      processingStatus: 'unsupported',
+      processingStatus: 'processing',
       extractedText: null,
-      extractionError: 'OCR not available yet.',
+      extractionError: null,
       processedAt,
+      pageCount: 1,
     });
   }
 
@@ -440,6 +441,44 @@ export async function updateMaterialProcessing(id, patch = {}) {
     processedAt: patch.processedAt,
     pageCount: patch.pageCount,
   });
+}
+
+export async function requestMaterialOcr(materialId) {
+  if (isMockMode()) {
+    return fail('OCR is not available in mock mode.', 'OCR_NOT_AVAILABLE');
+  }
+
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (sessionError || !token) {
+    return fail('OCR requires an authenticated Supabase session.', 'AUTH_REQUIRED');
+  }
+
+  const response = await fetch('/api/material-ocr', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ materialId }),
+  });
+
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
+  }
+
+  if (!response.ok || payload.error) {
+    const error = payload.error || {};
+    return fail(error.message || 'OCR extraction failed.', error.code || 'OCR_FAILED');
+  }
+
+  return ok(payload.data?.material || null);
 }
 
 export async function getMaterialDownloadUrl(id) {

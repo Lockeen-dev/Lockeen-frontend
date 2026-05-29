@@ -6,7 +6,7 @@ import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, infe
 import { getExamEmoji } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { createChapter, createExam, deleteChapter, deleteExam, listExams, updateChapter, updateExam } from '../services/exams';
-import { createMaterial, deleteMaterial, extractTextFromFile, getMaterialDownloadUrl, getMaterialProcessingLabel, listMaterials, updateMaterial } from '../services/materials';
+import { createMaterial, deleteMaterial, extractTextFromFile, getMaterialDownloadUrl, getMaterialProcessingLabel, listMaterials, requestMaterialOcr, updateMaterial } from '../services/materials';
 import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
 import { createQuiz, listQuizzes } from '../services/quiz';
 import { createFlashcard, listFlashcards } from '../services/flashcards';
@@ -325,10 +325,24 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         });
         if (materialResult.error) throw new Error(formatStudyServiceError(materialResult.error, 'Unable to save material.'));
         if (materialResult.data) {
-          createdMaterials.push({
+          let nextMaterial = {
             ...materialResult.data,
             pageCount: materialResult.data.pageCount ?? materialMetadata[index]?.pageCount ?? null,
-          });
+          };
+          if (shouldRunImageOcr(nextMaterial)) {
+            const ocrResult = await requestMaterialOcr(nextMaterial.id);
+            if (ocrResult.data) {
+              nextMaterial = ocrResult.data;
+            } else {
+              const failedUpdate = await updateMaterial(nextMaterial.id, {
+                processingStatus: 'failed',
+                extractionError: formatStudyServiceError(ocrResult.error, 'OCR extraction failed.'),
+                processedAt: new Date().toISOString(),
+              });
+              if (failedUpdate.data) nextMaterial = failedUpdate.data;
+            }
+          }
+          createdMaterials.push(nextMaterial);
         }
       }
 
@@ -560,6 +574,10 @@ async function buildMaterialFileMetadata(file) {
       processedAt: extractionResult.data?.processedAt || null,
     },
   };
+}
+
+function shouldRunImageOcr(material = {}) {
+  return material?.id && (material.mimeType === 'image/png' || material.mimeType === 'image/jpeg');
 }
 
 function isUuidLike(value = '') {
@@ -1667,7 +1685,20 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       return;
     }
     const resolvedPageCount = data.pageCount ?? materialMetadata.pageCount ?? null;
-    const material = { ...data, pageCount: resolvedPageCount };
+    let material = { ...data, pageCount: resolvedPageCount };
+    if (shouldRunImageOcr(material)) {
+      const ocrResult = await requestMaterialOcr(material.id);
+      if (ocrResult.data) {
+        material = ocrResult.data;
+      } else {
+        const failedUpdate = await updateMaterial(material.id, {
+          processingStatus: 'failed',
+          extractionError: formatStudyServiceError(ocrResult.error, 'OCR extraction failed.'),
+          processedAt: new Date().toISOString(),
+        });
+        if (failedUpdate.data) material = failedUpdate.data;
+      }
+    }
     if (resolvedPageCount) rememberMaterialUiMeta([material]);
     setMaterials((prev) => [material, ...prev]);
     setMaterialTitle('');
