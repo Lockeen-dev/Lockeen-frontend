@@ -48,6 +48,17 @@ function cleanPracticeTitle(value, fallback = 'Study practice') {
   return String(value || fallback).replace(/\s+/g, ' ').trim().slice(0, 120) || fallback;
 }
 
+function isFallbackPracticeQuestion(question) {
+  const text = String(question?.q || question?.prompt || '').toLowerCase();
+  return [
+    'what is the best first step when reviewing ',
+    'which action helps test understanding of ',
+    'what should you do after missing a question on ',
+    'which note is most useful for ',
+    'when should ',
+  ].some((pattern) => text.includes(pattern));
+}
+
 function cleanStudyText(value = '') {
   return String(value || '')
     .replace(/[#*_`>]+/g, ' ')
@@ -1466,7 +1477,10 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       if (shouldReuseExisting) {
         const existing = await listQuizzes(filters);
         if (!existing.error) {
-          const existingQuiz = (existing.data || []).find((quiz) => (quiz.questions || []).length > 0);
+          const existingQuiz = (existing.data || []).find((quiz) => {
+            const questions = quiz.questions || [];
+            return questions.length > 0 && !questions.some(isFallbackPracticeQuestion);
+          });
           if (existingQuiz) {
             onOpenQuiz({
               noteId: chapterId || noteId || exam.id,

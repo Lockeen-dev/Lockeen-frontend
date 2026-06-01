@@ -31,6 +31,22 @@ function normalizeQuiz(quiz) {
   };
 }
 
+function isFallbackPracticeQuestion(question) {
+  const text = String(question?.q || question?.prompt || '').toLowerCase();
+  return [
+    'what is the best first step when reviewing ',
+    'which action helps test understanding of ',
+    'what should you do after missing a question on ',
+    'which note is most useful for ',
+    'when should ',
+  ].some((pattern) => text.includes(pattern));
+}
+
+function isReliableMaterialQuiz(quiz) {
+  const questions = quiz?.questions || [];
+  return Boolean(quiz?.sourceMaterialId && questions.length && !questions.some(isFallbackPracticeQuestion));
+}
+
 function QuizResultScreen({ percent, correct, total, palette, resultTitle, subject, subjectStyle, attemptError, attemptSaved, onRestart, onBack }) {
   const [p, setP] = useState(0);
   useEffect(() => {
@@ -459,7 +475,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   const availableQuestions = React.useMemo(() => {
     const predictorPractice = deck?._practiceConfig?.source === 'analytics-grade-predictor';
     const reliableQuizzes = predictorPractice
-      ? serviceQuizzes.filter((quiz) => quiz.sourceMaterialId)
+      ? serviceQuizzes.filter(isReliableMaterialQuiz)
       : serviceQuizzes;
     const serviceQuestions = reliableQuizzes.flatMap(quiz => quiz.questions || []);
     if (serviceQuestions.length > 0) return serviceQuestions;
@@ -488,7 +504,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       setQuizError(listResult.error.message || 'Could not load quiz.');
     } else {
       const candidateQuizzes = overrides.requireMaterialQuiz
-        ? (listResult.data || []).filter((quiz) => quiz.sourceMaterialId)
+        ? (listResult.data || []).filter(isReliableMaterialQuiz)
         : (listResult.data || []);
       serviceQuiz = candidateQuizzes.find(quiz => (quiz.questions || []).length > 0) || null;
       if (serviceQuiz) {
