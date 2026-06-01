@@ -267,7 +267,10 @@ async function getMockStudySummary() {
     flashcardsCount: flashcards.length,
     quizzesCount: quizzes.length,
     quizAttemptsCount: 0,
+    flashcardReviewsCount: 0,
     averageQuizScore: null,
+    averageFlashcardScore: null,
+    averagePracticeScore: null,
     latestActivity,
   });
 }
@@ -287,6 +290,7 @@ async function getRealStudySummary() {
     flashcardsCountResult,
     quizzesCountResult,
     attemptsResult,
+    flashcardReviewsResult,
     recentNotesResult,
     recentMaterialsResult,
   ] = await Promise.all([
@@ -301,6 +305,12 @@ async function getRealStudySummary() {
       .eq('user_id', userId)
       .order('completed_at', { ascending: false })
       .limit(20),
+    supabase
+      .from('flashcard_reviews')
+      .select('id, exam_id, chapter_id, note_id, score, total, known_count, completed_at, created_at')
+      .eq('user_id', userId)
+      .order('completed_at', { ascending: false })
+      .limit(50),
     supabase
       .from('notes')
       .select('id, title, created_at, updated_at')
@@ -324,6 +334,11 @@ async function getRealStudySummary() {
     return fail(normalized.message, normalized.code);
   }
 
+  if (flashcardReviewsResult.error) {
+    const normalized = normalizeError(flashcardReviewsResult.error);
+    return fail(normalized.message, normalized.code);
+  }
+
   if (recentNotesResult.error) {
     const normalized = normalizeError(recentNotesResult.error);
     return fail(normalized.message, normalized.code);
@@ -337,6 +352,12 @@ async function getRealStudySummary() {
   const exams = examsResult.data || [];
   const upcomingExams = exams.filter((exam) => isUpcomingExam(exam)).sort(sortByDateAsc);
   const attempts = attemptsResult.data || [];
+  const flashcardReviews = flashcardReviewsResult.data || [];
+  const averageQuizScore = averageScore(attempts);
+  const averageFlashcardScore = averageScore(flashcardReviews);
+  const combinedScores = [averageQuizScore, averageFlashcardScore]
+    .filter((score) => Number.isFinite(Number(score)))
+    .map(Number);
   const latestActivity = [
     ...(recentNotesResult.data || []).map((note) => toActivity({ type: 'note', title: note.title, entityId: note.id, at: note.updated_at || note.created_at })),
     ...(recentMaterialsResult.data || []).map((material) => toActivity({ type: 'material', title: material.title, entityId: material.id, at: material.updated_at || material.created_at })),
@@ -346,6 +367,13 @@ async function getRealStudySummary() {
       entityId: attempt.id,
       at: attempt.completed_at || attempt.created_at,
       metadata: { quizId: attempt.quiz_id, score: attempt.score, total: attempt.total },
+    })),
+    ...flashcardReviews.slice(0, 5).map((review) => toActivity({
+      type: 'flashcard_review',
+      title: `Flashcards ${review.known_count || review.score}/${review.total}`,
+      entityId: review.id,
+      at: review.completed_at || review.created_at,
+      metadata: { examId: review.exam_id, chapterId: review.chapter_id, score: review.score, total: review.total },
     })),
   ].sort((a, b) => (parseDate(b.at)?.getTime() || 0) - (parseDate(a.at)?.getTime() || 0)).slice(0, 8);
 
@@ -358,7 +386,10 @@ async function getRealStudySummary() {
     flashcardsCount: flashcardsCountResult.data,
     quizzesCount: quizzesCountResult.data,
     quizAttemptsCount: attempts.length,
-    averageQuizScore: averageScore(attempts),
+    flashcardReviewsCount: flashcardReviews.length,
+    averageQuizScore,
+    averageFlashcardScore,
+    averagePracticeScore: combinedScores.length ? Math.round(combinedScores.reduce((sum, score) => sum + score, 0) / combinedScores.length) : null,
     latestActivity,
   });
 }

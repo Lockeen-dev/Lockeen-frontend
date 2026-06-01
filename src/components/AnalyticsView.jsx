@@ -273,9 +273,16 @@ function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flash
   }, [studySessionsVersion]);
 
   const localQuizScores = getLocalQuizScores(quizHistory);
+  const localFlashScores = getLocalQuizScores(flashHistory);
   const averageQuizScore = summary?.averageQuizScore ?? getAverage(localQuizScores);
+  const averageFlashcardScore = summary?.averageFlashcardScore ?? getAverage(localFlashScores);
+  const averagePracticeScore = summary?.averagePracticeScore ?? getAverage([
+    ...localQuizScores,
+    ...localFlashScores,
+  ]);
   const hasQuizData = Number(summary?.quizAttemptsCount || 0) > 0 || localQuizScores.length > 0 || averageQuizScore != null;
-  const currentGrade = hasQuizData ? getCurrentGradeFromScore(averageQuizScore) : null;
+  const hasPracticeData = hasQuizData || Number(summary?.flashcardReviewsCount || 0) > 0 || localFlashScores.length > 0 || averagePracticeScore != null;
+  const currentGrade = hasPracticeData ? getCurrentGradeFromScore(averagePracticeScore ?? averageQuizScore) : null;
   const streakDays = getStudyStreak(studySessions);
   const subjectMastery = getSubjectMastery(trackedNotes, quizHistory, flashHistory);
 
@@ -283,12 +290,14 @@ function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flash
   const studyH = useCountUp(Math.floor(totalMin / 60), 900, 0);
   const studyM = useCountUp(totalMin % 60, 900, 0);
   const quizScoreDisplay = hasQuizData && averageQuizScore != null ? `${averageQuizScore}%` : 'n.a.';
+  const flashScoreDisplay = averageFlashcardScore != null ? `${averageFlashcardScore}%` : 'n.a.';
   const currentGradeDisplay = currentGrade != null ? currentGrade.toFixed(1) : 'n.a.';
   const kpiCards = [
     { label: 'Study time this week', displayValue: `${studyH}h ${studyM}m`, Icon: Clock, tint: 'var(--lavender)', col: 'var(--indigo)' },
     { label: 'Current streak', displayValue: `${streakDays} ${streakDays === 1 ? 'day' : 'days'}`, Icon: Flame, tint: '#FFF7ED', col: '#F97316' },
     { label: 'Avg. quiz score', displayValue: quizScoreDisplay, Icon: Trend, tint: '#ECFDF5', col: '#10B981' },
-    { label: 'Voto medio attuale', displayValue: currentGradeDisplay, Icon: Trophy, tint: '#FEF9C3', col: '#CA8A04' },
+    { label: 'Flash mastery', displayValue: flashScoreDisplay, Icon: Trophy, tint: '#FEF9C3', col: '#CA8A04' },
+    { label: 'Voto medio attuale', displayValue: currentGradeDisplay, Icon: Trophy, tint: '#EEF2FF', col: 'var(--indigo)' },
   ];
 
   return (
@@ -305,7 +314,7 @@ function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flash
         <div style={{ ...analS.noticeCard, marginBottom:22, background:'#FEF2F2', borderColor:'#FCA5A5', color:'#991B1B', fontWeight:700 }}>{analyticsError}</div>
       )}
       {!analyticsLoading && !analyticsError && (
-        <div style={{ ...analS.statsGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)' }}>
+        <div style={{ ...analS.statsGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(150px, 1fr))' }}>
           {kpiCards.map(s => <KpiStat key={s.label} {...s} />)}
         </div>
       )}
