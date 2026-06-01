@@ -459,6 +459,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   const availableQuestions = React.useMemo(() => {
     const serviceQuestions = serviceQuizzes.flatMap(quiz => quiz.questions || []);
     if (serviceQuestions.length > 0) return serviceQuestions;
+    if (deck?._practiceConfig?.source === 'analytics-grade-predictor') return [];
     if (!selectedExam) return [];
     if (selectedChapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []);
     const ch = selectedExam.chapters.find(c => c.id === selectedChapterId);
@@ -494,6 +495,10 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       }
     }
     setLoadingQuizzes(false);
+    if (overrides.requireServiceQuiz && !serviceQuiz?.questions?.length) {
+      setQuizError('No saved quiz available for this scope. Generate a quiz from uploaded material first.');
+      return;
+    }
     const fallbackQs = chapterId === 'all'
       ? (exam?.chapters || []).flatMap(c => c.questions || [])
       : (exam?.chapters.find(c => c.id === chapterId)?.questions || []);
@@ -526,6 +531,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       _timerOn: deck._practiceConfig.mode === 'quiz' && deck._practiceConfig.timerOn !== false,
       _timerSecs: deck._practiceConfig.timerSecs || 30,
       _autoStart: true,
+      requireServiceQuiz: deck._practiceConfig.source === 'analytics-grade-predictor',
     });
   }, [deck, activeDeck]);
 
