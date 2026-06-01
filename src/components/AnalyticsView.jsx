@@ -148,8 +148,8 @@ function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}) {
     : clamp(Math.round(18 + (avgScore / 100) * 12) - timePressurePenalty - dataPenalty, 18, 30);
   const target = exam.targetGrade || 27;
   const delta = prediction - target;
-  const lastScore = scores.at(-1);
-  const previousScores = scores.slice(0, -1);
+  const lastScore = scores[0];
+  const previousScores = scores.slice(1);
   const previousAvg = getAverage(previousScores);
   const improving = previousAvg == null || lastScore == null ? false : lastScore >= previousAvg;
   const coverage = Math.min(60, (quizScores.length * 14) + (flashScores.length * 8));

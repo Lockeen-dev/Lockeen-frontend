@@ -321,7 +321,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
     if (!exam) return;
     setPracticeConfig({
       exam,
-      mode: 'flashcards',
+      mode: 'quiz',
       scopeId: 'all',
       difficulty: 'medium',
       count: 10,
