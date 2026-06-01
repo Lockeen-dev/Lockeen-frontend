@@ -457,9 +457,13 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   }, [selectedExamId, selectedChapterId, activeDeck]);
 
   const availableQuestions = React.useMemo(() => {
-    const serviceQuestions = serviceQuizzes.flatMap(quiz => quiz.questions || []);
+    const predictorPractice = deck?._practiceConfig?.source === 'analytics-grade-predictor';
+    const reliableQuizzes = predictorPractice
+      ? serviceQuizzes.filter((quiz) => quiz.sourceMaterialId)
+      : serviceQuizzes;
+    const serviceQuestions = reliableQuizzes.flatMap(quiz => quiz.questions || []);
     if (serviceQuestions.length > 0) return serviceQuestions;
-    if (deck?._practiceConfig?.source === 'analytics-grade-predictor') return [];
+    if (predictorPractice) return [];
     if (!selectedExam) return [];
     if (selectedChapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []);
     const ch = selectedExam.chapters.find(c => c.id === selectedChapterId);
@@ -483,7 +487,10 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
     if (listResult.error) {
       setQuizError(listResult.error.message || 'Could not load quiz.');
     } else {
-      serviceQuiz = (listResult.data || []).find(quiz => (quiz.questions || []).length > 0) || null;
+      const candidateQuizzes = overrides.requireMaterialQuiz
+        ? (listResult.data || []).filter((quiz) => quiz.sourceMaterialId)
+        : (listResult.data || []);
+      serviceQuiz = candidateQuizzes.find(quiz => (quiz.questions || []).length > 0) || null;
       if (serviceQuiz) {
         const quizResult = await getQuiz(serviceQuiz.id);
         if (quizResult.error) {
@@ -496,7 +503,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
     }
     setLoadingQuizzes(false);
     if (overrides.requireServiceQuiz && !serviceQuiz?.questions?.length) {
-      setQuizError('No saved quiz available for this scope. Generate a quiz from uploaded material first.');
+      setQuizError('No material-based quiz available for this scope. Generate a quiz from uploaded material first.');
       return;
     }
     const fallbackQs = chapterId === 'all'
@@ -532,6 +539,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       _timerSecs: deck._practiceConfig.timerSecs || 30,
       _autoStart: true,
       requireServiceQuiz: deck._practiceConfig.source === 'analytics-grade-predictor',
+      requireMaterialQuiz: deck._practiceConfig.source === 'analytics-grade-predictor',
     });
   }, [deck, activeDeck]);
 
