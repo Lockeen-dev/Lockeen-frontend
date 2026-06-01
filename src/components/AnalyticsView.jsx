@@ -74,6 +74,21 @@ function getAverage(values = []) {
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
+function getDaysUntilExam(exam, now = new Date()) {
+  const raw = exam.date || exam.examDate;
+  if (!raw) return null;
+  const examDate = new Date(raw);
+  if (Number.isNaN(examDate.getTime())) return null;
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  examDate.setHours(0, 0, 0, 0);
+  return Math.ceil((examDate.getTime() - today.getTime()) / 86400000);
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 function getSubjectMastery(notes = [], quizHistory = {}, flashHistory = {}) {
   const colors = ['var(--indigo)', 'var(--purple)', '#06B6D4', '#F59E0B', '#EF4444'];
   const groups = new Map();
@@ -99,10 +114,11 @@ function getSubjectMastery(notes = [], quizHistory = {}, flashHistory = {}) {
 
 function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}) {
   const ids = [exam.id, ...(exam.chapters || []).map((chapter) => chapter.id)];
-  const scores = ids.flatMap((id) => [
-    ...((quizHistory || {})[id] || []),
-    ...((flashHistory || {})[id] || []),
-  ]).filter((score) => Number.isFinite(Number(score))).map(Number);
+  const quizScores = ids.flatMap((id) => (quizHistory || {})[id] || [])
+    .filter((score) => Number.isFinite(Number(score))).map(Number);
+  const flashScores = ids.flatMap((id) => (flashHistory || {})[id] || [])
+    .filter((score) => Number.isFinite(Number(score))).map(Number);
+  const scores = [...quizScores, ...flashScores];
   const backendPrediction = exam.gradePrediction ?? exam.predictedGrade ?? exam.prediction;
   const backendConfidence = exam.gradePredictionConfidence ?? exam.predictionConfidence;
   const backendStatus = exam.gradePredictionStatus ?? exam.predictionStatus;
@@ -119,19 +135,30 @@ function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}) {
     };
   }
 
-  const avgScore = getAverage(scores);
+  const quizAvg = getAverage(quizScores);
+  const flashAvg = getAverage(flashScores);
+  const avgScore = quizAvg != null && flashAvg != null
+    ? Math.round((quizAvg * 0.7) + (flashAvg * 0.3))
+    : quizAvg ?? flashAvg ?? getAverage(scores);
+  const daysUntilExam = getDaysUntilExam(exam);
+  const timePressurePenalty = daysUntilExam == null || daysUntilExam >= 21 ? 0 : daysUntilExam >= 7 ? 1 : 2;
+  const dataPenalty = quizScores.length === 0 ? 1 : 0;
   const prediction = Number.isFinite(Number(backendPrediction))
     ? Math.round(Number(backendPrediction))
-    : Math.round(18 + (avgScore / 100) * 12);
+    : clamp(Math.round(18 + (avgScore / 100) * 12) - timePressurePenalty - dataPenalty, 18, 30);
   const target = exam.targetGrade || 27;
   const delta = prediction - target;
   const lastScore = scores.at(-1);
   const previousScores = scores.slice(0, -1);
   const previousAvg = getAverage(previousScores);
   const improving = previousAvg == null || lastScore == null ? false : lastScore >= previousAvg;
-  const confidence = Number.isFinite(Number(backendConfidence)) ? Math.round(Number(backendConfidence)) : Math.min(100, Math.max(20, scores.length * 20));
-  const confidenceLabel = confidence >= 70 ? 'High confidence' : confidence >= 40 ? 'Medium confidence' : 'Low confidence';
-  const status = backendStatus || (delta >= 0 ? 'on-track' : delta >= -2 ? 'close' : delta >= -4 ? 'at-risk' : 'needs-practice');
+  const coverage = Math.min(60, (quizScores.length * 14) + (flashScores.length * 8));
+  const recencyBonus = daysUntilExam != null && daysUntilExam <= 14 && scores.length > 0 ? 10 : 0;
+  const confidence = Number.isFinite(Number(backendConfidence))
+    ? Math.round(Number(backendConfidence))
+    : clamp(20 + coverage + recencyBonus, 0, 100);
+  const confidenceLabel = confidence >= 70 ? 'High confidence' : confidence >= 40 ? 'Medium confidence' : confidence > 0 ? 'Low confidence' : 'No data';
+  const status = backendStatus || (delta >= 0 && confidence >= 40 ? 'on-track' : delta >= -2 ? 'close' : delta >= -4 ? 'at-risk' : 'needs-practice');
   const labels = {
     'on-track': 'On track',
     close: 'Close',
@@ -139,10 +166,10 @@ function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}) {
     'needs-practice': 'Needs practice',
   };
   const helpers = {
-    'on-track': improving ? 'Keep going' : 'Keep steady',
-    close: improving ? 'Keep going' : 'Close',
-    'at-risk': 'At risk',
-    'needs-practice': 'Needs practice',
+    'on-track': improving ? 'Keep momentum with mixed review' : 'Keep steady, repeat weak cards',
+    close: quizScores.length ? 'Close: one focused quiz can lift it' : 'Close: add quiz data',
+    'at-risk': flashScores.length ? 'At risk: practice weak quiz topics' : 'At risk: add flashcard review',
+    'needs-practice': 'Needs practice: start with quiz + flashcards',
   };
   return {
     prediction,
