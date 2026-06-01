@@ -89,6 +89,21 @@ const expectedTables = [
     parentChecks: ['public.quizzes', 'quizzes.user_id = auth.uid()'],
   },
   {
+    table: 'flashcard_reviews',
+    ownerColumn: 'user_id',
+    operations: ['select', 'insert'],
+    parentChecks: [
+      'public.exams',
+      'public.chapters',
+      'public.notes',
+      'public.study_materials',
+      'exams.user_id = auth.uid()',
+      'chapters.user_id = auth.uid()',
+      'notes.user_id = auth.uid()',
+      'study_materials.user_id = auth.uid()',
+    ],
+  },
+  {
     table: 'study_sessions',
     ownerColumn: 'user_id',
     operations: ['select', 'insert', 'update', 'delete'],

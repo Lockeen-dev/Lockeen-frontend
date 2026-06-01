@@ -21,7 +21,7 @@ import AIStudyPlanner from './AIStudyPlanner';
 import DashboardHome from './DashboardHome';
 import { createStudySession, listStudySessions, sessionsToWeekData } from '../services/analytics';
 import { listExams } from '../services/exams';
-import { listFlashcards } from '../services/flashcards';
+import { listFlashcardReviews, listFlashcards } from '../services/flashcards';
 import { listQuizAttempts } from '../services/quiz';
 
 /* ===================== DASHBOARD SHELL ===================== */
@@ -131,6 +131,34 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
     setQuizHistory(nextHistory);
   }
 
+  function applyFlashcardReviews(reviews = [], examsSource = exams) {
+    const nextHistory = {};
+    const nextDecks = [];
+    reviews.forEach((review) => {
+      const historyKey = review.chapterId || review.noteId || review.examId;
+      if (!historyKey) return;
+      nextHistory[historyKey] = [...(nextHistory[historyKey] || []), review.score];
+      const exam = examsSource.find((item) => String(item.id) === String(review.examId));
+      const chapter = exam?.chapters?.find((item) => String(item.id) === String(review.chapterId));
+      nextDecks.push({
+        noteId: review.chapterId || review.noteId || review.examId,
+        subject: exam?.subject || 'Study',
+        title: chapter?.title || exam?.name || 'Flashcards',
+        cards: [],
+        _meta: {
+          examId: review.examId,
+          chapterId: review.chapterId,
+          noteId: review.noteId,
+          sourceMaterialId: review.sourceMaterialId,
+        },
+        lastScore: review.score,
+        ts: review.completedAt ? new Date(review.completedAt).getTime() : Date.now(),
+      });
+    });
+    setFlashHistory(nextHistory);
+    setRecentFlashDecks(nextDecks.slice(0, 12));
+  }
+
   useEffect(() => {
     let cancelled = false;
     async function loadExams() {
@@ -141,6 +169,23 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
     loadExams();
     return () => { cancelled = true; };
   }, []);
+
+  async function refreshFlashcardReviews(examsSource = exams) {
+    const result = await listFlashcardReviews({ limit: 50 });
+    if (result.error) return;
+    applyFlashcardReviews(result.data || [], examsSource);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFlashcardReviews() {
+      const result = await listFlashcardReviews({ limit: 50 });
+      if (cancelled || result.error) return;
+      applyFlashcardReviews(result.data || [], exams);
+    }
+    loadFlashcardReviews();
+    return () => { cancelled = true; };
+  }, [exams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -242,7 +287,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
     }
   }
 
-  function onFlashComplete(noteId, scorePct) {
+  function onFlashComplete(noteId, scorePct, runMeta) {
     if (!noteId) return;
     setFlashHistory(prev => ({ ...prev, [noteId]: [...(prev[noteId] || []), scorePct] }));
     if (flashcardDeck?._meta?.source === 'dashboardRecommended' || flashcardDeck?.title === mockDashboard.recommendedFlashcards.title || flashcardDeck?.subject === 'Chemistry') {
@@ -251,8 +296,9 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
     addNotification(`Flashcards done: ${flashcardDeck.subject} · ${scorePct}%`, 'flash');
     setRecentFlashDecks(prev => {
       const next = prev.filter(d => d.title !== flashcardDeck.title);
-      return [{ ...flashcardDeck, lastScore: scorePct, ts: Date.now() }, ...next].slice(0, 12);
+      return [{ ...flashcardDeck, ...(runMeta || {}), lastScore: scorePct, ts: Date.now() }, ...next].slice(0, 12);
     });
+    refreshFlashcardReviews();
   }
 
   const openFlashcards = (deck) => {

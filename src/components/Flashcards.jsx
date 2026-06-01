@@ -3,7 +3,7 @@ import { Check, ChevronLeft, ChevronRight, XMark } from '../lib/icons';
 import { getExamEmoji, SubjectIcon } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { getSubjectPalette } from '../data/mockData';
-import { createFlashcard, deleteFlashcard, listFlashcards, updateFlashcard } from '../services/flashcards';
+import { createFlashcard, deleteFlashcard, listFlashcards, submitFlashcardReview, updateFlashcard } from '../services/flashcards';
 
 function FlashStyles() {
   return (
@@ -25,7 +25,11 @@ function normalizeFlashcard(card) {
   };
 }
 
-function FlashResultScreen({ percent, correct, total, palette, title, subject, subjectStyle, onReset, onBack }) {
+function realId(value) {
+  return value && value !== 'all' ? value : null;
+}
+
+function FlashResultScreen({ percent, correct, total, palette, title, subject, subjectStyle, saveError, saved, onReset, onBack }) {
   const [p, setP] = useState(0);
   useEffect(() => {
     let raf;
@@ -61,6 +65,8 @@ function FlashResultScreen({ percent, correct, total, palette, title, subject, s
         <div style={{ fontSize: 32 }}>{emoji}</div>
         <h2 style={flashS.resultTitle}>{titleText}</h2>
         <p style={flashS.resultSub}>{title}</p>
+        {saved && <p style={{ ...flashS.resultSub, color:'#10B981' }}>Progress saved</p>}
+        {saveError && <p style={{ ...flashS.resultSub, color:'#DC2626' }}>{saveError}</p>}
         <div style={flashS.resultActions}>
           <button onClick={onReset} style={{ ...flashS.tryAgainBtn, background: palette.dot }}>Try again</button>
           <button onClick={onBack} style={flashS.backBtn}>Torna ai mazzi</button>
@@ -327,7 +333,7 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
   );
 }
 
-export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMode, onFlashComplete, onBackToLanding }) {
+export function FlashcardViewer({ noteId, subject, title, cards, _meta, setTab, darkMode, onFlashComplete, onBackToLanding }) {
   const palette = getSubjectPalette(subject, {}, darkMode);
   const normalizedCards = (cards || []).map(normalizeFlashcard);
   const total = normalizedCards.length;
@@ -337,6 +343,8 @@ export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMod
   const [answered, setAnswered] = useState([]);
   const [seen, setSeen] = useState(() => new Set([0]));
   const [done, setDone] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saved, setSaved] = useState(false);
   const resultSavedRef = useRef(false);
   const [cardKey, setCardKey] = useState(0);
   const [cardDir, setCardDir] = useState(1); // 1=forward, -1=back
@@ -351,6 +359,8 @@ export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMod
     setAnswered([]);
     setSeen(new Set([0]));
     setDone(false);
+    setSaveError('');
+    setSaved(false);
     resultSavedRef.current = false;
   };
 
@@ -361,8 +371,40 @@ export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMod
   useEffect(() => {
     if (!done || !total || resultSavedRef.current) return;
     resultSavedRef.current = true;
-    onFlashComplete && onFlashComplete(noteId, Math.round((correct / total) * 100));
-  }, [done, total, correct, noteId, onFlashComplete]);
+    const completedAt = new Date().toISOString();
+    const answers = normalizedCards.map((card, index) => ({
+      flashcardId: card.id || null,
+      known: answered[index] === true,
+      front: card.front || card.q || '',
+    }));
+    async function saveReview() {
+      const result = await submitFlashcardReview({
+        examId: _meta?.examId || null,
+        chapterId: realId(_meta?.chapterId),
+        noteId: realId(_meta?.noteId) || (_meta?.examId ? null : realId(noteId)),
+        sourceMaterialId: realId(_meta?.sourceMaterialId),
+        score: correct,
+        total,
+        knownCount: correct,
+        answers,
+        completedAt,
+      });
+      if (result.error) {
+        setSaveError(result.error.message || 'Could not save flashcard progress.');
+      } else {
+        setSaved(true);
+      }
+      onFlashComplete && onFlashComplete(noteId, Math.round((correct / total) * 100), {
+        ...(_meta || {}),
+        title,
+        subject,
+        cards: normalizedCards,
+        answers,
+        savedReview: result.data || null,
+      });
+    }
+    saveReview();
+  }, [done, total, correct, noteId, onFlashComplete, _meta, title, subject, normalizedCards, answered]);
 
   if (!total) {
     return (
@@ -414,6 +456,8 @@ export function FlashcardViewer({ noteId, subject, title, cards, setTab, darkMod
         percent={percent} correct={correct} total={total}
         palette={palette} title={title} subject={subject}
         subjectStyle={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}
+        saveError={saveError}
+        saved={saved}
         onReset={reset}
         onBack={() => onBackToLanding ? onBackToLanding() : setTab('notes')}
       />

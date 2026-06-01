@@ -19,6 +19,7 @@ const mockFlashcards = seedExams.flatMap((exam) =>
     })),
   ),
 );
+const mockReviews = [];
 
 function ok(data) {
   return { data: structuredClone(data), error: null };
@@ -69,6 +70,25 @@ function toFlashcard(row) {
   };
 }
 
+function toReview(row) {
+  const percent = Number(row.total) > 0 ? Math.round((Number(row.score) / Number(row.total)) * 100) : 0;
+  return {
+    id: row.id,
+    examId: row.exam_id,
+    chapterId: row.chapter_id,
+    noteId: row.note_id,
+    sourceMaterialId: row.source_material_id || null,
+    score: percent,
+    rawScore: Number(row.score || 0),
+    total: Number(row.total || 0),
+    knownCount: Number(row.known_count || row.score || 0),
+    answers: row.answers || [],
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+    date: row.completed_at ? new Date(row.completed_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : 'Recent',
+  };
+}
+
 function toInsert(input, userId) {
   return {
     user_id: userId,
@@ -79,6 +99,21 @@ function toInsert(input, userId) {
     front: input.front,
     back: input.back,
     status: input.status || 'active',
+  };
+}
+
+function toReviewInsert(input, userId) {
+  return {
+    user_id: userId,
+    exam_id: input.examId || null,
+    chapter_id: input.chapterId || null,
+    note_id: input.noteId || null,
+    source_material_id: input.sourceMaterialId || null,
+    score: Number(input.score || 0),
+    total: Number(input.total || 0),
+    known_count: Number(input.knownCount ?? input.score ?? 0),
+    answers: input.answers || [],
+    completed_at: input.completedAt || new Date().toISOString(),
   };
 }
 
@@ -199,9 +234,95 @@ async function deleteRealFlashcard(id) {
   return ok(toFlashcard(data));
 }
 
+async function listRealFlashcardReviews(filters = {}) {
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+  const userResult = await requireAuthenticatedUserId();
+  if (userResult.error) return userResult;
+
+  let query = supabase
+    .from('flashcard_reviews')
+    .select('*')
+    .eq('user_id', userResult.data)
+    .order('completed_at', { ascending: false })
+    .limit(Math.max(1, Math.min(100, Number(filters.limit || 50))));
+
+  if (filters.examId) query = query.eq('exam_id', filters.examId);
+  if (filters.chapterId) query = query.eq('chapter_id', filters.chapterId);
+  if (filters.noteId) query = query.eq('note_id', filters.noteId);
+
+  const { data, error } = await query;
+  if (error) {
+    const normalized = normalizeError(error);
+    return fail(normalized.message, normalized.code);
+  }
+  return ok((data || []).map(toReview));
+}
+
+async function submitRealFlashcardReview(input = {}) {
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+  const userResult = await requireAuthenticatedUserId();
+  if (userResult.error) return userResult;
+
+  const score = Number(input.score);
+  const total = Number(input.total);
+  if (!Number.isFinite(score) || !Number.isFinite(total)) {
+    return fail('Flashcard score and total are required.', 'VALIDATION_ERROR');
+  }
+  if (!input.examId && !input.chapterId && !input.noteId) {
+    return fail('Flashcard review requires examId, chapterId, or noteId.', 'VALIDATION_ERROR');
+  }
+
+  const { data, error } = await supabase
+    .from('flashcard_reviews')
+    .insert(toReviewInsert(input, userResult.data))
+    .select()
+    .single();
+
+  if (error) {
+    const normalized = normalizeError(error);
+    return fail(normalized.message, normalized.code);
+  }
+  return ok(toReview(data));
+}
+
 export async function listFlashcards(filters = {}) {
   if (!isMockMode()) return listRealFlashcards(filters);
   return ok(mockFlashcards.filter((card) => matchesFilters(card, filters)));
+}
+
+export async function listFlashcardReviews(filters = {}) {
+  if (!isMockMode()) return listRealFlashcardReviews(filters);
+  let reviews = mockReviews.map(toReview);
+  if (filters.examId) reviews = reviews.filter((review) => String(review.examId) === String(filters.examId));
+  if (filters.chapterId) reviews = reviews.filter((review) => String(review.chapterId) === String(filters.chapterId));
+  if (filters.noteId) reviews = reviews.filter((review) => String(review.noteId) === String(filters.noteId));
+  return ok(reviews.slice(0, Math.max(1, Math.min(100, Number(filters.limit || 50)))));
+}
+
+export async function submitFlashcardReview(input = {}) {
+  if (!isMockMode()) return submitRealFlashcardReview(input);
+  const score = Number(input.score);
+  const total = Number(input.total);
+  if (!Number.isFinite(score) || !Number.isFinite(total)) {
+    return fail('Flashcard score and total are required.', 'VALIDATION_ERROR');
+  }
+  const review = {
+    id: `mock-flashcard-review-${crypto.randomUUID()}`,
+    exam_id: input.examId || null,
+    chapter_id: input.chapterId || null,
+    note_id: input.noteId || null,
+    source_material_id: input.sourceMaterialId || null,
+    score,
+    total,
+    known_count: Number(input.knownCount ?? score),
+    answers: input.answers || [],
+    completed_at: input.completedAt || new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  };
+  mockReviews.unshift(review);
+  return ok(toReview(review));
 }
 
 export async function createFlashcard(input = {}) {
