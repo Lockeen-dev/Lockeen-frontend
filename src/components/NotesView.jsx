@@ -1596,6 +1596,23 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       questions: [],
     });
   };
+  const openFlashcardConfigurator = ({ title, chapterId = null, count = 10 } = {}) => {
+    if (!onOpenFlashcards) return;
+    onOpenFlashcards({
+      _examId: exam.id,
+      _practiceConfig: {
+        source: 'study-material',
+        mode: 'flashcards',
+        examId: exam.id,
+        examName: exam.name,
+        chapterId: chapterId || 'all',
+        chapterName: title || exam.name,
+        count,
+        requestedAt: new Date().toISOString(),
+      },
+      cards: [],
+    });
+  };
 
   const startStudy = async () => {
     const seed = getReadyMaterialSeed();
@@ -1680,13 +1697,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           sourceMaterialId: sourceMaterialId || null,
         });
         if (!existing.error && existing.data?.length) {
-          onOpenFlashcards({
-            noteId: chapterId || noteId || exam.id,
-            subject: exam.subject,
-            title: cleanPracticeTitle(title, exam.name),
-            cards: existing.data,
-            _meta: { examId: exam.id, chapterId: chapterId || 'all' },
-          });
+          openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, existing.data.length || 10)) });
           return existing.data;
         }
       }
@@ -1717,13 +1728,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         created.push(result.data);
       }
 
-      onOpenFlashcards({
-        noteId: chapterId || noteId || exam.id,
-        subject: exam.subject,
-        title: cleanPracticeTitle(title, exam.name),
-        cards: created,
-        _meta: { examId: exam.id, chapterId: chapterId || 'all' },
-      });
+      openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, created.length || 10)) });
       return created;
     } catch (error) {
       setMaterialsError(error?.message || 'Unable to create flashcards.');

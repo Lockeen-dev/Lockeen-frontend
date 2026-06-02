@@ -76,9 +76,11 @@ function FlashResultScreen({ percent, correct, total, palette, title, subject, s
   );
 }
 
-export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, exams = [] }) {
+export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMode, exams = [] }) {
   const isMobile = useIsMobile();
-  const [selectedExamId, setSelectedExamId] = useState(exams[0]?.id ?? null);
+  const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? deck?._practiceConfig?.examId ?? exams[0]?.id ?? null);
+  const [selectedChapterId, setSelectedChapterId] = useState(deck?._practiceConfig?.chapterId ?? 'all');
+  const [numCards, setNumCards] = useState(deck?._practiceConfig?.count ?? 10);
   const [cards, setCards] = useState([]);
   const [loadingCards, setLoadingCards] = useState(false);
   const [cardsLoaded, setCardsLoaded] = useState(false);
@@ -114,15 +116,51 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
   }, [selectedExamId]);
 
   useEffect(() => {
+    if (!deck?._practiceConfig) return;
+    setSelectedExamId(deck._examId ?? deck._practiceConfig.examId ?? exams[0]?.id ?? null);
+    setSelectedChapterId(deck._practiceConfig.chapterId || 'all');
+    setNumCards(deck._practiceConfig.count || 10);
+  }, [deck, exams]);
+
+  useEffect(() => {
     const firstChapterId = selectedExam?.chapters?.[0]?.id || '';
     setForm({ chapterId: firstChapterId, front: '', back: '' });
     setEditingId(null);
+    if (!deck?._practiceConfig) setSelectedChapterId('all');
   }, [selectedExamId, selectedExam]);
 
   const getCardsForChapter = (chapter) => {
     const serviceCards = cards.filter((card) => String(card.chapterId) === String(chapter.id));
     if (cardsLoaded && !cardsError) return serviceCards;
     return serviceCards.length ? serviceCards : (chapter.cards || []).map(normalizeFlashcard);
+  };
+  const availableCards = selectedChapterId === 'all'
+    ? cards
+    : cards.filter((card) => String(card.chapterId) === String(selectedChapterId));
+  const maxCards = availableCards.length;
+  const effectiveCards = Math.min(numCards, maxCards || 1);
+  const countCardsForChapter = (chapterId) => {
+    if (!selectedExam) return 0;
+    if (chapterId === 'all') return cards.length;
+    return cards.filter((card) => String(card.chapterId) === String(chapterId)).length;
+  };
+  const startConfiguredDeck = () => {
+    if (!selectedExam || !maxCards) return;
+    const chapter = selectedChapterId === 'all' ? null : selectedExam.chapters.find((item) => String(item.id) === String(selectedChapterId));
+    onOpenDeck({
+      noteId: chapter?.id || selectedExam.id,
+      subject: selectedExam.subject,
+      title: chapter?.title || selectedExam.name,
+      cards: availableCards.slice(0, effectiveCards),
+      _meta: {
+        ...(deck?._practiceConfig || {}),
+        examId: selectedExam.id,
+        examName: selectedExam.name,
+        chapterId: chapter?.id || 'all',
+        chapterName: chapter?.title || 'Intero esame',
+        numCards: effectiveCards,
+      },
+    });
   };
 
   const submitCardForm = async (event) => {
@@ -187,7 +225,7 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
               const pal = getSubjectPalette(exam.subject, {}, darkMode);
               const emoji = getExamEmoji(exam);
               return (
-                <button key={exam.id} onClick={() => setSelectedExamId(exam.id)}
+                <button key={exam.id} onClick={() => { setSelectedExamId(exam.id); setSelectedChapterId('all'); }}
                   style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.dot : 'var(--surface)', color: active ? '#fff' : 'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
                   <span style={{ fontSize:14 }}>{emoji}</span>
                   {exam.name}
@@ -201,6 +239,54 @@ export function FlashcardLanding({ recentDecks, onOpenDeck, setTab, darkMode, ex
       {/* Chapter cards */}
       {selectedExam && (
         <div>
+          <div style={sL}>Setup — {selectedExam.name}</div>
+          <div style={{ border:'1px solid var(--border)', borderRadius:18, background:'var(--surface)', overflow:'hidden', marginBottom:18 }}>
+            <div style={{ padding:18 }}>
+              <div style={sL}>Capitolo</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                {[{ id:'all', title:'Intero esame' }, ...(selectedExam.chapters || []).map(ch => ({ id: ch.id, title: ch.title }))].map(ch => {
+                  const active = selectedChapterId === ch.id;
+                  const count = countCardsForChapter(ch.id);
+                  return (
+                    <button key={ch.id} type="button" onClick={() => setSelectedChapterId(ch.id)}
+                      style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', borderRadius:999, border:`1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`, background: active ? 'var(--lavender)' : 'var(--surface)', color: active ? 'var(--indigo)' : 'var(--gray)', fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                      {ch.title}
+                      <span style={{ background: active ? 'var(--indigo)' : 'var(--border)', color: active ? '#fff' : 'var(--gray)', fontSize:10, fontWeight:900, borderRadius:999, padding:'1px 7px', lineHeight:1.5 }}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {maxCards > 0 && (
+              <>
+                <div style={{ height:1, background:'var(--border)' }} />
+                <div style={{ padding:18 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                    <div style={sL}>Carte</div>
+                    <span style={{ fontSize:12, color:'var(--gray)', fontWeight:700 }}>Disponibili: {maxCards}</span>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
+                    {[5,10,15,20].map(n => {
+                      const disabled = n > maxCards;
+                      const active = numCards === n && !disabled;
+                      return (
+                        <button key={n} type="button" onClick={() => !disabled && setNumCards(n)} disabled={disabled}
+                          style={{ padding:'12px 4px', borderRadius:12, border:`1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`, background: active ? 'var(--lavender)' : 'var(--surface)', fontWeight:900, fontSize:18, color: active ? 'var(--indigo)' : disabled ? 'var(--border)' : 'var(--gray)', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                          {n}
+                          <span style={{ fontSize:9, fontWeight:700, color: active ? 'var(--indigo)' : 'var(--gray-2)', opacity: disabled ? 0 : 0.7 }}>carte</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <button type="button" onClick={startConfiguredDeck} disabled={!maxCards || loadingCards}
+            style={{ width:'100%', borderRadius:16, padding:'16px', background: maxCards && !loadingCards ? 'linear-gradient(135deg, var(--indigo) 0%, #5B53F0 100%)' : '#CBD5E1', color:'#fff', fontWeight:900, fontSize:16, cursor: maxCards && !loadingCards ? 'pointer' : 'not-allowed', border:'none', marginBottom:24 }}>
+            {loadingCards ? 'Loading...' : `Studia ${maxCards ? effectiveCards : 0} carte`}
+          </button>
+
           <div style={sL}>Capitoli — {selectedExam.name}</div>
           <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap:12 }}>
             {selectedExam.chapters.map(ch => {
