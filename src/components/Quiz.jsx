@@ -133,6 +133,7 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
   const userAnswers = useRef([]);
   const [qKey, setQKey] = useState(0);
   const [shake, setShake] = useState(false);
+  const [cardEntered, setCardEntered] = useState(false);
 
   const stopTimer = () => {
     if (timerID.current) {
@@ -153,6 +154,8 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
     setTimerVal(initSecs);
     setDifficulty(initDiff);
     setDone(false);
+    setShake(false);
+    setCardEntered(false);
     setAttemptError('');
     setAttemptSaved(false);
     resultSavedRef.current = false;
@@ -166,6 +169,8 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
     setSelected(null);
     setPendingIdx(null);
     setDone(false);
+    setShake(false);
+    setCardEntered(false);
     setAttemptError('');
     setAttemptSaved(false);
     resultSavedRef.current = false;
@@ -186,6 +191,7 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
       autoStartHandled.current = true;
       setStarted(true);
       setIdx(0); setCorrect(0); setSelected(null); setPendingIdx(null); setDone(false);
+      setShake(false); setCardEntered(false);
       setAttemptError(''); setAttemptSaved(false);
       resultSavedRef.current = false; userAnswers.current = [];
       setTimeout(startTimer, 0);
@@ -243,6 +249,7 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
       if (i === normalizedQuestions[idx].correct) {
         setCorrect((c) => c + 1);
       } else {
+        setCardEntered(true);
         setShake(true);
         setTimeout(() => setShake(false), 440);
       }
@@ -258,6 +265,7 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
     setIdx((i) => i + 1);
     setQKey((k) => k + 1);
     setShake(false);
+    setCardEntered(false);
     setSelected(null);
     setPendingIdx(null);
     setTimeout(startTimer, 0);
@@ -329,7 +337,20 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
           <div style={{ ...quizS.progressFill, width: `${progress}%`, background: palette.dot }} />
         </div>
 
-        <div key={qKey} style={{ ...quizS.card, animation: shake ? 'qShake .42s ease' : 'qSlideIn .28s cubic-bezier(.22,1,.36,1)' }}>
+        <div
+          key={qKey}
+          onAnimationEnd={() => {
+            if (!shake) setCardEntered(true);
+          }}
+          style={{
+            ...quizS.card,
+            animation: shake
+              ? 'qShake .42s ease'
+              : cardEntered
+                ? 'none'
+                : 'qSlideIn .28s cubic-bezier(.22,1,.36,1)',
+          }}
+        >
           <div style={quizS.questionMetaRow}>
             <span style={quizS.questionLabel}>Question {idx + 1}</span>
             <span style={{ ...quizS.difficultyBadge, color: qDifficultyColor, borderColor: `${qDifficultyColor}55`, background: `${qDifficultyColor}14` }}>
