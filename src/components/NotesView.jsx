@@ -354,6 +354,14 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
               if (failedUpdate.data) nextMaterial = failedUpdate.data;
             }
           }
+          if (nextMaterial.processingStatus === 'ready' && nextMaterial.extractedText) {
+            createQuestionBankForMaterial({
+              examId: activeId,
+              chapterId: targetChapter.id,
+              material: nextMaterial,
+              title: targetChapter.title || chapterName || nextMaterial.title,
+            }).catch(() => {});
+          }
           createdMaterials.push(nextMaterial);
         }
       }
@@ -590,6 +598,125 @@ async function buildMaterialFileMetadata(file) {
 
 function shouldRunImageOcr(material = {}) {
   return material?.id && (material.mimeType === 'image/png' || material.mimeType === 'image/jpeg');
+}
+
+function clampQuestionCount(value) {
+  return Math.max(5, Math.min(240, Math.round(value)));
+}
+
+function getQuestionBankChunks(sourceText = '', pageCount = null) {
+  const text = String(sourceText || '').trim();
+  if (!text) return [];
+  const words = cleanStudyText(text).split(/\s+/).filter(Boolean).length;
+  const pages = Number(pageCount) || Math.max(1, Math.ceil(words / 450));
+  const maxChunks = pages >= 120 ? 12 : pages >= 40 ? 8 : pages >= 16 ? 5 : 3;
+  const maxChars = 18000;
+  const parts = text
+    .split(/\n{2,}|(?=Page\s+\d+\b)/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const chunks = [];
+  let current = '';
+
+  parts.forEach((part) => {
+    if ((current.length + part.length + 2) > maxChars && current) {
+      chunks.push(current);
+      current = '';
+    }
+    if (part.length > maxChars) {
+      const slices = part.match(new RegExp(`[\\s\\S]{1,${maxChars}}`, 'g')) || [];
+      slices.forEach((slice) => chunks.push(slice.trim()));
+      return;
+    }
+    current = current ? `${current}\n\n${part}` : part;
+  });
+  if (current) chunks.push(current);
+  return chunks.slice(0, maxChunks);
+}
+
+function estimateQuestionBankPlan({ sourceText = '', pageCount = null } = {}) {
+  const facts = extractStudyFacts(sourceText);
+  const words = cleanStudyText(sourceText).split(/\s+/).filter(Boolean).length;
+  const pages = Number(pageCount) || Math.max(1, Math.ceil(words / 450));
+  const chunks = getQuestionBankChunks(sourceText, pageCount);
+  const byPages = pages <= 2 ? 6 + (pages * 2) : pages <= 10 ? 10 + (pages * 2) : pages <= 40 ? 30 + Math.round((pages - 10) * 1.2) : 70 + Math.round((pages - 40) / 3);
+  const byDensity = Math.ceil(words / 160);
+  const byTopics = facts.length ? facts.length * 2 : 8;
+  const questionCount = clampQuestionCount(Math.max(5, Math.min(byPages, Math.max(byDensity, byTopics))));
+  const hasReasoningDepth = words > 900 || pages >= 4 || facts.length >= 6;
+  const difficulties = hasReasoningDepth ? ['easy', 'medium', 'hard', 'extreme'] : ['easy', 'medium'];
+  const coverageHint = [
+    `Estimated pages: ${pages}.`,
+    `Estimated words: ${words}.`,
+    `Detected study points: ${facts.length}.`,
+    `Planned source sections: ${chunks.length || 1}.`,
+    'Create only enough questions to cover meaningful concepts; do not force all difficulties if content is shallow.',
+    hasReasoningDepth ? 'Use hard/extreme only for supported reasoning and comparison questions.' : 'Prefer easy/medium because source looks short or sparse.',
+  ].join(' ');
+  return { questionCount, difficulties, coverageHint, chunks };
+}
+
+function dedupeQuestions(questions = []) {
+  const seen = new Set();
+  return questions.filter((question) => {
+    const key = cleanStudyText(question.q || question.prompt || '').toLowerCase().slice(0, 180);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function buildQuestionBankQuestions({ title, sourceText, pageCount = null }) {
+  const plan = estimateQuestionBankPlan({ sourceText, pageCount });
+  const chunks = plan.chunks.length ? plan.chunks : [sourceText];
+  const perChunk = Math.max(5, Math.ceil(plan.questionCount / chunks.length));
+  const generated = [];
+
+  for (const [index, chunk] of chunks.entries()) {
+    const chunkPlan = estimateQuestionBankPlan({ sourceText: chunk, pageCount: Math.max(1, Math.round((Number(pageCount) || chunks.length) / chunks.length)) });
+    const aiResult = await generatePracticeFromText({
+      kind: 'quiz',
+      title,
+      sourceText: chunk,
+      questionCount: Math.min(60, perChunk),
+      difficulties: chunkPlan.difficulties,
+      coverageHint: `${plan.coverageHint} Section ${index + 1} of ${chunks.length}: cover only concepts visible in this section.`,
+    });
+    if (aiResult.data?.questions?.length) {
+      generated.push(...aiResult.data.questions);
+    } else {
+      generated.push(...buildGeneratedQuestions(title, [], chunk).map((question, qIndex) => ({
+        ...question,
+        difficulty: chunkPlan.difficulties[qIndex % chunkPlan.difficulties.length] || 'medium',
+      })));
+    }
+  }
+
+  return dedupeQuestions(generated).slice(0, plan.questionCount);
+}
+
+async function createQuestionBankForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
+  if (!material?.id || material.processingStatus !== 'ready' || !material.extractedText) return null;
+  const existing = await listQuizzes({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
+  if (!existing.error && (existing.data || []).some((quiz) => (quiz.questions || []).some((question) => !isFallbackPracticeQuestion(question)))) {
+    return existing.data[0];
+  }
+  const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
+  const questions = await buildQuestionBankQuestions({
+    title: bankTitle,
+    sourceText: material.extractedText,
+    pageCount: material.pageCount,
+  });
+  if (!questions.length) return null;
+  const result = await createQuiz({
+    examId,
+    chapterId,
+    noteId,
+    sourceMaterialId: material.id,
+    title: bankTitle,
+    questions,
+  });
+  return result.error ? null : result.data;
 }
 
 function isUuidLike(value = '') {
@@ -1503,12 +1630,10 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
 
       let questions = buildGeneratedQuestions(title, seedQuestions, seedText);
       if (seedText) {
-        const aiResult = await generatePracticeFromText({
-          kind: 'quiz',
+        questions = await buildQuestionBankQuestions({
           title: cleanPracticeTitle(title, exam.name),
           sourceText: seedText,
         });
-        if (aiResult.data?.questions?.length) questions = aiResult.data.questions;
       }
       const result = await createQuiz({
         examId: exam.id,
@@ -1743,6 +1868,13 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         });
         if (failedUpdate.data) material = failedUpdate.data;
       }
+    }
+    if (material.processingStatus === 'ready' && material.extractedText) {
+      createQuestionBankForMaterial({
+        examId: exam.id,
+        material,
+        title: material.title || exam.name,
+      }).catch(() => {});
     }
     if (resolvedPageCount) rememberMaterialUiMeta([material]);
     setMaterials((prev) => [material, ...prev]);

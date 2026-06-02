@@ -1,7 +1,8 @@
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 
-const PRACTICE_TIMEOUT_MS = 12000;
+const PRACTICE_TIMEOUT_MS = 30000;
+const DIFFICULTIES = ['easy', 'medium', 'hard', 'extreme'];
 
 function ok(data) {
   return { data: structuredClone(data), error: null };
@@ -21,6 +22,8 @@ function normalizeQuestion(question = {}) {
     options,
     correct: Number.isInteger(correct) && correct >= 0 && correct < options.length ? correct : 0,
     explanation: String(question.explanation || '').trim(),
+    difficulty: DIFFICULTIES.includes(String(question.difficulty || '').toLowerCase()) ? String(question.difficulty).toLowerCase() : 'medium',
+    topic: String(question.topic || '').trim(),
   };
 }
 
@@ -31,7 +34,7 @@ function normalizeCard(card = {}) {
   };
 }
 
-export async function generatePracticeFromText({ kind = 'quiz', title, sourceText }) {
+export async function generatePracticeFromText({ kind = 'quiz', title, sourceText, questionCount, difficulties, coverageHint }) {
   if (isMockMode()) return fail('AI practice generation is not available in mock mode.', 'AI_NOT_AVAILABLE');
 
   const clientError = requireSupabaseClient();
@@ -55,7 +58,7 @@ export async function generatePracticeFromText({ kind = 'quiz', title, sourceTex
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ kind, title, sourceText }),
+      body: JSON.stringify({ kind, title, sourceText, questionCount, difficulties, coverageHint }),
     });
   } catch (error) {
     return fail(

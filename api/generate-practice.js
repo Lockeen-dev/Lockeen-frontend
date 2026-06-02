@@ -1,5 +1,5 @@
 const DEFAULT_MODEL = 'gpt-4.1-mini';
-const MAX_SOURCE_CHARS = 12000;
+const MAX_SOURCE_CHARS = 24000;
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -42,23 +42,34 @@ function safeJsonParse(text = '') {
   }
 }
 
-function normalizeQuizQuestions(value) {
+const QUIZ_DIFFICULTIES = ['easy', 'medium', 'hard', 'extreme'];
+
+function normalizeDifficulty(value, fallback = 'medium') {
+  const difficulty = String(value || '').toLowerCase().trim();
+  return QUIZ_DIFFICULTIES.includes(difficulty) ? difficulty : fallback;
+}
+
+function normalizeQuizQuestions(value, { limit = 5, difficulties = QUIZ_DIFFICULTIES } = {}) {
   const raw = Array.isArray(value) ? value : [];
+  const fallbackDifficulties = difficulties.length ? difficulties : QUIZ_DIFFICULTIES;
   return raw
-    .map((question) => {
+    .map((question, index) => {
       const options = Array.isArray(question.options)
         ? question.options.map((option) => normalizeWhitespace(option)).filter(Boolean).slice(0, 4)
         : [];
       const correct = Number(question.correct ?? question.correctAnswer ?? 0);
+      const fallbackDifficulty = fallbackDifficulties[index % fallbackDifficulties.length] || 'medium';
       return {
         q: normalizeWhitespace(question.q || question.prompt),
         options,
         correct: Number.isInteger(correct) && correct >= 0 && correct < options.length ? correct : 0,
         explanation: normalizeWhitespace(question.explanation || ''),
+        difficulty: normalizeDifficulty(question.difficulty, fallbackDifficulty),
+        topic: normalizeWhitespace(question.topic || ''),
       };
     })
     .filter((question) => question.q && question.options.length >= 2)
-    .slice(0, 5);
+    .slice(0, limit);
 }
 
 function normalizeFlashcards(value) {
@@ -72,7 +83,7 @@ function normalizeFlashcards(value) {
     .slice(0, 8);
 }
 
-async function callOpenAI({ kind, title, sourceText }) {
+async function callOpenAI({ kind, title, sourceText, questionCount = 5, difficulties = QUIZ_DIFFICULTIES, coverageHint = '' }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return {
@@ -82,8 +93,12 @@ async function callOpenAI({ kind, title, sourceText }) {
   }
 
   const wantsQuiz = kind === 'quiz';
+  const quizCount = Math.max(5, Math.min(60, Number(questionCount) || 5));
+  const quizDifficulties = (Array.isArray(difficulties) ? difficulties : QUIZ_DIFFICULTIES)
+    .map((difficulty) => normalizeDifficulty(difficulty, 'medium'))
+    .filter((difficulty, index, all) => all.indexOf(difficulty) === index);
   const schemaInstruction = wantsQuiz
-    ? 'Return JSON only: {"questions":[{"q":"...","options":["...","...","...","..."],"correct":0,"explanation":"..."}]}. Create exactly 5 questions. Options must be plausible. Correct index must match answer.'
+    ? 'Return JSON only: {"questions":[{"q":"...","options":["...","...","...","..."],"correct":0,"explanation":"...","difficulty":"easy|medium|hard|extreme","topic":"..."}]}. Options must be plausible. Correct index must match answer.'
     : 'Return JSON only: {"cards":[{"front":"...","back":"..."}]}. Create exactly 8 flashcards. Cards must be atomic, concrete, and based only on source.';
 
   const response = await fetch('https://api.openai.com/v1/responses', {
@@ -102,6 +117,7 @@ async function callOpenAI({ kind, title, sourceText }) {
             'Use only supplied source text. Do not invent facts.',
             'If source text is sparse, ask factual questions about visible extracted content.',
             'Keep output concise and exam-useful.',
+            wantsQuiz ? `Create up to ${quizCount} high-quality questions. Cover the whole supplied source proportionally: more questions for dense topics, fewer for sparse text. Do not pad weak material. Difficulty mix must fit the content, not be evenly split. Use easy for definitions, medium for understanding, hard for application/common mistakes, extreme only when source supports exam-like reasoning, traps, or concept comparison. ${coverageHint}` : '',
             schemaInstruction,
           ].join(' '),
         },
@@ -110,11 +126,14 @@ async function callOpenAI({ kind, title, sourceText }) {
           content: JSON.stringify({
             kind,
             title,
+            questionCount: quizCount,
+            difficulties: quizDifficulties,
+            coverageHint,
             sourceText: sourceText.slice(0, MAX_SOURCE_CHARS),
           }),
         },
       ],
-      max_output_tokens: wantsQuiz ? 1600 : 1400,
+      max_output_tokens: wantsQuiz ? 9000 : 1400,
       temperature: 0.2,
     }),
   });
@@ -141,7 +160,7 @@ async function callOpenAI({ kind, title, sourceText }) {
   }
 
   if (wantsQuiz) {
-    const questions = normalizeQuizQuestions(parsed.questions);
+    const questions = normalizeQuizQuestions(parsed.questions, { limit: quizCount, difficulties: quizDifficulties });
     return questions.length ? { data: { questions }, providerError: null } : { data: null, providerError: 'AI returned no valid questions.' };
   }
 
@@ -162,13 +181,16 @@ export default async function handler(req, res) {
   const kind = body.kind === 'flashcards' ? 'flashcards' : 'quiz';
   const title = normalizeWhitespace(body.title || 'Uploaded material');
   const sourceText = normalizeWhitespace(body.sourceText || '');
+  const questionCount = Math.max(5, Math.min(60, Number(body.questionCount) || 5));
+  const difficulties = Array.isArray(body.difficulties) && body.difficulties.length ? body.difficulties : QUIZ_DIFFICULTIES;
+  const coverageHint = normalizeWhitespace(body.coverageHint || '');
 
   if (sourceText.length < 20) {
     return json(res, 400, { error: { code: 'SOURCE_TOO_SHORT', message: 'Source text is too short for AI practice.' } });
   }
 
   try {
-    const result = await callOpenAI({ kind, title, sourceText });
+    const result = await callOpenAI({ kind, title, sourceText, questionCount, difficulties, coverageHint });
     if (!result.data) {
       return json(res, 503, { error: { code: 'AI_PRACTICE_FAILED', message: result.providerError || 'AI practice generation failed.' } });
     }

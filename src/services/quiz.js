@@ -69,12 +69,15 @@ function toQuestion(row) {
   return {
     id: row.id,
     quizId: row.quiz_id,
+    sourceMaterialId: row.source_material_id || null,
     prompt: row.prompt,
     q: row.prompt,
     options: row.options || [],
     correctAnswer: row.correct_answer,
     correct: Number(row.correct_answer),
     explanation: row.explanation || '',
+    difficulty: row.difficulty || 'medium',
+    topic: row.topic || '',
     position: row.position,
   };
 }
@@ -110,11 +113,25 @@ function toAttemptRun(row) {
   const quiz = row.quizzes || row.quiz || {};
   const questions = (quiz.quiz_questions || []).map(toQuestion).sort((a, b) => a.position - b.position);
   const percent = Number(row.total) > 0 ? Math.round((Number(row.score) / Number(row.total)) * 100) : 0;
+  const difficultyWeights = { easy: 0.75, medium: 1, hard: 1.25, extreme: 1.5 };
+  const weighted = questions.reduce((acc, question, index) => {
+    const difficulty = ['easy', 'medium', 'hard', 'extreme'].includes(question.difficulty) ? question.difficulty : 'medium';
+    const weight = difficultyWeights[difficulty] || 1;
+    const answer = Array.isArray(row.answers) ? row.answers[index] : null;
+    const correct = Number(answer) === Number(question.correct);
+    return {
+      score: acc.score + (correct ? weight : 0),
+      total: acc.total + weight,
+      difficulty,
+    };
+  }, { score: 0, total: 0, difficulty: 'medium' });
+  const weightedScore = weighted.total > 0 ? Math.round((weighted.score / weighted.total) * 100) : percent;
   return {
     id: row.id,
     attemptId: row.id,
     quizId: row.quiz_id,
     score: percent,
+    weightedScore,
     rawScore: Number(row.score || 0),
     total: Number(row.total || 0),
     answers: row.answers || [],
@@ -146,13 +163,17 @@ function toQuizInsert(input, userId) {
 
 function toQuestionInsert(question, quizId, userId, position) {
   const correct = Number(question.correct ?? question.correctAnswer ?? 0);
+  const difficulty = ['easy', 'medium', 'hard', 'extreme'].includes(question.difficulty) ? question.difficulty : 'medium';
   return {
     user_id: userId,
     quiz_id: quizId,
+    source_material_id: question.sourceMaterialId || null,
     prompt: question.prompt || question.q || '',
     options: question.options || [],
     correct_answer: String(Number.isFinite(correct) ? correct : 0),
     explanation: question.explanation || '',
+    difficulty,
+    topic: question.topic || null,
     position,
   };
 }
@@ -283,7 +304,7 @@ async function createRealQuiz(input = {}) {
 
   const shuffledQuestions = input.questions.map(shuffleQuestionOptions);
   const questionRows = shuffledQuestions.map((question, index) =>
-    toQuestionInsert(question, quiz.id, userResult.data, index),
+    toQuestionInsert({ ...question, sourceMaterialId: input.sourceMaterialId || question.sourceMaterialId || null }, quiz.id, userResult.data, index),
   );
   const { data: questions, error: questionsError } = await supabase
     .from('quiz_questions')
@@ -432,6 +453,9 @@ export async function createQuiz(input = {}) {
       correctAnswer: String(Number(question.correct ?? question.correctAnswer ?? 0)),
       correct: Number(question.correct ?? question.correctAnswer ?? 0),
       explanation: question.explanation || '',
+      difficulty: ['easy', 'medium', 'hard', 'extreme'].includes(question.difficulty) ? question.difficulty : 'medium',
+      topic: question.topic || '',
+      sourceMaterialId: input.sourceMaterialId || question.sourceMaterialId || null,
       position: index,
     })),
     createdAt: now,

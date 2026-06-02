@@ -126,7 +126,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         ? attempt.chapterId
         : (attempt.examId || attempt.noteId);
       if (!historyKey) return;
-      nextHistory[historyKey] = [...(nextHistory[historyKey] || []), attempt.score];
+      nextHistory[historyKey] = [...(nextHistory[historyKey] || []), attempt.weightedScore ?? attempt.score];
     });
     setQuizHistory(nextHistory);
   }
@@ -573,6 +573,7 @@ function PracticeConfigModal({ config, onChange, onClose, onStart }) {
     { id: 'easy', title: 'Easy', sub: 'Warm-up' },
     { id: 'medium', title: 'Medium', sub: 'Balanced' },
     { id: 'hard', title: 'Hard', sub: 'Exam mode' },
+    { id: 'extreme', title: 'Extreme', sub: 'Deep reasoning' },
   ];
   const counts = [10, 20, 30, 50];
   const timerOptions = [15, 30, 60, 90];
@@ -714,7 +715,7 @@ const practiceS = {
   scopePillActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)' },
   countBadge: { minWidth: 24, height: 24, borderRadius: 999, background: '#F1F5F9', color: '#6B7280', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 900, padding: '0 7px' },
   countBadgeActive: { background: 'var(--indigo)', color: '#fff' },
-  difficultyGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 },
+  difficultyGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 9 },
   difficultyCard: { minHeight: 68, borderRadius: 16, border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', gap: 5, padding: 12 },
   difficultyCardActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)' },
   diffTitle: { color: 'inherit', fontSize: 17, fontWeight: 900, lineHeight: 1 },

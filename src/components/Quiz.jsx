@@ -47,6 +47,11 @@ function isReliableMaterialQuiz(quiz) {
   return Boolean(quiz?.sourceMaterialId && questions.length && !questions.some(isFallbackPracticeQuestion));
 }
 
+function filterQuestionsByDifficulty(questions = [], difficulty = 'medium') {
+  const selected = ['easy', 'medium', 'hard', 'extreme'].includes(difficulty) ? difficulty : 'medium';
+  return questions.filter((question) => (question.difficulty || 'medium') === selected);
+}
+
 function QuizResultScreen({ percent, correct, total, palette, resultTitle, subject, subjectStyle, attemptError, attemptSaved, onRestart, onBack }) {
   const [p, setP] = useState(0);
   useEffect(() => {
@@ -477,14 +482,14 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
     const reliableQuizzes = predictorPractice
       ? serviceQuizzes.filter(isReliableMaterialQuiz)
       : serviceQuizzes;
-    const serviceQuestions = reliableQuizzes.flatMap(quiz => quiz.questions || []);
+    const serviceQuestions = filterQuestionsByDifficulty(reliableQuizzes.flatMap(quiz => quiz.questions || []), selectedDiff);
     if (serviceQuestions.length > 0) return serviceQuestions;
     if (predictorPractice) return [];
     if (!selectedExam) return [];
     if (selectedChapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []);
     const ch = selectedExam.chapters.find(c => c.id === selectedChapterId);
     return ch?.questions || [];
-  }, [selectedExam, selectedChapterId, serviceQuizzes]);
+  }, [deck?._practiceConfig?.source, selectedDiff, selectedExam, selectedChapterId, serviceQuizzes]);
 
   const maxQ = availableQuestions.length;
   const effectiveNumQ = Math.min(numQ, maxQ || 1);
@@ -506,7 +511,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       const candidateQuizzes = overrides.requireMaterialQuiz
         ? (listResult.data || []).filter(isReliableMaterialQuiz)
         : (listResult.data || []);
-      serviceQuiz = candidateQuizzes.find(quiz => (quiz.questions || []).length > 0) || null;
+      serviceQuiz = candidateQuizzes.find(quiz => filterQuestionsByDifficulty(quiz.questions || [], overrides._difficulty || selectedDiff).length > 0) || null;
       if (serviceQuiz) {
         const quizResult = await getQuiz(serviceQuiz.id);
         if (quizResult.error) {
@@ -525,7 +530,13 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
     const fallbackQs = chapterId === 'all'
       ? (exam?.chapters || []).flatMap(c => c.questions || [])
       : (exam?.chapters.find(c => c.id === chapterId)?.questions || []);
-    const qs = serviceQuiz?.questions?.length ? serviceQuiz.questions : fallbackQs;
+    const qs = serviceQuiz?.questions?.length
+      ? filterQuestionsByDifficulty(serviceQuiz.questions, overrides._difficulty || selectedDiff)
+      : fallbackQs;
+    if (overrides.requireServiceQuiz && !qs.length) {
+      setQuizError(`No ${overrides._difficulty || selectedDiff} material questions available. Generate a quiz from uploaded material first.`);
+      return;
+    }
     const chapterName = chapterId === 'all' ? 'Intero esame' : (exam?.chapters.find(c => c.id === chapterId)?.title || '');
     const n = overrides.numQ ?? effectiveNumQ;
     setActiveDeck({
@@ -698,7 +709,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             <div style={{ padding:'20px 22px' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
                 <div style={secLabel}>Difficoltà domande</div>
-                <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>filtro AI disponibile presto</span>
+                <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>filtra question bank</span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
                 {DIFF.map(d => (
