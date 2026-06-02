@@ -153,7 +153,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
         </p>
 
         {mode !== 'forgot' && mode !== 'reset' && (
-          <button onClick={google} style={{ ...authS.googleBtn, background: darkMode ? '#1e293b' : '#fff' }} disabled={loading}>
+          <button type="button" onClick={google} style={{ ...authS.googleBtn, background: darkMode ? '#1e293b' : '#fff' }} disabled={loading}>
             <Google /> Continue with Google
           </button>
         )}
@@ -194,7 +194,17 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
                   autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                   onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
                   style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', paddingRight: 44, ...focusStyle('password') }} />
-                <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password" style={authS.eyeBtn}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowPw(v => !v);
+                  }}
+                  aria-label="Toggle password"
+                  style={authS.eyeBtn}
+                >
                   {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
@@ -228,12 +238,12 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
             : mode === 'signup'
               ? 'Already have an account?'
               : 'Remembered your password?'}{' '}
-          <button onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')} style={authS.toggleLink}>
+          <button type="button" onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')} style={authS.toggleLink}>
             {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </button>
         </p>
       </div>
-        <button onClick={onClose} aria-label="Close" style={authS.closeBtn}>×</button>
+        <button type="button" onClick={onClose} aria-label="Close" style={authS.closeBtn}>×</button>
       </div>
     </div>
   );
@@ -241,12 +251,12 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
 
 function Field({ label, right, children }) {
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>
         <span>{label}</span>{right}
       </span>
       {children}
-    </label>
+    </div>
   );
 }
 
