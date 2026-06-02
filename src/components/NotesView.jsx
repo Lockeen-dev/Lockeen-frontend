@@ -643,10 +643,12 @@ function estimateQuestionBankPlan({ sourceText = '', pageCount = null } = {}) {
   const words = cleanStudyText(sourceText).split(/\s+/).filter(Boolean).length;
   const pages = Number(pageCount) || Math.max(1, Math.ceil(words / 450));
   const chunks = getQuestionBankChunks(sourceText, pageCount);
-  const byPages = pages <= 2 ? 6 + (pages * 2) : pages <= 10 ? 10 + (pages * 2) : pages <= 40 ? 30 + Math.round((pages - 10) * 1.2) : 70 + Math.round((pages - 40) / 3);
-  const byDensity = Math.ceil(words / 160);
-  const byTopics = facts.length ? facts.length * 2 : 8;
-  const questionCount = clampQuestionCount(Math.max(5, Math.min(byPages, Math.max(byDensity, byTopics))));
+  const plannedSections = Math.max(chunks.length || 1, Math.min(12, Math.ceil(pages / 8)));
+  const byPages = pages <= 2 ? 6 + (pages * 2) : pages <= 10 ? 10 + (pages * 2) : pages <= 40 ? 24 + Math.round(pages * 1.1) : 68 + Math.round((pages - 40) / 2.5);
+  const byDensity = Math.ceil(words / 140);
+  const byTopics = facts.length ? facts.length * 3 : 8;
+  const coverageFloor = plannedSections * 6;
+  const questionCount = clampQuestionCount(Math.max(5, Math.min(byPages, Math.max(byDensity, byTopics, coverageFloor))));
   const hasReasoningDepth = words > 900 || pages >= 4 || facts.length >= 6;
   const difficulties = hasReasoningDepth ? ['easy', 'medium', 'hard', 'extreme'] : ['easy', 'medium'];
   const coverageHint = [
@@ -665,10 +667,12 @@ function estimateFlashcardPlan({ sourceText = '', pageCount = null } = {}) {
   const words = cleanStudyText(sourceText).split(/\s+/).filter(Boolean).length;
   const pages = Number(pageCount) || Math.max(1, Math.ceil(words / 450));
   const chunks = getQuestionBankChunks(sourceText, pageCount);
-  const byPages = pages <= 2 ? 8 + pages * 2 : pages <= 10 ? 12 + pages * 2 : 30 + Math.round((pages - 10) * 0.8);
-  const byDensity = Math.ceil(words / 120);
-  const byTopics = facts.length ? facts.length * 2 : 8;
-  const cardCount = clampFlashcardCount(Math.max(5, Math.min(byPages, Math.max(byDensity, byTopics))));
+  const plannedSections = Math.max(chunks.length || 1, Math.min(10, Math.ceil(pages / 10)));
+  const byPages = pages <= 2 ? 7 + pages * 2 : pages <= 10 ? 10 + pages * 2 : 24 + Math.round((pages - 10) * 0.7);
+  const byDensity = Math.ceil(words / 110);
+  const byTopics = facts.length ? Math.ceil(facts.length * 2.5) : 8;
+  const coverageFloor = plannedSections * 5;
+  const cardCount = clampFlashcardCount(Math.max(5, Math.min(byPages, Math.max(byDensity, byTopics, coverageFloor))));
   const coverageHint = [
     `Estimated pages: ${pages}.`,
     `Estimated words: ${words}.`,
@@ -756,7 +760,9 @@ async function buildFlashcardBankCards({ title, sourceText, pageCount = null }) 
 async function createQuestionBankForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
   if (!material?.id || material.processingStatus !== 'ready' || !material.extractedText) return null;
   const existing = await listQuizzes({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
-  if (!existing.error && (existing.data || []).some((quiz) => (quiz.questions || []).length >= 5 && !(quiz.questions || []).some((question) => isFallbackPracticeQuestion(question)))) {
+  const desiredQuestionCount = estimateQuestionBankPlan({ sourceText: material.extractedText, pageCount: material.pageCount }).questionCount;
+  const reuseThreshold = Math.max(5, Math.floor(desiredQuestionCount * 0.85));
+  if (!existing.error && (existing.data || []).some((quiz) => (quiz.questions || []).length >= reuseThreshold && !(quiz.questions || []).some((question) => isFallbackPracticeQuestion(question)))) {
     return existing.data[0];
   }
   const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
@@ -1627,10 +1633,11 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       if (chapterId && String(material.chapterId) !== String(chapterId)) return false;
       return true;
     });
-    if (!readyMaterials.length) return { seedText: '', sourceMaterialId: null };
+    if (!readyMaterials.length) return { seedText: '', sourceMaterialId: null, seedPageCount: null };
     return {
       seedText: readyMaterials.map((material) => material.extractedText).join('\n\n'),
       sourceMaterialId: readyMaterials.length === 1 ? readyMaterials[0].id : null,
+      seedPageCount: readyMaterials.reduce((sum, material) => sum + (Number(material.pageCount || material.page_count) || 0), 0) || null,
     };
   };
   const openQuizConfigurator = ({ title, chapterId = null, count = 10 } = {}) => {
@@ -1678,13 +1685,14 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       title: exam.name,
       seedQuestions: seed.seedText ? [] : chapters.flatMap((c) => c.questions || []),
       seedText: seed.seedText,
+      seedPageCount: seed.seedPageCount,
       sourceMaterialId: seed.sourceMaterialId,
       actionKey: 'exam',
     });
     return result;
   };
 
-  const handleGenerateQuiz = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedQuestions = [], seedText = '', actionKey = 'exam' }) => {
+  const handleGenerateQuiz = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedQuestions = [], seedText = '', seedPageCount = null, actionKey = 'exam' }) => {
     if (!onOpenQuiz) return null;
     setMaterialsError(null);
     setSavingStudyAction(`generate-quiz-${actionKey}`);
@@ -1697,12 +1705,14 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         ...(noteId ? { noteId } : {}),
         sourceMaterialId: sourceMaterialId || null,
       };
+      const desiredQuestionCount = seedText ? estimateQuestionBankPlan({ sourceText: seedText, pageCount: seedPageCount }).questionCount : 5;
+      const reuseThreshold = Math.max(5, Math.floor(desiredQuestionCount * 0.85));
       if (shouldReuseExisting) {
         const existing = await listQuizzes(filters);
         if (!existing.error) {
           const existingQuiz = (existing.data || []).find((quiz) => {
             const questions = quiz.questions || [];
-            return questions.length >= 5 && !questions.some(isFallbackPracticeQuestion);
+            return questions.length >= reuseThreshold && !questions.some(isFallbackPracticeQuestion);
           });
           if (existingQuiz) {
             openQuizConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, (existingQuiz.questions || []).length || 10)) });
@@ -1716,6 +1726,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         questions = await buildQuestionBankQuestions({
           title: cleanPracticeTitle(title, exam.name),
           sourceText: seedText,
+          pageCount: seedPageCount,
         });
       }
       const result = await createQuiz({
@@ -1741,13 +1752,13 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     }
   };
 
-  const handleGenerateFlashcards = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedCards = [], seedText = '', actionKey = 'exam' }) => {
+  const handleGenerateFlashcards = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedCards = [], seedText = '', seedPageCount = null, actionKey = 'exam' }) => {
     if (!onOpenFlashcards) return null;
     setMaterialsError(null);
     setSavingStudyAction(`generate-flashcards-${actionKey}`);
 
     try {
-      const desiredFlashcards = seedText ? estimateFlashcardPlan({ sourceText: seedText }).cardCount : Math.max(5, Math.min(20, seedCards.length || 10));
+      const desiredFlashcards = seedText ? estimateFlashcardPlan({ sourceText: seedText, pageCount: seedPageCount }).cardCount : Math.max(5, Math.min(20, seedCards.length || 10));
       let existingCards = [];
       if ((chapterId || noteId || sourceMaterialId) && (!seedText || sourceMaterialId)) {
         const existing = await listFlashcards({
@@ -1757,7 +1768,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           sourceMaterialId: sourceMaterialId || null,
         });
         existingCards = existing.error ? [] : (existing.data || []);
-        if (existingCards.length >= Math.min(desiredFlashcards, 10)) {
+        if (existingCards.length >= Math.max(5, Math.floor(desiredFlashcards * 0.85))) {
           openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, existingCards.length || 10)) });
           return existingCards;
         }
@@ -1768,6 +1779,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         cards = await buildFlashcardBankCards({
           title: cleanPracticeTitle(title, exam.name),
           sourceText: seedText,
+          pageCount: seedPageCount,
         });
       }
       cards = cards.slice(0, Math.max(0, desiredFlashcards - existingCards.length));
@@ -1997,6 +2009,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     noteId: material.noteId || null,
     sourceMaterialId: material.id,
     seedText: material.extractedText || '',
+    seedPageCount: material.pageCount || material.page_count || null,
     actionKey: `material-${material.id}`,
   });
   const handleMaterialFlashcards = (material) => handleGenerateFlashcards({
@@ -2005,6 +2018,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     noteId: material.noteId || null,
     sourceMaterialId: material.id,
     seedText: material.extractedText || '',
+    seedPageCount: material.pageCount || material.page_count || null,
     actionKey: `material-${material.id}`,
   });
   const handleAddChapterDocuments = async (chapter, files) => {
@@ -2078,6 +2092,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
               sourceMaterialId: seed.sourceMaterialId,
               seedQuestions: seed.seedText ? [] : chapter.questions || [],
               seedText: seed.seedText,
+              seedPageCount: seed.seedPageCount,
               actionKey: `chapter-${chapter.id}`,
             });
           }}
@@ -2089,6 +2104,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
               sourceMaterialId: seed.sourceMaterialId,
               seedCards: seed.seedText ? [] : chapter.cards || [],
               seedText: seed.seedText,
+              seedPageCount: seed.seedPageCount,
               actionKey: `chapter-${chapter.id}`,
             });
           }}
@@ -2120,6 +2136,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
               sourceMaterialId: seed.sourceMaterialId,
               seedCards: seed.seedText ? [] : chapters.flatMap((c) => c.cards || []),
               seedText: seed.seedText,
+              seedPageCount: seed.seedPageCount,
               actionKey: 'exam',
             });
           }}
