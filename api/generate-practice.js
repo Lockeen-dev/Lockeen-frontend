@@ -1,5 +1,5 @@
-const DEFAULT_MODEL = 'gpt-4.1-mini';
-const MAX_SOURCE_CHARS = 24000;
+const DEFAULT_MODEL = 'gpt-4.1-nano';
+const MAX_SOURCE_CHARS = 14000;
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -95,6 +95,8 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
   const wantsQuiz = kind === 'quiz';
   const quizCount = Math.max(5, Math.min(60, Number(questionCount) || 5));
   const flashcardCount = Math.max(5, Math.min(60, Number(cardCount) || 8));
+  const model = process.env.OPENAI_PRACTICE_MODEL || process.env.OPENAI_MODEL || DEFAULT_MODEL;
+  const sourceSlice = sourceText.slice(0, MAX_SOURCE_CHARS);
   const quizDifficulties = (Array.isArray(difficulties) ? difficulties : QUIZ_DIFFICULTIES)
     .map((difficulty) => normalizeDifficulty(difficulty, 'medium'))
     .filter((difficulty, index, all) => all.indexOf(difficulty) === index);
@@ -109,7 +111,7 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_PRACTICE_MODEL || process.env.OPENAI_MODEL || DEFAULT_MODEL,
+      model,
       input: [
         {
           role: 'system',
@@ -117,7 +119,7 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
             'You generate study practice from uploaded material.',
             'Use only supplied source text. Do not invent facts.',
             'If source text is sparse, ask factual questions about visible extracted content.',
-            'Keep output concise and exam-useful.',
+            'Keep output concise and exam-useful. Prefer short options and short explanations.',
             wantsQuiz ? `Create ${quizCount} high-quality questions unless source is truly too sparse; never return fewer than ${Math.min(5, quizCount)} questions when the source has enough content. Cover the whole supplied source proportionally. Difficulty mix must fit the content, not be evenly split. Use easy for definitions, medium for understanding, hard for application/common mistakes, extreme only when source supports exam-like reasoning, traps, or concept comparison. ${coverageHint}` : `Create flashcards across the whole supplied source; more cards for dense topics, fewer for sparse text. ${coverageHint}`,
             schemaInstruction,
           ].join(' '),
@@ -131,11 +133,13 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
             cardCount: flashcardCount,
             difficulties: quizDifficulties,
             coverageHint,
-            sourceText: sourceText.slice(0, MAX_SOURCE_CHARS),
+            sourceText: sourceSlice,
           }),
         },
       ],
-      max_output_tokens: wantsQuiz ? 9000 : Math.min(7000, Math.max(1800, flashcardCount * 220)),
+      max_output_tokens: wantsQuiz
+        ? Math.min(7000, Math.max(1800, quizCount * 260))
+        : Math.min(5200, Math.max(1200, flashcardCount * 180)),
       temperature: 0.2,
     }),
   });
@@ -163,11 +167,11 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
 
   if (wantsQuiz) {
     const questions = normalizeQuizQuestions(parsed.questions, { limit: quizCount, difficulties: quizDifficulties });
-    return questions.length ? { data: { questions }, providerError: null } : { data: null, providerError: 'AI returned no valid questions.' };
+    return questions.length ? { data: { questions, model, inputChars: sourceSlice.length }, providerError: null } : { data: null, providerError: 'AI returned no valid questions.' };
   }
 
   const cards = normalizeFlashcards(parsed.cards, { limit: flashcardCount });
-  return cards.length ? { data: { cards }, providerError: null } : { data: null, providerError: 'AI returned no valid flashcards.' };
+  return cards.length ? { data: { cards, model, inputChars: sourceSlice.length }, providerError: null } : { data: null, providerError: 'AI returned no valid flashcards.' };
 }
 
 export default async function handler(req, res) {
