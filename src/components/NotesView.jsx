@@ -355,12 +355,12 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
             }
           }
           if (nextMaterial.processingStatus === 'ready' && nextMaterial.extractedText) {
-            await createPracticeBanksForMaterial({
+            createPracticeBanksForMaterial({
               examId: activeId,
               chapterId: targetChapter.id,
               material: nextMaterial,
               title: targetChapter.title || chapterName || nextMaterial.title,
-            }).catch(() => null);
+            }).then(() => refreshExams()).catch(() => null);
           }
           createdMaterials.push(nextMaterial);
         }
@@ -2070,11 +2070,11 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       }
     }
     if (material.processingStatus === 'ready' && material.extractedText) {
-      await createPracticeBanksForMaterial({
+      createPracticeBanksForMaterial({
         examId: exam.id,
         material,
         title: material.title || exam.name,
-      }).catch(() => null);
+      }).then(() => reloadMaterials()).catch(() => null);
     }
     if (resolvedPageCount) rememberMaterialUiMeta([material]);
     setMaterials((prev) => [material, ...prev]);
@@ -2450,8 +2450,8 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
             <div style={{ marginBottom: 18, padding: 16, borderRadius: 18, border: '1.5px solid #C7D2FE', background: '#EEF2FF', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 16px 34px rgba(79,70,229,.12)' }}>
               <div style={{ width: 34, height: 34, borderRadius: 999, border: '4px solid rgba(79,70,229,.16)', borderTopColor: 'var(--indigo)', animation: 'spin-once .8s linear infinite', flexShrink: 0 }} />
               <div>
-                <div style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 900 }}>Uploading document and generating quiz + flashcards...</div>
-                <div style={{ marginTop: 3, color: 'var(--gray)', fontSize: 13, fontWeight: 700 }}>Keep this window open. Large PDFs can take 10-20 seconds.</div>
+                <div style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 900 }}>Uploading document. Practice continues in background...</div>
+                <div style={{ marginTop: 3, color: 'var(--gray)', fontSize: 13, fontWeight: 700 }}>This closes after upload. Quiz + flashcards appear when ready.</div>
               </div>
             </div>
           )}

@@ -379,7 +379,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
       setProgress(pct);
       if (pct < 100) requestAnimationFrame(tick);
       else {
-        setUploadStep('Uploading files and generating quiz + flashcards...');
+        setUploadStep('Uploading files. Practice will finish in background...');
         const payload = {
           chapterId: isNew ? null : selection,
           chapterName: isNew ? newName.trim().slice(0, 80) : null,
@@ -466,7 +466,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
               <div style={uploadS.spinner} />
               <div>
                 <div style={uploadS.loadingTitle}>{uploadStep || 'Uploading...'}</div>
-                <div style={uploadS.loadingText}>Keep this window open. Large PDFs can take 10-20 seconds.</div>
+                <div style={uploadS.loadingText}>This closes after upload. Quiz + flashcards keep generating after.</div>
               </div>
             </div>
             <div style={uploadS.progressTrack}><div style={{ ...uploadS.progressFill, width: Math.max(progress, 12) + '%' }} /></div>
