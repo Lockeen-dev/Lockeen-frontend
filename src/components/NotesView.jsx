@@ -2306,6 +2306,7 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
   const [selectedDocId, setSelectedDocId] = useState(null);
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [addingDocument, setAddingDocument] = useState(false);
   const title = chapter.title || chapter.name || 'Chapter';
   const docs = materials;
   const docCount = docs.length;
@@ -2320,7 +2321,12 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
     const picked = Array.from(event.target.files || []);
     event.target.value = '';
     if (!picked.length) return;
-    await onAddDocument(chapter, picked);
+    setAddingDocument(true);
+    try {
+      await onAddDocument(chapter, picked);
+    } finally {
+      setAddingDocument(false);
+    }
   };
 
   useEffect(() => {
@@ -2368,7 +2374,7 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
 
   return (
     <div
-      onClick={onClose}
+      onClick={(event) => { if (event.target === event.currentTarget && !addingDocument) onClose(); }}
       style={{
         position: 'fixed',
         inset: 0,
@@ -2419,17 +2425,19 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
             ) : (
               <button
                 type="button"
-                onClick={() => inputRef.current?.click()}
-                style={{ height: 50, borderRadius: 14, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'inline-flex', alignItems: 'center', gap: 12, padding: '0 22px', fontSize: 17, fontWeight: 900, cursor: 'pointer' }}
+                onClick={() => !addingDocument && inputRef.current?.click()}
+                disabled={addingDocument}
+                style={{ height: 50, borderRadius: 14, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'inline-flex', alignItems: 'center', gap: 12, padding: '0 22px', fontSize: 17, fontWeight: 900, cursor: addingDocument ? 'not-allowed' : 'pointer', opacity: addingDocument ? .65 : 1 }}
               >
-                <Plus size={22} /> Add document
+                <Plus size={22} /> {addingDocument ? 'Working...' : 'Add document'}
               </button>
             )}
             <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain" multiple onChange={handleFilePick} style={{ display: 'none' }} />
             <button
               type="button"
-              onClick={onClose}
-              style={{ width: 50, height: 50, borderRadius: 999, border: '1.5px solid #E5E7EB', background: '#fff', color: '#6B7280', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 30, fontWeight: 700, lineHeight: 1 }}
+              onClick={() => !addingDocument && onClose()}
+              disabled={addingDocument}
+              style={{ width: 50, height: 50, borderRadius: 999, border: '1.5px solid #E5E7EB', background: '#fff', color: '#6B7280', cursor: addingDocument ? 'not-allowed' : 'pointer', display: 'grid', placeItems: 'center', fontSize: 30, fontWeight: 700, lineHeight: 1, opacity: addingDocument ? .65 : 1 }}
               aria-label="Close documents"
             >
               ×
@@ -2438,6 +2446,15 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
         </div>
 
         <div style={{ flex: 1, background: '#F3F6FB', padding: 32, overflow: 'auto' }}>
+          {addingDocument && !selectedDoc && (
+            <div style={{ marginBottom: 18, padding: 16, borderRadius: 18, border: '1.5px solid #C7D2FE', background: '#EEF2FF', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 16px 34px rgba(79,70,229,.12)' }}>
+              <div style={{ width: 34, height: 34, borderRadius: 999, border: '4px solid rgba(79,70,229,.16)', borderTopColor: 'var(--indigo)', animation: 'spin-once .8s linear infinite', flexShrink: 0 }} />
+              <div>
+                <div style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 900 }}>Uploading document and generating quiz + flashcards...</div>
+                <div style={{ marginTop: 3, color: 'var(--gray)', fontSize: 13, fontWeight: 700 }}>Keep this window open. Large PDFs can take 10-20 seconds.</div>
+              </div>
+            </div>
+          )}
           {selectedDoc ? (
             <div style={{ height: '100%', minHeight: 480, border: '1px solid #DDE3EE', borderRadius: 22, background: '#fff', boxShadow: '0 18px 44px rgba(15,23,42,.08)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ flex: 1, minHeight: 0, background: '#EEF2F7', display: 'grid', placeItems: 'center', padding: 22 }}>
