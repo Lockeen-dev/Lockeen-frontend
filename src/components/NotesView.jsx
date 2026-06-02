@@ -608,12 +608,38 @@ function clampFlashcardCount(value) {
   return Math.max(5, Math.min(120, Math.round(value)));
 }
 
+function splitTextIntoBalancedChunks(text = '', count = 1) {
+  const source = String(text || '').trim();
+  const chunkCount = Math.max(1, Math.min(count, source.length));
+  if (!source || chunkCount <= 1) return source ? [source] : [];
+  const targetSize = Math.ceil(source.length / chunkCount);
+  const chunks = [];
+  let start = 0;
+
+  while (start < source.length && chunks.length < chunkCount) {
+    const remainingSlots = chunkCount - chunks.length - 1;
+    if (!remainingSlots) {
+      chunks.push(source.slice(start).trim());
+      break;
+    }
+    const targetEnd = Math.min(source.length, start + targetSize);
+    const searchWindow = source.slice(targetEnd, Math.min(source.length, targetEnd + 800));
+    const boundaryOffset = searchWindow.search(/\n{2,}|(?<=[.!?])\s+/);
+    const end = boundaryOffset >= 0 ? targetEnd + boundaryOffset + 1 : targetEnd;
+    chunks.push(source.slice(start, end).trim());
+    start = end;
+  }
+
+  return chunks.filter(Boolean);
+}
+
 function getQuestionBankChunks(sourceText = '', pageCount = null) {
   const text = String(sourceText || '').trim();
   if (!text) return [];
   const words = cleanStudyText(text).split(/\s+/).filter(Boolean).length;
   const pages = Number(pageCount) || Math.max(1, Math.ceil(words / 450));
   const maxChunks = pages >= 120 ? 12 : pages >= 40 ? 8 : pages >= 16 ? 5 : 3;
+  const desiredChunks = Math.max(1, Math.min(maxChunks, Math.ceil(pages / 8)));
   const maxChars = 18000;
   const parts = text
     .split(/\n{2,}|(?=Page\s+\d+\b)/i)
@@ -635,7 +661,11 @@ function getQuestionBankChunks(sourceText = '', pageCount = null) {
     current = current ? `${current}\n\n${part}` : part;
   });
   if (current) chunks.push(current);
-  return chunks.slice(0, maxChunks);
+  const limitedChunks = chunks.slice(0, maxChunks);
+  if (limitedChunks.length < desiredChunks && text.length > desiredChunks * 700) {
+    return splitTextIntoBalancedChunks(text, desiredChunks);
+  }
+  return limitedChunks;
 }
 
 function estimateQuestionBankPlan({ sourceText = '', pageCount = null } = {}) {
@@ -714,11 +744,11 @@ async function buildQuestionBankQuestions({ title, sourceText, pageCount = null 
     const fallbackQuestions = buildGeneratedQuestions(title, [], chunk).map((question, qIndex) => ({
         ...question,
         difficulty: chunkPlan.difficulties[qIndex % chunkPlan.difficulties.length] || 'medium',
-      }));
+    }));
     const aiQuestions = aiResult.data?.questions || [];
     generated.push(...aiQuestions);
-    if (aiQuestions.length < Math.min(5, perChunk)) {
-      generated.push(...fallbackQuestions);
+    if (aiQuestions.length < perChunk) {
+      generated.push(...fallbackQuestions.slice(0, perChunk - aiQuestions.length));
     }
   }
 
