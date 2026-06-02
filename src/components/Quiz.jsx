@@ -21,6 +21,7 @@ function normalizeQuestion(question) {
     options: question.options || [],
     correct: Number(question.correct ?? question.correctAnswer ?? 0),
     explanation: question.explanation || '',
+    difficulty: DIFFICULTY_IDS.includes(question.difficulty) ? question.difficulty : 'medium',
   };
 }
 
@@ -47,9 +48,19 @@ function isReliableMaterialQuiz(quiz) {
   return Boolean(quiz?.sourceMaterialId && questions.length && !questions.some(isFallbackPracticeQuestion));
 }
 
-function filterQuestionsByDifficulty(questions = [], difficulty = 'medium') {
-  const selected = ['easy', 'medium', 'hard', 'extreme'].includes(difficulty) ? difficulty : 'medium';
-  return questions.filter((question) => (question.difficulty || 'medium') === selected);
+const DIFFICULTY_IDS = ['easy', 'medium', 'hard', 'extreme'];
+const DIFFICULTY_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', extreme: 'Extreme' };
+const DIFFICULTY_COLORS = { easy: '#10B981', medium: '#F59E0B', hard: '#EF4444', extreme: '#64748B' };
+
+function normalizeDifficultySelection(value) {
+  const raw = Array.isArray(value) ? value : (value ? [value] : DIFFICULTY_IDS);
+  const selected = raw.filter((id) => DIFFICULTY_IDS.includes(id));
+  return selected.length ? [...new Set(selected)] : DIFFICULTY_IDS;
+}
+
+function filterQuestionsByDifficulty(questions = [], difficulties = DIFFICULTY_IDS) {
+  const selected = normalizeDifficultySelection(difficulties);
+  return questions.filter((question) => selected.includes(question.difficulty || 'medium'));
 }
 
 function QuizResultScreen({ percent, correct, total, palette, resultTitle, subject, subjectStyle, attemptError, attemptSaved, onRestart, onBack }) {
@@ -282,6 +293,8 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
   const q = normalizedQuestions[idx];
   const progress = ((idx + 1) / total) * 100;
   const answered = selected !== null;
+  const qDifficulty = DIFFICULTY_IDS.includes(q.difficulty) ? q.difficulty : 'medium';
+  const qDifficultyColor = DIFFICULTY_COLORS[qDifficulty] || DIFFICULTY_COLORS.medium;
 
   const optionStyle = (i) => {
     if (selected === null && pendingIdx === i) return quizS.optionPending;
@@ -317,7 +330,12 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
         </div>
 
         <div key={qKey} style={{ ...quizS.card, animation: shake ? 'qShake .42s ease' : 'qSlideIn .28s cubic-bezier(.22,1,.36,1)' }}>
-          <span style={quizS.questionLabel}>Question {idx + 1}</span>
+          <div style={quizS.questionMetaRow}>
+            <span style={quizS.questionLabel}>Question {idx + 1}</span>
+            <span style={{ ...quizS.difficultyBadge, color: qDifficultyColor, borderColor: `${qDifficultyColor}55`, background: `${qDifficultyColor}14` }}>
+              {DIFFICULTY_LABELS[qDifficulty]}
+            </span>
+          </div>
           <div style={quizS.questionText}>{q.q}</div>
           <div style={quizS.options}>
             {q.options.map((option, i) => (
@@ -364,7 +382,9 @@ const quizS = {
   progressTrack: { width: '100%', height: 4, borderRadius: 999, background: '#E5E7EB', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 999, transition: 'width .4s' },
   card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 },
+  questionMetaRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   questionLabel: { color: 'var(--gray)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.12em' },
+  difficultyBadge: { flexShrink: 0, border: '1px solid transparent', borderRadius: 999, padding: '4px 8px', fontSize: 11, fontWeight: 800, lineHeight: 1 },
   questionText: { color: 'var(--ink)', fontSize: 18, fontWeight: 700, lineHeight: 1.4 },
   options: { display: 'flex', flexDirection: 'column', gap: 10 },
   optionBase: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px', borderRadius: 14, textAlign: 'left', fontWeight: 600, transition: 'background .15s, border-color .15s, color .15s, opacity .15s' },
@@ -442,7 +462,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? exams[0]?.id ?? null);
   const [selectedChapterId, setSelectedChapterId] = useState(deck?._practiceConfig?.chapterId ?? 'all');
   const [numQ, setNumQ] = useState(deck?._practiceConfig?.count ?? 10);
-  const [selectedDiff, setSelectedDiff] = useState(deck?._practiceConfig?.difficulty ?? 'medium');
+  const [selectedDiffs, setSelectedDiffs] = useState(normalizeDifficultySelection(deck?._practiceConfig?.difficulties ?? deck?._practiceConfig?.difficulty));
   const [timerOn, setTimerOn] = useState(deck?._practiceConfig?.mode === 'quiz');
   const [timerSecs, setTimerSecs] = useState(30);
   const [activeDeck, setActiveDeck] = useState(deck && deck.questions && deck.questions.length > 0 ? deck : null);
@@ -477,22 +497,53 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
     return () => { cancelled = true; };
   }, [selectedExamId, selectedChapterId, activeDeck]);
 
-  const availableQuestions = React.useMemo(() => {
+  const scopedQuizzes = React.useMemo(() => {
     const predictorPractice = deck?._practiceConfig?.source === 'analytics-grade-predictor';
-    const reliableQuizzes = predictorPractice
+    return predictorPractice
       ? serviceQuizzes.filter(isReliableMaterialQuiz)
       : serviceQuizzes;
-    const serviceQuestions = filterQuestionsByDifficulty(reliableQuizzes.flatMap(quiz => quiz.questions || []), selectedDiff);
+  }, [deck?._practiceConfig?.source, serviceQuizzes]);
+
+  const allAvailableQuestions = React.useMemo(() => {
+    const serviceQuestions = scopedQuizzes.flatMap(quiz => quiz.questions || []);
     if (serviceQuestions.length > 0) return serviceQuestions;
-    if (predictorPractice) return [];
+    if (deck?._practiceConfig?.source === 'analytics-grade-predictor') return [];
     if (!selectedExam) return [];
     if (selectedChapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []);
     const ch = selectedExam.chapters.find(c => c.id === selectedChapterId);
     return ch?.questions || [];
-  }, [deck?._practiceConfig?.source, selectedDiff, selectedExam, selectedChapterId, serviceQuizzes]);
+  }, [deck?._practiceConfig?.source, selectedExam, selectedChapterId, scopedQuizzes]);
+
+  const availableQuestions = React.useMemo(() => {
+    const serviceQuestions = filterQuestionsByDifficulty(scopedQuizzes.flatMap(quiz => quiz.questions || []), selectedDiffs);
+    if (serviceQuestions.length > 0) return serviceQuestions;
+    if (deck?._practiceConfig?.source === 'analytics-grade-predictor') return [];
+    if (!selectedExam) return [];
+    if (selectedChapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []);
+    const ch = selectedExam.chapters.find(c => c.id === selectedChapterId);
+    return ch?.questions || [];
+  }, [deck?._practiceConfig?.source, selectedDiffs, selectedExam, selectedChapterId, scopedQuizzes]);
 
   const maxQ = availableQuestions.length;
   const effectiveNumQ = Math.min(numQ, maxQ || 1);
+  const countQuestionsForChapter = (chapterId) => {
+    if (!selectedExam) return 0;
+    if (chapterId === selectedChapterId) return allAvailableQuestions.length;
+    if (chapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []).length;
+    const ch = selectedExam.chapters.find(c => c.id === chapterId);
+    return ch?.questions?.length || 0;
+  };
+  const toggleDifficulty = (id) => {
+    setSelectedDiffs((current) => {
+      const set = new Set(normalizeDifficultySelection(current));
+      if (set.has(id) && set.size > 1) set.delete(id);
+      else set.add(id);
+      return DIFFICULTY_IDS.filter((diffId) => set.has(diffId));
+    });
+  };
+  const difficultySummary = selectedDiffs.length === DIFFICULTY_IDS.length
+    ? 'All difficulties'
+    : selectedDiffs.map((id) => DIFFICULTY_LABELS[id]).join(' + ');
 
   const startQuiz = async (overrides = {}) => {
     const examId = overrides.examId ?? selectedExamId;
@@ -511,7 +562,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       const candidateQuizzes = overrides.requireMaterialQuiz
         ? (listResult.data || []).filter(isReliableMaterialQuiz)
         : (listResult.data || []);
-      serviceQuiz = candidateQuizzes.find(quiz => filterQuestionsByDifficulty(quiz.questions || [], overrides._difficulty || selectedDiff).length > 0) || null;
+      serviceQuiz = candidateQuizzes.find(quiz => filterQuestionsByDifficulty(quiz.questions || [], overrides._difficulties || selectedDiffs).length > 0) || null;
       if (serviceQuiz) {
         const quizResult = await getQuiz(serviceQuiz.id);
         if (quizResult.error) {
@@ -531,10 +582,10 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       ? (exam?.chapters || []).flatMap(c => c.questions || [])
       : (exam?.chapters.find(c => c.id === chapterId)?.questions || []);
     const qs = serviceQuiz?.questions?.length
-      ? filterQuestionsByDifficulty(serviceQuiz.questions, overrides._difficulty || selectedDiff)
+      ? filterQuestionsByDifficulty(serviceQuiz.questions, overrides._difficulties || selectedDiffs)
       : fallbackQs;
     if (overrides.requireServiceQuiz && !qs.length) {
-      setQuizError(`No ${overrides._difficulty || selectedDiff} material questions available. Generate a quiz from uploaded material first.`);
+      setQuizError(`No material questions available for ${difficultySummary}. Generate a quiz from uploaded material first.`);
       return;
     }
     const chapterName = chapterId === 'all' ? 'Intero esame' : (exam?.chapters.find(c => c.id === chapterId)?.title || '');
@@ -547,7 +598,8 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       questions: qs.map(normalizeQuestion).slice(0, n),
       _meta: { ...(deck?._practiceConfig || {}), examId, examName: exam?.name || '', chapterId, chapterName, numQ: Math.min(n, qs.length) },
       _autoStart: overrides._autoStart || false,
-      _difficulty: overrides._difficulty || null,
+      _difficulty: (overrides._difficulties || selectedDiffs)[0] || 'medium',
+      _difficulties: overrides._difficulties || selectedDiffs,
       _timerOn: overrides._timerOn || false,
       _timerSecs: overrides._timerSecs || 30,
     });
@@ -561,7 +613,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       examId: deck._examId,
       chapterId: deck._practiceConfig.chapterId || 'all',
       numQ: deck._practiceConfig.count || 10,
-      _difficulty: deck._practiceConfig.difficulty || 'medium',
+      _difficulties: normalizeDifficultySelection(deck._practiceConfig.difficulties ?? deck._practiceConfig.difficulty),
       _timerOn: deck._practiceConfig.mode === 'quiz' && deck._practiceConfig.timerOn !== false,
       _timerSecs: deck._practiceConfig.timerSecs || 30,
       _autoStart: true,
@@ -657,14 +709,15 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             <div style={{ padding:'20px 22px' }}>
               <div style={secLabel}>Capitolo</div>
               <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
-                {[{ id:'all', title:'Intero esame', qCount: selectedExam.chapters.flatMap(c => c.questions||[]).length }, ...selectedExam.chapters.map(ch => ({ id:ch.id, title:ch.title, qCount:(ch.questions||[]).length }))].map(ch => {
+                {[{ id:'all', title:'Intero esame' }, ...selectedExam.chapters.map(ch => ({ id:ch.id, title:ch.title }))].map(ch => {
                   const active = selectedChapterId === ch.id;
+                  const qCount = countQuestionsForChapter(ch.id);
                   return (
                     <button key={ch.id} onClick={() => setSelectedChapterId(ch.id)}
                       style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'7px 13px', borderRadius:999, border:`1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`, background: active ? 'var(--lavender)' : 'var(--surface)', color: active ? 'var(--indigo)' : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
                       {ch.title}
                       <span style={{ background: active ? 'var(--indigo)' : 'var(--border)', color: active ? '#fff' : 'var(--gray)', fontSize:10, fontWeight:800, borderRadius:999, padding:'1px 6px', lineHeight:1.5 }}>
-                        {ch.qCount}
+                        {qCount}
                       </span>
                     </button>
                   );
@@ -709,17 +762,17 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             <div style={{ padding:'20px 22px' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
                 <div style={secLabel}>Difficoltà domande</div>
-                <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>filtra question bank</span>
+                <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>{difficultySummary}</span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
                 {DIFF.map(d => (
                   <button key={d.id}
-                    onClick={() => setSelectedDiff(d.id)}
-                    style={{ padding:'14px 6px', borderRadius:14, border:`1.5px solid ${selectedDiff === d.id ? d.color : 'var(--border)'}`, background:selectedDiff === d.id ? d.bg : 'var(--surface)', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'all .15s' }}
+                    onClick={() => toggleDifficulty(d.id)}
+                    style={{ padding:'14px 6px', borderRadius:14, border:`1.5px solid ${selectedDiffs.includes(d.id) ? d.color : 'var(--border)'}`, background:selectedDiffs.includes(d.id) ? d.bg : 'var(--surface)', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'all .15s' }}
                     onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = d.color; el.style.background = d.bg; }}
-                    onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = selectedDiff === d.id ? d.color : 'var(--border)'; el.style.background = selectedDiff === d.id ? d.bg : 'var(--surface)'; }}>
+                    onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = selectedDiffs.includes(d.id) ? d.color : 'var(--border)'; el.style.background = selectedDiffs.includes(d.id) ? d.bg : 'var(--surface)'; }}>
                     <div style={{ width:12, height:12, borderRadius:'50%', background:d.color, boxShadow:`0 0 0 3px ${d.color}25` }} />
-                    <div style={{ fontSize:12, fontWeight:700, color:selectedDiff === d.id ? d.color : 'var(--ink)', lineHeight:1 }}>{d.label}</div>
+                    <div style={{ fontSize:12, fontWeight:700, color:selectedDiffs.includes(d.id) ? d.color : 'var(--ink)', lineHeight:1 }}>{d.label}</div>
                     <div style={{ fontSize:10, color:'var(--gray)', fontWeight:500 }}>{d.desc}</div>
                   </button>
                 ))}
@@ -748,7 +801,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
                     <span style={{fontSize:12, color:'var(--gray)'}}>secondi</span>
                     <div style={{display:'flex', gap:4, marginLeft:'auto'}}>
                       {[15,30,60,90].map(s => {
-                        const diff = DIFF.find(d => d.id === selectedDiff) || DIFF[1];
+                        const diff = DIFF.find(d => d.id === selectedDiffs[0]) || DIFF[1];
                         return (
                           <button key={s} onClick={() => setTimerSecs(s)}
                             style={{padding:'5px 9px', borderRadius:8, border:`1.5px solid ${timerSecs===s?diff.color:'var(--border)'}`, background:timerSecs===s?diff.bg:'transparent', color:timerSecs===s?diff.color:'var(--gray)', fontSize:11, fontWeight:700, cursor:'pointer'}}>
@@ -766,7 +819,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       </div>
 
       {/* Start button */}
-      <button onClick={() => startQuiz({ _autoStart:true, _difficulty:selectedDiff, _timerOn:timerOn, _timerSecs:timerSecs })} disabled={maxQ === 0 || loadingQuizzes}
+      <button onClick={() => startQuiz({ _autoStart:true, _difficulties:selectedDiffs, _timerOn:timerOn, _timerSecs:timerSecs })} disabled={maxQ === 0 || loadingQuizzes}
         style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 && !loadingQuizzes ? 'linear-gradient(135deg, var(--indigo) 0%, #5B53F0 100%)' : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 && !loadingQuizzes ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 && !loadingQuizzes ? '0 4px 16px rgba(55,48,232,.35)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
         onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.9'; }}
         onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}>
