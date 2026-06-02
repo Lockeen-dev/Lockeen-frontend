@@ -8,8 +8,8 @@ import useIsMobile from '../lib/useIsMobile';
 import { createChapter, createExam, deleteChapter, deleteExam, listExams, updateChapter, updateExam } from '../services/exams';
 import { createMaterial, deleteMaterial, extractTextFromFile, getMaterialDownloadUrl, getMaterialProcessingLabel, listMaterials, requestMaterialOcr, updateMaterial } from '../services/materials';
 import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
-import { createQuiz, listQuizzes } from '../services/quiz';
-import { createFlashcard, listFlashcards } from '../services/flashcards';
+import { createQuiz, deleteQuiz, listQuizzes } from '../services/quiz';
+import { createFlashcard, deleteFlashcard, listFlashcards } from '../services/flashcards';
 import { generatePracticeFromText } from '../services/practiceGeneration';
 import { createStudyMaterialSignedUrl, deleteStudyMaterialFile, uploadStudyMaterialFile, validateStudyMaterialFile } from '../services/storage';
 import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, UploadChapterModal } from './ExamModals';
@@ -1594,7 +1594,25 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [materialFile, setMaterialFile] = useState(null);
   const [savingStudyAction, setSavingStudyAction] = useState(null);
   const palette = getSubjectPalette(exam.subject, exam, darkMode);
-  const chapters = exam.chapters || [];
+  const materialStatsByChapter = materials.reduce((acc, material) => {
+    if (!material.chapterId) return acc;
+    const key = String(material.chapterId);
+    const current = acc[key] || { files: 0, pages: 0 };
+    acc[key] = {
+      files: current.files + 1,
+      pages: current.pages + (Number(material.pageCount || material.page_count) || 0),
+    };
+    return acc;
+  }, {});
+  const chapters = (exam.chapters || []).map((chapter) => {
+    const stats = materialStatsByChapter[String(chapter.id)];
+    if (!stats) return chapter;
+    return {
+      ...chapter,
+      files: stats.files,
+      pages: stats.pages || chapter.pages || chapter.pageCount || 0,
+    };
+  });
   const filtered = chapters.filter((c) => (c.title || '').toLowerCase().includes(q.toLowerCase()));
   const chapterKey = (chapter) => String(chapter.id ?? chapter.name ?? chapter.title);
   const selectedChapter = readinessView === 'exam' ? null : chapters.find((c) => chapterKey(c) === readinessView);
@@ -1670,6 +1688,38 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       return;
     }
     setMaterials((result.data || []).map((material) => ({ ...material, ...(materialUiMeta[material.id] || {}) })));
+  };
+
+  const deletePracticeForMaterial = async (materialId) => {
+    const [quizzesResult, flashcardsResult] = await Promise.all([
+      listQuizzes({ examId: exam.id, sourceMaterialId: materialId }),
+      listFlashcards({ examId: exam.id, sourceMaterialId: materialId }),
+    ]);
+    if (!quizzesResult.error) {
+      await Promise.all((quizzesResult.data || []).map((quiz) => deleteQuiz(quiz.id)));
+    }
+    if (!flashcardsResult.error) {
+      await Promise.all((flashcardsResult.data || []).map((card) => deleteFlashcard(card.id)));
+    }
+  };
+
+  const deleteChapterStudyData = async (chapterId) => {
+    const [chapterMaterialsResult, quizzesResult, flashcardsResult] = await Promise.all([
+      listMaterials({ examId: exam.id, chapterId }),
+      listQuizzes({ examId: exam.id, chapterId }),
+      listFlashcards({ examId: exam.id, chapterId }),
+    ]);
+    const chapterMaterials = chapterMaterialsResult.error ? materials.filter((material) => String(material.chapterId) === String(chapterId)) : (chapterMaterialsResult.data || []);
+    if (!quizzesResult.error) {
+      await Promise.all((quizzesResult.data || []).map((quiz) => deleteQuiz(quiz.id)));
+    }
+    if (!flashcardsResult.error) {
+      await Promise.all((flashcardsResult.data || []).map((card) => deleteFlashcard(card.id)));
+    }
+    await Promise.all(chapterMaterials.map(async (material) => {
+      if (material.storagePath) await deleteStudyMaterialFile(material.storagePath).catch(() => null);
+      await deleteMaterial(material.id);
+    }));
   };
 
   const rememberMaterialUiMeta = (entries = []) => {
@@ -2038,6 +2088,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterialsError(null);
     setSavingStudyAction(`delete-material-${id}`);
     const material = materials.find((item) => String(item.id) === String(id));
+    await deletePracticeForMaterial(id);
     if (material?.storagePath) {
       const fileResult = await deleteStudyMaterialFile(material.storagePath);
       if (fileResult.error) {
@@ -2053,6 +2104,9 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       return;
     }
     setMaterials((prev) => prev.filter((material) => String(material.id) !== String(id)));
+    if (material?.chapterId && onDeleteChapterDocument) {
+      await onDeleteChapterDocument({ chapterId: material.chapterId, pages: Number(material.pageCount || material.page_count) || 1 });
+    }
     setSavingStudyAction(null);
   };
   const handleOpenMaterial = async (id) => {
@@ -2120,7 +2174,14 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   };
   const handleDeleteChapterDocument = async (chapter, material) => {
     if (material?.id) await handleDeleteMaterial(material.id);
-    if (onDeleteChapterDocument) await onDeleteChapterDocument({ chapterId: chapter.id, pages: Math.max(1, Math.round((chapter.pages || 6) / Math.max(1, chapter.files || 1))) });
+  };
+  const handleDeleteChapter = async (chapterId) => {
+    setMaterialsError(null);
+    setSavingStudyAction(`delete-chapter-${chapterId}`);
+    await deleteChapterStudyData(chapterId);
+    await onDeleteChapter(chapterId);
+    setMaterials((prev) => prev.filter((material) => String(material.chapterId) !== String(chapterId)));
+    setSavingStudyAction(null);
   };
 
   return (
@@ -2219,7 +2280,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
             chapter={editingChapter}
             onClose={() => setEditingChapter(null)}
             onSave={async (newTitle) => { await onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
-            onDelete={async () => { await onDeleteChapter(editingChapter.id); setEditingChapter(null); }}
+            onDelete={async () => { await handleDeleteChapter(editingChapter.id); setEditingChapter(null); }}
           />
         )}
         {pdfChapter && (

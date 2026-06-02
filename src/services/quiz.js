@@ -283,6 +283,40 @@ async function getRealQuiz(id) {
   return ok(toQuiz(data));
 }
 
+async function deleteRealQuiz(id) {
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+  const userResult = await requireAuthenticatedUserId();
+  if (userResult.error) return userResult;
+
+  await supabase
+    .from('quiz_attempts')
+    .delete()
+    .eq('quiz_id', id)
+    .eq('user_id', userResult.data);
+
+  await supabase
+    .from('quiz_questions')
+    .delete()
+    .eq('quiz_id', id)
+    .eq('user_id', userResult.data);
+
+  const { data, error } = await supabase
+    .from('quizzes')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userResult.data)
+    .select('*, quiz_questions(*)')
+    .maybeSingle();
+
+  if (error) {
+    const normalized = normalizeError(error);
+    return fail(normalized.message, normalized.code);
+  }
+  if (!data) return fail('Quiz not found.', 'NOT_FOUND');
+  return ok(toQuiz(data));
+}
+
 async function createRealQuiz(input = {}) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
@@ -427,6 +461,17 @@ export async function getQuiz(id) {
   const quiz = mockQuizzes.find((item) => String(item.id) === String(id));
   if (!quiz) return fail('Quiz not found.', 'NOT_FOUND');
   return ok(quiz);
+}
+
+export async function deleteQuiz(id) {
+  if (!isMockMode()) return deleteRealQuiz(id);
+  const index = mockQuizzes.findIndex((quiz) => String(quiz.id) === String(id));
+  if (index === -1) return fail('Quiz not found.', 'NOT_FOUND');
+  const [deleted] = mockQuizzes.splice(index, 1);
+  for (let attemptIndex = mockAttempts.length - 1; attemptIndex >= 0; attemptIndex -= 1) {
+    if (String(mockAttempts[attemptIndex].quizId) === String(id)) mockAttempts.splice(attemptIndex, 1);
+  }
+  return ok(deleted);
 }
 
 export async function createQuiz(input = {}) {
