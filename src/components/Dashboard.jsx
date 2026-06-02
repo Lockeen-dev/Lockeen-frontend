@@ -338,6 +338,8 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       mode: config.mode,
       examId: exam.id,
       examName: exam.name,
+      examColor: exam.color || null,
+      examDot: exam.dot || null,
       chapterId,
       chapterName: scopeTitle,
       difficulty: config.difficulty,
@@ -369,6 +371,8 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         subject: exam.subject,
         title: chapter ? chapter.title || chapter.name : exam.name,
         cards: cards.slice(0, config.count),
+        _examColor: exam.color || null,
+        _examDot: exam.dot || null,
         _meta: practicePayload,
       });
       setFlashLanding(false);
@@ -378,6 +382,8 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
 
     setQuizDeck({
       _examId: exam.id,
+      _examColor: exam.color || null,
+      _examDot: exam.dot || null,
       _practiceConfig: { ...practicePayload, autoStart: true },
       questions: [],
     });

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Clock, XMark } from '../lib/icons';
-import { getExamEmoji } from '../lib/examUi';
+import { getExamEmoji, getExamPalette } from '../lib/examUi';
 import { getSubjectPalette } from '../data/mockData';
 import { getQuiz, listQuizzes, submitQuizAttempt } from '../services/quiz';
 
@@ -108,8 +108,8 @@ function QuizResultScreen({ percent, correct, total, palette, resultTitle, subje
   );
 }
 
-export function QuizView({ noteId, quizId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = true, initialDifficulty = 'medium', timerOn: initialTimerOn = false, timerSecs: initialTimerSecs = 30 }) {
-  const palette = getSubjectPalette(subject, {}, darkMode);
+export function QuizView({ noteId, quizId, subject, title, questions, setTab, darkMode, onQuizComplete, backTo = 'notes', autoStart = true, initialDifficulty = 'medium', timerOn: initialTimerOn = false, timerSecs: initialTimerSecs = 30, examColor = null, examDot = null }) {
+  const palette = getExamPalette({ subject, color: examColor, dot: examDot }, darkMode);
   const normalizedQuestions = (questions || []).map(normalizeQuestion);
   const total = normalizedQuestions.length;
   const [started, setStarted] = useState(true);
@@ -494,6 +494,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   const [quizError, setQuizError] = useState('');
 
   const selectedExam = exams.find(e => e.id === selectedExamId);
+  const selectedPalette = selectedExam ? getExamPalette(selectedExam, darkMode) : getSubjectPalette('', {}, darkMode);
 
   useEffect(() => {
     if (!deck?._practiceConfig) return;
@@ -652,6 +653,8 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       title: serviceQuiz?.title || chapterName,
       questions: qs.map(normalizeQuestion).slice(0, n),
       _meta: { ...(deck?._practiceConfig || {}), examId, examName: exam?.name || '', chapterId, chapterName, numQ: Math.min(n, qs.length) },
+      _examColor: exam?.color || null,
+      _examDot: exam?.dot || null,
       _autoStart: overrides._autoStart || false,
       _difficulty: (overrides._difficulties || selectedDiffs)[0] || 'medium',
       _difficulties: overrides._difficulties || selectedDiffs,
@@ -707,6 +710,8 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         initialDifficulty={activeDeck._difficulty || 'medium'}
         timerOn={!!activeDeck._timerOn}
         timerSecs={activeDeck._timerSecs || 30}
+        examColor={activeDeck._examColor}
+        examDot={activeDeck._examDot}
       />
     );
   }
@@ -744,7 +749,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
           <div style={{ display:'flex', gap:8, overflowX:'auto', scrollbarWidth:'none', paddingBottom:2, WebkitOverflowScrolling:'touch' }}>
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
-              const pal = getSubjectPalette(exam.subject, {}, darkMode);
+              const pal = getExamPalette(exam, darkMode);
               const emoji = getExamEmoji(exam);
               return (
                 <button key={exam.id} onClick={() => { setSelectedExamId(exam.id); setSelectedChapterId('all'); }}
@@ -769,9 +774,9 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
                   const qCount = countQuestionsForChapter(ch.id);
                   return (
                     <button key={ch.id} onClick={() => setSelectedChapterId(ch.id)}
-                      style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'7px 13px', borderRadius:999, border:`1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`, background: active ? 'var(--lavender)' : 'var(--surface)', color: active ? 'var(--indigo)' : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
+                      style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'7px 13px', borderRadius:999, border:`1.5px solid ${active ? selectedPalette.dot : 'var(--border)'}`, background: active ? selectedPalette.bg : 'var(--surface)', color: active ? selectedPalette.text : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
                       {ch.title}
-                      <span style={{ background: active ? 'var(--indigo)' : 'var(--border)', color: active ? '#fff' : 'var(--gray)', fontSize:10, fontWeight:800, borderRadius:999, padding:'1px 6px', lineHeight:1.5 }}>
+                      <span style={{ background: active ? selectedPalette.dot : 'var(--border)', color: active ? '#fff' : 'var(--gray)', fontSize:10, fontWeight:800, borderRadius:999, padding:'1px 6px', lineHeight:1.5 }}>
                         {qCount}
                       </span>
                     </button>
@@ -797,9 +802,9 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
                   const active = numQ === n && !disabled;
                   return (
                     <button key={n} onClick={() => !disabled && setNumQ(n)} disabled={disabled}
-                      style={{ padding:'12px 4px', borderRadius:12, border:`1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`, background: active ? 'var(--lavender)' : 'var(--surface)', fontWeight:800, fontSize:18, color: active ? 'var(--indigo)' : disabled ? 'var(--border)' : 'var(--gray)', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                      style={{ padding:'12px 4px', borderRadius:12, border:`1.5px solid ${active ? selectedPalette.dot : 'var(--border)'}`, background: active ? selectedPalette.bg : 'var(--surface)', fontWeight:800, fontSize:18, color: active ? selectedPalette.text : disabled ? 'var(--border)' : 'var(--gray)', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                       {n}
-                      <span style={{ fontSize:9, fontWeight:600, color: active ? 'var(--indigo)' : 'var(--gray-2)', opacity: disabled ? 0 : 0.7 }}>dom.</span>
+                      <span style={{ fontSize:9, fontWeight:600, color: active ? selectedPalette.text : 'var(--gray-2)', opacity: disabled ? 0 : 0.7 }}>dom.</span>
                     </button>
                   );
                 })}
@@ -842,7 +847,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
               <div style={quizS.timerCard}>
                 <div style={quizS.timerTop}>
                   <span style={quizS.timerLabel}><Clock size={16} /> Timer per domanda</span>
-                  <button onClick={() => setTimerOn((v) => !v)} style={{ ...quizS.toggle, ...(timerOn ? quizS.toggleOn : null) }}>
+                  <button onClick={() => setTimerOn((v) => !v)} style={{ ...quizS.toggle, background: timerOn ? selectedPalette.dot : '#CBD5E1' }}>
                     <span style={{ ...quizS.toggleKnob, ...(timerOn ? quizS.toggleKnobOn : null) }} />
                   </button>
                 </div>
@@ -873,7 +878,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
 
       {/* Start button */}
       <button onClick={() => startQuiz({ _autoStart:true, _difficulties:selectedDiffs, _timerOn:timerOn, _timerSecs:timerSecs })} disabled={maxQ === 0 || loadingQuizzes}
-        style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 && !loadingQuizzes ? 'linear-gradient(135deg, var(--indigo) 0%, #5B53F0 100%)' : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 && !loadingQuizzes ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 && !loadingQuizzes ? '0 4px 16px rgba(55,48,232,.35)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
+        style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 && !loadingQuizzes ? `linear-gradient(135deg, ${selectedPalette.dot} 0%, ${selectedPalette.dot}cc 100%)` : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 && !loadingQuizzes ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 && !loadingQuizzes ? `0 4px 16px ${selectedPalette.dot}35` : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
         onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.9'; }}
         onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}>
         {loadingQuizzes ? 'Loading...' : 'Inizia Quiz'}
@@ -915,6 +920,8 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
                           return qs.slice(0, run.numQ);
                         })(),
                         _meta: { examId: run.examId, examName: run.examName, chapterId: run.chapterId, chapterName: run.chapterName, numQ: run.numQ },
+                        _examColor: exam?.color || null,
+                        _examDot: exam?.dot || null,
                         _autoStart: true,
                       });
                     }}

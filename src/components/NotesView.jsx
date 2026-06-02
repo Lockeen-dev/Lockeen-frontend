@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { BarChart3, BookOpen, ChevronDown, Eye, FileText, Layers, LockeenLogo, Paperclip, Pencil, Plus, Search, Sparkles, Trash2 } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, inferSubjectFromName } from '../data/mockData';
-import { getExamEmoji } from '../lib/examUi';
+import { getExamEmoji, getExamPalette, getNextExamPalette } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { createChapter, createExam, deleteChapter, deleteExam, listExams, updateChapter, updateExam } from '../services/exams';
 import { createMaterial, deleteMaterial, extractTextFromFile, getMaterialDownloadUrl, getMaterialProcessingLabel, listMaterials, requestMaterialOcr, updateMaterial } from '../services/materials';
@@ -280,8 +280,8 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
     }
     setSavingAction('create');
     const inferredSubject = inferSubjectFromName(`${exam.subject || ''} ${exam.name || ''}`);
-    const palette = getSubjectPalette(inferredSubject, EXTRA_SUBJECT_COLORS.Other);
-    const enriched = { ...exam, subject: exam.subject || inferredSubject, color: palette.bg, dot: palette.dot };
+    const palette = exam.dot || exam.color ? getExamPalette(exam, darkMode) : getNextExamPalette(exams.length);
+    const enriched = { ...exam, subject: exam.subject || inferredSubject, color: exam.color || palette.bg, dot: exam.dot || palette.dot };
     const { data, error } = await createExam(enriched);
     if (error) {
       setActionError(formatExamServiceError(error, 'Unable to create exam.'));
@@ -299,7 +299,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         name: '📝 Exam: ' + created.name,
         time: '09:00', dur: '2h', cat: 'study',
         noteId: created.id,
-        noteColor: palette.dot, noteBg: palette.bg,
+        noteColor: enriched.dot, noteBg: enriched.color,
         noteText: palette.text, noteSubject: created.subject,
       });
     }
@@ -462,6 +462,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
           onCreate={handleCreateExam}
           saving={savingAction === 'create'}
           error={actionError}
+          existingExamCount={exams.length}
         />
       )}
 
@@ -491,7 +492,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
 
       <div style={examsS.grid}>
         {!loading && !loadError && filtered.map((x) => {
-          const palette = getSubjectPalette(x.subject, x, darkMode);
+          const palette = getExamPalette(x, darkMode);
           return (
             <div key={x.id} style={notesS.card}>
               <div style={{ ...notesS.cover, background: palette.bg }}>

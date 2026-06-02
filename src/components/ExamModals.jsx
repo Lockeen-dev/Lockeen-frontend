@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 
 import { FileText, Icon, Trash, Trash2 } from '../lib/icons';
 import { EXTRA_SUBJECT_COLORS, getSubjectPalette, inferSubjectFromName } from '../data/mockData';
-import { SUBJECT_EMOJI, getExamEmoji } from '../lib/examUi';
+import { EXAM_COLOR_PALETTE, SUBJECT_EMOJI, getExamEmoji, getExamPalette, getNextExamPalette } from '../lib/examUi';
 import { EmojiPickerButton, GradeValue, PrioritySelector, gradeS } from './common/ExamControls';
 
 function DeleteExamModal({ exam, onClose, onConfirm, saving = false, error = null }) {
@@ -35,6 +35,7 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
   const [nameTouched, setNameTouched] = useState(false);
   const [targetGrade, setTargetGrade] = useState(exam.targetGrade || 27);
   const [emoji, setEmoji] = useState(getExamEmoji(exam));
+  const [selectedPalette, setSelectedPalette] = useState(getExamPalette(exam, false));
   const [priority, setPriority] = useState(exam.priority || 3);
   const parsedDate = exam.date ? new Date(exam.date + 'T12:00:00') : new Date();
   const [day, setDay]     = useState(parsedDate.getDate());
@@ -44,7 +45,7 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years  = [2025, 2026, 2027, 2028];
   const pad    = (n) => (n < 10 ? '0' + n : '' + n);
-  const palette = getSubjectPalette(exam.subject, {}, false);
+  const palette = selectedPalette;
   const targetPct = ((targetGrade - 18) / 12) * 100;
 
   const submit = (e) => {
@@ -55,7 +56,7 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
     }
     const lastDay = new Date(year, month, 0).getDate();
     const safeDay = Math.min(Number(day), lastDay);
-    onSave({ name: name.trim(), date: `${year}-${pad(month)}-${pad(safeDay)}`, targetGrade, priority, emoji });
+    onSave({ name: name.trim(), date: `${year}-${pad(month)}-${pad(safeDay)}`, targetGrade, priority, emoji, color: selectedPalette.bg, dot: selectedPalette.dot });
   };
 
   return (
@@ -83,6 +84,13 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
           <label style={uploadS.label}>Priorità</label>
           <PrioritySelector value={priority} onChange={setPriority} />
         </div>
+
+        <ColorPicker
+          label="Colore esame"
+          value={selectedPalette.dot}
+          onChange={setSelectedPalette}
+          disabled={saving}
+        />
 
         <div style={uploadS.field}>
           <label style={dateS.label}>Data esame</label>
@@ -133,7 +141,7 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
   );
 }
 
-function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
+function CreateExamModal({ onClose, onCreate, saving = false, error = null, existingExamCount = 0 }) {
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
   const [targetGrade, setTargetGrade] = useState(27);
@@ -142,6 +150,7 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear]   = useState(today.getFullYear());
   const [emojiOverride, setEmojiOverride] = useState(null);
+  const [selectedPalette, setSelectedPalette] = useState(() => getNextExamPalette(existingExamCount));
   const [priority, setPriority] = useState(3);
   const PRIORITIES = [
     { val:1, label:'Bassa',     color:'#10B981' },
@@ -156,7 +165,7 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
   const pad    = (n) => (n < 10 ? '0' + n : '' + n);
   const subjectName = name.trim();
   const inferredSubject = inferSubjectFromName(subjectName);
-  const subjectPalette = getSubjectPalette(inferredSubject, EXTRA_SUBJECT_COLORS.Other);
+  const subjectPalette = selectedPalette || getSubjectPalette(inferredSubject, EXTRA_SUBJECT_COLORS.Other);
   const targetPct = ((targetGrade - 18) / 12) * 100;
   const autoEmoji = SUBJECT_EMOJI[inferredSubject] || SUBJECT_EMOJI.default;
   const displayEmoji = emojiOverride || autoEmoji;
@@ -179,8 +188,8 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
       targetGrade,
       priority,
       emoji: displayEmoji,
-      color: subjectPalette.bg,
-      dot: subjectPalette.dot,
+      color: selectedPalette.bg,
+      dot: selectedPalette.dot,
       chapters: []
     });
   };
@@ -232,6 +241,13 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
             </select>
           </div>
         </div>
+
+        <ColorPicker
+          label="Colore esame"
+          value={selectedPalette.dot}
+          onChange={setSelectedPalette}
+          disabled={saving}
+        />
 
         <div style={uploadS.field}>
           <label style={dateS.label}>Voto target 🎯</label>
@@ -294,6 +310,38 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
   );
 }
 
+function ColorPicker({ label, value, onChange, disabled = false }) {
+  return (
+    <div style={uploadS.field}>
+      <label style={dateS.label}>{label}</label>
+      <div style={colorS.grid}>
+        {EXAM_COLOR_PALETTE.map((palette) => {
+          const active = value === palette.dot;
+          return (
+            <button
+              key={palette.dot}
+              type="button"
+              aria-label={palette.name}
+              title={palette.name}
+              disabled={disabled}
+              onClick={() => onChange(palette)}
+              style={{
+                ...colorS.swatch,
+                background: palette.bg,
+                borderColor: active ? palette.dot : palette.border,
+                boxShadow: active ? `0 0 0 3px ${palette.dot}22` : 'none',
+                opacity: disabled ? .55 : 1,
+              }}
+            >
+              <span style={{ ...colorS.dot, background: palette.dot }} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 
 const dateS = {
   label: { display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 },
@@ -318,6 +366,12 @@ const dateS = {
     paddingRight: 32,
     cursor: 'pointer',
   },
+};
+
+const colorS = {
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(9, minmax(0, 1fr))', gap: 8 },
+  swatch: { height: 34, borderRadius: 10, border: '2px solid transparent', display: 'grid', placeItems: 'center', cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s, transform .15s' },
+  dot: { width: 16, height: 16, borderRadius: 999, boxShadow: '0 1px 4px rgba(15,23,42,.2)' },
 };
 
 

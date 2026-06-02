@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, XMark } from '../lib/icons';
-import { getExamEmoji, SubjectIcon } from '../lib/examUi';
+import { getExamEmoji, getExamPalette, SubjectIcon } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { getSubjectPalette } from '../data/mockData';
 import { createFlashcard, deleteFlashcard, listFlashcards, submitFlashcardReview, updateFlashcard } from '../services/flashcards';
@@ -88,6 +88,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
   const [form, setForm] = useState({ chapterId: '', front: '', back: '' });
   const [editingId, setEditingId] = useState(null);
   const selectedExam = exams.find(e => e.id === selectedExamId);
+  const selectedPalette = selectedExam ? getExamPalette(selectedExam, darkMode) : getSubjectPalette('', {}, darkMode);
 
   const fmtDate = (ts) => new Date(ts).toLocaleDateString('it-IT', { day:'numeric', month:'short' });
   const fmtScore = (s) => s >= 80 ? { label: s + '%', color: '#10B981', bg:'#ECFDF5' } : s >= 60 ? { label: s + '%', color: '#F59E0B', bg:'#FFFBEB' } : { label: s + '%', color: '#EF4444', bg:'#FEF2F2' };
@@ -152,10 +153,14 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
       subject: selectedExam.subject,
       title: chapter?.title || selectedExam.name,
       cards: availableCards.slice(0, effectiveCards),
+      _examColor: selectedExam.color || null,
+      _examDot: selectedExam.dot || null,
       _meta: {
         ...(deck?._practiceConfig || {}),
         examId: selectedExam.id,
         examName: selectedExam.name,
+        examColor: selectedExam.color || null,
+        examDot: selectedExam.dot || null,
         chapterId: chapter?.id || 'all',
         chapterName: chapter?.title || 'Intero esame',
         numCards: effectiveCards,
@@ -222,7 +227,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
           <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
-              const pal = getSubjectPalette(exam.subject, {}, darkMode);
+              const pal = getExamPalette(exam, darkMode);
               const emoji = getExamEmoji(exam);
               return (
                 <button key={exam.id} onClick={() => { setSelectedExamId(exam.id); setSelectedChapterId('all'); }}
@@ -249,9 +254,9 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
                   const count = countCardsForChapter(ch.id);
                   return (
                     <button key={ch.id} type="button" onClick={() => setSelectedChapterId(ch.id)}
-                      style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', borderRadius:999, border:`1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`, background: active ? 'var(--lavender)' : 'var(--surface)', color: active ? 'var(--indigo)' : 'var(--gray)', fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                      style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', borderRadius:999, border:`1.5px solid ${active ? selectedPalette.dot : 'var(--border)'}`, background: active ? selectedPalette.bg : 'var(--surface)', color: active ? selectedPalette.text : 'var(--gray)', fontWeight:700, fontSize:13, cursor:'pointer' }}>
                       {ch.title}
-                      <span style={{ background: active ? 'var(--indigo)' : 'var(--border)', color: active ? '#fff' : 'var(--gray)', fontSize:10, fontWeight:900, borderRadius:999, padding:'1px 7px', lineHeight:1.5 }}>{count}</span>
+                      <span style={{ background: active ? selectedPalette.dot : 'var(--border)', color: active ? '#fff' : 'var(--gray)', fontSize:10, fontWeight:900, borderRadius:999, padding:'1px 7px', lineHeight:1.5 }}>{count}</span>
                     </button>
                   );
                 })}
@@ -271,9 +276,9 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
                       const active = numCards === n && !disabled;
                       return (
                         <button key={n} type="button" onClick={() => !disabled && setNumCards(n)} disabled={disabled}
-                          style={{ padding:'12px 4px', borderRadius:12, border:`1.5px solid ${active ? 'var(--indigo)' : 'var(--border)'}`, background: active ? 'var(--lavender)' : 'var(--surface)', fontWeight:900, fontSize:18, color: active ? 'var(--indigo)' : disabled ? 'var(--border)' : 'var(--gray)', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                          style={{ padding:'12px 4px', borderRadius:12, border:`1.5px solid ${active ? selectedPalette.dot : 'var(--border)'}`, background: active ? selectedPalette.bg : 'var(--surface)', fontWeight:900, fontSize:18, color: active ? selectedPalette.text : disabled ? 'var(--border)' : 'var(--gray)', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                           {n}
-                          <span style={{ fontSize:9, fontWeight:700, color: active ? 'var(--indigo)' : 'var(--gray-2)', opacity: disabled ? 0 : 0.7 }}>carte</span>
+                          <span style={{ fontSize:9, fontWeight:700, color: active ? selectedPalette.text : 'var(--gray-2)', opacity: disabled ? 0 : 0.7 }}>carte</span>
                         </button>
                       );
                     })}
@@ -283,14 +288,14 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
             )}
           </div>
           <button type="button" onClick={startConfiguredDeck} disabled={!maxCards || loadingCards}
-            style={{ width:'100%', borderRadius:16, padding:'16px', background: maxCards && !loadingCards ? 'linear-gradient(135deg, var(--indigo) 0%, #5B53F0 100%)' : '#CBD5E1', color:'#fff', fontWeight:900, fontSize:16, cursor: maxCards && !loadingCards ? 'pointer' : 'not-allowed', border:'none', marginBottom:24 }}>
+            style={{ width:'100%', borderRadius:16, padding:'16px', background: maxCards && !loadingCards ? `linear-gradient(135deg, ${selectedPalette.dot} 0%, ${selectedPalette.dot}cc 100%)` : '#CBD5E1', color:'#fff', fontWeight:900, fontSize:16, cursor: maxCards && !loadingCards ? 'pointer' : 'not-allowed', border:'none', marginBottom:24 }}>
             {loadingCards ? 'Loading...' : `Studia ${maxCards ? effectiveCards : 0} carte`}
           </button>
 
           <div style={sL}>Capitoli — {selectedExam.name}</div>
           <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap:12 }}>
             {selectedExam.chapters.map(ch => {
-              const pal = getSubjectPalette(selectedExam.subject, {}, darkMode);
+              const pal = selectedPalette;
               const chapterCards = getCardsForChapter(ch);
               const cardCount = chapterCards.length;
               const hasCards = cardCount > 0;
@@ -300,7 +305,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
               const studied = lastScore != null;
               return (
                 <div key={ch.id}
-                  onClick={() => hasCards && onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: chapterCards, _meta: { examId: selectedExam.id, chapterId: ch.id } })}
+                  onClick={() => hasCards && onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: chapterCards, _examColor: selectedExam.color || null, _examDot: selectedExam.dot || null, _meta: { examId: selectedExam.id, examColor: selectedExam.color || null, examDot: selectedExam.dot || null, chapterId: ch.id } })}
                   style={{ display:'flex', flexDirection:'column', gap:0, background:'var(--surface)', border:`1.5px solid ${studied ? pal.dot + '40' : 'var(--border)'}`, borderRadius:18, overflow:'hidden', opacity: hasCards ? 1 : 0.5, cursor: hasCards ? 'pointer' : 'default', transition:'box-shadow .15s, border-color .15s' }}
                   onMouseEnter={e => { if (hasCards) e.currentTarget.style.boxShadow='0 4px 20px rgba(55,48,232,.1)'; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow='none'; }}>
@@ -331,7 +336,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
 
                     <button
                       disabled={!hasCards}
-                      onClick={e => { e.stopPropagation(); if(hasCards) onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: chapterCards, _meta: { examId: selectedExam.id, chapterId: ch.id } }); }}
+                      onClick={e => { e.stopPropagation(); if(hasCards) onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: chapterCards, _examColor: selectedExam.color || null, _examDot: selectedExam.dot || null, _meta: { examId: selectedExam.id, examColor: selectedExam.color || null, examDot: selectedExam.dot || null, chapterId: ch.id } }); }}
                       style={{ width:'100%', padding:'10px', borderRadius:12, background: hasCards ? pal.dot : 'var(--border)', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor: hasCards ? 'pointer' : 'not-allowed', letterSpacing:'.01em' }}>
                       {studied ? '🔄 Rivedi' : '▶ Studia'}
                     </button>
@@ -392,7 +397,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {recentDecks.map((deck, i) => {
               const sc = deck.lastScore != null ? fmtScore(deck.lastScore) : null;
-              const pal = getSubjectPalette(deck.subject, {}, darkMode);
+              const pal = getExamPalette({ subject: deck.subject, color: deck._examColor || deck._meta?.examColor, dot: deck._examDot || deck._meta?.examDot }, darkMode);
               return (
                 <div key={i}
                   style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, cursor:'pointer', transition:'border-color .15s' }}
@@ -419,8 +424,8 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
   );
 }
 
-export function FlashcardViewer({ noteId, subject, title, cards, _meta, setTab, darkMode, onFlashComplete, onBackToLanding }) {
-  const palette = getSubjectPalette(subject, {}, darkMode);
+export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examColor, _examDot, setTab, darkMode, onFlashComplete, onBackToLanding }) {
+  const palette = getExamPalette({ subject, color: _meta?.examColor || _examColor, dot: _meta?.examDot || _examDot }, darkMode);
   const normalizedCards = (cards || []).map(normalizeFlashcard);
   const total = normalizedCards.length;
   const [idx, setIdx] = useState(0);
