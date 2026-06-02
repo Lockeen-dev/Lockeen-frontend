@@ -355,12 +355,12 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
             }
           }
           if (nextMaterial.processingStatus === 'ready' && nextMaterial.extractedText) {
-            createQuestionBankForMaterial({
+            await createPracticeBanksForMaterial({
               examId: activeId,
               chapterId: targetChapter.id,
               material: nextMaterial,
               title: targetChapter.title || chapterName || nextMaterial.title,
-            }).catch(() => {});
+            }).catch(() => null);
           }
           createdMaterials.push(nextMaterial);
         }
@@ -781,6 +781,47 @@ async function createQuestionBankForMaterial({ examId, chapterId = null, noteId 
     questions,
   });
   return result.error ? null : result.data;
+}
+
+async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
+  if (!material?.id || material.processingStatus !== 'ready' || !material.extractedText) return null;
+  const desiredCardCount = estimateFlashcardPlan({ sourceText: material.extractedText, pageCount: material.pageCount }).cardCount;
+  const reuseThreshold = Math.max(5, Math.floor(desiredCardCount * 0.85));
+  const existing = await listFlashcards({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
+  const existingCards = existing.error ? [] : (existing.data || []);
+  if (existingCards.length >= reuseThreshold) return existingCards;
+
+  const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
+  const cards = await buildFlashcardBankCards({
+    title: bankTitle,
+    sourceText: material.extractedText,
+    pageCount: material.pageCount,
+  });
+  const missingCards = cards.slice(0, Math.max(0, desiredCardCount - existingCards.length));
+  const created = [];
+  for (const card of missingCards) {
+    const result = await createFlashcard({
+      examId,
+      chapterId,
+      noteId,
+      sourceMaterialId: material.id,
+      front: card.front,
+      back: card.back,
+    });
+    if (result.error) return created.length ? created : null;
+    created.push(result.data);
+  }
+  return [...existingCards, ...created];
+}
+
+async function createPracticeBanksForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
+  if (!material?.id || material.processingStatus !== 'ready' || !material.extractedText) return null;
+  const bankInput = { examId, chapterId, noteId, material, title };
+  const [quizBank, flashcardBank] = await Promise.all([
+    createQuestionBankForMaterial(bankInput),
+    createFlashcardBankForMaterial(bankInput),
+  ]);
+  return { quizBank, flashcardBank };
 }
 
 function isUuidLike(value = '') {
@@ -1949,11 +1990,11 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       }
     }
     if (material.processingStatus === 'ready' && material.extractedText) {
-      createQuestionBankForMaterial({
+      await createPracticeBanksForMaterial({
         examId: exam.id,
         material,
         title: material.title || exam.name,
-      }).catch(() => {});
+      }).catch(() => null);
     }
     if (resolvedPageCount) rememberMaterialUiMeta([material]);
     setMaterials((prev) => [material, ...prev]);
