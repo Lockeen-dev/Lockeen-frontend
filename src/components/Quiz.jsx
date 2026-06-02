@@ -475,15 +475,24 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   const selectedExam = exams.find(e => e.id === selectedExamId);
 
   useEffect(() => {
+    if (!deck?._practiceConfig) return;
+    setSelectedExamId(deck._examId ?? deck._practiceConfig.examId ?? exams[0]?.id ?? null);
+    setSelectedChapterId(deck._practiceConfig.chapterId || 'all');
+    setNumQ(deck._practiceConfig.count || 10);
+    setSelectedDiffs(normalizeDifficultySelection(deck._practiceConfig.difficulties ?? deck._practiceConfig.difficulty));
+    setTimerOn(!!deck._practiceConfig.timerOn);
+    setTimerSecs(deck._practiceConfig.timerSecs || 30);
+    setActiveDeck(deck.questions && deck.questions.length > 0 ? deck : null);
+    autoStartedRef.current = false;
+  }, [deck, exams]);
+
+  useEffect(() => {
     let cancelled = false;
     async function loadQuizzes() {
       if (!selectedExamId || activeDeck) return;
       setLoadingQuizzes(true);
       setQuizError('');
-      const filters = selectedChapterId === 'all'
-        ? { examId: selectedExamId }
-        : { examId: selectedExamId, chapterId: selectedChapterId };
-      const result = await listQuizzes(filters);
+      const result = await listQuizzes({ examId: selectedExamId });
       if (cancelled) return;
       if (result.error) {
         setQuizError(result.error.message || 'Could not load quizzes.');
@@ -495,14 +504,16 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
     }
     loadQuizzes();
     return () => { cancelled = true; };
-  }, [selectedExamId, selectedChapterId, activeDeck]);
+  }, [selectedExamId, activeDeck]);
 
   const scopedQuizzes = React.useMemo(() => {
     const predictorPractice = deck?._practiceConfig?.source === 'analytics-grade-predictor';
-    return predictorPractice
+    const quizzes = predictorPractice
       ? serviceQuizzes.filter(isReliableMaterialQuiz)
       : serviceQuizzes;
-  }, [deck?._practiceConfig?.source, serviceQuizzes]);
+    if (selectedChapterId === 'all') return quizzes;
+    return quizzes.filter((quiz) => String(quiz.chapterId) === String(selectedChapterId));
+  }, [deck?._practiceConfig?.source, selectedChapterId, serviceQuizzes]);
 
   const allAvailableQuestions = React.useMemo(() => {
     const serviceQuestions = scopedQuizzes.flatMap(quiz => quiz.questions || []);
@@ -526,13 +537,28 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
 
   const maxQ = availableQuestions.length;
   const effectiveNumQ = Math.min(numQ, maxQ || 1);
+  const countQuestionsInQuizzes = (quizzes = [], difficulties = DIFFICULTY_IDS) =>
+    filterQuestionsByDifficulty(quizzes.flatMap((quiz) => quiz.questions || []), difficulties).length;
   const countQuestionsForChapter = (chapterId) => {
     if (!selectedExam) return 0;
-    if (chapterId === selectedChapterId) return allAvailableQuestions.length;
-    if (chapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []).length;
+    if (chapterId === 'all') {
+      const serviceCount = countQuestionsInQuizzes(serviceQuizzes);
+      if (serviceCount > 0) return serviceCount;
+      return selectedExam.chapters.flatMap(c => c.questions || []).length;
+    }
+    const chapterQuizzes = serviceQuizzes.filter((quiz) => String(quiz.chapterId) === String(chapterId));
+    const serviceCount = countQuestionsInQuizzes(chapterQuizzes);
+    if (serviceCount > 0) return serviceCount;
     const ch = selectedExam.chapters.find(c => c.id === chapterId);
     return ch?.questions?.length || 0;
   };
+  const difficultyCounts = React.useMemo(() => {
+    const questions = scopedQuizzes.flatMap((quiz) => quiz.questions || []);
+    return DIFFICULTY_IDS.reduce((acc, id) => {
+      acc[id] = questions.filter((question) => (question.difficulty || 'medium') === id).length;
+      return acc;
+    }, {});
+  }, [scopedQuizzes]);
   const toggleDifficulty = (id) => {
     setSelectedDiffs((current) => {
       const set = new Set(normalizeDifficultySelection(current));
@@ -556,33 +582,41 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       : { examId, chapterId };
     const listResult = await listQuizzes(filters);
     let serviceQuiz = null;
+    let serviceQuestions = [];
     if (listResult.error) {
       setQuizError(listResult.error.message || 'Could not load quiz.');
     } else {
       const candidateQuizzes = overrides.requireMaterialQuiz
         ? (listResult.data || []).filter(isReliableMaterialQuiz)
         : (listResult.data || []);
-      serviceQuiz = candidateQuizzes.find(quiz => filterQuestionsByDifficulty(quiz.questions || [], overrides._difficulties || selectedDiffs).length > 0) || null;
-      if (serviceQuiz) {
+      const matchingQuizzes = candidateQuizzes
+        .map(normalizeQuiz)
+        .map((quiz) => ({ ...quiz, questions: filterQuestionsByDifficulty(quiz.questions || [], overrides._difficulties || selectedDiffs) }))
+        .filter((quiz) => quiz.questions.length > 0);
+      serviceQuiz = matchingQuizzes.length === 1 ? matchingQuizzes[0] : null;
+      serviceQuestions = matchingQuizzes.flatMap((quiz) => quiz.questions || []);
+      if (serviceQuiz?.id) {
         const quizResult = await getQuiz(serviceQuiz.id);
         if (quizResult.error) {
           setQuizError(quizResult.error.message || 'Could not open quiz.');
           serviceQuiz = normalizeQuiz(serviceQuiz);
         } else {
           serviceQuiz = normalizeQuiz(quizResult.data);
+          serviceQuiz.questions = filterQuestionsByDifficulty(serviceQuiz.questions || [], overrides._difficulties || selectedDiffs);
+          serviceQuestions = serviceQuiz.questions;
         }
       }
     }
     setLoadingQuizzes(false);
-    if (overrides.requireServiceQuiz && !serviceQuiz?.questions?.length) {
+    if (overrides.requireServiceQuiz && !serviceQuestions.length) {
       setQuizError('No material-based quiz available for this scope. Generate a quiz from uploaded material first.');
       return;
     }
     const fallbackQs = chapterId === 'all'
       ? (exam?.chapters || []).flatMap(c => c.questions || [])
       : (exam?.chapters.find(c => c.id === chapterId)?.questions || []);
-    const qs = serviceQuiz?.questions?.length
-      ? filterQuestionsByDifficulty(serviceQuiz.questions, overrides._difficulties || selectedDiffs)
+    const qs = serviceQuestions.length
+      ? serviceQuestions
       : fallbackQs;
     if (overrides.requireServiceQuiz && !qs.length) {
       setQuizError(`No material questions available for ${difficultySummary}. Generate a quiz from uploaded material first.`);
@@ -674,7 +708,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         <div>
           <h2 style={{ margin:'0 0 3px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>Quiz</h2>
           <p style={{ margin:0, fontSize:13, color:'var(--gray)' }}>
-            {selectedExam ? `${selectedExam.name} · ${loadingQuizzes ? 'loading...' : maxQ > 0 ? effectiveNumQ + ' domande' : 'nessuna domanda'}` : 'Configura il tuo quiz'}
+            {selectedExam ? `${selectedExam.name} · ${loadingQuizzes ? 'loading...' : maxQ > 0 ? `${effectiveNumQ} di ${maxQ} domande` : 'nessuna domanda'}` : 'Configura il tuo quiz'}
           </p>
         </div>
       </div>
@@ -734,9 +768,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             <div style={{ padding:'20px 22px' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
                 <div style={secLabel}>Domande</div>
-                <span style={{ fontSize:12, color:'var(--gray)', fontWeight:500 }}>
-                  {maxQ < 20 && `Max disponibili: ${maxQ}`}
-                </span>
+                <span style={{ fontSize:12, color:'var(--gray)', fontWeight:500 }}>Disponibili: {maxQ}</span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
                 {[5,10,15,20].map(n => {
@@ -773,7 +805,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
                     onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = selectedDiffs.includes(d.id) ? d.color : 'var(--border)'; el.style.background = selectedDiffs.includes(d.id) ? d.bg : 'var(--surface)'; }}>
                     <div style={{ width:12, height:12, borderRadius:'50%', background:d.color, boxShadow:`0 0 0 3px ${d.color}25` }} />
                     <div style={{ fontSize:12, fontWeight:700, color:selectedDiffs.includes(d.id) ? d.color : 'var(--ink)', lineHeight:1 }}>{d.label}</div>
-                    <div style={{ fontSize:10, color:'var(--gray)', fontWeight:500 }}>{d.desc}</div>
+                    <div style={{ fontSize:10, color:'var(--gray)', fontWeight:500 }}>{difficultyCounts[d.id] || 0} dom.</div>
                   </button>
                 ))}
               </div>

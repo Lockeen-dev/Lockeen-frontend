@@ -1575,6 +1575,27 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       sourceMaterialId: readyMaterials.length === 1 ? readyMaterials[0].id : null,
     };
   };
+  const openQuizConfigurator = ({ title, chapterId = null, count = 10 } = {}) => {
+    if (!onOpenQuiz) return;
+    onOpenQuiz({
+      _examId: exam.id,
+      _practiceConfig: {
+        source: 'study-material',
+        mode: 'quiz',
+        examId: exam.id,
+        examName: exam.name,
+        chapterId: chapterId || 'all',
+        chapterName: title || exam.name,
+        difficulties: ['easy', 'medium', 'hard', 'extreme'],
+        count,
+        timerOn: false,
+        timerSecs: 30,
+        autoStart: false,
+        requestedAt: new Date().toISOString(),
+      },
+      questions: [],
+    });
+  };
 
   const startStudy = async () => {
     const seed = getReadyMaterialSeed();
@@ -1609,20 +1630,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
             return questions.length > 0 && !questions.some(isFallbackPracticeQuestion);
           });
           if (existingQuiz) {
-            onOpenQuiz({
-              noteId: chapterId || noteId || exam.id,
-              quizId: existingQuiz.id,
-              subject: exam.subject,
-              title: existingQuiz.title || cleanPracticeTitle(title, exam.name),
-              questions: existingQuiz.questions || [],
-              _meta: {
-                examId: exam.id,
-                examName: exam.name,
-                chapterId: chapterId || 'all',
-                chapterName: title,
-                numQ: (existingQuiz.questions || []).length,
-              },
-            });
+            openQuizConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, (existingQuiz.questions || []).length || 10)) });
             return existingQuiz;
           }
         }
@@ -1648,14 +1656,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         return null;
       }
       const quiz = result.data;
-      onOpenQuiz({
-        noteId: chapterId || noteId || exam.id,
-        quizId: quiz.id,
-        subject: exam.subject,
-        title: quiz.title,
-        questions: quiz.questions || questions,
-        _meta: { examId: exam.id, examName: exam.name, chapterId: chapterId || 'all', chapterName: title, numQ: (quiz.questions || questions).length },
-      });
+      openQuizConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, (quiz.questions || questions).length || 10)) });
       return quiz;
     } catch (error) {
       setMaterialsError(error?.message || 'Unable to generate quiz.');
