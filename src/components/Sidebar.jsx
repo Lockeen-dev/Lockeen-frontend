@@ -67,7 +67,7 @@ export default function Sidebar({ tab, setTab, lang = 'en', collapsed = false, o
 }
 
 const sideS = {
-  wrap: { position: 'relative', background: 'var(--sidebar-bg)', borderRight: '1px solid var(--border)', padding: '52px 16px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'visible', transition: 'width .2s ease, padding .2s ease' },
+  wrap: { position: 'relative', background: '#F3F5FC', borderRight: '1px solid #E4E7F0', padding: '52px 16px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'visible', transition: 'width .2s ease, padding .2s ease' },
   wrapCollapsed: { padding: '52px 8px 24px', alignItems: 'center' },
   topRow: { position: 'absolute', top: 14, right: 10, zIndex: 20, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 0 },
   collapseBtn: { width: 30, height: 30, borderRadius: 9, border: '1.5px solid var(--indigo)', background: 'var(--surface)', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: '0 8px 22px -12px rgba(55,48,232,.55)' },

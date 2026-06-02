@@ -501,8 +501,8 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         className="outerCard"
         style={{
           ...shellS.outerCard,
-          background: '#fff',
-          boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)',
+          background: '#F8F9FE',
+          boxShadow: '0 30px 70px -34px rgba(55,48,232,.32)',
           borderRadius: isMobile ? 0 : 24,
           border: isMobile ? 'none' : '2px solid var(--indigo)',
         }}
@@ -679,7 +679,7 @@ function SectionLabel({ children, compact = false }) {
 }
 
 const shellS = {
-  wrap: { minHeight: '100vh', width: '100%', margin: '0 auto', padding: '24px clamp(18px, 2.4vw, 40px) 40px', boxSizing: 'border-box', overflowX: 'hidden' },
+  wrap: { minHeight: '100vh', width: '100%', margin: '0 auto', padding: '24px clamp(18px, 2.4vw, 40px) 40px', boxSizing: 'border-box', overflowX: 'hidden', background: 'linear-gradient(180deg,#F6F7FD 0%,#FFFFFF 42%,#F8F9FE 100%)' },
   header: { marginBottom: 20 },
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   logoBox: { width: 36, height: 36, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
@@ -688,9 +688,9 @@ const shellS = {
   themeBtn: { width: 38, height: 38, borderRadius: 10, border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center', transition: 'background .2s, color .2s' },
   themeIcon: { display: 'grid', placeItems: 'center' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
-  outerCard: { width: '100%', maxWidth: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
+  outerCard: { width: '100%', maxWidth: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: '#F8F9FE', overflow: 'hidden', boxShadow: '0 30px 70px -34px rgba(55,48,232,.32)' },
   grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 132px)', width: '100%', minWidth: 0 },
-  main: { padding: '32px clamp(28px, 3vw, 56px)', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box' },
+  main: { padding: '32px clamp(28px, 3vw, 56px)', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box', background: '#FFFFFF' },
 };
 
 const practiceS = {
