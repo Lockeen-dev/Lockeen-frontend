@@ -48,6 +48,29 @@ function cleanPracticeTitle(value, fallback = 'Study practice') {
   return String(value || fallback).replace(/\s+/g, ' ').trim().slice(0, 120) || fallback;
 }
 
+const practiceJobCache = {
+  quiz: new Map(),
+  flashcards: new Map(),
+  banks: new Map(),
+};
+
+function materialPracticeJobKey(kind, { examId, chapterId = null, noteId = null, material } = {}) {
+  if (!material?.id) return null;
+  return [kind, examId || 'exam', chapterId || 'all', noteId || 'none', material.id].join(':');
+}
+
+function runMaterialPracticeJob(kind, input, task) {
+  const key = materialPracticeJobKey(kind, input);
+  const cache = practiceJobCache[kind];
+  if (!key || !cache) return task();
+  if (cache.has(key)) return cache.get(key);
+  const job = Promise.resolve()
+    .then(task)
+    .finally(() => cache.delete(key));
+  cache.set(key, job);
+  return job;
+}
+
 function isFallbackPracticeQuestion(question) {
   const text = String(question?.q || question?.prompt || '').toLowerCase();
   return [
@@ -789,69 +812,75 @@ async function buildFlashcardBankCards({ title, sourceText, pageCount = null }) 
 
 async function createQuestionBankForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
   if (!material?.id || material.processingStatus !== 'ready' || !material.extractedText) return null;
-  const existing = await listQuizzes({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
-  const desiredQuestionCount = estimateQuestionBankPlan({ sourceText: material.extractedText, pageCount: material.pageCount }).questionCount;
-  const reuseThreshold = Math.max(5, Math.floor(desiredQuestionCount * 0.85));
-  if (!existing.error && (existing.data || []).some((quiz) => (quiz.questions || []).length >= reuseThreshold && !(quiz.questions || []).some((question) => isFallbackPracticeQuestion(question)))) {
-    return existing.data[0];
-  }
-  const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
-  const questions = await buildQuestionBankQuestions({
-    title: bankTitle,
-    sourceText: material.extractedText,
-    pageCount: material.pageCount,
-  });
-  if (!questions.length) return null;
-  const result = await createQuiz({
-    examId,
-    chapterId,
-    noteId,
-    sourceMaterialId: material.id,
-    title: bankTitle,
-    questions,
-  });
-  return result.error ? null : result.data;
-}
+  return runMaterialPracticeJob('quiz', { examId, chapterId, noteId, material }, async () => {
+    const existing = await listQuizzes({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
+    const desiredQuestionCount = estimateQuestionBankPlan({ sourceText: material.extractedText, pageCount: material.pageCount }).questionCount;
+    const reuseThreshold = Math.max(5, Math.floor(desiredQuestionCount * 0.85));
+    const reusableQuiz = (existing.data || []).find((quiz) => (quiz.questions || []).length >= reuseThreshold && !(quiz.questions || []).some((question) => isFallbackPracticeQuestion(question)));
+    if (!existing.error && reusableQuiz) return reusableQuiz;
 
-async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
-  if (!material?.id || material.processingStatus !== 'ready' || !material.extractedText) return null;
-  const desiredCardCount = estimateFlashcardPlan({ sourceText: material.extractedText, pageCount: material.pageCount }).cardCount;
-  const reuseThreshold = Math.max(5, Math.floor(desiredCardCount * 0.85));
-  const existing = await listFlashcards({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
-  const existingCards = existing.error ? [] : (existing.data || []);
-  if (existingCards.length >= reuseThreshold) return existingCards;
-
-  const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
-  const cards = await buildFlashcardBankCards({
-    title: bankTitle,
-    sourceText: material.extractedText,
-    pageCount: material.pageCount,
-  });
-  const missingCards = cards.slice(0, Math.max(0, desiredCardCount - existingCards.length));
-  const created = [];
-  for (const card of missingCards) {
-    const result = await createFlashcard({
+    const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
+    const questions = await buildQuestionBankQuestions({
+      title: bankTitle,
+      sourceText: material.extractedText,
+      pageCount: material.pageCount,
+    });
+    if (!questions.length) return null;
+    const result = await createQuiz({
       examId,
       chapterId,
       noteId,
       sourceMaterialId: material.id,
-      front: card.front,
-      back: card.back,
+      title: bankTitle,
+      questions,
     });
-    if (result.error) return created.length ? created : null;
-    created.push(result.data);
-  }
-  return [...existingCards, ...created];
+    return result.error ? null : result.data;
+  });
+}
+
+async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
+  if (!material?.id || material.processingStatus !== 'ready' || !material.extractedText) return null;
+  return runMaterialPracticeJob('flashcards', { examId, chapterId, noteId, material }, async () => {
+    const desiredCardCount = estimateFlashcardPlan({ sourceText: material.extractedText, pageCount: material.pageCount }).cardCount;
+    const reuseThreshold = Math.max(5, Math.floor(desiredCardCount * 0.85));
+    const existing = await listFlashcards({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
+    const existingCards = existing.error ? [] : (existing.data || []);
+    if (existingCards.length >= reuseThreshold) return existingCards;
+
+    const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
+    const cards = await buildFlashcardBankCards({
+      title: bankTitle,
+      sourceText: material.extractedText,
+      pageCount: material.pageCount,
+    });
+    const missingCards = cards.slice(0, Math.max(0, desiredCardCount - existingCards.length));
+    const created = [];
+    for (const card of missingCards) {
+      const result = await createFlashcard({
+        examId,
+        chapterId,
+        noteId,
+        sourceMaterialId: material.id,
+        front: card.front,
+        back: card.back,
+      });
+      if (result.error) return created.length ? created : null;
+      created.push(result.data);
+    }
+    return [...existingCards, ...created];
+  });
 }
 
 async function createPracticeBanksForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
   if (!material?.id || material.processingStatus !== 'ready' || !material.extractedText) return null;
-  const bankInput = { examId, chapterId, noteId, material, title };
-  const [quizBank, flashcardBank] = await Promise.all([
-    createQuestionBankForMaterial(bankInput),
-    createFlashcardBankForMaterial(bankInput),
-  ]);
-  return { quizBank, flashcardBank };
+  return runMaterialPracticeJob('banks', { examId, chapterId, noteId, material }, async () => {
+    const bankInput = { examId, chapterId, noteId, material, title };
+    const [quizBank, flashcardBank] = await Promise.all([
+      createQuestionBankForMaterial(bankInput),
+      createFlashcardBankForMaterial(bankInput),
+    ]);
+    return { quizBank, flashcardBank };
+  });
 }
 
 function isUuidLike(value = '') {
@@ -1843,7 +1872,26 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       }
 
       let questions = buildGeneratedQuestions(title, seedQuestions, seedText);
-      if (seedText) {
+      if (seedText && sourceMaterialId) {
+        const quiz = await createQuestionBankForMaterial({
+          examId: exam.id,
+          chapterId,
+          noteId,
+          sourceMaterialId,
+          material: {
+            id: sourceMaterialId,
+            title,
+            processingStatus: 'ready',
+            extractedText: seedText,
+            pageCount: seedPageCount,
+          },
+          title: cleanPracticeTitle(title, exam.name),
+        });
+        if (quiz) {
+          openQuizConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, (quiz.questions || []).length || 10)) });
+          return quiz;
+        }
+      } else if (seedText) {
         questions = await buildQuestionBankQuestions({
           title: cleanPracticeTitle(title, exam.name),
           sourceText: seedText,
@@ -1896,7 +1944,25 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       }
 
       let cards = buildGeneratedFlashcards(title, seedCards, seedText);
-      if (seedText) {
+      if (seedText && sourceMaterialId) {
+        const bankCards = await createFlashcardBankForMaterial({
+          examId: exam.id,
+          chapterId,
+          noteId,
+          sourceMaterialId,
+          material: {
+            id: sourceMaterialId,
+            title,
+            processingStatus: 'ready',
+            extractedText: seedText,
+            pageCount: seedPageCount,
+          },
+          title: cleanPracticeTitle(title, exam.name),
+        });
+        const totalCards = Array.isArray(bankCards) ? bankCards.length : 0;
+        openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, totalCards || 10)) });
+        return bankCards;
+      } else if (seedText) {
         cards = await buildFlashcardBankCards({
           title: cleanPracticeTitle(title, exam.name),
           sourceText: seedText,
