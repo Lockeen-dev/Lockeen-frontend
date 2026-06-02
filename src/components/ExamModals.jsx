@@ -204,7 +204,7 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null }) {
               size={48}
               onPick={(e) => { if (!saving) setEmojiOverride(e); }}
             />
-            <input value={name} onChange={(e) => { setName(e.target.value); setEmojiOverride(null); }} onBlur={() => setNameTouched(true)} disabled={saving} placeholder="es. Biologia 2024" style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
+            <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setNameTouched(true)} disabled={saving} placeholder="es. Biologia 2024" style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
           </div>
           {nameTouched && !name.trim() && <div style={uploadS.validationText}>Exam name is required.</div>}
           {!emojiOverride && name.trim() && (
