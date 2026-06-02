@@ -107,7 +107,7 @@ function buildQuestionsFromText(title, seedText = '') {
       ][distractors.length]);
     }
     return {
-      q: 'According to the uploaded material, which statement is correct?',
+      q: `Which statement best matches study point ${index + 1} from the uploaded material?`,
       options: [shortFact(fact, 140), ...distractors],
       correct: 0,
       explanation: shortFact(fact, 220),
@@ -682,7 +682,9 @@ function estimateFlashcardPlan({ sourceText = '', pageCount = null } = {}) {
 function dedupeQuestions(questions = []) {
   const seen = new Set();
   return questions.filter((question) => {
-    const key = cleanStudyText(question.q || question.prompt || '').toLowerCase().slice(0, 180);
+    const correctIndex = Number(question.correct ?? question.correctAnswer ?? 0);
+    const correctOption = Array.isArray(question.options) ? question.options[correctIndex] : '';
+    const key = cleanStudyText(`${question.q || question.prompt || ''} ${correctOption || question.explanation || ''}`).toLowerCase().slice(0, 220);
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -754,7 +756,7 @@ async function buildFlashcardBankCards({ title, sourceText, pageCount = null }) 
 async function createQuestionBankForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
   if (!material?.id || material.processingStatus !== 'ready' || !material.extractedText) return null;
   const existing = await listQuizzes({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
-  if (!existing.error && (existing.data || []).some((quiz) => (quiz.questions || []).some((question) => !isFallbackPracticeQuestion(question)))) {
+  if (!existing.error && (existing.data || []).some((quiz) => (quiz.questions || []).length >= 5 && !(quiz.questions || []).some((question) => isFallbackPracticeQuestion(question)))) {
     return existing.data[0];
   }
   const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
