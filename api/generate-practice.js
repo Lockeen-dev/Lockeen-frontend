@@ -72,7 +72,7 @@ function normalizeQuizQuestions(value, { limit = 5, difficulties = QUIZ_DIFFICUL
     .slice(0, limit);
 }
 
-function normalizeFlashcards(value) {
+function normalizeFlashcards(value, { limit = 8 } = {}) {
   const raw = Array.isArray(value) ? value : [];
   return raw
     .map((card) => ({
@@ -80,10 +80,10 @@ function normalizeFlashcards(value) {
       back: normalizeWhitespace(card.back || card.a),
     }))
     .filter((card) => card.front && card.back)
-    .slice(0, 8);
+    .slice(0, limit);
 }
 
-async function callOpenAI({ kind, title, sourceText, questionCount = 5, difficulties = QUIZ_DIFFICULTIES, coverageHint = '' }) {
+async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCount = 8, difficulties = QUIZ_DIFFICULTIES, coverageHint = '' }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return {
@@ -94,12 +94,13 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, difficul
 
   const wantsQuiz = kind === 'quiz';
   const quizCount = Math.max(5, Math.min(60, Number(questionCount) || 5));
+  const flashcardCount = Math.max(5, Math.min(60, Number(cardCount) || 8));
   const quizDifficulties = (Array.isArray(difficulties) ? difficulties : QUIZ_DIFFICULTIES)
     .map((difficulty) => normalizeDifficulty(difficulty, 'medium'))
     .filter((difficulty, index, all) => all.indexOf(difficulty) === index);
   const schemaInstruction = wantsQuiz
     ? 'Return JSON only: {"questions":[{"q":"...","options":["...","...","...","..."],"correct":0,"explanation":"...","difficulty":"easy|medium|hard|extreme","topic":"..."}]}. Options must be plausible. Correct index must match answer.'
-    : 'Return JSON only: {"cards":[{"front":"...","back":"..."}]}. Create exactly 8 flashcards. Cards must be atomic, concrete, and based only on source.';
+    : `Return JSON only: {"cards":[{"front":"...","back":"..."}]}. Create up to ${flashcardCount} flashcards. Make at least ${Math.min(5, flashcardCount)} if source supports it. Cards must be atomic, concrete, and based only on source.`;
 
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -117,7 +118,7 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, difficul
             'Use only supplied source text. Do not invent facts.',
             'If source text is sparse, ask factual questions about visible extracted content.',
             'Keep output concise and exam-useful.',
-            wantsQuiz ? `Create up to ${quizCount} high-quality questions. Cover the whole supplied source proportionally: more questions for dense topics, fewer for sparse text. Do not pad weak material. Difficulty mix must fit the content, not be evenly split. Use easy for definitions, medium for understanding, hard for application/common mistakes, extreme only when source supports exam-like reasoning, traps, or concept comparison. ${coverageHint}` : '',
+            wantsQuiz ? `Create ${quizCount} high-quality questions unless source is truly too sparse; never return fewer than ${Math.min(5, quizCount)} questions when the source has enough content. Cover the whole supplied source proportionally. Difficulty mix must fit the content, not be evenly split. Use easy for definitions, medium for understanding, hard for application/common mistakes, extreme only when source supports exam-like reasoning, traps, or concept comparison. ${coverageHint}` : `Create flashcards across the whole supplied source; more cards for dense topics, fewer for sparse text. ${coverageHint}`,
             schemaInstruction,
           ].join(' '),
         },
@@ -127,13 +128,14 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, difficul
             kind,
             title,
             questionCount: quizCount,
+            cardCount: flashcardCount,
             difficulties: quizDifficulties,
             coverageHint,
             sourceText: sourceText.slice(0, MAX_SOURCE_CHARS),
           }),
         },
       ],
-      max_output_tokens: wantsQuiz ? 9000 : 1400,
+      max_output_tokens: wantsQuiz ? 9000 : Math.min(7000, Math.max(1800, flashcardCount * 220)),
       temperature: 0.2,
     }),
   });
@@ -164,7 +166,7 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, difficul
     return questions.length ? { data: { questions }, providerError: null } : { data: null, providerError: 'AI returned no valid questions.' };
   }
 
-  const cards = normalizeFlashcards(parsed.cards);
+  const cards = normalizeFlashcards(parsed.cards, { limit: flashcardCount });
   return cards.length ? { data: { cards }, providerError: null } : { data: null, providerError: 'AI returned no valid flashcards.' };
 }
 
@@ -182,6 +184,7 @@ export default async function handler(req, res) {
   const title = normalizeWhitespace(body.title || 'Uploaded material');
   const sourceText = normalizeWhitespace(body.sourceText || '');
   const questionCount = Math.max(5, Math.min(60, Number(body.questionCount) || 5));
+  const cardCount = Math.max(5, Math.min(60, Number(body.cardCount) || Number(body.questionCount) || 8));
   const difficulties = Array.isArray(body.difficulties) && body.difficulties.length ? body.difficulties : QUIZ_DIFFICULTIES;
   const coverageHint = normalizeWhitespace(body.coverageHint || '');
 
@@ -190,7 +193,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await callOpenAI({ kind, title, sourceText, questionCount, difficulties, coverageHint });
+    const result = await callOpenAI({ kind, title, sourceText, questionCount, cardCount, difficulties, coverageHint });
     if (!result.data) {
       return json(res, 503, { error: { code: 'AI_PRACTICE_FAILED', message: result.providerError || 'AI practice generation failed.' } });
     }

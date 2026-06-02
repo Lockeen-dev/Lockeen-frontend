@@ -94,7 +94,7 @@ function shortFact(value = '', maxLength = 150) {
 function buildQuestionsFromText(title, seedText = '') {
   const facts = extractStudyFacts(seedText);
   if (facts.length < 2) return [];
-  return facts.slice(0, 5).map((fact, index) => {
+  return facts.slice(0, 12).map((fact, index) => {
     const distractors = facts
       .filter((_, factIndex) => factIndex !== index)
       .slice(0, 3)
@@ -115,10 +115,10 @@ function buildQuestionsFromText(title, seedText = '') {
   });
 }
 
-function buildFlashcardsFromText(title, seedText = '') {
+function buildFlashcardsFromText(title, seedText = '', limit = 12) {
   const facts = extractStudyFacts(seedText);
   if (!facts.length) return [];
-  return facts.slice(0, 8).map((fact, index) => ({
+  return facts.slice(0, limit).map((fact, index) => ({
     front: index === 0 ? 'Main point from uploaded material' : `Key detail ${index + 1} from uploaded material`,
     back: shortFact(fact, 220),
   }));
@@ -177,7 +177,7 @@ function buildGeneratedFlashcards(title, seedCards = [], seedText = '') {
     .filter((card) => (card.front || card.q) && (card.back || card.a))
     .map((card) => ({ front: card.front || card.q, back: card.back || card.a }));
   if (normalizedSeeds.length) return normalizedSeeds.slice(0, 12);
-  const textCards = buildFlashcardsFromText(title, seedText);
+  const textCards = buildFlashcardsFromText(title, seedText, 20);
   if (textCards.length) return textCards;
 
   const topic = cleanPracticeTitle(title, 'this topic');
@@ -604,6 +604,10 @@ function clampQuestionCount(value) {
   return Math.max(5, Math.min(240, Math.round(value)));
 }
 
+function clampFlashcardCount(value) {
+  return Math.max(5, Math.min(120, Math.round(value)));
+}
+
 function getQuestionBankChunks(sourceText = '', pageCount = null) {
   const text = String(sourceText || '').trim();
   if (!text) return [];
@@ -656,6 +660,25 @@ function estimateQuestionBankPlan({ sourceText = '', pageCount = null } = {}) {
   return { questionCount, difficulties, coverageHint, chunks };
 }
 
+function estimateFlashcardPlan({ sourceText = '', pageCount = null } = {}) {
+  const facts = extractStudyFacts(sourceText);
+  const words = cleanStudyText(sourceText).split(/\s+/).filter(Boolean).length;
+  const pages = Number(pageCount) || Math.max(1, Math.ceil(words / 450));
+  const chunks = getQuestionBankChunks(sourceText, pageCount);
+  const byPages = pages <= 2 ? 8 + pages * 2 : pages <= 10 ? 12 + pages * 2 : 30 + Math.round((pages - 10) * 0.8);
+  const byDensity = Math.ceil(words / 120);
+  const byTopics = facts.length ? facts.length * 2 : 8;
+  const cardCount = clampFlashcardCount(Math.max(5, Math.min(byPages, Math.max(byDensity, byTopics))));
+  const coverageHint = [
+    `Estimated pages: ${pages}.`,
+    `Estimated words: ${words}.`,
+    `Detected study points: ${facts.length}.`,
+    `Planned source sections: ${chunks.length || 1}.`,
+    'Create atomic flashcards across meaningful concepts; do not duplicate.',
+  ].join(' ');
+  return { cardCount, coverageHint, chunks };
+}
+
 function dedupeQuestions(questions = []) {
   const seen = new Set();
   return questions.filter((question) => {
@@ -682,17 +705,50 @@ async function buildQuestionBankQuestions({ title, sourceText, pageCount = null 
       difficulties: chunkPlan.difficulties,
       coverageHint: `${plan.coverageHint} Section ${index + 1} of ${chunks.length}: cover only concepts visible in this section.`,
     });
-    if (aiResult.data?.questions?.length) {
-      generated.push(...aiResult.data.questions);
-    } else {
-      generated.push(...buildGeneratedQuestions(title, [], chunk).map((question, qIndex) => ({
+    const fallbackQuestions = buildGeneratedQuestions(title, [], chunk).map((question, qIndex) => ({
         ...question,
         difficulty: chunkPlan.difficulties[qIndex % chunkPlan.difficulties.length] || 'medium',
-      })));
+      }));
+    const aiQuestions = aiResult.data?.questions || [];
+    generated.push(...aiQuestions);
+    if (aiQuestions.length < Math.min(5, perChunk)) {
+      generated.push(...fallbackQuestions);
     }
   }
 
   return dedupeQuestions(generated).slice(0, plan.questionCount);
+}
+
+async function buildFlashcardBankCards({ title, sourceText, pageCount = null }) {
+  const plan = estimateFlashcardPlan({ sourceText, pageCount });
+  const chunks = plan.chunks.length ? plan.chunks : [sourceText];
+  const perChunk = Math.max(5, Math.ceil(plan.cardCount / chunks.length));
+  const generated = [];
+
+  for (const [index, chunk] of chunks.entries()) {
+    const aiResult = await generatePracticeFromText({
+      kind: 'flashcards',
+      title,
+      sourceText: chunk,
+      cardCount: Math.min(60, perChunk),
+      coverageHint: `${plan.coverageHint} Section ${index + 1} of ${chunks.length}: cover only concepts visible in this section.`,
+    });
+    const aiCards = aiResult.data?.cards || [];
+    generated.push(...aiCards);
+    if (aiCards.length < Math.min(5, perChunk)) {
+      generated.push(...buildFlashcardsFromText(title, chunk, perChunk));
+    }
+  }
+
+  const seen = new Set();
+  return generated
+    .filter((card) => {
+      const key = cleanStudyText(`${card.front || card.q || ''} ${card.back || card.a || ''}`).toLowerCase().slice(0, 180);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, plan.cardCount);
 }
 
 async function createQuestionBankForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
@@ -1644,7 +1700,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         if (!existing.error) {
           const existingQuiz = (existing.data || []).find((quiz) => {
             const questions = quiz.questions || [];
-            return questions.length > 0 && !questions.some(isFallbackPracticeQuestion);
+            return questions.length >= 5 && !questions.some(isFallbackPracticeQuestion);
           });
           if (existingQuiz) {
             openQuizConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, (existingQuiz.questions || []).length || 10)) });
@@ -1689,6 +1745,8 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setSavingStudyAction(`generate-flashcards-${actionKey}`);
 
     try {
+      const desiredFlashcards = seedText ? estimateFlashcardPlan({ sourceText: seedText }).cardCount : Math.max(5, Math.min(20, seedCards.length || 10));
+      let existingCards = [];
       if ((chapterId || noteId || sourceMaterialId) && (!seedText || sourceMaterialId)) {
         const existing = await listFlashcards({
           examId: exam.id,
@@ -1696,21 +1754,21 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           ...(noteId ? { noteId } : {}),
           sourceMaterialId: sourceMaterialId || null,
         });
-        if (!existing.error && existing.data?.length) {
-          openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, existing.data.length || 10)) });
-          return existing.data;
+        existingCards = existing.error ? [] : (existing.data || []);
+        if (existingCards.length >= Math.min(desiredFlashcards, 10)) {
+          openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, existingCards.length || 10)) });
+          return existingCards;
         }
       }
 
       let cards = buildGeneratedFlashcards(title, seedCards, seedText);
       if (seedText) {
-        const aiResult = await generatePracticeFromText({
-          kind: 'flashcards',
+        cards = await buildFlashcardBankCards({
           title: cleanPracticeTitle(title, exam.name),
           sourceText: seedText,
         });
-        if (aiResult.data?.cards?.length) cards = aiResult.data.cards;
       }
+      cards = cards.slice(0, Math.max(0, desiredFlashcards - existingCards.length));
       const created = [];
       for (const card of cards) {
         const result = await createFlashcard({
@@ -1728,8 +1786,9 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         created.push(result.data);
       }
 
-      openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, created.length || 10)) });
-      return created;
+      const totalCards = existingCards.length + created.length;
+      openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, totalCards || 10)) });
+      return [...existingCards, ...created];
     } catch (error) {
       setMaterialsError(error?.message || 'Unable to create flashcards.');
       return null;
