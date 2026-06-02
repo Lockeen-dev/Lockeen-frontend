@@ -333,6 +333,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   const [newName, setNewName] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadStep, setUploadStep] = useState('');
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
   const inputRef = useRef(null);
@@ -368,6 +369,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   const submit = async () => {
     if (!canSubmit || uploading) return;
     setUploading(true);
+    setUploadStep('Reading files...');
     setError('');
     setProgress(0);
     const start = Date.now();
@@ -377,15 +379,19 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
       setProgress(pct);
       if (pct < 100) requestAnimationFrame(tick);
       else {
+        setUploadStep('Uploading files and generating quiz + flashcards...');
         const payload = {
           chapterId: isNew ? null : selection,
           chapterName: isNew ? newName.trim().slice(0, 80) : null,
           fileCount: files.length,
           files: files.map((f) => f.file).filter(Boolean),
         };
-        Promise.resolve(onUpload(payload)).catch((err) => {
+        Promise.resolve(onUpload(payload)).then(() => {
+          setUploadStep('Done.');
+        }).catch((err) => {
           setError(err?.message || 'Unable to save chapter.');
           setUploading(false);
+          setUploadStep('');
           setProgress(0);
         });
       }
@@ -456,8 +462,14 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
 
         {uploading && (
           <div style={uploadS.loading}>
-            <div style={uploadS.progressTrack}><div style={{ ...uploadS.progressFill, width: progress + '%' }} /></div>
-            <div style={uploadS.loadingText}>{progress >= 100 ? 'Saving chapter…' : 'Preparing upload…'}</div>
+            <div style={uploadS.loadingRow}>
+              <div style={uploadS.spinner} />
+              <div>
+                <div style={uploadS.loadingTitle}>{uploadStep || 'Uploading...'}</div>
+                <div style={uploadS.loadingText}>Keep this window open. Large PDFs can take 10-20 seconds.</div>
+              </div>
+            </div>
+            <div style={uploadS.progressTrack}><div style={{ ...uploadS.progressFill, width: Math.max(progress, 12) + '%' }} /></div>
           </div>
         )}
 
@@ -470,7 +482,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
             disabled={!canSubmit || uploading}
             style={{ ...uploadS.submitBtn, ...((!canSubmit || uploading) ? uploadS.submitBtnDisabled : null) }}
           >
-            {uploading ? 'Uploading…' : 'Upload & Generate (' + files.length + ' ' + (files.length === 1 ? 'file' : 'files') + ')'}
+            {uploading ? 'Working...' : 'Upload & Generate (' + files.length + ' ' + (files.length === 1 ? 'file' : 'files') + ')'}
           </button>
         </div>
       </div>
@@ -555,10 +567,13 @@ const uploadS = {
   subjPills: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   subjPill: { padding: '8px 14px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600, fontSize: 13, transition: 'all .15s' },
   subjPillActive: { background: 'var(--indigo)', color: '#fff', borderColor: 'var(--indigo)', boxShadow: '0 8px 18px -10px rgba(55,48,232,.55)' },
-  loading: { marginTop: 18 },
-  progressTrack: { height: 6, background: '#EEF2FF', borderRadius: 999, overflow: 'hidden' },
+  loading: { marginTop: 18, padding: 14, borderRadius: 16, border: '1px solid #C7D2FE', background: '#EEF2FF' },
+  loadingRow: { display: 'flex', alignItems: 'center', gap: 12 },
+  spinner: { width: 28, height: 28, borderRadius: 999, border: '3px solid rgba(79,70,229,.18)', borderTopColor: 'var(--indigo)', animation: 'spin-once .8s linear infinite', flexShrink: 0 },
+  loadingTitle: { fontSize: 14, fontWeight: 800, color: 'var(--ink)' },
+  progressTrack: { height: 6, background: '#FFFFFF', borderRadius: 999, overflow: 'hidden', marginTop: 12 },
   progressFill: { height: '100%', background: 'linear-gradient(90deg, var(--indigo), var(--purple))', borderRadius: 999, transition: 'width .1s linear' },
-  loadingText: { textAlign: 'center', fontSize: 13, color: 'var(--gray)', marginTop: 8 },
+  loadingText: { fontSize: 12, color: 'var(--gray)', marginTop: 3, lineHeight: 1.4 },
   validationText: { marginTop: 6, color: '#B91C1C', fontSize: 12, fontWeight: 700 },
   errorText: { margin: '14px 0 0', padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12, fontWeight: 600, lineHeight: 1.4 },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 },
