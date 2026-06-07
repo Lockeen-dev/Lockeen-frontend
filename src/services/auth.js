@@ -18,6 +18,14 @@ function fail(message, code = 'AUTH_ERROR') {
   return { data: null, error: { code, message } };
 }
 
+function withTimeout(promise, ms, fallback) {
+  let timeoutId;
+  const timeout = new Promise((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+}
+
 function notify(session) {
   listeners.forEach((callback) => callback(structuredClone(session)));
 }
@@ -81,9 +89,19 @@ export async function restoreSession() {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
 
-    const { data, error } = await supabase.auth.getSession();
+    const { data, error, timedOut } = await withTimeout(
+      supabase.auth.getSession(),
+      4500,
+      { data: { session: null }, error: null, timedOut: true },
+    );
 
     if (error) return fail(error.message, error.code || 'SESSION_RESTORE_FAILED');
+    if (timedOut) {
+      return ok({
+        user: null,
+        status: 'anonymous',
+      });
+    }
 
     return ok(createSupabaseSession(data.session));
   }
