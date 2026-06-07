@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { BarChart3, Bell, BookOpen, Layers, LogOut, Pencil, Sparkles, XMark, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import { isMockMode } from '../lib/apiClient';
-import { cellularRespirationCards, cellularRespirationQuestions, chemistryCards, mockDashboard, seedExams } from '../data/mockData';
+import { cellularRespirationCards, cellularRespirationQuestions, seedExams } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import useIsMobile from '../lib/useIsMobile';
 import LanguageSelect from './LanguageSelect';
@@ -25,6 +25,31 @@ import { listFlashcardReviews, listFlashcards } from '../services/flashcards';
 import { listQuizAttempts } from '../services/quiz';
 
 /* ===================== DASHBOARD SHELL ===================== */
+const CALENDAR_EVENTS_STORAGE_PREFIX = 'lockeen.calendarEvents.v1';
+
+function calendarStorageKey(user) {
+  return `${CALENDAR_EVENTS_STORAGE_PREFIX}:${user?.id || user?.email || 'local'}`;
+}
+
+function readStoredCalendarEvents(user, fallback) {
+  try {
+    const raw = window.localStorage.getItem(calendarStorageKey(user));
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function persistableCalendarEvents(events = {}) {
+  return Object.fromEntries(
+    Object.entries(events)
+      .map(([key, value]) => [key, (value || []).filter((event) => event.source !== 'exam-service')])
+      .filter(([, value]) => value.length > 0),
+  );
+}
+
 function BottomNav({ tab, setTab, lang = 'en' }) {
   const items = [
     { id: 'dashboard',  label: tt(lang, 'home'),  Icon: ZapSolid },
@@ -115,8 +140,6 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const [practiceConfig, setPracticeConfig] = useState(null);
   const [weekData, setWeekData] = useState(() => realMode ? initialWeekData.map((day) => ({ ...day, mins: 0 })) : initialWeekData);
   const [studySessions, setStudySessions] = useState([]);
-  const [recommendedQuizDone, setRecommendedQuizDone] = useState(false);
-  const [recommendedFlashDone, setRecommendedFlashDone] = useState(false);
 
   function applyQuizAttempts(attempts = []) {
     setQuizRuns(attempts);
@@ -238,19 +261,25 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
 
   const [plannerOpen, setPlannerOpen]       = useState(false);
   const [plannerNoteId, setPlannerNoteId]     = useState(null);
-  const [calEvents, setCalEvents]             = useState(() => realMode ? {} : initCalEvents());
+  const [calEvents, setCalEvents]             = useState(() => readStoredCalendarEvents(user, realMode ? {} : initCalEvents()));
   const [timerTrigger, setTimerTrigger]       = useState(null);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(calendarStorageKey(user), JSON.stringify(persistableCalendarEvents(calEvents)));
+    } catch (_) {}
+  }, [calEvents, user]);
+
   function onStartTimer(mins) { setTimerTrigger({ mins, ts: Date.now() }); }
-  function onMarkEventDone(dk, evIdx, evName) {
+  function onMarkEventDone(dk, evIdx, evName, completed = true) {
     setCalEvents(prev => {
       const next = { ...prev };
       const arr = [...(next[dk] || [])];
-      arr[evIdx] = { ...arr[evIdx], completed: true };
+      arr[evIdx] = { ...arr[evIdx], completed };
       next[dk] = arr;
       return next;
     });
-    if (evName) addNotification(`Completed: ${evName}`, 'done');
+    if (evName) addNotification(`${completed ? 'Completed' : 'Reopened'}: ${evName}`, completed ? 'done' : 'info');
   }
 
   function handlePlanAdded(evArr) {
@@ -277,9 +306,6 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       ...prev,
       [noteId]: [...(prev[noteId] || []), scorePct]
     }));
-    if (runMeta?.source === 'dashboardRecommended' || runMeta?.title === mockDashboard.recommendedQuiz.title || runMeta?.subject === 'Biology') {
-      setRecommendedQuizDone(true);
-    }
     if (runMeta) {
       setQuizRuns(prev => [{ id: `local-${Date.now()}`, score: scorePct, date: new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }), ...runMeta }, ...prev].slice(0, 50));
       addNotification(`Quiz complete: ${runMeta.subject || 'Quiz'} · ${scorePct}%`, 'quiz');
@@ -290,9 +316,6 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   function onFlashComplete(noteId, scorePct, runMeta) {
     if (!noteId) return;
     setFlashHistory(prev => ({ ...prev, [noteId]: [...(prev[noteId] || []), scorePct] }));
-    if (flashcardDeck?._meta?.source === 'dashboardRecommended' || flashcardDeck?.title === mockDashboard.recommendedFlashcards.title || flashcardDeck?.subject === 'Chemistry') {
-      setRecommendedFlashDone(true);
-    }
     addNotification(`Flashcards done: ${flashcardDeck.subject} · ${scorePct}%`, 'flash');
     setRecentFlashDecks(prev => {
       const next = prev.filter(d => d.title !== flashcardDeck.title);
@@ -326,6 +349,34 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       timerOn: true,
       timerSecs: 30,
     });
+  };
+
+  const startQuickQuizForExam = (examId) => {
+    const exam = exams.find((item) => String(item.id) === String(examId));
+    if (!exam) return;
+    setQuizDeck({
+      _examId: exam.id,
+      _examColor: exam.color || null,
+      _examDot: exam.dot || null,
+      _practiceConfig: {
+        source: 'dashboard-recommended',
+        mode: 'quiz',
+        examId: exam.id,
+        examName: exam.name,
+        examColor: exam.color || null,
+        examDot: exam.dot || null,
+        chapterId: 'all',
+        chapterName: 'Intero esame',
+        difficulty: 'medium',
+        count: 10,
+        timerOn: true,
+        timerSecs: 30,
+        autoStart: true,
+      },
+      questions: [],
+    });
+    setActiveExamId(null);
+    setTab('quiz');
   };
 
   const startConfiguredPractice = async (config) => {
@@ -525,7 +576,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
                 transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                 style={{ height: '100%' }}
               >
-                {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} openQuiz={() => openQuiz({ noteId: 1, subject: 'Biology', title: 'Cellular Respiration', questions: cellularRespirationQuestions, _meta: { source: 'dashboardRecommended', subject: 'Biology', title: 'Biology Quiz' } })} openFlashcards={() => openFlashcards({ noteId: 201, subject: 'Chemistry', title: 'Chemistry Flash', cards: chemistryCards, _meta: { source: 'dashboardRecommended', subject: 'Chemistry', title: 'Chemistry Flash' } })} recommendedQuizDone={recommendedQuizDone} recommendedFlashDone={recommendedFlashDone} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} realMode={realMode} />}
+                {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} exams={exams} onOpenExam={openExam} onOpenQuizForExam={openQuizForExam} onStartQuickQuizForExam={startQuickQuizForExam} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} realMode={realMode} />}
                 {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
                 {tab === 'flashcards' && (flashLanding
                   ? <FlashcardLanding deck={flashcardDeck} recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} exams={exams} />
