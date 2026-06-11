@@ -1,0 +1,1724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lockeen — The AI Workspace for Smarter Studying</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand:   { DEFAULT: '#2F2BFF', dark: '#070B2D', light: '#F7F8FC' },
+          primary: '#2F2BFF',
+          'primary-foreground': '#ffffff',
+          foreground: '#070B2D',
+          muted: '#F7F8FC',
+          border: '#E5E7EB',
+        },
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        borderRadius: { '4xl': '2rem' },
+      },
+    },
+  };
+</script>
+<style>
+  :root {
+    --indigo:#3730E8;
+    --indigo-2:#5B53F0;
+    --purple:#8B5CF6;
+    --ink:#0F1035;
+    --gray:#6B7280;
+    --gray-2:#9CA3AF;
+    --border:#E5E7EB;
+    --sidebar-bg:#F8F9FF;
+    --lavender:#EEF2FF;
+    --pink:#FDF2F8;
+    --mint:#ECFEFF;
+    --teal:#E0F7FA;
+  }
+  html, body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #070B2D; background:#ffffff; }
+  .gradient-text { background: linear-gradient(90deg, #2F2BFF 0%, #8B5CF6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .gradient-hero-bg { background: linear-gradient(135deg, #070B2D 0%, #1a1f5c 50%, #2F2BFF 100%); }
+  .grid-pattern {
+    background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .shadow-primary-lg { box-shadow: 0 20px 40px -10px rgba(47,43,255,0.30); }
+  .shadow-primary-xl { box-shadow: 0 25px 60px -10px rgba(47,43,255,0.40); }
+  .shadow-primary-soft { box-shadow: 0 10px 30px -8px rgba(47,43,255,0.20); }
+  /* Lucide icons sizing helper */
+  [data-lucide] { width: 1em; height: 1em; }
+  .page { display: block; }
+  @keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
+</style>
+</head>
+<body class="min-h-screen bg-white antialiased">
+<div id="page-landing" class="page">
+
+<!-- ============ NAVIGATION ============ -->
+<nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-border">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="flex items-center justify-between h-20">
+      <a href="#" class="flex items-center gap-3 group">
+        <div class="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform overflow-hidden">
+          <img src="Lockeen-2.png" alt="Lockeen logo" style="width:76px;height:76px;max-width:none;" />
+        </div>
+        <span class="text-2xl font-bold" style="color:#432bff">Lockeen</span>
+      </a>
+
+      <div class="hidden md:flex items-center gap-8">
+        <a href="#features"  class="text-foreground/70 hover:text-foreground transition-colors">Features</a>
+        <a href="#product"   class="text-foreground/70 hover:text-foreground transition-colors">Product</a>
+        <a href="#pricing"   class="text-foreground/70 hover:text-foreground transition-colors">Pricing</a>
+        <a href="#community" class="text-foreground/70 hover:text-foreground transition-colors">Community</a>
+      </div>
+
+      <div class="hidden md:flex items-center gap-4">
+        <button onclick="window.openAuth && window.openAuth('signin')" class="px-5 py-2.5 text-foreground/70 hover:text-foreground transition-colors">Sign In</button>
+        <button onclick="window.openAuth && window.openAuth('signup')" class="px-6 py-2.5 bg-primary text-white rounded-full hover:opacity-90 transition-opacity shadow-primary-soft font-medium">Start Free</button>
+      </div>
+
+      <button class="md:hidden p-2" aria-label="Menu"><i data-lucide="menu" class="text-2xl"></i></button>
+    </div>
+  </div>
+</nav>
+
+<main class="min-h-screen bg-white">
+
+<!-- ============ HERO ============ -->
+<section class="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden">
+  <div class="absolute inset-0 gradient-hero-bg opacity-[0.03]"></div>
+  <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+
+  <div class="relative max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="text-center max-w-4xl mx-auto">
+      <div class="inline-flex items-center gap-2 px-4 py-2 bg-primary/5 border border-primary/20 rounded-full mb-8">
+        <i data-lucide="sparkles" class="text-primary" style="font-size:1rem"></i>
+        <span class="text-sm text-foreground/80">Powered by Advanced AI</span>
+      </div>
+
+      <h1 class="text-5xl md:text-6xl lg:text-7xl tracking-tight mb-6 font-bold" style="line-height:1.1">
+        The AI Workspace for<br />
+        <span class="gradient-text">Smarter Studying</span>
+      </h1>
+
+      <p class="text-xl md:text-2xl text-foreground/70 mb-10 max-w-3xl mx-auto" style="line-height:1.6">
+        Upload your notes and let AI generate quizzes, flashcards, summaries, and personalized tutoring. Study smarter, not harder.
+      </p>
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+        <button onclick="window.openAuth && window.openAuth('signup')" class="group px-8 py-4 bg-primary text-white rounded-full text-lg shadow-primary-xl hover:shadow-primary-xl transition-all flex items-center gap-2">
+          Start Free
+          <i data-lucide="arrow-right" class="group-hover:translate-x-1 transition-transform" style="font-size:1.25rem"></i>
+        </button>
+        <button class="px-8 py-4 bg-white border border-border rounded-full text-lg hover:bg-muted transition-colors flex items-center gap-2">
+          See Demo <i data-lucide="play" style="font-size:1.25rem"></i>
+        </button>
+      </div>
+
+      <!-- Hero visual cards -->
+      <div class="relative mx-auto max-w-5xl">
+        <div class="relative bg-gradient-to-br from-white to-muted rounded-3xl border border-border shadow-2xl p-8 backdrop-blur-sm">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-6 rounded-2xl border border-border/50 bg-gradient-to-br from-primary/5 to-primary/10">
+              <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
+                <div class="w-6 h-6 bg-primary rounded-lg"></div>
+              </div>
+              <div class="text-left">
+                <div class="h-3 bg-primary/20 rounded-full w-24 mb-2"></div>
+                <div class="h-2 bg-primary/10 rounded-full w-full mb-1"></div>
+                <div class="h-2 bg-primary/10 rounded-full w-3/4"></div>
+              </div>
+            </div>
+            <div class="p-6 rounded-2xl border border-border/50 bg-gradient-to-br from-purple-500/5 to-purple-500/10">
+              <div class="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-4">
+                <div class="w-6 h-6 bg-purple-500 rounded-lg"></div>
+              </div>
+              <div class="text-left">
+                <div class="h-3 bg-purple-500/20 rounded-full w-20 mb-2"></div>
+                <div class="h-2 bg-purple-500/10 rounded-full w-full mb-1"></div>
+                <div class="h-2 bg-purple-500/10 rounded-full w-2/3"></div>
+              </div>
+            </div>
+            <div class="p-6 rounded-2xl border border-border/50 bg-gradient-to-br from-cyan-500/5 to-cyan-500/10">
+              <div class="w-12 h-12 bg-cyan-500/10 rounded-2xl flex items-center justify-center mb-4">
+                <div class="w-6 h-6 bg-cyan-500 rounded-lg"></div>
+              </div>
+              <div class="text-left">
+                <div class="h-3 bg-cyan-500/20 rounded-full w-28 mb-2"></div>
+                <div class="h-2 bg-cyan-500/10 rounded-full w-full mb-1"></div>
+                <div class="h-2 bg-cyan-500/10 rounded-full w-4/5"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TRUST ============ -->
+<section class="py-16 border-y border-border bg-muted/30">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="text-center mb-12">
+      <p class="text-sm uppercase tracking-wider text-foreground/50 mb-8">Trusted by students worldwide</p>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-12 items-center">
+      <div class="flex items-center justify-center"><div class="text-2xl font-bold text-foreground/40">MIT</div></div>
+      <div class="flex items-center justify-center"><div class="text-2xl font-bold text-foreground/40">Stanford</div></div>
+      <div class="flex items-center justify-center"><div class="text-2xl font-bold text-foreground/40">Harvard</div></div>
+      <div class="flex items-center justify-center"><div class="text-2xl font-bold text-foreground/40">Oxford</div></div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mt-16 max-w-4xl mx-auto">
+      <div class="text-center">
+        <div class="text-4xl mb-2 text-primary font-bold">500K+</div>
+        <div class="text-foreground/60">Active Students</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl mb-2 text-primary font-bold">10M+</div>
+        <div class="text-foreground/60">Study Sessions</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl mb-2 text-primary font-bold">95%</div>
+        <div class="text-foreground/60">Improved Grades</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section id="features" class="py-24 lg:py-32 bg-white">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="text-center max-w-3xl mx-auto mb-20">
+      <div class="inline-flex items-center gap-2 px-4 py-2 bg-primary/5 border border-primary/20 rounded-full mb-6">
+        <i data-lucide="sparkles" class="text-primary" style="font-size:1rem"></i>
+        <span class="text-sm text-foreground/80">Features</span>
+      </div>
+      <h2 class="text-4xl md:text-5xl lg:text-6xl mb-6 font-bold" style="line-height:1.1">
+        Everything you need to<br />
+        <span class="gradient-text">excel in your studies</span>
+      </h2>
+      <p class="text-xl text-foreground/70" style="line-height:1.6">
+        Powerful AI tools designed to transform the way you learn
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="features-grid"></div>
+  </div>
+</section>
+
+<!-- ============ PRODUCT PREVIEW ============ -->
+<section id="product" class="py-24 lg:py-32 bg-gradient-to-br from-muted/50 to-white">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="text-center max-w-3xl mx-auto mb-20">
+      <h2 class="text-4xl md:text-5xl lg:text-6xl mb-6 font-bold" style="line-height:1.1">
+        A workspace designed for<br />
+        <span class="gradient-text">modern learners</span>
+      </h2>
+      <p class="text-xl text-foreground/70" style="line-height:1.6">
+        Clean, intuitive, and packed with intelligent features
+      </p>
+    </div>
+
+    <div class="relative">
+      <div class="relative bg-gradient-to-br from-[#070B2D] to-[#2F2BFF] rounded-3xl shadow-2xl overflow-hidden p-1">
+        <div class="bg-white rounded-[1.375rem] overflow-hidden">
+          <div class="grid grid-cols-12 min-h-[600px]">
+            <!-- Sidebar -->
+            <div class="col-span-3 bg-muted/50 border-r border-border p-6">
+              <div class="space-y-3">
+                <div class="flex items-center gap-3 p-3 bg-primary text-white rounded-xl">
+                  <i data-lucide="zap" style="font-size:1.25rem"></i>
+                  <span class="font-medium">Dashboard</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 text-foreground/60 hover:bg-muted rounded-xl transition-colors">
+                  <i data-lucide="book-open" style="font-size:1.25rem"></i>
+                  <span>My Notes</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 text-foreground/60 hover:bg-muted rounded-xl transition-colors">
+                  <i data-lucide="message-circle" style="font-size:1.25rem"></i>
+                  <span>AI Tutor</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 text-foreground/60 hover:bg-muted rounded-xl transition-colors">
+                  <i data-lucide="bar-chart-3" style="font-size:1.25rem"></i>
+                  <span>Analytics</span>
+                </div>
+              </div>
+
+              <div class="mt-8 p-4 bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-2xl border border-primary/20">
+                <div class="text-sm text-foreground/70 mb-2">Weekly Goal</div>
+                <div class="text-2xl mb-3 text-primary font-bold">78%</div>
+                <div class="h-2 bg-white/50 rounded-full overflow-hidden">
+                  <div class="h-full w-[78%] bg-gradient-to-r from-primary to-purple-500 rounded-full"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Main -->
+            <div class="col-span-9 p-8">
+              <div class="mb-8">
+                <h3 class="text-2xl mb-2 font-semibold">Good morning, Alex</h3>
+                <p class="text-foreground/60">Ready to continue your learning journey?</p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-6">
+                <div class="p-6 bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20">
+                  <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+                    <div class="w-6 h-6 bg-primary rounded-lg"></div>
+                  </div>
+                  <h4 class="text-lg mb-2 font-semibold">Biology Quiz</h4>
+                  <p class="text-sm text-foreground/60 mb-4">15 questions • 20 min</p>
+                  <button class="w-full px-4 py-2 bg-primary text-white rounded-xl text-sm hover:opacity-90 transition-opacity">Start Quiz</button>
+                </div>
+
+                <div class="p-6 bg-gradient-to-br from-purple-500/5 to-purple-500/10 rounded-2xl border border-purple-500/20">
+                  <div class="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4">
+                    <div class="w-6 h-6 bg-purple-500 rounded-lg"></div>
+                  </div>
+                  <h4 class="text-lg mb-2 font-semibold">Chemistry Flash</h4>
+                  <p class="text-sm text-foreground/60 mb-4">48 cards • Practice</p>
+                  <button class="w-full px-4 py-2 bg-white border border-border rounded-xl text-sm hover:bg-muted transition-colors">Review Cards</button>
+                </div>
+
+                <div class="col-span-2 p-6 bg-gradient-to-br from-cyan-500/5 to-cyan-500/10 rounded-2xl border border-cyan-500/20">
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 bg-cyan-500/10 rounded-full flex items-center justify-center">
+                      <i data-lucide="message-circle" class="text-cyan-500" style="font-size:1.25rem"></i>
+                    </div>
+                    <div>
+                      <h4 class="font-semibold">AI Study Assistant</h4>
+                      <p class="text-sm text-foreground/60">Ask me anything</p>
+                    </div>
+                  </div>
+                  <div class="space-y-3">
+                    <div class="p-3 bg-white rounded-xl text-sm">Explain photosynthesis in simple terms</div>
+                    <div class="p-3 bg-cyan-500/10 rounded-xl text-sm">Photosynthesis is how plants make their own food using sunlight…</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMMUNITY ============ -->
+<section id="community" class="py-24 lg:py-32 bg-white">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="grid lg:grid-cols-2 gap-16 items-center">
+      <div>
+        <h2 class="text-4xl md:text-5xl lg:text-6xl mb-6 font-bold" style="line-height:1.1">
+          Join the <span class="gradient-text">Study Arena</span>
+        </h2>
+        <p class="text-xl text-foreground/70 mb-12" style="line-height:1.6">
+          Connect with students worldwide. Compete, collaborate, and climb the leaderboards while achieving your academic goals.
+        </p>
+
+        <div class="space-y-6">
+          <div class="flex gap-4">
+            <div class="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              <i data-lucide="trophy" class="text-yellow-500" style="font-size:1.5rem"></i>
+            </div>
+            <div>
+              <h4 class="mb-1 font-semibold">Competitive Leaderboards</h4>
+              <p class="text-foreground/70">Compete with students globally and track your ranking in real-time.</p>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="w-12 h-12 bg-orange-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              <i data-lucide="flame" class="text-orange-500" style="font-size:1.5rem"></i>
+            </div>
+            <div>
+              <h4 class="mb-1 font-semibold">Study Streaks</h4>
+              <p class="text-foreground/70">Build consistency with daily study streaks and unlock achievements.</p>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              <i data-lucide="users" class="text-primary" style="font-size:1.5rem"></i>
+            </div>
+            <div>
+              <h4 class="mb-1 font-semibold">Study Groups</h4>
+              <p class="text-foreground/70">Create or join study groups to share notes and quiz each other.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative">
+        <div class="bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-3xl border border-border p-8">
+          <div class="bg-white rounded-2xl border border-border p-6 mb-6">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="font-semibold">Top Students</h3>
+              <i data-lucide="trophy" class="text-yellow-500" style="font-size:1.25rem"></i>
+            </div>
+            <div class="space-y-4">
+              <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors">
+                <div class="text-2xl">🥇</div>
+                <div class="flex-1">
+                  <div class="font-medium">Sarah Chen</div>
+                  <div class="text-sm text-foreground/60">12,450 points</div>
+                </div>
+                <div class="text-2xl text-foreground/30">#1</div>
+              </div>
+              <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors">
+                <div class="text-2xl">🥈</div>
+                <div class="flex-1">
+                  <div class="font-medium">Marcus Kim</div>
+                  <div class="text-sm text-foreground/60">11,890 points</div>
+                </div>
+                <div class="text-2xl text-foreground/30">#2</div>
+              </div>
+              <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors">
+                <div class="text-2xl">🥉</div>
+                <div class="flex-1">
+                  <div class="font-medium">Emma Wilson</div>
+                  <div class="text-sm text-foreground/60">10,320 points</div>
+                </div>
+                <div class="text-2xl text-foreground/30">#3</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-6 text-white">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <div class="text-3xl mb-1 font-bold">42 Days</div>
+                <div class="text-white/80">Current Streak</div>
+              </div>
+              <i data-lucide="flame" style="font-size:3rem"></i>
+            </div>
+            <div class="flex gap-1">
+              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:100%"></div></div>
+              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:100%"></div></div>
+              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:100%"></div></div>
+              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:100%"></div></div>
+              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:100%"></div></div>
+              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:0%"></div></div>
+              <div class="flex-1 h-2 bg-white/30 rounded-full overflow-hidden"><div class="h-full bg-white rounded-full" style="width:0%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section id="pricing" class="py-24 lg:py-32 bg-gradient-to-br from-muted/50 to-white">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="text-center max-w-3xl mx-auto mb-20">
+      <h2 class="text-4xl md:text-5xl lg:text-6xl mb-6 font-bold" style="line-height:1.1">
+        Simple, <span class="gradient-text">transparent pricing</span>
+      </h2>
+      <p class="text-xl text-foreground/70" style="line-height:1.6">
+        Choose the plan that fits your learning journey
+      </p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto" id="pricing-grid"></div>
+
+    <div class="text-center mt-16">
+      <p class="text-foreground/60">All plans include a 14-day free trial. No credit card required.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="relative py-24 lg:py-32 overflow-hidden">
+  <div class="absolute inset-0 gradient-hero-bg"></div>
+  <div class="absolute inset-0 grid-pattern opacity-40"></div>
+  <div class="relative max-w-5xl mx-auto px-6 lg:px-8 text-center">
+    <h2 class="text-4xl md:text-5xl lg:text-6xl text-white mb-6 font-bold" style="line-height:1.1">
+      Ready to transform your<br />study experience?
+    </h2>
+    <p class="text-xl text-white/80 mb-10 max-w-2xl mx-auto" style="line-height:1.6">
+      Join thousands of students who are already achieving better grades with AI-powered learning.
+    </p>
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+      <button onclick="window.openAuth && window.openAuth('signup')" class="group px-8 py-4 bg-white text-[#070B2D] rounded-full text-lg shadow-2xl hover:shadow-white/30 transition-all flex items-center gap-2 font-semibold">
+        Start Free Trial
+        <i data-lucide="arrow-right" class="group-hover:translate-x-1 transition-transform" style="font-size:1.25rem"></i>
+      </button>
+      <button class="px-8 py-4 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-full text-lg hover:bg-white/20 transition-colors font-medium">
+        Schedule Demo
+      </button>
+    </div>
+    <p class="text-white/60 mt-8">No credit card required • 14-day free trial • Cancel anytime</p>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="bg-[#070B2D] text-white">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8 py-16 lg:py-20">
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-12 mb-16">
+      <div class="col-span-2">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center overflow-hidden">
+            <img src="Lockeen-2.png" alt="Lockeen logo" style="width:64px;height:64px;max-width:none;" />
+          </div>
+          <span class="text-xl text-white font-bold">Lockeen</span>
+        </div>
+        <p class="text-white/70 mb-6 max-w-xs">The AI-powered workspace for smarter studying. Learn better, achieve more.</p>
+        <div class="flex gap-4">
+          <a href="#" aria-label="Twitter" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>
+          </a>
+          <a href="#" aria-label="GitHub" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+          </a>
+          <a href="#" aria-label="LinkedIn" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
+          </a>
+          <a href="#" aria-label="Instagram" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="mb-4 font-semibold">Product</h4>
+        <ul class="space-y-3">
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Features</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Pricing</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">AI Tutor</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Flashcards</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Quizzes</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Analytics</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="mb-4 font-semibold">Company</h4>
+        <ul class="space-y-3">
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">About</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Blog</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Careers</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Press</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Partners</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="mb-4 font-semibold">Resources</h4>
+        <ul class="space-y-3">
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Help Center</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Community</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Guides</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">API Docs</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Status</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="mb-4 font-semibold">Legal</h4>
+        <ul class="space-y-3">
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Privacy</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Terms</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Security</a></li>
+          <li><a href="#" class="text-white/70 hover:text-white transition-colors">Cookie Policy</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
+      <p class="text-white/60 text-sm">© 2026 Lockeen. All rights reserved.</p>
+      <div class="flex gap-6 text-sm">
+        <a href="#" class="text-white/60 hover:text-white transition-colors">Privacy Policy</a>
+        <a href="#" class="text-white/60 hover:text-white transition-colors">Terms of Service</a>
+        <a href="#" class="text-white/60 hover:text-white transition-colors">Cookie Settings</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ============ DATA + ICON BOOT ============ -->
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script>
+  // Features data
+  const features = [
+    { icon: 'zap',            title: 'AI Quiz Generator',  desc: 'Upload notes and instantly generate comprehensive quizzes tailored to your content.', bg: 'bg-primary/10',        ic: 'text-primary' },
+    { icon: 'brain',          title: 'Smart Flashcards',   desc: 'AI-powered flashcards that adapt to your learning pace and identify weak areas.',     bg: 'bg-purple-500/10',     ic: 'text-purple-500' },
+    { icon: 'message-square', title: 'AI Tutor',           desc: 'Ask questions and get instant, personalized explanations in any subject.',            bg: 'bg-cyan-500/10',       ic: 'text-cyan-500' },
+    { icon: 'users',          title: 'Study Arena',        desc: 'Compete with classmates, join study groups, and climb the leaderboards.',             bg: 'bg-green-500/10',      ic: 'text-green-500' },
+    { icon: 'file-text',      title: 'Smart Summaries',    desc: 'Get concise, AI-generated summaries of lengthy materials in seconds.',                bg: 'bg-orange-500/10',     ic: 'text-orange-500' },
+    { icon: 'trending-up',    title: 'Progress Tracking',  desc: 'Visualize your improvement with detailed analytics and insights.',                    bg: 'bg-pink-500/10',       ic: 'text-pink-500' },
+  ];
+  document.getElementById('features-grid').innerHTML = features.map(f => `
+    <div class="group relative p-8 bg-gradient-to-br from-white to-muted rounded-3xl border border-border hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
+      <div class="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/0 group-hover:from-primary/5 group-hover:to-primary/0 rounded-3xl transition-all duration-300"></div>
+      <div class="relative">
+        <div class="w-14 h-14 ${f.bg} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+          <i data-lucide="${f.icon}" class="${f.ic}" style="font-size:1.75rem"></i>
+        </div>
+        <h3 class="text-xl mb-3 font-semibold">${f.title}</h3>
+        <p class="text-foreground/70" style="line-height:1.6">${f.desc}</p>
+      </div>
+    </div>
+  `).join('');
+
+  // Pricing data
+  const plans = [
+    { name: 'Free', price: '$0', period: 'forever', description: 'Perfect for trying out Lockeen',
+      features: ['5 AI quiz generations per month','50 flashcards','Basic AI tutor access','Community features','Progress tracking'],
+      cta: 'Get Started', popular: false },
+    { name: 'Pro', price: '$12', period: 'per month', description: 'For serious students',
+      features: ['Unlimited AI quiz generations','Unlimited flashcards','Advanced AI tutor with priority','Study Arena competitions','Advanced analytics','Export & sharing','Mobile app access','Priority support'],
+      cta: 'Start Free Trial', popular: true },
+    { name: 'Teams', price: '$8', period: 'per student/month', description: 'For schools and study groups',
+      features: ['Everything in Pro','Dedicated workspace','Team analytics dashboard','Custom study materials','Admin controls','Bulk user management','API access','Dedicated support'],
+      cta: 'Contact Sales', popular: false },
+  ];
+  document.getElementById('pricing-grid').innerHTML = plans.map(p => `
+    <div class="relative p-8 bg-white rounded-3xl border-2 transition-all duration-300 ${p.popular ? 'border-primary shadow-2xl shadow-primary/20 scale-105' : 'border-border hover:border-primary/30 hover:shadow-xl'}">
+      ${p.popular ? `
+        <div class="absolute -top-4 left-1/2 -translate-x-1/2">
+          <div class="px-4 py-1.5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold">Most Popular</div>
+        </div>` : ''}
+      <div class="mb-8">
+        <h3 class="text-2xl mb-2 font-semibold">${p.name}</h3>
+        <p class="text-foreground/60 mb-6">${p.description}</p>
+        <div class="flex items-baseline gap-1 mb-1">
+          <span class="text-5xl font-bold">${p.price}</span>
+          <span class="text-foreground/60">/${p.period}</span>
+        </div>
+      </div>
+      <button class="w-full py-3.5 rounded-xl mb-8 transition-all font-medium ${p.popular ? 'bg-primary text-white shadow-primary-lg hover:shadow-primary-xl' : 'bg-muted text-foreground hover:bg-border'}">${p.cta}</button>
+      <div class="space-y-4">
+        ${p.features.map(feat => `
+          <div class="flex items-start gap-3">
+            <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${p.popular ? 'bg-primary/10' : 'bg-muted'}">
+              <i data-lucide="check" class="${p.popular ? 'text-primary' : 'text-foreground/60'}" style="font-size:0.875rem"></i>
+            </div>
+            <span class="text-foreground/80">${feat}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  // Boot icons
+  lucide.createIcons();
+</script>
+
+</div><!-- /#page-landing -->
+
+<!-- ============ DASHBOARD HOST ============ -->
+<div id="page-app" class="page" style="display:none"></div>
+
+<!-- ============ REACT MOUNT ============ -->
+<div id="react-root"></div>
+
+<!-- ============ VIEW SWITCHING ============ -->
+<script>
+  window.showPage = function(id) {
+    document.querySelectorAll('.page').forEach(function(p){ p.style.display = 'none'; });
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'block';
+    try { window.scrollTo({ top: 0, behavior: 'instant' }); } catch(e) { window.scrollTo(0,0); }
+  };
+</script>
+
+<!-- ============ REACT + BABEL ============ -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- ============ LOCKEEN APP (Auth modal + Dashboard) ============ -->
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect, useRef, useMemo } = React;
+
+/* ===================== ICONS (inline SVG, stroke=currentColor) ===================== */
+const Icon = ({ d, fill, size = 20, sw = 1.8, children, viewBox = "0 0 24 24" }) => (
+  <svg width={size} height={size} viewBox={viewBox} fill={fill || "none"} stroke="currentColor"
+    strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {children || (d ? <path d={d} /> : null)}
+  </svg>
+);
+const ZapSolid    = (p) => <Icon {...p} fill="currentColor" sw={0}><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z"/></Icon>;
+const BookOpen    = (p) => <Icon {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></Icon>;
+const MsgCircle   = (p) => <Icon {...p}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></Icon>;
+const BarChart3   = (p) => <Icon {...p}><path d="M3 3v18h18"/><path d="M7 16v-5"/><path d="M12 16V8"/><path d="M17 16v-3"/></Icon>;
+const Sparkles    = (p) => <Icon {...p}><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></Icon>;
+const Check       = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12"/></Icon>;
+const ArrowRight  = (p) => <Icon {...p}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></Icon>;
+const Search      = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Icon>;
+const Plus        = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
+const Send        = (p) => <Icon {...p}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></Icon>;
+const Eye         = (p) => <Icon {...p}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></Icon>;
+const EyeOff      = (p) => <Icon {...p}><path d="M17.94 17.94A10.06 10.06 0 0 1 12 19c-6.5 0-10-7-10-7a17.4 17.4 0 0 1 4.06-4.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a17.34 17.34 0 0 1-2.16 3.08"/><line x1="1" y1="1" x2="23" y2="23"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/></Icon>;
+const Bell        = (p) => <Icon {...p}><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></Icon>;
+const LogOut      = (p) => <Icon {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Icon>;
+const FileText    = (p) => <Icon {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></Icon>;
+const Layers      = (p) => <Icon {...p}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></Icon>;
+const Lightning   = (p) => <Icon {...p}><polygon points="13 2 3 14 11 14 10 22 21 9 13 9 13 2"/></Icon>;
+const Trend       = (p) => <Icon {...p}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></Icon>;
+const Clock       = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Icon>;
+const Flame       = (p) => <Icon {...p}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></Icon>;
+const Trophy      = (p) => <Icon {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></Icon>;
+const Google      = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
+    <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/>
+    <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 16.1 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+    <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.3l-6.2-5.2C29.3 35 26.8 36 24 36c-5.3 0-9.7-3.4-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+    <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.6l6.2 5.2C40.9 36.6 44 30.9 44 24c0-1.2-.1-2.3-.4-3.5z"/>
+  </svg>
+);
+const LockeenLogo = ({ size = 20, muted = false }) => (
+  <img src={muted ? "Lockeen-icon-muted.png" : "Lockeen-icon.png"} alt="" aria-hidden="true" style={{ width: size, height: size, objectFit: 'contain' }} />
+);
+const Brain       = (p) => <Icon {...p}><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></Icon>;
+
+/* ===================== ROOT APP ===================== */
+function App() {
+  const [authed, setAuthed] = useState(false);
+  const [user, setUser] = useState({ name: 'Alex', email: 'alex@lockeen.com' });
+  const [modal, setModal] = useState(null);
+
+  useEffect(() => {
+    window.openAuth = (m) => setModal(m === 'signup' ? 'signup' : 'signin');
+    window.closeAuth = () => setModal(null);
+    window.signOut = () => {
+      setAuthed(false);
+      setModal(null);
+      if (window.showPage) window.showPage('page-landing');
+    };
+    return () => {
+      window.openAuth = undefined;
+      window.closeAuth = undefined;
+      window.signOut = undefined;
+    };
+  }, []);
+
+  const handleAuth = (u) => {
+    setUser(u);
+    setAuthed(true);
+    setModal(null);
+    if (window.showPage) window.showPage('page-app');
+  };
+
+  const handleLogout = () => {
+    setAuthed(false);
+    setModal(null);
+    if (window.showPage) window.showPage('page-landing');
+  };
+
+  const pageAppEl = typeof document !== 'undefined' ? document.getElementById('page-app') : null;
+
+  return (
+    <React.Fragment>
+      {modal && (
+        <AuthModal
+          initialMode={modal}
+          onAuth={handleAuth}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {authed && pageAppEl && ReactDOM.createPortal(
+        <Dashboard user={user} onLogout={handleLogout} />,
+        pageAppEl
+      )}
+    </React.Fragment>
+  );
+}
+
+/* ===================== AUTH SCREEN ===================== */
+function AuthModal({ initialMode = "signin", onAuth, onClose }) {
+  const [mode, setMode] = useState(initialMode);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('alex@lockeen.com');
+  const [password, setPassword] = useState('••••••••');
+  const [showPw, setShowPw] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (loading) return;
+    setLoading(true);
+    setTimeout(() => {
+      onAuth({ name: name || email.split('@')[0] || 'Alex', email });
+    }, 700);
+  };
+
+  const google = () => {
+    setLoading(true);
+    setTimeout(() => onAuth({ name: 'Alex', email: 'alex@gmail.com' }), 600);
+  };
+
+  return (
+    <div style={authS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
+      <div style={authS.bg}>
+      {/* decorative blobs */}
+      <div style={authS.blob1} />
+      <div style={authS.blob2} />
+
+      <div style={authS.card}>
+        <div style={authS.brand}>
+          <div style={authS.logoBox}>
+            <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 58, height: 58, maxWidth: 'none' }} />
+          </div>
+          <span style={authS.brandText}>Lockeen</span>
+        </div>
+
+        <h1 style={authS.title}>
+          {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+        </h1>
+        <p style={authS.sub}>
+          {mode === 'signin'
+            ? 'Sign in to continue your learning journey'
+            : 'Start studying smarter with AI in seconds'}
+        </p>
+
+        <button onClick={google} style={authS.googleBtn} disabled={loading}>
+          <Google /> Continue with Google
+        </button>
+
+        <div style={authS.divider}>
+          <span style={authS.dividerLine} />
+          <span style={authS.dividerText}>or</span>
+          <span style={authS.dividerLine} />
+        </div>
+
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {mode === 'signup' && (
+            <Field label="Full name">
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" style={authS.input} />
+            </Field>
+          )}
+          <Field label="Email">
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" style={authS.input} />
+          </Field>
+          <Field label="Password" right={mode === 'signin' && <a href="#" style={authS.forgot}>Forgot?</a>}>
+            <div style={{ position: 'relative' }}>
+              <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ ...authS.input, paddingRight: 44 }} />
+              <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password" style={authS.eyeBtn}>
+                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </Field>
+
+          <button type="submit" disabled={loading} style={{ ...authS.submit, opacity: loading ? .7 : 1 }}>
+            {loading ? 'Just a sec…' : (mode === 'signin' ? 'Sign In' : 'Create Account')}
+            <ArrowRight size={18} />
+          </button>
+        </form>
+
+        <p style={authS.toggle}>
+          {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
+          <button onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')} style={authS.toggleLink}>
+            {mode === 'signin' ? 'Sign up' : 'Sign in'}
+          </button>
+        </p>
+      </div>
+        <button onClick={onClose} aria-label="Close" style={authS.closeBtn}>×</button>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, right, children }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>
+        <span>{label}</span>{right}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+const authS = {
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(7,11,45,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1000, display: 'grid', placeItems: 'center', padding: 16, animation: 'fadein .2s ease' },
+  closeBtn: { position: 'absolute', top: 14, right: 14, width: 34, height: 34, borderRadius: 999, background: '#F4F5FF', color: 'var(--ink)', fontSize: 22, lineHeight: 1, display: 'grid', placeItems: 'center', fontWeight: 600 },
+  bg: { position: 'relative', display: 'grid', placeItems: 'center', padding: 0 },
+  blob1: { position: 'absolute', top: -180, left: -180, width: 520, height: 520, background: 'radial-gradient(closest-side, rgba(55,48,232,.18), transparent 70%)', filter: 'blur(20px)' },
+  blob2: { position: 'absolute', bottom: -200, right: -200, width: 560, height: 560, background: 'radial-gradient(closest-side, rgba(139,92,246,.18), transparent 70%)', filter: 'blur(20px)' },
+  card: { position: 'relative', width: '100%', maxWidth: 440, background: '#fff', borderRadius: 24, border: '1px solid var(--border)', padding: 32, boxShadow: '0 20px 60px -20px rgba(15,16,53,.15)' },
+  brand: { display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 24 },
+  logoBox: { width: 40, height: 40, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
+  brandText: { fontSize: 22, fontWeight: 800, color: 'var(--indigo)' },
+  title: { fontSize: 26, fontWeight: 700, color: 'var(--ink)', margin: 0, textAlign: 'center', letterSpacing: '-0.02em' },
+  sub: { textAlign: 'center', color: 'var(--gray)', marginTop: 8, marginBottom: 24, fontSize: 15 },
+  googleBtn: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 12, background: '#fff', color: 'var(--ink)', fontWeight: 600, fontSize: 15 },
+  divider: { display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0' },
+  dividerLine: { flex: 1, height: 1, background: 'var(--border)' },
+  dividerText: { color: 'var(--gray-2)', fontSize: 13 },
+  input: { width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 15, color: 'var(--ink)', background: '#fff', outline: 'none', transition: 'border-color .15s' },
+  eyeBtn: { position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', padding: 8, color: 'var(--gray)', borderRadius: 8 },
+  forgot: { fontSize: 13, color: 'var(--indigo)', fontWeight: 600 },
+  submit: { width: '100%', marginTop: 8, padding: '13px 16px', background: 'var(--indigo)', color: '#fff', borderRadius: 12, fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 10px 30px -8px rgba(55,48,232,.45)' },
+  toggle: { textAlign: 'center', marginTop: 22, color: 'var(--gray)', fontSize: 14 },
+  toggleLink: { color: 'var(--indigo)', fontWeight: 700 },
+};
+
+/* ===================== DASHBOARD SHELL ===================== */
+function Dashboard({ user, onLogout }) {
+  const [tab, setTab] = useState('dashboard');
+  return (
+    <div style={shellS.wrap}>
+      {/* Header bar */}
+      <header style={shellS.header}>
+        <div style={shellS.headerInner}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={shellS.logoBox}><BookOpen size={20} /></div>
+            <span style={shellS.brand}>Lockeen</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button style={shellS.iconBtn} aria-label="Notifications"><Bell size={18} /></button>
+            <div style={shellS.avatar}>{user.name?.[0]?.toUpperCase() || 'A'}</div>
+            <button onClick={onLogout} style={shellS.signoutBtn} title="Sign out">
+              <LogOut size={16} /> <span style={{ marginLeft: 6 }}>Sign out</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Outer dashboard card with indigo border */}
+      <div style={shellS.outerCard}>
+        <div style={shellS.grid}>
+          <Sidebar tab={tab} setTab={setTab} />
+          <div style={shellS.main}>
+            {tab === 'dashboard' && <DashboardHome user={user} setTab={setTab} />}
+            {tab === 'notes'     && <NotesView />}
+            {tab === 'tutor'     && <TutorView />}
+            {tab === 'analytics' && <AnalyticsView />}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const shellS = {
+  wrap: { minHeight: '100vh', padding: '24px 24px 48px', maxWidth: 1280, margin: '0 auto' },
+  header: { marginBottom: 20 },
+  headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  logoBox: { width: 36, height: 36, borderRadius: 10, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
+  brand: { fontSize: 18, fontWeight: 800, color: 'var(--indigo)' },
+  iconBtn: { width: 38, height: 38, borderRadius: 10, background: '#fff', border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
+  avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
+  signoutBtn: { display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: '#fff', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
+  outerCard: { border: '2px solid var(--indigo)', borderRadius: 24, background: '#fff', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
+  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 640 },
+  main: { padding: '32px 36px' },
+};
+
+/* ===================== SIDEBAR ===================== */
+function Sidebar({ tab, setTab }) {
+  const items = [
+    { id: 'dashboard', label: 'Dashboard', Icon: ZapSolid },
+    { id: 'notes',     label: 'My Exams',  Icon: LockeenLogo },
+    { id: 'tutor',     label: 'AI Tutor',  Icon: MsgCircle },
+    { id: 'analytics', label: 'Analytics', Icon: BarChart3 },
+  ];
+  return (
+    <aside style={sideS.wrap}>
+      <nav style={sideS.nav}>
+        {items.map(({ id, label, Icon: I }) => {
+          const active = id === tab;
+          return (
+            <button key={id} onClick={() => setTab(id)} style={{ ...sideS.item, ...(active ? sideS.itemActive : null) }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', color: active ? '#ffffff' : '#6B7280' }}>
+                <I size={18} muted={!active} />
+              </span>
+              <span style={{ color: active ? '#ffffff' : '#6B7280' }}>{label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <div style={sideS.goalCard}>
+        <div style={sideS.goalLabel}>Weekly Goal</div>
+        <div style={sideS.goalValue}>78%</div>
+        <div style={sideS.goalBarTrack}>
+          <div style={sideS.goalBarFill} />
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+const sideS = {
+  wrap: { background: 'var(--sidebar-bg)', borderRight: '1px solid var(--border)', padding: '24px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
+  nav: { display: 'flex', flexDirection: 'column', gap: 6 },
+  item: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 999, color: 'var(--gray)', fontWeight: 600, fontSize: 14, textAlign: 'left' },
+  itemActive: { background: 'var(--indigo)', color: '#fff', boxShadow: '0 8px 22px -10px rgba(55,48,232,.6)' },
+  goalCard: { background: 'var(--lavender)', borderRadius: 16, padding: 16, marginTop: 24 },
+  goalLabel: { fontSize: 12, color: 'var(--gray)', fontWeight: 600 },
+  goalValue: { fontSize: 26, fontWeight: 800, color: 'var(--indigo)', marginTop: 4, marginBottom: 10, letterSpacing: '-0.02em' },
+  goalBarTrack: { height: 6, background: '#E5E7FF', borderRadius: 999, overflow: 'hidden' },
+  goalBarFill: { width: '78%', height: '100%', background: 'linear-gradient(90deg, var(--indigo), var(--purple))', borderRadius: 999 },
+};
+
+/* ===================== DASHBOARD HOME ===================== */
+function DashboardHome({ user, setTab }) {
+  return (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={homeS.h1}>Good morning, {user.name}</h2>
+        <p style={homeS.sub}>Ready to continue your learning journey?</p>
+      </div>
+
+      <div style={homeS.cardsRow}>
+        <div style={{ ...homeS.bigCard, background: 'linear-gradient(180deg, #EEF2FF 0%, #FFFFFF 100%)' }}>
+          <div style={{ ...homeS.dot, background: 'var(--indigo)' }} />
+          <h3 style={homeS.cardTitle}>Biology Quiz</h3>
+          <p style={homeS.cardMeta}>15 questions • 20 min</p>
+          <button style={homeS.primaryBtn} onClick={() => alert('Quiz started!')}>Start Quiz</button>
+        </div>
+        <div style={{ ...homeS.bigCard, background: 'linear-gradient(180deg, #FDF2F8 0%, #FFFFFF 100%)' }}>
+          <div style={{ ...homeS.dot, background: 'var(--purple)' }} />
+          <h3 style={homeS.cardTitle}>Chemistry Flash</h3>
+          <p style={homeS.cardMeta}>48 cards • Practice</p>
+          <button style={homeS.outlineBtn} onClick={() => setTab('notes')}>Review Cards</button>
+        </div>
+      </div>
+
+      <div style={homeS.assistant}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div style={homeS.assistantIcon}><MsgCircle size={18} /></div>
+          <div>
+            <h4 style={homeS.assistantTitle}>AI Study Assistant</h4>
+            <p style={homeS.assistantSub}>Ask me anything</p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={homeS.msgUser}>Explain photosynthesis in simple terms</div>
+          <div style={homeS.msgAI}>Photosynthesis is how plants make their own food using sunlight…</div>
+        </div>
+        <button onClick={() => setTab('tutor')} style={{ ...homeS.outlineBtn, marginTop: 16, width: 'auto', alignSelf: 'flex-start', padding: '10px 18px' }}>
+          Open AI Tutor <ArrowRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const homeS = {
+  h1: { margin: 0, fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)' },
+  sub: { margin: '6px 0 0', color: 'var(--gray)', fontSize: 15 },
+  cardsRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 },
+  bigCard: { border: '1px solid var(--border)', borderRadius: 20, padding: 22, display: 'flex', flexDirection: 'column', gap: 10 },
+  dot: { width: 22, height: 22, borderRadius: 999, boxShadow: '0 0 0 6px rgba(255,255,255,.6)' },
+  cardTitle: { margin: '6px 0 2px', fontSize: 18, fontWeight: 700, color: 'var(--ink)' },
+  cardMeta: { margin: 0, color: 'var(--gray)', fontSize: 13 },
+  primaryBtn: { marginTop: 14, padding: '11px 16px', borderRadius: 999, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 14, width: '100%' },
+  outlineBtn: { marginTop: 14, padding: '11px 16px', borderRadius: 999, background: '#fff', color: 'var(--ink)', border: '1px solid var(--border)', fontWeight: 600, fontSize: 14, width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  assistant: { background: '#F6F8FF', borderRadius: 20, padding: 22, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' },
+  assistantIcon: { width: 38, height: 38, borderRadius: 999, background: '#E0EAFF', color: 'var(--indigo)', display: 'grid', placeItems: 'center' },
+  assistantTitle: { margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
+  assistantSub: { margin: '2px 0 0', color: 'var(--gray)', fontSize: 13 },
+  msgUser: { padding: '12px 16px', background: '#fff', borderRadius: 14, border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 14 },
+  msgAI:   { padding: '12px 16px', background: 'var(--teal)', borderRadius: 14, color: 'var(--ink)', fontSize: 14 },
+};
+
+/* ===================== MY NOTES ===================== */
+const seedNotes = [
+  { id: 1, title: 'Cellular Respiration',         subject: 'Biology',   updated: '2h ago',  pages: 12, color: '#EEF2FF', dot: 'var(--indigo)' },
+  { id: 2, title: 'Organic Chemistry Reactions',  subject: 'Chemistry', updated: 'Yesterday', pages: 24, color: '#FDF2F8', dot: 'var(--purple)' },
+  { id: 3, title: 'World War II Timeline',        subject: 'History',   updated: '3 days ago', pages: 18, color: '#FEF3C7', dot: '#F59E0B' },
+  { id: 4, title: 'Calculus — Derivatives',       subject: 'Math',      updated: '1 week ago', pages: 32, color: '#ECFEFF', dot: '#06B6D4' },
+  { id: 5, title: 'Macroeconomics Notes',         subject: 'Economics', updated: '2 weeks ago', pages: 16, color: '#DCFCE7', dot: '#10B981' },
+  { id: 6, title: 'Shakespeare — Hamlet',         subject: 'Literature',updated: '3 weeks ago', pages: 22, color: '#FEE2E2', dot: '#EF4444' },
+];
+
+const SUBJECT_COLORS = {
+  Biology:   { color: '#EEF2FF', dot: 'var(--indigo)' },
+  Chemistry: { color: '#FDF2F8', dot: 'var(--purple)' },
+  Math:      { color: '#ECFEFF', dot: '#06B6D4' },
+  History:   { color: '#FEF3C7', dot: '#F59E0B' },
+  Physics:   { color: '#DBEAFE', dot: '#3B82F6' },
+  Literature:{ color: '#EDE9FE', dot: '#7C3AED' },
+  Other:     { color: '#F3F4F6', dot: '#6B7280' },
+};
+
+function makeSampleNote(id, title, subject, updated, pages) {
+  const p = SUBJECT_COLORS[subject] || SUBJECT_COLORS.Other;
+  return { id, title, subject, updated, pages, color: p.color, dot: p.dot };
+}
+
+const PALETTE_CYCLE = ['#EEF2FF', '#FDF2F8', '#ECFEFF', '#FEF3C7', '#DBEAFE', '#EDE9FE'];
+const DOT_CYCLE     = ['var(--indigo)', 'var(--purple)', '#06B6D4', '#F59E0B', '#3B82F6', '#7C3AED'];
+
+function formatExamDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso + 'T00:00:00');
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch (_) { return iso; }
+}
+
+const seedExams = [
+  { id: 1, name: 'Biology 2024',       subject: 'Biology',    updated: '2h ago',     notes: [
+    makeSampleNote(101, 'Cellular Respiration', 'Biology', '2h ago', 12),
+    makeSampleNote(102, 'Genetics Basics',      'Biology', '3 days ago', 18),
+  ]},
+  { id: 2, name: 'Organic Chemistry',  subject: 'Chemistry',  updated: '1 day ago',  notes: [
+    makeSampleNote(201, 'Reaction Mechanisms', 'Chemistry', '1 day ago',  22),
+    makeSampleNote(202, 'Alkanes & Alkenes',   'Chemistry', '4 days ago', 14),
+  ]},
+  { id: 3, name: 'Calculus II',        subject: 'Math',       updated: '3 days ago', notes: [
+    makeSampleNote(301, 'Integration Techniques', 'Math', '3 days ago', 28),
+    makeSampleNote(302, 'Series & Sequences',     'Math', '1 week ago', 20),
+  ]},
+  { id: 4, name: 'World War II',       subject: 'History',    updated: '5 days ago', notes: [
+    makeSampleNote(401, 'Causes & Outbreak', 'History', '5 days ago', 16),
+    makeSampleNote(402, 'Pacific Theater',   'History', '1 week ago',  22),
+  ]},
+  { id: 5, name: 'Quantum Physics',    subject: 'Physics',    updated: '1 week ago', notes: [
+    makeSampleNote(501, 'Wave-Particle Duality',  'Physics', '1 week ago',  24),
+    makeSampleNote(502, 'Schrödinger Equation',   'Physics', '2 weeks ago', 30),
+  ]},
+  { id: 6, name: 'English Literature', subject: 'Literature', updated: '2 weeks ago', notes: [
+    makeSampleNote(601, 'Shakespeare — Hamlet', 'Literature', '2 weeks ago', 26),
+    makeSampleNote(602, 'Romantic Poetry',      'Literature', '3 weeks ago', 18),
+  ]},
+];
+
+function NotesView() {
+  const [exams, setExams] = useState(seedExams);
+  const [activeId, setActiveId] = useState(null);
+  const [q, setQ] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+
+  const activeExam = exams.find((x) => x.id === activeId);
+
+  if (activeExam) {
+    const onAddNote = (note) => {
+      setExams((prev) => prev.map((x) => x.id === activeId ? { ...x, notes: [note, ...x.notes], updated: 'Just now' } : x));
+    };
+    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddNote={onAddNote} />;
+  }
+
+  const filtered = exams.filter((x) => (x.name + ' ' + x.subject).toLowerCase().includes(q.toLowerCase()));
+
+  return (
+    <div>
+      <div style={notesS.headRow}>
+        <div>
+          <h2 style={homeS.h1}>My Exams</h2>
+          <p style={homeS.sub}>Your exams and study materials</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={notesS.search}>
+            <Search size={16} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search exams…" style={notesS.searchInput} />
+          </div>
+          <button style={notesS.newBtn} onClick={() => setShowCreate(true)}><Plus size={16} /> New Exam</button>
+        </div>
+      </div>
+
+      {showCreate && (
+        <CreateExamModal
+          onClose={() => setShowCreate(false)}
+          onCreate={(exam) => {
+            const dateBasedCount = exams.filter((e) => !!e.date).length;
+            const idx = dateBasedCount % PALETTE_CYCLE.length;
+            const enriched = { ...exam, color: PALETTE_CYCLE[idx], dot: DOT_CYCLE[idx] };
+            setExams((p) => [enriched, ...p]);
+            setShowCreate(false);
+          }}
+        />
+      )}
+
+      <div style={examsS.grid}>
+        {filtered.map((x) => {
+          const palette = x.subject
+            ? (SUBJECT_COLORS[x.subject] || SUBJECT_COLORS.Other)
+            : { color: x.color, dot: x.dot };
+          return (
+            <div key={x.id} style={notesS.card}>
+              <div style={{ ...notesS.cover, background: palette.color }}>
+                <div style={{ ...notesS.coverDot, background: palette.dot, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+                  <img src="Lockeen-2.png" alt="Lockeen logo" style={{ width: 30, height: 30, objectFit: 'contain', display: 'block' }} />
+                </div>
+                {x.subject && <span style={notesS.subjectChip}>{x.subject}</span>}
+              </div>
+              <div style={{ padding: 18 }}>
+                <h3 style={notesS.title}>{x.name}</h3>
+                <p style={notesS.meta}>
+                  {x.date
+                    ? `Exam: ${formatExamDate(x.date)} • ${x.notes.length} ${x.notes.length === 1 ? 'note' : 'notes'}`
+                    : `${x.notes.length} ${x.notes.length === 1 ? 'note' : 'notes'} • Last updated ${x.updated}`}
+                </p>
+                <div style={notesS.actions}>
+                  <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
+                    <LockeenLogo size={16} /> Open Exam
+                  </button>
+                  <button style={notesS.ghostSmall} onClick={() => alert(`Quick quiz from "${x.name}"…`)}>
+                    <Sparkles size={14} /> Quick Quiz
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ExamDetail({ exam, onBack, onAddNote }) {
+  const [q, setQ] = useState('');
+  const [showUpload, setShowUpload] = useState(false);
+  const palette = exam.subject
+    ? (SUBJECT_COLORS[exam.subject] || SUBJECT_COLORS.Other)
+    : { color: exam.color, dot: exam.dot };
+  const filtered = exam.notes.filter((n) => n.title.toLowerCase().includes(q.toLowerCase()));
+
+  return (
+    <div>
+      <button onClick={onBack} style={examsS.backBtn}>← My Exams</button>
+
+      <div style={notesS.headRow}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <h2 style={homeS.h1}>{exam.name}</h2>
+            {exam.subject && (
+              <span style={{ ...examsS.subjectBadge, background: palette.color }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: palette.dot }} />
+                {exam.subject}
+              </span>
+            )}
+            {exam.date && (
+              <span style={{ ...examsS.subjectBadge, background: palette.color }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: palette.dot }} />
+                {formatExamDate(exam.date)}
+              </span>
+            )}
+          </div>
+          <p style={homeS.sub}>{exam.notes.length} {exam.notes.length === 1 ? 'note' : 'notes'}</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={notesS.search}>
+            <Search size={16} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search notes…" style={notesS.searchInput} />
+          </div>
+          <button style={notesS.newBtn} onClick={() => setShowUpload(true)}><Plus size={16} /> New Note</button>
+        </div>
+      </div>
+
+      {showUpload && (
+        <UploadNoteModal
+          onClose={() => setShowUpload(false)}
+          onUpload={(note) => { onAddNote(note); setShowUpload(false); }}
+        />
+      )}
+
+      {filtered.length === 0 ? (
+        <div style={examsS.empty}>
+          <div style={examsS.emptyIcon}><FileText size={22} /></div>
+          <div style={examsS.emptyTitle}>No notes yet</div>
+          <div style={examsS.emptySub}>Click “+ New Note” to upload your first study material.</div>
+        </div>
+      ) : (
+        <div style={examsS.grid}>
+          {filtered.map((n) => (
+            <div key={n.id} style={notesS.card}>
+              <div style={{ ...notesS.cover, background: n.color }}>
+                <div style={{ ...notesS.coverDot, background: n.dot }} />
+                <span style={notesS.subjectChip}>{n.subject}</span>
+              </div>
+              <div style={{ padding: 18 }}>
+                <h3 style={notesS.title}>{n.title}</h3>
+                <p style={notesS.meta}>{n.pages} pages • Updated {n.updated}</p>
+                <div style={notesS.actions}>
+                  <button style={notesS.primarySmall} onClick={() => alert(`Generating quiz for "${n.title}"…`)}>
+                    <Sparkles size={14} /> Generate Quiz
+                  </button>
+                  <button style={notesS.ghostSmall} onClick={() => alert(`Opening flashcards for "${n.title}"…`)}>
+                    <Layers size={14} /> Flashcards
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CreateExamModal({ onClose, onCreate }) {
+  const [name, setName] = useState('');
+  const [date, setDate] = useState('');
+
+  const submit = (e) => {
+    if (e) e.preventDefault();
+    if (!name.trim()) return;
+    onCreate({
+      id: Date.now(),
+      name: name.trim(),
+      date: date || null,
+      updated: 'Just now',
+      notes: [],
+    });
+  };
+
+  return (
+    <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
+      <form onSubmit={submit} style={{ ...uploadS.card, maxWidth: 440 }}>
+        <button type="button" onClick={onClose} aria-label="Close" style={uploadS.closeBtn}><XIcon size={16} /></button>
+        <h3 style={uploadS.title}>Create New Exam</h3>
+        <p style={uploadS.subtitle}>Give your exam a name to get started</p>
+
+        <div style={uploadS.field}>
+          <label style={uploadS.label}>Exam name</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Biology Final 2024" style={uploadS.input} autoFocus />
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={uploadS.label}>Exam date</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...uploadS.input, borderWidth: '1.5px' }} />
+        </div>
+
+        <div style={uploadS.actions}>
+          <button type="button" onClick={onClose} style={uploadS.cancelBtn}>Cancel</button>
+          <button type="submit" disabled={!name.trim()} style={{ ...uploadS.submitBtn, ...(!name.trim() ? uploadS.submitBtnDisabled : null) }}>
+            Create Exam
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+const examsS = {
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 },
+  backBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, padding: '7px 14px 7px 12px', borderRadius: 999, background: '#fff', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
+  subjectBadge: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: 'var(--ink)' },
+  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '48px 20px', background: '#F8F9FF', border: '1px dashed var(--border)', borderRadius: 18, color: 'var(--gray)', textAlign: 'center' },
+  emptyIcon: { width: 44, height: 44, borderRadius: 12, background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 4 },
+  emptyTitle: { fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
+  emptySub: { fontSize: 13 },
+};
+
+const notesS = {
+  headRow: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, gap: 16, flexWrap: 'wrap' },
+  search: { display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 12px', color: 'var(--gray)' },
+  searchInput: { border: 'none', outline: 'none', fontSize: 14, color: 'var(--ink)', width: 180, background: 'transparent' },
+  newBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 12, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 14 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 18 },
+  card: { background: '#fff', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', transition: 'transform .15s, box-shadow .15s' },
+  cover: { height: 100, position: 'relative', display: 'grid', placeItems: 'center' },
+  coverDot: { width: 36, height: 36, borderRadius: 12 },
+  subjectChip: { position: 'absolute', top: 12, right: 12, fontSize: 11, fontWeight: 700, padding: '4px 10px', background: 'rgba(255,255,255,.8)', borderRadius: 999, color: 'var(--ink)' },
+  title: { margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
+  meta: { margin: '0 0 14px', color: 'var(--gray)', fontSize: 12 },
+  actions: { display: 'flex', gap: 8 },
+  primarySmall: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 10px', borderRadius: 10, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 12 },
+  ghostSmall:   { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 10px', borderRadius: 10, background: '#fff', color: 'var(--ink)', border: '1px solid var(--border)', fontWeight: 600, fontSize: 12 },
+};
+
+/* ===================== UPLOAD NOTE MODAL ===================== */
+const CloudUpload = (p) => <Icon {...p}><path d="M20 16.5a4 4 0 0 0-1.6-7.66A6 6 0 0 0 6.5 8.5 4.5 4.5 0 0 0 7 17.5h11a3 3 0 0 0 2-1z"/><polyline points="12 12 12 19"/><polyline points="9 15 12 12 15 15"/></Icon>;
+const XIcon      = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
+
+const SUBJECTS = ['Biology', 'Chemistry', 'Math', 'History', 'Physics', 'Literature', 'Other'];
+
+function UploadNoteModal({ onClose, onUpload }) {
+  const [files, setFiles] = useState([]);
+  const [title, setTitle] = useState('');
+  const [subject, setSubject] = useState('Biology');
+  const [dragOver, setDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const inputRef = useRef(null);
+  const idRef = useRef(1);
+
+  const stripExt = (name) => name.replace(/\.[^.]+$/, '');
+
+  const addFiles = (list) => {
+    const arr = Array.from(list || []);
+    if (!arr.length) return;
+    setFiles((prev) => {
+      const next = [...prev];
+      arr.forEach((f) => { next.push({ id: idRef.current++, name: f.name, size: f.size }); });
+      return next;
+    });
+    setTitle((cur) => cur || stripExt(arr[0].name));
+  };
+
+  const removeFile = (id) => setFiles((prev) => prev.filter((f) => f.id !== id));
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  };
+
+  const onPick = (e) => { addFiles(e.target.files); e.target.value = ''; };
+  const browse = () => inputRef.current && inputRef.current.click();
+
+  const submit = () => {
+    if (!files.length || uploading) return;
+    setUploading(true);
+    setProgress(0);
+    const start = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const pct = Math.min(100, (elapsed / 2000) * 100);
+      setProgress(pct);
+      if (pct < 100) requestAnimationFrame(tick);
+      else {
+        const palette = SUBJECT_COLORS[subject] || SUBJECT_COLORS.Other;
+        const finalTitle = (title.trim() || stripExt(files[0].name)).slice(0, 80);
+        onUpload({
+          id: Date.now(),
+          title: finalTitle,
+          subject,
+          updated: 'Just now',
+          pages: Math.max(1, files.length * 6),
+          color: palette.color,
+          dot: palette.dot,
+        });
+      }
+    };
+    requestAnimationFrame(tick);
+  };
+
+  return (
+    <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget && !uploading) onClose && onClose(); }}>
+      <div style={uploadS.card}>
+        <button onClick={() => !uploading && onClose && onClose()} aria-label="Close" style={uploadS.closeBtn}><XIcon size={16} /></button>
+        <h3 style={uploadS.title}>Upload New Note</h3>
+        <p style={uploadS.subtitle}>Upload your files to generate quizzes, flashcards and summaries instantly</p>
+
+        <div
+          style={{ ...uploadS.dropzone, ...(dragOver ? uploadS.dropzoneHover : null) }}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+        >
+          <div style={uploadS.cloudIcon}><CloudUpload size={26} /></div>
+          <div style={uploadS.dropTitle}>Drag &amp; drop your files here</div>
+          <div style={uploadS.dropOr}>or</div>
+          <button type="button" onClick={browse} style={uploadS.browseBtn}>Browse Files</button>
+          <div style={uploadS.dropHint}>Supports PDF, DOCX, TXT, images • Max 50MB per file</div>
+          <input ref={inputRef} type="file" multiple onChange={onPick} style={{ display: 'none' }} accept=".pdf,.doc,.docx,.txt,image/*" />
+        </div>
+
+        {files.length > 0 && (
+          <div style={uploadS.pills}>
+            {files.map((f) => (
+              <span key={f.id} style={uploadS.pill}>
+                <span style={uploadS.pillIcon}>📄</span>
+                <span style={uploadS.pillName} title={f.name}>{f.name}</span>
+                <button onClick={() => removeFile(f.id)} aria-label={'Remove ' + f.name} style={uploadS.pillX} disabled={uploading}><XIcon size={12} /></button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div style={uploadS.field}>
+          <label style={uploadS.label}>Note title</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Cellular Respiration" style={uploadS.input} disabled={uploading} />
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={uploadS.label}>Subject</label>
+          <div style={uploadS.subjPills}>
+            {SUBJECTS.map((s) => {
+              const active = s === subject;
+              return (
+                <button key={s} type="button" onClick={() => !uploading && setSubject(s)} style={{ ...uploadS.subjPill, ...(active ? uploadS.subjPillActive : null) }}>
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {uploading && (
+          <div style={uploadS.loading}>
+            <div style={uploadS.progressTrack}><div style={{ ...uploadS.progressFill, width: progress + '%' }} /></div>
+            <div style={uploadS.loadingText}>Generating study materials…</div>
+          </div>
+        )}
+
+        <div style={uploadS.actions}>
+          <button onClick={() => !uploading && onClose && onClose()} style={uploadS.cancelBtn} disabled={uploading}>Cancel</button>
+          <button
+            onClick={submit}
+            disabled={!files.length || uploading}
+            style={{ ...uploadS.submitBtn, ...((!files.length || uploading) ? uploadS.submitBtnDisabled : null) }}
+          >
+            {uploading ? 'Uploading…' : 'Upload & Generate (' + files.length + ' ' + (files.length === 1 ? 'file' : 'files') + ')'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const uploadS = {
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(7,11,45,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1100, display: 'grid', placeItems: 'center', padding: 16, animation: 'fadein .2s ease' },
+  card: { position: 'relative', width: '100%', maxWidth: 520, maxHeight: '92vh', overflowY: 'auto', background: '#fff', borderRadius: 20, border: '1px solid var(--border)', padding: 28, boxShadow: '0 30px 80px -20px rgba(15,16,53,.35)' },
+  closeBtn: { position: 'absolute', top: 14, right: 14, width: 32, height: 32, borderRadius: 999, background: '#F4F5FF', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
+  title: { margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' },
+  subtitle: { margin: '6px 0 18px', fontSize: 13, color: 'var(--gray)', lineHeight: 1.5 },
+  dropzone: { border: '2px dashed #E5E7EB', borderRadius: 16, background: '#F8F9FF', padding: '24px 16px', textAlign: 'center', transition: 'border-color .15s, background .15s' },
+  dropzoneHover: { borderColor: 'var(--indigo)', background: '#EEF2FF' },
+  cloudIcon: { width: 52, height: 52, borderRadius: 14, background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', margin: '0 auto 12px' },
+  dropTitle: { fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
+  dropOr: { fontSize: 13, color: 'var(--gray)', margin: '6px 0' },
+  browseBtn: { padding: '9px 18px', borderRadius: 999, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 13, boxShadow: '0 8px 22px -10px rgba(55,48,232,.55)' },
+  dropHint: { fontSize: 12, color: 'var(--gray)', marginTop: 12 },
+  pills: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  pill: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px 6px 12px', background: '#fff', border: '1px solid var(--border)', borderRadius: 20, maxWidth: '100%' },
+  pillIcon: { fontSize: 14, lineHeight: 1 },
+  pillName: { fontSize: 13, color: 'var(--ink)', fontWeight: 500, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  pillX: { width: 20, height: 20, borderRadius: 999, color: 'var(--gray)', display: 'grid', placeItems: 'center' },
+  field: { marginTop: 18 },
+  label: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 },
+  input: { width: '100%', padding: '11px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14, color: 'var(--ink)', background: '#fff', outline: 'none' },
+  subjPills: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  subjPill: { padding: '8px 14px', borderRadius: 999, border: '1px solid var(--border)', background: '#fff', color: 'var(--ink)', fontWeight: 600, fontSize: 13, transition: 'all .15s' },
+  subjPillActive: { background: 'var(--indigo)', color: '#fff', borderColor: 'var(--indigo)', boxShadow: '0 8px 18px -10px rgba(55,48,232,.55)' },
+  loading: { marginTop: 18 },
+  progressTrack: { height: 6, background: '#EEF2FF', borderRadius: 999, overflow: 'hidden' },
+  progressFill: { height: '100%', background: 'linear-gradient(90deg, var(--indigo), var(--purple))', borderRadius: 999, transition: 'width .1s linear' },
+  loadingText: { textAlign: 'center', fontSize: 13, color: 'var(--gray)', marginTop: 8 },
+  actions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 },
+  cancelBtn: { padding: '11px 18px', borderRadius: 12, background: '#fff', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 14 },
+  submitBtn: { padding: '11px 18px', borderRadius: 12, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 14, boxShadow: '0 10px 26px -10px rgba(55,48,232,.55)', transition: 'opacity .15s' },
+  submitBtnDisabled: { background: '#C7C9F0', boxShadow: 'none', cursor: 'not-allowed' },
+};
+
+/* ===================== AI TUTOR ===================== */
+const tutorReplies = [
+  "Great question — let's break it down step by step. The key idea is that the rate of change tells you how a quantity is moving at an instant in time.",
+  "Think of it this way: imagine you're tracking the position of a car. The derivative is the speedometer reading at any moment.",
+  "Here's a quick worked example: if f(x) = x², then f'(x) = 2x. So at x = 3, the slope is 6.",
+  "Try this practice problem: differentiate f(x) = 3x³ − 5x + 2. Hint: bring the exponent down, then subtract 1.",
+  "Excellent. You're getting the hang of it. Want to try a quiz on this topic next?",
+];
+
+function TutorView() {
+  const [msgs, setMsgs] = useState([
+    { who: 'ai', text: "Hi Alex! I'm your AI tutor. What subject would you like to explore today?" },
+    { who: 'user', text: "Can you help me understand derivatives in calculus?" },
+    { who: 'ai', text: "Absolutely — derivatives measure how a function changes as its input changes. They're the foundation of calculus and incredibly useful in physics, economics, and engineering." },
+  ]);
+  const [input, setInput] = useState('');
+  const [typing, setTyping] = useState(false);
+  const endRef = useRef(null);
+  const replyIdx = useRef(0);
+
+  useEffect(() => { endRef.current?.scrollTo({ top: endRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, typing]);
+
+  const send = () => {
+    const text = input.trim();
+    if (!text) return;
+    setMsgs(m => [...m, { who: 'user', text }]);
+    setInput('');
+    setTyping(true);
+    setTimeout(() => {
+      const reply = tutorReplies[replyIdx.current % tutorReplies.length];
+      replyIdx.current += 1;
+      setMsgs(m => [...m, { who: 'ai', text: reply }]);
+      setTyping(false);
+    }, 900 + Math.random() * 600);
+  };
+
+  const suggestions = ['Explain Newton\'s laws', 'Help me with quadratic equations', 'Summarize photosynthesis', 'Quiz me on WWII'];
+
+  return (
+    <div style={tutorS.wrap}>
+      <div style={tutorS.head}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={tutorS.avatar}><Brain size={18} /></div>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>AI Tutor</h2>
+            <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--gray)' }}>
+              <span style={tutorS.onlineDot} /> Online • Powered by Lockeen AI
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div ref={endRef} style={tutorS.thread}>
+        {msgs.map((m, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: m.who === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={m.who === 'user' ? tutorS.bubbleUser : tutorS.bubbleAI}>{m.text}</div>
+          </div>
+        ))}
+        {typing && (
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ ...tutorS.bubbleAI, display: 'flex', gap: 6, padding: '14px 18px' }}>
+              <span style={tutorS.typingDot} /><span style={{ ...tutorS.typingDot, animationDelay: '.15s' }} /><span style={{ ...tutorS.typingDot, animationDelay: '.3s' }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={tutorS.suggestRow}>
+        {suggestions.map(s => (
+          <button key={s} onClick={() => setInput(s)} style={tutorS.suggestChip}>{s}</button>
+        ))}
+      </div>
+
+      <form onSubmit={(e) => { e.preventDefault(); send(); }} style={tutorS.composer}>
+        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask me anything…" style={tutorS.composerInput} />
+        <button type="submit" style={tutorS.sendBtn} aria-label="Send"><Send size={16} /></button>
+      </form>
+
+      <style>{`@keyframes tdot { 0%,80%,100% { transform: translateY(0); opacity:.4 } 40% { transform: translateY(-4px); opacity:1 } }`}</style>
+    </div>
+  );
+}
+
+const tutorS = {
+  wrap: { display: 'flex', flexDirection: 'column', minHeight: 560 },
+  head: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' },
+  avatar: { width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center' },
+  onlineDot: { display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: '#10B981', marginRight: 6, verticalAlign: 'middle' },
+  thread: { flex: 1, display: 'flex', flexDirection: 'column', gap: 10, padding: '8px 4px', maxHeight: 420, overflowY: 'auto' },
+  bubbleAI:   { maxWidth: '78%', background: '#F4F6FF', color: 'var(--ink)', padding: '12px 16px', borderRadius: 18, borderTopLeftRadius: 6, fontSize: 14, lineHeight: 1.5 },
+  bubbleUser: { maxWidth: '78%', background: 'var(--indigo)', color: '#fff', padding: '12px 16px', borderRadius: 18, borderTopRightRadius: 6, fontSize: 14, lineHeight: 1.5 },
+  typingDot: { width: 8, height: 8, borderRadius: 999, background: 'var(--gray-2)', animation: 'tdot 1s infinite ease-in-out' },
+  suggestRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' },
+  suggestChip: { padding: '8px 12px', borderRadius: 999, background: '#fff', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12 },
+  composer: { display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: '#fff', border: '1px solid var(--border)', borderRadius: 16 },
+  composerInput: { flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: 'var(--ink)' },
+  sendBtn: { width: 40, height: 40, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
+};
+
+/* ===================== ANALYTICS ===================== */
+const weekData = [
+  { day: 'Mon', mins: 45 },
+  { day: 'Tue', mins: 80 },
+  { day: 'Wed', mins: 60 },
+  { day: 'Thu', mins: 110 },
+  { day: 'Fri', mins: 90 },
+  { day: 'Sat', mins: 140 },
+  { day: 'Sun', mins: 75 },
+];
+const subjects = [
+  { name: 'Biology',    progress: 84, color: 'var(--indigo)' },
+  { name: 'Chemistry',  progress: 67, color: 'var(--purple)' },
+  { name: 'Math',       progress: 92, color: '#06B6D4' },
+  { name: 'History',    progress: 41, color: '#F59E0B' },
+  { name: 'Literature', progress: 58, color: '#EF4444' },
+];
+
+function AnalyticsView() {
+  const maxMin = Math.max(...weekData.map(d => d.mins));
+  const totalMin = weekData.reduce((a, b) => a + b.mins, 0);
+  const stats = [
+    { label: 'Study time this week', value: `${Math.floor(totalMin/60)}h ${totalMin%60}m`, Icon: Clock,     tint: 'var(--lavender)', col: 'var(--indigo)' },
+    { label: 'Current streak',       value: '42 days',                                    Icon: Flame,     tint: '#FFF7ED',         col: '#F97316' },
+    { label: 'Avg. quiz score',      value: '88%',                                        Icon: Trend,     tint: '#ECFDF5',         col: '#10B981' },
+    { label: 'Rank this week',       value: '#12',                                        Icon: Trophy,    tint: '#FEF9C3',         col: '#CA8A04' },
+  ];
+
+  return (
+    <div>
+      <div style={{ marginBottom: 22 }}>
+        <h2 style={homeS.h1}>Analytics</h2>
+        <p style={homeS.sub}>Track your study habits and progress across subjects</p>
+      </div>
+
+      <div style={analS.statsGrid}>
+        {stats.map(s => {
+          const I = s.Icon;
+          return (
+            <div key={s.label} style={analS.statCard}>
+              <div style={{ ...analS.statIcon, background: s.tint, color: s.col }}><I size={18} /></div>
+              <div>
+                <div style={analS.statValue}>{s.value}</div>
+                <div style={analS.statLabel}>{s.label}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={analS.row}>
+        <div style={analS.chartCard}>
+          <div style={analS.cardHeader}>
+            <div>
+              <h3 style={analS.cardTitle}>Weekly study time</h3>
+              <p style={analS.cardSub}>Minutes spent studying per day</p>
+            </div>
+            <span style={analS.legend}><span style={{ ...analS.legendDot, background: 'var(--indigo)' }} /> mins</span>
+          </div>
+          <div style={analS.chart}>
+            {weekData.map(d => {
+              const h = Math.round((d.mins / maxMin) * 180);
+              return (
+                <div key={d.day} style={analS.barCol}>
+                  <div style={analS.barLabel}>{d.mins}m</div>
+                  <div style={analS.barTrack}>
+                    <div style={{ ...analS.bar, height: h }} />
+                  </div>
+                  <div style={analS.dayLabel}>{d.day}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={analS.subjectCard}>
+          <h3 style={{ ...analS.cardTitle, marginBottom: 4 }}>Subject mastery</h3>
+          <p style={{ ...analS.cardSub, marginBottom: 18 }}>Your progress per subject</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {subjects.map(s => (
+              <div key={s.name}>
+                <div style={analS.subjRow}>
+                  <span style={analS.subjName}>{s.name}</span>
+                  <span style={analS.subjPct}>{s.progress}%</span>
+                </div>
+                <div style={analS.progTrack}>
+                  <div style={{ ...analS.progFill, width: `${s.progress}%`, background: s.color }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const analS = {
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 22 },
+  statCard: { display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: '#fff', border: '1px solid var(--border)', borderRadius: 16 },
+  statIcon: { width: 38, height: 38, borderRadius: 12, display: 'grid', placeItems: 'center' },
+  statValue: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' },
+  statLabel: { fontSize: 12, color: 'var(--gray)', marginTop: 2 },
+  row: { display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 },
+  chartCard: { background: '#fff', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
+  cardHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 },
+  cardTitle: { margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' },
+  cardSub: { margin: '4px 0 0', fontSize: 13, color: 'var(--gray)' },
+  legend: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--gray)' },
+  legendDot: { width: 10, height: 10, borderRadius: 3 },
+  chart: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 12, alignItems: 'end', height: 240 },
+  barCol: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 },
+  barLabel: { fontSize: 11, color: 'var(--gray)' },
+  barTrack: { width: '100%', maxWidth: 40, height: 190, background: '#F4F5FF', borderRadius: 10, display: 'flex', alignItems: 'flex-end', overflow: 'hidden' },
+  bar: { width: '100%', background: 'linear-gradient(180deg, var(--indigo), var(--purple))', borderRadius: 10, transition: 'height .4s ease' },
+  dayLabel: { fontSize: 12, color: 'var(--gray)', fontWeight: 600 },
+  subjectCard: { background: '#fff', border: '1px solid var(--border)', borderRadius: 20, padding: 22 },
+  subjRow: { display: 'flex', justifyContent: 'space-between', marginBottom: 6 },
+  subjName: { fontSize: 13, fontWeight: 600, color: 'var(--ink)' },
+  subjPct: { fontSize: 13, color: 'var(--gray)', fontWeight: 600 },
+  progTrack: { height: 8, background: '#F4F5FF', borderRadius: 999, overflow: 'hidden' },
+  progFill: { height: '100%', borderRadius: 999, transition: 'width .4s ease' },
+};
+
+/* ===================== MOUNT ===================== */
+ReactDOM.createRoot(document.getElementById('react-root')).render(<App />);
+
+</script>
+
+</body>
+</html>
