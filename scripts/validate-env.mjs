@@ -77,4 +77,38 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`Environment OK: api=${mode}, auth=${authMode}`);
+const aiMode = fileEnv.VITE_AI_MODE || (process.env.NODE_ENV === 'production' ? 'real' : 'mock');
+const vercelEnv = fileEnv.VERCEL_ENV || '';
+const requiresPersistentAiQuota = ['production', 'preview'].includes(vercelEnv);
+const warnings = [];
+
+if (aiMode === 'real') {
+  if (!fileEnv.OPENAI_API_KEY) {
+    warnings.push('OPENAI_API_KEY missing: AI requests will fall back to static text.');
+  }
+  if (!fileEnv.SUPABASE_URL || !fileEnv.SUPABASE_SERVICE_ROLE_KEY) {
+    const message = 'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing: persistent AI quota is required on Vercel preview/production.';
+    if (requiresPersistentAiQuota) {
+      errors.push(message);
+    } else {
+      warnings.push(`${message} Local development falls back to in-memory limits.`);
+    }
+  }
+}
+
+if (errors.length) {
+  console.error('Environment check failed:');
+  for (const error of errors) {
+    console.error(`- ${error}`);
+  }
+  process.exit(1);
+}
+
+if (warnings.length) {
+  console.warn('Environment warnings:');
+  for (const warning of warnings) {
+    console.warn(`- ${warning}`);
+  }
+}
+
+console.log(`Environment OK: api=${mode}, auth=${authMode}, ai=${aiMode}`);
