@@ -20,6 +20,7 @@ const allowedContentFiles = new Set([
   '.env.example',
   'api/ai-study-assist.js',
   'scripts/check-frontend-secrets.mjs',
+  'scripts/validate-env.mjs',
   'docs/security/ai-baseline.md',
   'docs/security/week2-security-baseline.md',
   'docs/setup/week2-environment.md',

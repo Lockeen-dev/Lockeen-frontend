@@ -44,6 +44,16 @@ function getQuotaLimit() {
   return Number.isFinite(quota) && quota > 0 ? quota : DEFAULT_DAILY_QUOTA;
 }
 
+function requiresPersistentQuota() {
+  return ['production', 'preview'].includes(process.env.VERCEL_ENV || '');
+}
+
+function quotaUnavailable(message) {
+  const error = new Error(message);
+  error.code = 'AI_QUOTA_UNAVAILABLE';
+  return error;
+}
+
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -96,7 +106,19 @@ async function checkPersistentQuota(userKey) {
   const userId = parseUserId(userKey);
   const client = getSupabaseAdmin();
 
-  if (!client || !userId) return checkMemoryQuota(userKey);
+  if (!client) {
+    if (requiresPersistentQuota()) {
+      throw quotaUnavailable('Persistent AI quota requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+    }
+    return checkMemoryQuota(userKey);
+  }
+
+  if (!userId) {
+    if (requiresPersistentQuota()) {
+      throw quotaUnavailable('Persistent AI quota requires a Supabase user id.');
+    }
+    return checkMemoryQuota(userKey);
+  }
 
   const quota = getQuotaLimit();
   const usageDate = new Date().toISOString().slice(0, 10);
