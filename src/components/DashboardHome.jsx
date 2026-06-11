@@ -1,17 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-import {
-  ArrowRight,
-  Check,
-  Clock,
-  FileText,
-  Layers,
-  MsgCircle,
-  Sparkles,
-} from '../lib/icons';
 import useIsMobile from '../lib/useIsMobile';
 import { getDashboardSummary } from '../services/dashboard';
-import { LIFE_CATS, dayKey, resolveEventPalette } from './CalendarView';
+import { dayKey } from './CalendarView';
+import {
+  AssistantPanel,
+  DashboardHero,
+  QuickActionsPanel,
+  RecentActivity,
+  RecommendationsPanel,
+  TodaySchedule,
+} from './DashboardHomeSections';
 
 function formatDashboardError(error) {
   if (!error) return 'Unable to load dashboard data.';
@@ -72,18 +71,6 @@ function activityCopy(activity) {
 
 function normalizeText(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
-function IconTile({ children, tone = 'indigo' }) {
-  const tones = {
-    indigo: ['#EEF2FF', '#3730E8'],
-    purple: ['#F5F3FF', '#7C3AED'],
-    cyan: ['#ECFEFF', '#0891B2'],
-    green: ['#ECFDF5', '#059669'],
-    red: ['#FEF2F2', '#DC2626'],
-  };
-  const [bg, color] = tones[tone] || tones.indigo;
-  return <span style={{ ...s.iconTile, background: bg, color }}>{children}</span>;
 }
 
 function DashboardHome({
@@ -196,189 +183,62 @@ function DashboardHome({
 
   return (
     <div style={s.wrap}>
-      <section style={{ ...s.hero, padding: isMobile ? 22 : 32 }}>
-        <div style={s.heroText}>
-          <div style={s.kicker}>{heroDate}</div>
-          <h1 style={s.heroTitle}>Buongiorno, {user.name || 'Alex'}</h1>
-          <p style={s.heroSub}>
-            {totalToday > 0
-              ? `Hai ${Math.max(0, totalToday - completedToday)} attivita rimaste oggi${nextEvent?.time ? `, prossima alle ${nextEvent.time}` : ''}.`
-              : nextExam
-                ? `Prossimo esame: ${nextExam.name}${nextExamDays !== null ? ` tra ${nextExamDays} giorni` : ''}.`
-                : 'Crea esami e materiali per costruire il piano studio.'}
-          </p>
-          <div style={s.heroActions}>
-            <button style={s.heroButton} onClick={() => nextExam ? startExamQuiz(nextExam) : setTab('notes')}>
-              {nextExam ? 'Inizia pratica' : 'Crea esame'}
-            </button>
-            {nextExam && (
-              <button style={s.heroPill} onClick={() => onOpenExam ? onOpenExam(nextExam.id) : setTab('notes')}>
-                <Clock size={15} /> {nextExam.name}{nextExamDays !== null ? ` tra ${nextExamDays}g` : ''}
-              </button>
-            )}
-          </div>
-        </div>
-        <div style={s.progressRing} aria-label={`${heroProgressText} today completed`}>
-          <div style={{ ...s.progressArc, background: `conic-gradient(#fff ${heroProgress * 3.6}deg, rgba(255,255,255,.25) 0deg)` }} />
-          <div style={s.progressInner}>
-            <strong style={s.progressValue}>{heroProgressText}</strong>
-            <span style={s.progressLabel}>OGGI</span>
-          </div>
-        </div>
-      </section>
+      <DashboardHero
+        s={s}
+        isMobile={isMobile}
+        heroDate={heroDate}
+        user={user}
+        totalToday={totalToday}
+        completedToday={completedToday}
+        nextEvent={nextEvent}
+        nextExam={nextExam}
+        nextExamDays={nextExamDays}
+        startExamQuiz={startExamQuiz}
+        setTab={setTab}
+        onOpenExam={onOpenExam}
+        heroProgress={heroProgress}
+        heroProgressText={heroProgressText}
+      />
 
       {error && <div style={s.error}>{error}</div>}
 
       <div style={{ ...s.grid, gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.45fr) minmax(320px, .9fr)' }}>
         <div style={s.stack}>
-          <section style={s.panel}>
-            <div style={s.panelHead}>
-              <h2 style={s.panelTitle}>Programma di oggi</h2>
-              <span style={s.countBadge}>{completedToday}/{totalToday || 0} completate</span>
-            </div>
-            {todayEvents.length === 0 ? (
-              <EmptyState title="Nessun evento oggi" text="Apri calendario o planner per programmare studio." />
-            ) : (
-              <div style={s.scheduleList}>
-                {todayEvents.map((ev, idx) => {
-                  const cat = LIFE_CATS.find((item) => item.id === ev.cat);
-                  const palette = resolveEventPalette(ev);
-                  const accent = palette.color || cat?.color || '#3730E8';
-                  const done = isEventDone(ev, idx);
-                  return (
-                    <button
-                      key={`${ev.time}-${ev.name}-${idx}`}
-                      type="button"
-                      aria-pressed={done}
-                      onClick={() => toggleEventDone(ev, idx)}
-                      style={{ ...s.scheduleItem, opacity: done ? .68 : 1, background: done ? '#fff' : '#F8F9FF' }}
-                    >
-                      <span style={{ ...s.itemAccent, background: accent }} />
-                      <span style={s.itemTime}>{ev.time || '--:--'}</span>
-                      <span style={s.itemMain}>
-                        <strong style={{ ...s.itemTitle, textDecoration: done ? 'line-through' : 'none' }}>{ev.name}</strong>
-                        <small style={{ ...s.itemMeta, textDecoration: done ? 'line-through' : 'none' }}>{ev.noteSubject || cat?.label || 'Study'}{ev.dur ? ` - ${ev.dur}` : ''}</small>
-                      </span>
-                      <span style={{ ...s.checkBox, background: done ? '#3730E8' : '#fff', borderColor: done ? '#3730E8' : '#DDE1EF' }}>
-                        {done && <Check size={13} color="#fff" />}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          <section style={s.panel}>
-            <div style={s.panelHead}>
-              <h2 style={s.panelTitle}>Attivita recenti</h2>
-              <button style={s.linkButton} onClick={() => setTab('analytics')}>Analytics <ArrowRight size={14} /></button>
-            </div>
-            {loading ? (
-              <EmptyState title="Caricamento..." text="Leggo i dati della dashboard." />
-            ) : latestActivity.length === 0 ? (
-              <EmptyState title="Nessuna pratica recente" text="Quiz completati e flashcard ripassate appariranno qui." />
-            ) : (
-              <div style={s.activityList}>
-                {latestActivity.map((activity) => {
-                  const score = scoreFromActivity(activity);
-                  const tone = activity.type === 'quiz_attempt' ? 'cyan' : activity.type === 'flashcard_review' ? 'purple' : 'indigo';
-                  return (
-                    <div key={activity.id} style={s.activityItem}>
-                      <span style={{ ...s.activityIcon, background: tone === 'cyan' ? '#ECFEFF' : tone === 'purple' ? '#F5F3FF' : '#EEF2FF', color: tone === 'cyan' ? '#0891B2' : tone === 'purple' ? '#7C3AED' : '#3730E8' }}>
-                        {activity.type === 'flashcard_review' ? <Layers size={16} /> : activity.type === 'quiz_attempt' ? <Sparkles size={16} /> : <FileText size={16} />}
-                      </span>
-                      <div style={s.activityText}>
-                        <strong style={s.activityTitle}>{activityCopy(activity)} - {activity.title}</strong>
-                        <span style={s.activityMeta}>{relativeTime(activity.at)}</span>
-                      </div>
-                      {score !== null && <span style={{ ...s.scoreBadge, background: score >= 70 ? '#DCFCE7' : '#FEE2E2', color: score >= 70 ? '#047857' : '#DC2626' }}>{score}%</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          <TodaySchedule
+            s={s}
+            todayEvents={todayEvents}
+            completedToday={completedToday}
+            totalToday={totalToday}
+            isEventDone={isEventDone}
+            toggleEventDone={toggleEventDone}
+          />
+          <RecentActivity
+            s={s}
+            loading={loading}
+            latestActivity={latestActivity}
+            setTab={setTab}
+            scoreFromActivity={scoreFromActivity}
+            activityCopy={activityCopy}
+            relativeTime={relativeTime}
+          />
         </div>
 
         <aside style={s.stack}>
-          <section style={s.panel}>
-            <h2 style={s.panelTitle}>Azioni rapide</h2>
-            <div style={s.quickGrid}>
-              <QuickAction icon={<Sparkles size={20} />} label="Nuovo quiz" onClick={() => nextExam ? startExamQuiz(nextExam) : setTab('quiz')} />
-              <QuickAction icon={<FileText size={20} />} label="Carica note" onClick={() => setTab('notes')} />
-              <QuickAction icon={<Layers size={20} />} label="Flashcards" onClick={() => setTab('flashcards')} />
-              <QuickAction icon={<Clock size={20} />} label="Avvia timer" onClick={() => onStartTimer && onStartTimer(25)} />
-            </div>
-          </section>
-
-          <section style={s.panel}>
-            <div style={s.panelHead}>
-              <h2 style={s.panelTitle}>Consigliati oggi</h2>
-              <span style={s.countBadge}>{recommendations.length || totalExams} utili</span>
-            </div>
-            {recommendations.length === 0 ? (
-              <div style={s.recoEmpty}>
-                <strong>Nessun quiz consigliato</strong>
-                <span>Aggiungi un'attivita studio oggi o una data futura a un esame.</span>
-                <button style={s.outlineButton} onClick={() => setTab('notes')}>Vai ai miei esami</button>
-              </div>
-            ) : (
-              <div style={s.recoList}>
-                {recommendations.map(({ exam, source, event }, index) => {
-                  const days = daysUntil(exam.date);
-                  const isPrimary = index === 0;
-                  return (
-                    <article key={exam.id || exam.name} style={{ ...s.recoCard, background: isPrimary ? '#F4F6FF' : '#FFF7FC' }}>
-                      <div style={s.recoTop}>
-                        <IconTile tone={isPrimary ? 'indigo' : 'purple'}>{isPrimary ? <Sparkles size={18} /> : <Layers size={18} />}</IconTile>
-                        <span style={s.recoTag}>{days <= 7 ? 'Priorita' : `${days} giorni`}</span>
-                      </div>
-                      <p style={s.recoEyebrow}>{isPrimary ? 'Quiz consigliato' : 'Ripasso consigliato'}</p>
-                      <h3 style={s.recoTitle}>{exam.subject || exam.name}</h3>
-                      <p style={s.recoMeta}>
-                        {source === 'today'
-                          ? `${event?.name || exam.name} - oggi${event?.time ? ` alle ${event.time}` : ''}`
-                          : `${exam.name} - ${formatDate(exam.date, lang)}${days !== null ? ` - tra ${days} giorni` : ''}`}
-                      </p>
-                      <button style={isPrimary ? s.primaryButton : s.outlineButton} onClick={() => isPrimary ? startExamQuiz(exam) : (onOpenExam ? onOpenExam(exam.id) : setTab('notes'))}>
-                        {isPrimary ? 'Inizia quiz' : 'Apri esame'}
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          <section style={s.assistant}>
-            <IconTile tone="green"><MsgCircle size={18} /></IconTile>
-            <div>
-              <h2 style={s.panelTitle}>AI Study Assistant</h2>
-              <p style={s.assistantText}>Chiedi aiuto su esami, materiali e piano studio.</p>
-            </div>
-            <button style={s.outlineButton} onClick={() => setTab('tutor')}>Open AI Tutor</button>
-          </section>
+          <QuickActionsPanel s={s} nextExam={nextExam} startExamQuiz={startExamQuiz} setTab={setTab} onStartTimer={onStartTimer} />
+          <RecommendationsPanel
+            s={s}
+            recommendations={recommendations}
+            totalExams={totalExams}
+            daysUntil={daysUntil}
+            formatDate={formatDate}
+            lang={lang}
+            startExamQuiz={startExamQuiz}
+            onOpenExam={onOpenExam}
+            setTab={setTab}
+          />
+          <AssistantPanel s={s} setTab={setTab} />
         </aside>
       </div>
-    </div>
-  );
-}
-
-function QuickAction({ icon, label, onClick }) {
-  return (
-    <button style={s.quickAction} onClick={onClick}>
-      <IconTile>{icon}</IconTile>
-      <strong>{label}</strong>
-    </button>
-  );
-}
-
-function EmptyState({ title, text }) {
-  return (
-    <div style={s.empty}>
-      <strong>{title}</strong>
-      <span>{text}</span>
     </div>
   );
 }
