@@ -25,6 +25,7 @@ function normalizeError(error, fallback = 'Request failed.') {
 }
 
 function hasKnownMockParent(input = {}) {
+  if (!isMockMode()) return true;
   if (!input.examId && !input.chapterId) return false;
   if (input.examId && seedExams.some((exam) => String(exam.id) === String(input.examId))) return true;
   if (
