@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const blockedTrackedFiles = [
   /^\.env$/,
@@ -47,6 +47,10 @@ for (const file of trackedFiles()) {
   }
 
   if (allowedContentFiles.has(file)) {
+    continue;
+  }
+
+  if (!existsSync(file)) {
     continue;
   }
 
