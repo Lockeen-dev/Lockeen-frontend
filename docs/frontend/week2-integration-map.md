@@ -144,7 +144,6 @@ Week 2 UI output:
 - `supabase/`
 - `src/lib/supabaseClient.js`
 - `src/services/auth.js`
-- `lockeen-app.jsx`
 
 ## Done when
 

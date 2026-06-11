@@ -19,7 +19,7 @@ Founder B:
 - one migration per PR when possible
 - no redesign inside backend/data PR
 - no secret in tracked files
-- avoid parallel edits to `lockeen-app.jsx`, `src/App.jsx`, `package.json`
+- avoid parallel edits to `src/App.jsx`, `package.json`
 
 ## PR size
 
