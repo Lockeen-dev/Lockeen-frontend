@@ -1,7 +1,29 @@
-import { createIcons, icons } from 'lucide';
-
 export function initMarketingDom() {
-  const refreshIcons = () => createIcons({ icons });
+  const iconPaths = {
+    zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>',
+    brain: '<path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"></path><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"></path>',
+    'message-square': '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+    'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line>',
+    'trending-up': '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline>',
+    check: '<polyline points="20 6 9 17 4 12"></polyline>',
+    menu: '<line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="18" x2="20" y2="18"></line>',
+    'arrow-right': '<line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline>',
+    sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path>',
+    play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>',
+  };
+  const iconSvg = (name, className = '', size = '1em') => `
+    <svg class="${className}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      ${iconPaths[name] || iconPaths.zap}
+    </svg>`;
+  const refreshIcons = () => {
+    document.querySelectorAll('[data-lucide]').forEach((el) => {
+      const name = el.getAttribute('data-lucide');
+      const className = el.getAttribute('class') || '';
+      const size = el.style.fontSize || '1em';
+      el.outerHTML = iconSvg(name, className, size);
+    });
+  };
   // Features data
   const featureBase = [
     { icon: 'zap',            bg: 'bg-primary/10',        ic: 'text-primary' },
@@ -71,7 +93,7 @@ export function initMarketingDom() {
         <div class="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/0 group-hover:from-primary/5 group-hover:to-primary/0 rounded-3xl transition-all duration-300"></div>
         <div class="relative">
           <div class="w-14 h-14 ${f.bg} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-            <i data-lucide="${f.icon}" class="${f.ic}" style="font-size:1.75rem"></i>
+            ${iconSvg(f.icon, f.ic, '1.75rem')}
           </div>
           <h3 class="text-xl mb-3 font-semibold">${title}</h3>
           <p class="text-foreground/70" style="line-height:1.6">${desc}</p>
@@ -147,7 +169,7 @@ export function initMarketingDom() {
         ${pc.features.map(feat => `
           <div class="flex items-center gap-3">
             <div class="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center ${p.popular ? 'bg-primary/10' : 'bg-muted'}">
-              <i data-lucide="check" class="${p.popular ? 'text-primary' : 'text-foreground/60'}" style="font-size:0.7rem"></i>
+              ${iconSvg('check', p.popular ? 'text-primary' : 'text-foreground/60', '0.7rem')}
             </div>
             <span class="text-sm text-foreground/80">${feat}</span>
           </div>`).join('')}
@@ -288,10 +310,6 @@ export function initMarketingDom() {
   };
   const initialLockeenLang = localStorage.getItem('lockeen-lang') || 'en';
   applyLockeenLanguage(initialLockeenLang);
-
-  // Boot icons
-  refreshIcons();
-
   const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
   const mobileMenuPanel = document.getElementById('mobile-menu-panel');
   function closeMobileMenu() {
