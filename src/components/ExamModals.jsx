@@ -380,6 +380,7 @@ const CloudUpload = (p) => <Icon {...p}><path d="M20 16.5a4 4 0 0 0-1.6-7.66A6 6
 const XIcon      = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
 
 function UploadChapterModal({ existingChapters, onClose, onUpload }) {
+  const progressSteps = ['Upload', 'OCR', 'Generazione quiz', 'Generazione flashcards', 'Pronto'];
   const [files, setFiles] = useState([]);
   // selection: chapter id (number) for existing, or '__new' for a new chapter
   const initialSelection = existingChapters && existingChapters.length ? existingChapters[0].id : '__new';
@@ -390,6 +391,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   const [uploadStep, setUploadStep] = useState('');
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
+  const [activeProgressStep, setActiveProgressStep] = useState(0);
   const inputRef = useRef(null);
   const idRef = useRef(1);
 
@@ -423,34 +425,32 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   const submit = async () => {
     if (!canSubmit || uploading) return;
     setUploading(true);
-    setUploadStep('Reading files...');
+    setActiveProgressStep(0);
+    setUploadStep('Upload in corso...');
     setError('');
-    setProgress(0);
-    const start = Date.now();
-    const tick = () => {
-      const elapsed = Date.now() - start;
-      const pct = Math.min(100, (elapsed / 1400) * 100);
-      setProgress(pct);
-      if (pct < 100) requestAnimationFrame(tick);
-      else {
-        setUploadStep('Uploading files. Practice will finish in background...');
-        const payload = {
-          chapterId: isNew ? null : selection,
-          chapterName: isNew ? newName.trim().slice(0, 80) : null,
-          fileCount: files.length,
-          files: files.map((f) => f.file).filter(Boolean),
-        };
-        Promise.resolve(onUpload(payload)).then(() => {
-          setUploadStep('Done.');
-        }).catch((err) => {
-          setError(err?.message || 'Unable to save chapter.');
-          setUploading(false);
-          setUploadStep('');
-          setProgress(0);
-        });
-      }
+    setProgress(8);
+    const payload = {
+      chapterId: isNew ? null : selection,
+      chapterName: isNew ? newName.trim().slice(0, 80) : null,
+      fileCount: files.length,
+      files: files.map((f) => f.file).filter(Boolean),
+      onProgress: ({ step = 0, label = '', progress: nextProgress = null } = {}) => {
+        setActiveProgressStep(step);
+        setUploadStep(label || progressSteps[step] || 'Working...');
+        if (nextProgress != null) setProgress(nextProgress);
+      },
     };
-    requestAnimationFrame(tick);
+    Promise.resolve(onUpload(payload)).then(() => {
+      setActiveProgressStep(progressSteps.length - 1);
+      setUploadStep('Pronto.');
+      setProgress(100);
+    }).catch((err) => {
+      setError(err?.message || 'Unable to save chapter.');
+      setUploading(false);
+      setUploadStep('');
+      setProgress(0);
+      setActiveProgressStep(0);
+    });
   };
 
   return (
@@ -520,8 +520,20 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
               <div style={uploadS.spinner} />
               <div>
                 <div style={uploadS.loadingTitle}>{uploadStep || 'Uploading...'}</div>
-                <div style={uploadS.loadingText}>This closes after upload. Quiz + flashcards keep generating after.</div>
+                <div style={uploadS.loadingText}>Ti mostro ogni fase fino a quando quiz e flashcards sono pronti.</div>
               </div>
+            </div>
+            <div style={uploadS.stepList}>
+              {progressSteps.map((step, index) => {
+                const done = index < activeProgressStep;
+                const active = index === activeProgressStep;
+                return (
+                  <div key={step} style={{ ...uploadS.stepItem, ...(active ? uploadS.stepItemActive : null), ...(done ? uploadS.stepItemDone : null) }}>
+                    <span style={{ ...uploadS.stepDot, ...(active ? uploadS.stepDotActive : null), ...(done ? uploadS.stepDotDone : null) }}>{done ? '✓' : index + 1}</span>
+                    <span>{step}</span>
+                  </div>
+                );
+              })}
             </div>
             <div style={uploadS.progressTrack}><div style={{ ...uploadS.progressFill, width: Math.max(progress, 12) + '%' }} /></div>
           </div>
@@ -628,6 +640,13 @@ const uploadS = {
   progressTrack: { height: 6, background: '#FFFFFF', borderRadius: 999, overflow: 'hidden', marginTop: 12 },
   progressFill: { height: '100%', background: 'linear-gradient(90deg, var(--indigo), var(--purple))', borderRadius: 999, transition: 'width .1s linear' },
   loadingText: { fontSize: 12, color: 'var(--gray)', marginTop: 3, lineHeight: 1.4 },
+  stepList: { display: 'grid', gap: 8, marginTop: 14 },
+  stepItem: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 12, background: '#FFFFFF99', border: '1px solid #E0E7FF', color: '#64748B', fontSize: 12, fontWeight: 800 },
+  stepItemActive: { color: 'var(--indigo)', background: '#FFFFFF', borderColor: '#C7D2FE' },
+  stepItemDone: { color: '#047857', background: '#ECFDF5', borderColor: '#A7F3D0' },
+  stepDot: { width: 20, height: 20, borderRadius: 999, display: 'grid', placeItems: 'center', background: '#E2E8F0', color: '#64748B', fontSize: 10, fontWeight: 900, flexShrink: 0 },
+  stepDotActive: { background: 'var(--indigo)', color: '#fff' },
+  stepDotDone: { background: '#10B981', color: '#fff' },
   validationText: { marginTop: 6, color: '#B91C1C', fontSize: 12, fontWeight: 700 },
   errorText: { margin: '14px 0 0', padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 12, fontWeight: 600, lineHeight: 1.4 },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 },
