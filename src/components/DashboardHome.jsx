@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 import useIsMobile from '../lib/useIsMobile';
 import { getDashboardSummary } from '../services/dashboard';
-import { dayKey } from './CalendarView';
+import { dayKey } from './calendarData';
 import {
   AssistantPanel,
   DashboardHero,

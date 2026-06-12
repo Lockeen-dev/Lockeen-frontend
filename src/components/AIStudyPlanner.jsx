@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { Brain, Check, Sparkles, XMark } from '../lib/icons';
 import { EXTRA_SUBJECT_COLORS, SUBJECT_COLORS, seedNotes } from '../data/mockData';
-import { SUBJECT_NOTE_MAP, durToMins } from './CalendarView';
+import { SUBJECT_NOTE_MAP, durToMins } from './calendarData';
 import { generateStudyPlan } from '../services/ai';
 
 function AIStudyPlanner({ onClose, onPlanAdded, initialNoteId, existingEvents }) {

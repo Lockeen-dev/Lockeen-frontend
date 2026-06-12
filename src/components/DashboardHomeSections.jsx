@@ -9,7 +9,7 @@ import {
   MsgCircle,
   Sparkles,
 } from '../lib/icons';
-import { LIFE_CATS, resolveEventPalette } from './CalendarView';
+import { LIFE_CATS, resolveEventPalette } from './calendarData';
 
 export function IconTile({ children, tone = 'indigo', s }) {
   const tones = {
