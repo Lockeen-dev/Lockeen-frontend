@@ -388,15 +388,6 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         }
       }
 
-      for (const material of createdMaterials) {
-        if (material.processingStatus !== 'ready' || !material.extractedText) continue;
-        createPracticeBanksForMaterial({
-          examId: activeId,
-          chapterId: targetChapter.id,
-          material,
-          title: targetChapter.title || chapterName || material.title,
-        }).then(() => null).catch(() => null);
-      }
       reportProgress(2, 'Pronto. Quiz e flashcards continuano in background.', 100);
       await refreshExams();
       return { chapter: targetChapter, materials: createdMaterials };
@@ -986,13 +977,15 @@ function makePracticeScope(items = [], fallbackItems = [], predicate = () => tru
   return (fallbackItems || []).length;
 }
 
-function getPracticeStatus({ quizCount = 0, flashcardCount = 0, hasReadyMaterial = false, hasPendingMaterial = false }) {
+function getPracticeStatus({ quizCount = 0, flashcardCount = 0, hasReadyMaterial = false, hasPendingMaterial = false, hasFailedPractice = false }) {
   const quizReady = quizCount > 0;
   const flashcardsReady = flashcardCount > 0;
   const preparing = hasPendingMaterial || (hasReadyMaterial && (!quizReady || !flashcardsReady));
+  const failed = hasFailedPractice && (!quizReady || !flashcardsReady);
   const canOpen = quizReady || flashcardsReady || preparing;
 
   if (quizReady && flashcardsReady) return { tone: 'ready', label: 'Quiz e flashcard pronti', quizReady, flashcardsReady, canOpen };
+  if (failed) return { tone: 'failed', label: 'Generazione fallita', quizReady, flashcardsReady, canOpen: false };
   if (preparing) return { tone: 'preparing', label: 'Preparazione in corso...', quizReady, flashcardsReady, canOpen };
   return { tone: 'empty', label: 'Carica materiale per preparare quiz e flashcard', quizReady, flashcardsReady, canOpen };
 }
@@ -1001,6 +994,7 @@ function PracticeStatusPill({ status }) {
   const styles = {
     ready: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
     preparing: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+    failed: 'bg-red-50 text-red-700 ring-1 ring-red-200',
     empty: 'bg-slate-100 text-slate-500 ring-1 ring-slate-200',
   };
   return (
@@ -1450,7 +1444,7 @@ function CleanExamHeader({ exam, palette, chapters, q, setQ, onBack, onNewChapte
   );
 }
 
-function CleanChapterGrid({ chapters, filtered, palette, practiceStatusByChapter = {}, onNewChapter, onEditChapter, onOpenPdf, onQuiz, onFlashcards, quizRuns }) {
+function CleanChapterGrid({ chapters, filtered, palette, practiceStatusByChapter = {}, onNewChapter, onEditChapter, onOpenPdf, onQuiz, onFlashcards, onRetryPractice, quizRuns }) {
   if (!chapters.length) {
     return <EmptyState icon={BookOpen} title="Create a chapter to organize your materials." actionLabel="New chapter" onAction={onNewChapter} />;
   }
@@ -1490,6 +1484,15 @@ function CleanChapterGrid({ chapters, filtered, palette, practiceStatusByChapter
                 <PracticeStatusPill status={practiceStatus} />
               </div>
               {lastRun && <p className="mt-2 text-sm font-bold text-slate-600">Last quiz {lastRun.score}% · {lastRun.date}</p>}
+              {practiceStatus.tone === 'failed' && (
+                <button
+                  type="button"
+                  onClick={() => onRetryPractice(chapter)}
+                  className="mt-4 inline-flex h-10 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-extrabold text-red-700"
+                >
+                  Riprova generazione
+                </button>
+              )}
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <button type="button" onClick={() => onQuiz(chapter)} disabled={!practiceStatus.canOpen} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">
                   <Sparkles size={17} /> Quiz
@@ -1654,6 +1657,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [materialsError, setMaterialsError] = useState(null);
   const [materials, setMaterials] = useState([]);
   const [practiceItems, setPracticeItems] = useState({ quizzes: [], flashcards: [], loading: true });
+  const [failedPracticeMaterialIds, setFailedPracticeMaterialIds] = useState(() => new Set());
   const [materialUiMeta, setMaterialUiMeta] = useState(() => readMaterialUiMeta());
   const [noteTitle, setNoteTitle] = useState('');
   const [noteBody, setNoteBody] = useState('');
@@ -1735,6 +1739,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       flashcardCount,
       hasReadyMaterial: material.processingStatus === 'ready' && Boolean(material.extractedText),
       hasPendingMaterial: ['uploaded', 'processing'].includes(material.processingStatus),
+      hasFailedPractice: failedPracticeMaterialIds.has(materialId),
     });
     return acc;
   }, {});
@@ -1753,6 +1758,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       flashcardCount,
       hasReadyMaterial: chapterMaterials.some((material) => material.processingStatus === 'ready' && material.extractedText),
       hasPendingMaterial: chapterMaterials.some((material) => ['uploaded', 'processing'].includes(material.processingStatus)),
+      hasFailedPractice: chapterMaterials.some((material) => failedPracticeMaterialIds.has(String(material.id))),
     });
     return acc;
   }, {});
@@ -1817,20 +1823,35 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     });
   };
 
+  const runPracticeGeneration = (material, { force = false, title = null } = {}) => {
+    if (!material?.id || material.processingStatus !== 'ready' || !material.extractedText) return Promise.resolve();
+    const materialId = String(material.id);
+    if (!force && autoPracticeMaterialIdsRef.current.has(materialId)) return Promise.resolve();
+    autoPracticeMaterialIdsRef.current.add(materialId);
+    setFailedPracticeMaterialIds((current) => {
+      if (!current.has(materialId)) return current;
+      const next = new Set(current);
+      next.delete(materialId);
+      return next;
+    });
+    return createPracticeBanksForMaterial({
+      examId: exam.id,
+      chapterId: material.chapterId || null,
+      noteId: material.noteId || null,
+      material,
+      title: title || material.title || exam.name,
+    })
+      .then(() => reloadPracticeItems())
+      .catch(() => {
+        setFailedPracticeMaterialIds((current) => new Set(current).add(materialId));
+      });
+  };
+
   useEffect(() => {
     if (materialsLoading) return;
     const readyMaterials = materials.filter((material) => material?.id && material.processingStatus === 'ready' && material.extractedText);
     for (const material of readyMaterials) {
-      const materialId = String(material.id);
-      if (autoPracticeMaterialIdsRef.current.has(materialId)) continue;
-      autoPracticeMaterialIdsRef.current.add(materialId);
-      createPracticeBanksForMaterial({
-        examId: exam.id,
-        chapterId: material.chapterId || null,
-        noteId: material.noteId || null,
-        material,
-        title: material.title || exam.name,
-      }).then(() => reloadPracticeItems()).catch(() => null);
+      runPracticeGeneration(material);
     }
   }, [exam.id, exam.name, materials, materialsLoading]);
 
@@ -2146,6 +2167,10 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     chapterId: material.chapterId || 'all',
     count: 10,
   });
+  const handleRetryChapterPractice = async (chapter) => {
+    const chapterMaterials = materials.filter((material) => String(material.chapterId) === String(chapter.id));
+    await Promise.all(chapterMaterials.map((material) => runPracticeGeneration(material, { force: true, title: chapter.title || material.title })));
+  };
   const handleAddChapterDocuments = async (chapter, files) => {
     const pickedFiles = Array.from(files || []);
     if (!pickedFiles.length) return;
@@ -2219,6 +2244,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           onOpenPdf={setPdfChapter}
           onQuiz={openChapterQuiz}
           onFlashcards={openChapterFlashcards}
+          onRetryPractice={handleRetryChapterPractice}
           quizRuns={quizRuns}
         />
 
