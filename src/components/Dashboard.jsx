@@ -1,34 +1,18 @@
-import React, { Suspense, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { isMockMode } from '../lib/apiClient';
 import { cellularRespirationCards, cellularRespirationQuestions, seedExams } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import useIsMobile from '../lib/useIsMobile';
 import StudyTimer from './StudyTimer';
-import DashboardHome from './DashboardHome';
 import PracticeConfigModal from './PracticeConfigModal';
+import { DashboardRoutes, PlannerOverlay } from './DashboardRoutes';
 import { BottomNav, DashboardCard, DashboardHeader, shellS } from './DashboardShell';
 import { initCalEvents, initialWeekData } from './calendarData';
 import { createStudySession, listStudySessions, sessionsToWeekData } from '../services/analytics';
 import { listExams } from '../services/exams';
 import { listFlashcardReviews, listFlashcards } from '../services/flashcards';
 import { listQuizAttempts } from '../services/quiz';
-
-const TutorView = React.lazy(() => import('./TutorView'));
-const FlashcardLanding = React.lazy(() => import('./Flashcards').then((module) => ({ default: module.FlashcardLanding })));
-const FlashcardViewer = React.lazy(() => import('./Flashcards').then((module) => ({ default: module.FlashcardViewer })));
-const QuizTab = React.lazy(() => import('./Quiz').then((module) => ({ default: module.QuizTab })));
-const NotesView = React.lazy(() => import('./NotesView').then((module) => ({ default: module.NotesView })));
-const AnalyticsView = React.lazy(() => import('./AnalyticsView').then((module) => ({ default: module.AnalyticsView })));
-const AccountView = React.lazy(() => import('./AccountViews').then((module) => ({ default: module.AccountView })));
-const EarnView = React.lazy(() => import('./AccountViews').then((module) => ({ default: module.EarnView })));
-const CalendarView = React.lazy(() => import('./CalendarView').then((module) => ({ default: module.CalendarView })));
-const AIStudyPlanner = React.lazy(() => import('./AIStudyPlanner'));
-
-function ViewFallback() {
-  return <div style={{ padding: 24, color: 'var(--gray)', fontWeight: 800 }}>Loading...</div>;
-}
 
 /* ===================== DASHBOARD SHELL ===================== */
 const CALENDAR_EVENTS_STORAGE_PREFIX = 'lockeen.calendarEvents.v1';
@@ -463,38 +447,47 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         lang={lang}
         onToggleCollapsed={() => setSidebarCollapsed(v => !v)}
       >
-        <Suspense fallback={<ViewFallback />}>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={tab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              style={{ height: '100%' }}
-            >
-              {tab === 'dashboard' && <DashboardHome user={user} lang={lang} setTab={setTab} exams={exams} onOpenExam={openExam} onOpenQuizForExam={openQuizForExam} onStartQuickQuizForExam={startQuickQuizForExam} onOpenPlanner={() => setPlannerOpen(true)} darkMode={darkMode} calEvents={calEvents} onMarkEventDone={onMarkEventDone} onStartTimer={onStartTimer} realMode={realMode} />}
-              {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
-              {tab === 'flashcards' && (flashLanding
-                ? <FlashcardLanding deck={flashcardDeck} recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} exams={exams} />
-                : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} />
-              )}
-              {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={darkMode} />}
-              {tab === 'tutor'     && <TutorView />}
-              {tab === 'analytics' && <AnalyticsView weekData={weekData} studySessions={studySessions} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuizForExam={openQuizForExam} />}
-              {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} />}
-              {tab === 'earn'      && <EarnView />}
-              {tab === 'account'   && <AccountView user={user} lang={lang} onLangChange={onLangChange} onLogout={handleLogout} />}
-            </motion.div>
-          </AnimatePresence>
-        </Suspense>
+        <DashboardRoutes
+          activeExamId={activeExamId}
+          calEvents={calEvents}
+          darkMode={darkMode}
+          exams={exams}
+          flashHistory={flashHistory}
+          flashLanding={flashLanding}
+          flashcardDeck={flashcardDeck}
+          handleExamAdded={handleExamAdded}
+          handleLogout={handleLogout}
+          lang={lang}
+          onFlashComplete={onFlashComplete}
+          onLangChange={onLangChange}
+          onMarkEventDone={onMarkEventDone}
+          onQuizComplete={onQuizComplete}
+          onStartTimer={onStartTimer}
+          openExam={openExam}
+          openFlashcards={openFlashcards}
+          openQuiz={openQuiz}
+          openQuizForExam={openQuizForExam}
+          quizDeck={quizDeck}
+          quizHistory={quizHistory}
+          quizRuns={quizRuns}
+          realMode={realMode}
+          recentFlashDecks={recentFlashDecks}
+          setActiveExamId={setActiveExamId}
+          setCalEvents={setCalEvents}
+          setExams={setExams}
+          setFlashLanding={setFlashLanding}
+          setPlannerNoteId={setPlannerNoteId}
+          setPlannerOpen={setPlannerOpen}
+          setTab={setTab}
+          startQuickQuizForExam={startQuickQuizForExam}
+          studySessions={studySessions}
+          tab={tab}
+          user={user}
+          weekData={weekData}
+        />
       </DashboardCard>
       {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
-      {plannerOpen && (
-        <Suspense fallback={<ViewFallback />}>
-          <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} initialNoteId={plannerNoteId} existingEvents={calEvents} />
-        </Suspense>
-      )}
+      <PlannerOverlay plannerOpen={plannerOpen} setPlannerOpen={setPlannerOpen} setPlannerNoteId={setPlannerNoteId} handlePlanAdded={handlePlanAdded} plannerNoteId={plannerNoteId} calEvents={calEvents} />
       {practiceConfig && (
         <PracticeConfigModal
           config={practiceConfig}
