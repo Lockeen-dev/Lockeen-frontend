@@ -76,7 +76,7 @@ export function DashboardRoutes({
           {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={darkMode} />}
           {tab === 'tutor'     && <TutorView />}
           {tab === 'analytics' && <AnalyticsView weekData={weekData} studySessions={studySessions} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuizForExam={openQuizForExam} />}
-          {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} />}
+          {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} exams={exams} />}
           {tab === 'earn'      && <EarnView />}
           {tab === 'account'   && <AccountView user={user} lang={lang} onLangChange={onLangChange} onLogout={handleLogout} />}
         </motion.div>
@@ -85,12 +85,12 @@ export function DashboardRoutes({
   );
 }
 
-export function PlannerOverlay({ plannerOpen, setPlannerOpen, setPlannerNoteId, handlePlanAdded, plannerNoteId, calEvents }) {
+export function PlannerOverlay({ plannerOpen, setPlannerOpen, setPlannerNoteId, handlePlanAdded, calEvents, exams, quizRuns }) {
   if (!plannerOpen) return null;
 
   return (
     <Suspense fallback={<ViewFallback />}>
-      <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} initialNoteId={plannerNoteId} existingEvents={calEvents} />
+      <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} exams={exams} quizRuns={quizRuns} />
     </Suspense>
   );
 }

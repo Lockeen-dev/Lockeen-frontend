@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Brain, CalendarIcon, ChevronDown, FileText, GripDots, Paperclip, Plus, Trash } from '../lib/icons';
 import { listCalendarEvents } from '../services/calendar';
+import { listStudyPlanItems } from '../services/studyPlans';
 import { homeS } from '../styles/dashboardStyles';
-import { LIFE_CATS, SUBJECT_NOTE_MAP, dayKey, durToMins, initCalEvents, resolveEventPalette, resolveStudyPalette } from './calendarData';
+import { LIFE_CATS, SUBJECT_NOTE_MAP, dayKey, durToMins, initCalEvents, resolveEventPalette, resolveStudyPalette, studyPlanItemToCalendarEvent } from './calendarData';
 export { LIFE_CATS, SUBJECT_NOTE_MAP, dayKey, durToMins, initCalEvents, resolveEventPalette };
 
 /* ===================== CALENDAR HELPERS ===================== */
@@ -56,7 +57,7 @@ function serviceEventToCalendarEvent(event) {
   };
 }
 
-export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
+export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams = [] }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const [view, setView]           = useState('week');
   const [weekStart, setWeekStart] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
@@ -95,26 +96,35 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
     async function loadExamEvents() {
       setCalendarLoading(true);
       setCalendarError(null);
-      const { data, error } = await listCalendarEvents();
+      const [examResult, planResult] = await Promise.all([
+        listCalendarEvents(),
+        listStudyPlanItems(),
+      ]);
       if (cancelled) return;
-      if (error) {
-        setCalendarError(formatCalendarError(error));
+      if (examResult.error) {
+        setCalendarError(formatCalendarError(examResult.error));
         setServiceEventCount(0);
         setCalendarLoading(false);
         return;
       }
 
       const grouped = {};
-      (data || []).forEach((event) => {
+      (examResult.data || []).forEach((event) => {
         const key = calendarKeyFromDate(event.date);
         if (!key) return;
         grouped[key] = [...(grouped[key] || []), serviceEventToCalendarEvent(event)];
+      });
+      (planResult.error ? [] : (planResult.data || [])).forEach((item) => {
+        const key = calendarKeyFromDate(item.plannedDate);
+        if (!key) return;
+        const exam = exams.find((entry) => String(entry.id) === String(item.examId));
+        grouped[key] = [...(grouped[key] || []), studyPlanItemToCalendarEvent(item, exam)];
       });
 
       setEvents((prev) => {
         const next = { ...(prev || {}) };
         Object.keys(next).forEach((key) => {
-          const kept = (next[key] || []).filter((event) => event.source !== 'exam-service');
+          const kept = (next[key] || []).filter((event) => event.source !== 'exam-service' && event.source !== 'study-plan-service');
           if (kept.length) next[key] = kept;
           else delete next[key];
         });
@@ -123,13 +133,13 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
         });
         return next;
       });
-      setServiceEventCount((data || []).length);
+      setServiceEventCount((examResult.data || []).length + (planResult.error ? 0 : (planResult.data || []).length));
       setCalendarLoading(false);
     }
 
     loadExamEvents();
     return () => { cancelled = true; };
-  }, [setEvents]);
+  }, [exams, setEvents]);
 
   const startDrag = (e, ev, key, idx) => {
     e.preventDefault(); e.stopPropagation();
@@ -748,13 +758,13 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner }) {
         ))}
       </div>
       {calendarLoading && (
-        <div style={calS.readModelNotice}>Loading exam events...</div>
+        <div style={calS.readModelNotice}>Loading calendar events...</div>
       )}
       {!calendarLoading && calendarError && (
         <div style={{ ...calS.readModelNotice, background:'#FEF2F2', borderColor:'#FCA5A5', color:'#991B1B' }}>{calendarError}</div>
       )}
       {!calendarLoading && !calendarError && serviceEventCount === 0 && (
-        <div style={calS.readModelNotice}>No exam events yet. Add an exam date in Notes.</div>
+        <div style={calS.readModelNotice}>No exam or study plan events yet. Add an exam date or generate a plan.</div>
       )}
       {view === 'week' ? renderWeek() : renderMonth()}
       <div style={calS.balanceSection}>
