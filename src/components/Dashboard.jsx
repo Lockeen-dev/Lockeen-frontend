@@ -35,7 +35,7 @@ function readStoredCalendarEvents(user, fallback) {
 function persistableCalendarEvents(events = {}) {
   return Object.fromEntries(
     Object.entries(events)
-      .map(([key, value]) => [key, (value || []).filter((event) => event.source !== 'exam-service')])
+      .map(([key, value]) => [key, (value || []).filter((event) => event.source !== 'exam-service' && event.source !== 'study-plan-service')])
       .filter(([, value]) => value.length > 0),
   );
 }
@@ -487,7 +487,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         />
       </DashboardCard>
       {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
-      <PlannerOverlay plannerOpen={plannerOpen} setPlannerOpen={setPlannerOpen} setPlannerNoteId={setPlannerNoteId} handlePlanAdded={handlePlanAdded} plannerNoteId={plannerNoteId} calEvents={calEvents} />
+      <PlannerOverlay plannerOpen={plannerOpen} setPlannerOpen={setPlannerOpen} setPlannerNoteId={setPlannerNoteId} handlePlanAdded={handlePlanAdded} calEvents={calEvents} exams={exams} quizRuns={quizRuns} />
       {practiceConfig && (
         <PracticeConfigModal
           config={practiceConfig}

@@ -11,6 +11,13 @@ export const LIFE_CATS = [
 export const dayKey = (d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 export const durToMins = (s) => { let m = 0; const h = s.match(/(\d+)h/); const mn = s.match(/(\d+)m/); if (h) m += parseInt(h[1]) * 60; if (mn) m += parseInt(mn[1]); return m || 0; };
 
+function minutesToDuration(minutes) {
+  const value = Math.max(1, Number(minutes) || 30);
+  if (value >= 60 && value % 60 === 0) return `${value / 60}h`;
+  if (value > 60) return `${Math.floor(value / 60)}h${value % 60}m`;
+  return `${value}m`;
+}
+
 export const SUBJECT_NOTE_MAP = {
   Biology: { noteId: 1, bg: '#EEF2FF', color: '#3730E8', text: '#3730E8' },
   Chemistry: { noteId: 2, bg: '#FDF2F8', color: '#8B5CF6', text: '#8B5CF6' },
@@ -88,6 +95,36 @@ export function resolveEventPalette(ev = {}) {
     color: ev.noteColor || cat?.color || '#3730E8',
     bg: ev.noteBg || cat?.bg || '#EEF2FF',
     text: ev.noteText || cat?.text || ev.noteColor || cat?.color || '#3730E8',
+  };
+}
+
+export function studyPlanItemToCalendarEvent(item = {}, exam = null) {
+  const title = exam?.name || 'Study';
+  const chapter = exam?.chapters?.find((entry) => String(entry.id) === String(item.chapterId));
+  const scope = chapter?.title || title;
+  const typeLabel = {
+    review: 'Review',
+    quiz: 'Quiz',
+    flashcards: 'Flashcards',
+    mock_exam: 'Mock exam',
+    buffer: 'Buffer',
+  }[item.type] || 'Study';
+
+  return {
+    name: `${typeLabel} — ${scope}`,
+    time: item.plannedTime || '09:00',
+    dur: minutesToDuration(item.durationMin),
+    cat: 'study',
+    source: 'study-plan-service',
+    serviceId: item.id,
+    planId: item.planId,
+    examId: item.examId,
+    chapterId: item.chapterId,
+    materialId: item.materialId,
+    noteId: null,
+    noteSubject: exam?.subject || title,
+    notes: item.reason || '',
+    materialPending: item.materialPending,
   };
 }
 
