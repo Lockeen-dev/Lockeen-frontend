@@ -970,6 +970,36 @@ function EmptyState({ icon: IconCmp = FileText, title, copy, actionLabel, onActi
   );
 }
 
+function makePracticeScope(items = [], fallbackItems = [], predicate = () => true, countItems = (value) => value.length) {
+  const matchedItems = (items || []).filter(predicate);
+  const serviceCount = countItems(matchedItems);
+  if (serviceCount > 0) return serviceCount;
+  return (fallbackItems || []).length;
+}
+
+function getPracticeStatus({ quizCount = 0, flashcardCount = 0, hasReadyMaterial = false, hasPendingMaterial = false }) {
+  const quizReady = quizCount > 0;
+  const flashcardsReady = flashcardCount > 0;
+  const preparing = hasPendingMaterial || (hasReadyMaterial && (!quizReady || !flashcardsReady));
+
+  if (quizReady && flashcardsReady) return { tone: 'ready', label: 'Quiz e flashcard pronti', quizReady, flashcardsReady };
+  if (preparing) return { tone: 'preparing', label: 'Preparazione in corso...', quizReady, flashcardsReady };
+  return { tone: 'empty', label: 'Carica materiale per preparare quiz e flashcard', quizReady, flashcardsReady };
+}
+
+function PracticeStatusPill({ status }) {
+  const styles = {
+    ready: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+    preparing: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+    empty: 'bg-slate-100 text-slate-500 ring-1 ring-slate-200',
+  };
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-extrabold ${styles[status?.tone] || styles.empty}`}>
+      {status?.label || 'Preparazione in corso...'}
+    </span>
+  );
+}
+
 function ExamHeader({ exam, palette, stats, onBack, onStartStudy, onAddMaterial }) {
   const statItems = [
     ['Chapters', stats.chapters],
@@ -1156,7 +1186,7 @@ function UploadMaterialCard({ materialTitle, setMaterialTitle, materialUrl, setM
   );
 }
 
-function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, onFlashcards }) {
+function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, onFlashcards, practiceStatus }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const displayName = getDisplayFileName(material);
   const fileSize = formatFileSize(material.sizeBytes);
@@ -1181,6 +1211,7 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
             <span className={`rounded-full px-2 py-0.5 font-bold ${getMaterialStatusTone(material)}`}>
               {getMaterialProcessingLabel(material)}
             </span>
+            <PracticeStatusPill status={practiceStatus} />
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {canOpen && (
@@ -1188,10 +1219,10 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
                 <Eye size={15} /> {savingStudyAction === `open-material-${material.id}` ? 'Opening...' : 'Open'}
               </button>
             )}
-            <button type="button" onClick={onQuiz} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">
+            <button type="button" onClick={onQuiz} disabled={!practiceStatus?.quizReady} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
               <Sparkles size={15} /> Open {scopeLabel} quiz
             </button>
-            <button type="button" onClick={onFlashcards} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+            <button type="button" onClick={onFlashcards} disabled={!practiceStatus?.flashcardsReady} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
               <Layers size={15} /> Open {scopeLabel} flashcards
             </button>
             <div className="relative">
@@ -1218,7 +1249,7 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
   );
 }
 
-function MaterialsPanel({ materials, materialsLoading, materialsError, savingStudyAction, onOpen, onDelete, onQuiz, onFlashcards, onAddMaterial }) {
+function MaterialsPanel({ materials, materialsLoading, materialsError, savingStudyAction, practiceStatusByMaterial = {}, onOpen, onDelete, onQuiz, onFlashcards, onAddMaterial }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-4">
@@ -1237,7 +1268,7 @@ function MaterialsPanel({ materials, materialsLoading, materialsError, savingStu
       )}
       <div className="grid gap-3">
         {!materialsLoading && materials.map((material) => (
-          <MaterialCard key={material.id} material={material} savingStudyAction={savingStudyAction} onOpen={onOpen} onDelete={onDelete} onQuiz={() => onQuiz(material)} onFlashcards={() => onFlashcards(material)} />
+          <MaterialCard key={material.id} material={material} savingStudyAction={savingStudyAction} practiceStatus={practiceStatusByMaterial[String(material.id)]} onOpen={onOpen} onDelete={onDelete} onQuiz={() => onQuiz(material)} onFlashcards={() => onFlashcards(material)} />
         ))}
       </div>
     </section>
@@ -1409,7 +1440,7 @@ function CleanExamHeader({ exam, palette, chapters, q, setQ, onBack, onNewChapte
   );
 }
 
-function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditChapter, onOpenPdf, onQuiz, onFlashcards, quizRuns }) {
+function CleanChapterGrid({ chapters, filtered, palette, practiceStatusByChapter = {}, onNewChapter, onEditChapter, onOpenPdf, onQuiz, onFlashcards, quizRuns }) {
   if (!chapters.length) {
     return <EmptyState icon={BookOpen} title="Create a chapter to organize your materials." actionLabel="New chapter" onAction={onNewChapter} />;
   }
@@ -1426,6 +1457,7 @@ function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditCha
         const updated = chapter.updated || (chapter.updatedAt ? formatStudyDate(chapter.updatedAt) : null) || 'Just now';
         const coverBg = index % 2 === 0 ? palette.bg : '#FFF1F8';
         const dot = index % 2 === 0 ? palette.dot : '#8B5CF6';
+        const practiceStatus = practiceStatusByChapter[String(chapter.id)] || getPracticeStatus({});
         return (
           <article key={chapter.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="relative grid h-36 place-items-center" style={{ background: coverBg }}>
@@ -1444,12 +1476,15 @@ function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditCha
               <p className="mt-3 text-base font-semibold text-slate-500">
                 {files} {files === 1 ? 'file' : 'files'} · {pages} {pages === 1 ? 'page' : 'pages'} · Updated {updated}
               </p>
+              <div className="mt-3">
+                <PracticeStatusPill status={practiceStatus} />
+              </div>
               {lastRun && <p className="mt-2 text-sm font-bold text-slate-600">Last quiz {lastRun.score}% · {lastRun.date}</p>}
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => onQuiz(chapter)} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-extrabold text-white">
+                <button type="button" onClick={() => onQuiz(chapter)} disabled={!practiceStatus.quizReady} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">
                   <Sparkles size={17} /> Quiz
                 </button>
-                <button type="button" onClick={() => onFlashcards(chapter)} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-950">
+                <button type="button" onClick={() => onFlashcards(chapter)} disabled={!practiceStatus.flashcardsReady} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
                   <Layers size={18} /> Flashcards
                 </button>
               </div>
@@ -1608,6 +1643,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [materialsLoading, setMaterialsLoading] = useState(true);
   const [materialsError, setMaterialsError] = useState(null);
   const [materials, setMaterials] = useState([]);
+  const [practiceItems, setPracticeItems] = useState({ quizzes: [], flashcards: [], loading: true });
   const [materialUiMeta, setMaterialUiMeta] = useState(() => readMaterialUiMeta());
   const [noteTitle, setNoteTitle] = useState('');
   const [noteBody, setNoteBody] = useState('');
@@ -1672,9 +1708,44 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     chapters: chapters.length,
     materials: materials.length,
     notes: notes.length,
-    quizzes: allQuiz.length,
-    flashcards: allFlash.length,
+    quizzes: practiceItems.quizzes.length || allQuiz.length,
+    flashcards: practiceItems.flashcards.length || allFlash.length,
   };
+  const practiceStatusByMaterial = materials.reduce((acc, material) => {
+    const materialId = String(material.id);
+    const quizCount = makePracticeScope(
+      practiceItems.quizzes,
+      [],
+      (quiz) => String(quiz.sourceMaterialId) === materialId,
+      (quizzes) => quizzes.reduce((sum, quiz) => sum + ((quiz.questions || []).length || 0), 0),
+    );
+    const flashcardCount = makePracticeScope(practiceItems.flashcards, [], (card) => String(card.sourceMaterialId) === materialId);
+    acc[materialId] = getPracticeStatus({
+      quizCount,
+      flashcardCount,
+      hasReadyMaterial: material.processingStatus === 'ready' && Boolean(material.extractedText),
+      hasPendingMaterial: ['uploaded', 'processing'].includes(material.processingStatus),
+    });
+    return acc;
+  }, {});
+  const practiceStatusByChapter = chapters.reduce((acc, chapter) => {
+    const chapterId = String(chapter.id);
+    const chapterMaterials = materials.filter((material) => String(material.chapterId) === chapterId);
+    const quizCount = makePracticeScope(
+      practiceItems.quizzes,
+      chapter.questions || [],
+      (quiz) => String(quiz.chapterId) === chapterId,
+      (quizzes) => quizzes.reduce((sum, quiz) => sum + ((quiz.questions || []).length || 0), 0),
+    );
+    const flashcardCount = makePracticeScope(practiceItems.flashcards, chapter.cards || [], (card) => String(card.chapterId) === chapterId);
+    acc[chapterId] = getPracticeStatus({
+      quizCount,
+      flashcardCount,
+      hasReadyMaterial: chapterMaterials.some((material) => material.processingStatus === 'ready' && material.extractedText),
+      hasPendingMaterial: chapterMaterials.some((material) => ['uploaded', 'processing'].includes(material.processingStatus)),
+    });
+    return acc;
+  }, {});
 
   useEffect(() => {
     let cancelled = false;
@@ -1683,9 +1754,12 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       setMaterialsLoading(true);
       setNotesError(null);
       setMaterialsError(null);
-      const [notesResult, materialsResult] = await Promise.all([
+      setPracticeItems((current) => ({ ...current, loading: true }));
+      const [notesResult, materialsResult, quizzesResult, flashcardsResult] = await Promise.all([
         listNotes({ examId: exam.id }),
         listMaterials({ examId: exam.id }),
+        listQuizzes({ examId: exam.id }),
+        listFlashcards({ examId: exam.id }),
       ]);
       if (cancelled) return;
       if (notesResult.error) {
@@ -1700,6 +1774,11 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       } else {
         setMaterials((materialsResult.data || []).map((material) => ({ ...material, ...(materialUiMeta[material.id] || {}) })));
       }
+      setPracticeItems({
+        quizzes: quizzesResult.error ? [] : (quizzesResult.data || []),
+        flashcards: flashcardsResult.error ? [] : (flashcardsResult.data || []),
+        loading: false,
+      });
       setNotesLoading(false);
       setMaterialsLoading(false);
     }
@@ -1716,6 +1795,18 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterials((result.data || []).map((material) => ({ ...material, ...(materialUiMeta[material.id] || {}) })));
   };
 
+  const reloadPracticeItems = async () => {
+    const [quizzesResult, flashcardsResult] = await Promise.all([
+      listQuizzes({ examId: exam.id }),
+      listFlashcards({ examId: exam.id }),
+    ]);
+    setPracticeItems({
+      quizzes: quizzesResult.error ? [] : (quizzesResult.data || []),
+      flashcards: flashcardsResult.error ? [] : (flashcardsResult.data || []),
+      loading: false,
+    });
+  };
+
   useEffect(() => {
     if (materialsLoading) return;
     const readyMaterials = materials.filter((material) => material?.id && material.processingStatus === 'ready' && material.extractedText);
@@ -1729,7 +1820,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         noteId: material.noteId || null,
         material,
         title: material.title || exam.name,
-      }).catch(() => null);
+      }).then(() => reloadPracticeItems()).catch(() => null);
     }
   }, [exam.id, exam.name, materials, materialsLoading]);
 
@@ -2108,6 +2199,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           chapters={chapters}
           filtered={filtered}
           palette={palette}
+          practiceStatusByChapter={practiceStatusByChapter}
           onNewChapter={() => setShowUpload(true)}
           onEditChapter={setEditingChapter}
           onOpenPdf={setPdfChapter}
