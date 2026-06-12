@@ -11,6 +11,13 @@ export const LIFE_CATS = [
 export const dayKey = (d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 export const durToMins = (s) => { let m = 0; const h = s.match(/(\d+)h/); const mn = s.match(/(\d+)m/); if (h) m += parseInt(h[1]) * 60; if (mn) m += parseInt(mn[1]); return m || 0; };
 
+export function calendarKeyFromDate(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split('T')[0].split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return `${year}-${month}-${day}`;
+}
+
 function minutesToDuration(minutes) {
   const value = Math.max(1, Number(minutes) || 30);
   if (value >= 60 && value % 60 === 0) return `${value / 60}h`;

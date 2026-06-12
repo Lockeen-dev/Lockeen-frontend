@@ -4,7 +4,7 @@ import { Brain, CalendarIcon, ChevronDown, FileText, GripDots, Paperclip, Plus, 
 import { listCalendarEvents } from '../services/calendar';
 import { listStudyPlanItems } from '../services/studyPlans';
 import { homeS } from '../styles/dashboardStyles';
-import { LIFE_CATS, SUBJECT_NOTE_MAP, dayKey, durToMins, initCalEvents, resolveEventPalette, resolveStudyPalette, studyPlanItemToCalendarEvent } from './calendarData';
+import { LIFE_CATS, SUBJECT_NOTE_MAP, calendarKeyFromDate, dayKey, durToMins, initCalEvents, resolveEventPalette, resolveStudyPalette, studyPlanItemToCalendarEvent } from './calendarData';
 export { LIFE_CATS, SUBJECT_NOTE_MAP, dayKey, durToMins, initCalEvents, resolveEventPalette };
 
 /* ===================== CALENDAR HELPERS ===================== */
@@ -29,13 +29,6 @@ function formatCalendarError(error) {
     return 'Supabase config is missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
   }
   return error.message || 'Unable to load calendar events.';
-}
-
-function calendarKeyFromDate(value) {
-  if (!value) return null;
-  const [year, month, day] = String(value).split('T')[0].split('-').map(Number);
-  if (!year || !month || !day) return null;
-  return `${year}-${month}-${day}`;
 }
 
 function serviceEventToCalendarEvent(event) {
