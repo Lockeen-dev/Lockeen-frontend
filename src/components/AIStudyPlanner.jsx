@@ -4,7 +4,7 @@ import { Brain, Check, Sparkles, XMark } from '../lib/icons';
 import { listMaterials } from '../services/materials';
 import { createStudyPlan, createStudyPlanItem, listStudyPlanItems } from '../services/studyPlans';
 import { generateStudyPlan } from '../services/studyPlanner';
-import { studyPlanItemToCalendarEvent } from './calendarData';
+import { calendarKeyFromDate, studyPlanItemToCalendarEvent } from './calendarData';
 
 function formatPlannerError(error, fallback = 'Unable to generate study plan.') {
   if (!error) return fallback;
@@ -133,10 +133,12 @@ function AIStudyPlanner({ onClose, onPlanAdded, exams = [], quizRuns = [] }) {
       savedItems.push(itemResult.data);
     }
 
-    const eventsToAdd = savedItems.map((item) => {
-      const exam = datedExams.find((entry) => String(entry.id) === String(item.examId));
-      return { dateKey: item.plannedDate, event: studyPlanItemToCalendarEvent(item, exam) };
-    });
+    const eventsToAdd = savedItems
+      .map((item) => {
+        const exam = datedExams.find((entry) => String(entry.id) === String(item.examId));
+        return { dateKey: calendarKeyFromDate(item.plannedDate), event: studyPlanItemToCalendarEvent(item, exam) };
+      })
+      .filter((entry) => entry.dateKey);
 
     onPlanAdded(eventsToAdd);
     setAdded(true);
