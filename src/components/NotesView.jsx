@@ -1085,10 +1085,10 @@ function QuickActionsCard({ onAddMaterial, onNewChapter, onQuiz, onFlashcards })
       <h2 className="m-0 text-base font-bold text-slate-950">Quick actions</h2>
       <div className="mt-4 grid gap-2">
         <button type="button" onClick={onQuiz} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white">
-          <Sparkles size={16} /> Generate quiz
+          <Sparkles size={16} /> Open quiz
         </button>
         <button type="button" onClick={onFlashcards} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
-          <Layers size={16} /> Create flashcards
+          <Layers size={16} /> Open flashcards
         </button>
         <button type="button" onClick={onAddMaterial} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
           <Paperclip size={16} /> Upload material
@@ -1162,8 +1162,6 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
   const fileSize = formatFileSize(material.sizeBytes);
   const uploaded = formatStudyDate(material.createdAt);
   const canOpen = Boolean(material.sourceUrl || material.storagePath);
-  const quizBusy = savingStudyAction === `generate-quiz-material-${material.id}`;
-  const flashBusy = savingStudyAction === `generate-flashcards-material-${material.id}`;
   const scopeLabel = material.chapterId ? 'chapter' : 'exam';
 
   return (
@@ -1190,11 +1188,11 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
                 <Eye size={15} /> {savingStudyAction === `open-material-${material.id}` ? 'Opening...' : 'Open'}
               </button>
             )}
-            <button type="button" onClick={onQuiz} disabled={quizBusy} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
-              <Sparkles size={15} /> {quizBusy ? 'Generating...' : `Generate ${scopeLabel} quiz`}
+            <button type="button" onClick={onQuiz} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">
+              <Sparkles size={15} /> Open {scopeLabel} quiz
             </button>
-            <button type="button" onClick={onFlashcards} disabled={flashBusy} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60">
-              <Layers size={15} /> {flashBusy ? 'Creating...' : `Create ${scopeLabel} flashcards`}
+            <button type="button" onClick={onFlashcards} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+              <Layers size={15} /> Open {scopeLabel} flashcards
             </button>
             <div className="relative">
               <button type="button" onClick={() => setMenuOpen((value) => !value)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
@@ -1284,7 +1282,7 @@ function ChaptersPanel({ chapters, filtered, q, setQ, onNewChapter, onEditChapte
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => onOpenPdf(chapter)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">Open chapter</button>
-                    <button type="button" onClick={() => onQuiz(chapter)} className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">Generate quiz</button>
+                    <button type="button" onClick={() => onQuiz(chapter)} className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">Quiz</button>
                     <button type="button" onClick={() => onFlashcards(chapter)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">Flashcards</button>
                     <button type="button" onClick={() => onEditChapter(chapter)} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500" title="Edit chapter"><Pencil size={15} /></button>
                   </div>
@@ -1364,12 +1362,12 @@ function ActivityPanel({ quizHistory, flashHistory, exam, onQuiz, onFlashcards }
         {avgQ !== null ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="text-sm font-semibold text-slate-600">Quiz</div><div className="mt-2 text-2xl font-bold text-slate-950">{avgQ}%</div><p className="mt-1 text-sm text-slate-500">{qh.length} sessions completed</p></div>
         ) : (
-          <EmptyState icon={Sparkles} title="No quizzes yet" copy="Generate your first quiz from your uploaded material." actionLabel="Generate quiz" onAction={onQuiz} />
+          <EmptyState icon={Sparkles} title="No quizzes yet" copy="Upload material to prepare quizzes automatically." actionLabel="Open quiz" onAction={onQuiz} />
         )}
         {avgFlash !== null ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="text-sm font-semibold text-slate-600">Flashcards</div><div className="mt-2 text-2xl font-bold text-slate-950">{avgFlash}%</div><p className="mt-1 text-sm text-slate-500">{fh.length} sessions completed</p></div>
         ) : (
-          <EmptyState icon={Layers} title="No flashcards yet" copy="Create flashcards from your uploaded material." actionLabel="Create flashcards" onAction={onFlashcards} secondary />
+          <EmptyState icon={Layers} title="No flashcards yet" copy="Upload material to prepare flashcards automatically." actionLabel="Open flashcards" onAction={onFlashcards} secondary />
         )}
       </div>
     </section>
@@ -1411,7 +1409,7 @@ function CleanExamHeader({ exam, palette, chapters, q, setQ, onBack, onNewChapte
   );
 }
 
-function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditChapter, onOpenPdf, onQuiz, onFlashcards, quizRuns, savingStudyAction }) {
+function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditChapter, onOpenPdf, onQuiz, onFlashcards, quizRuns }) {
   if (!chapters.length) {
     return <EmptyState icon={BookOpen} title="Create a chapter to organize your materials." actionLabel="New chapter" onAction={onNewChapter} />;
   }
@@ -1428,9 +1426,6 @@ function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditCha
         const updated = chapter.updated || (chapter.updatedAt ? formatStudyDate(chapter.updatedAt) : null) || 'Just now';
         const coverBg = index % 2 === 0 ? palette.bg : '#FFF1F8';
         const dot = index % 2 === 0 ? palette.dot : '#8B5CF6';
-        const quizBusy = savingStudyAction === `generate-quiz-chapter-${chapter.id}`;
-        const flashBusy = savingStudyAction === `generate-flashcards-chapter-${chapter.id}`;
-
         return (
           <article key={chapter.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="relative grid h-36 place-items-center" style={{ background: coverBg }}>
@@ -1451,11 +1446,11 @@ function CleanChapterGrid({ chapters, filtered, palette, onNewChapter, onEditCha
               </p>
               {lastRun && <p className="mt-2 text-sm font-bold text-slate-600">Last quiz {lastRun.score}% · {lastRun.date}</p>}
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => onQuiz(chapter)} disabled={quizBusy} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-extrabold text-white disabled:opacity-60">
-                  <Sparkles size={17} /> {quizBusy ? 'Generating...' : 'Generate Quiz'}
+                <button type="button" onClick={() => onQuiz(chapter)} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-extrabold text-white">
+                  <Sparkles size={17} /> Quiz
                 </button>
-                <button type="button" onClick={() => onFlashcards(chapter)} disabled={flashBusy} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-950 disabled:opacity-60">
-                  <Layers size={18} /> {flashBusy ? 'Creating...' : 'Flashcards'}
+                <button type="button" onClick={() => onFlashcards(chapter)} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-950">
+                  <Layers size={18} /> Flashcards
                 </button>
               </div>
             </div>
@@ -1521,7 +1516,7 @@ function WideReadinessCard({ score, bars, chapters, readinessView, setReadinessV
   );
 }
 
-function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDecks, exam, onQuiz, onFlashcards, savingStudyAction }) {
+function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDecks, exam, onQuiz, onFlashcards }) {
   const qh = quizHistory[exam.id] || [];
   const examRuns = quizRuns.filter((run) => String(run.examId || run.noteId) === String(exam.id));
   const quizItems = examRuns.length
@@ -1545,8 +1540,8 @@ function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDec
         <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="m-0 text-lg font-black text-slate-950">Quiz history</h3>
-            <button type="button" onClick={onQuiz} disabled={savingStudyAction === 'generate-quiz-exam'} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-extrabold text-white disabled:opacity-60">
-              <Sparkles size={17} /> {savingStudyAction === 'generate-quiz-exam' ? 'Generating...' : 'Genera Quiz'}
+            <button type="button" onClick={onQuiz} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-extrabold text-white">
+              <Sparkles size={17} /> Apri Quiz
             </button>
           </div>
           {quizItems.length === 0 ? (
@@ -1568,8 +1563,8 @@ function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDec
         <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="m-0 text-lg font-black text-slate-950">Flashcard history</h3>
-            <button type="button" onClick={onFlashcards} disabled={savingStudyAction === 'generate-flashcards-exam'} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-950 disabled:opacity-60">
-              <Layers size={17} /> {savingStudyAction === 'generate-flashcards-exam' ? 'Creating...' : 'Flashcard'}
+            <button type="button" onClick={onFlashcards} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-950">
+              <Layers size={17} /> Flashcard
             </button>
           </div>
           {fallbackFlashItems.length === 0 ? (
@@ -1623,6 +1618,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [materialUrl, setMaterialUrl] = useState('');
   const [materialFile, setMaterialFile] = useState(null);
   const [savingStudyAction, setSavingStudyAction] = useState(null);
+  const autoPracticeMaterialIdsRef = useRef(new Set());
   const palette = getSubjectPalette(exam.subject, exam, darkMode);
   const materialStatsByChapter = materials.reduce((acc, material) => {
     if (!material.chapterId) return acc;
@@ -1720,6 +1716,23 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     setMaterials((result.data || []).map((material) => ({ ...material, ...(materialUiMeta[material.id] || {}) })));
   };
 
+  useEffect(() => {
+    if (materialsLoading) return;
+    const readyMaterials = materials.filter((material) => material?.id && material.processingStatus === 'ready' && material.extractedText);
+    for (const material of readyMaterials) {
+      const materialId = String(material.id);
+      if (autoPracticeMaterialIdsRef.current.has(materialId)) continue;
+      autoPracticeMaterialIdsRef.current.add(materialId);
+      createPracticeBanksForMaterial({
+        examId: exam.id,
+        chapterId: material.chapterId || null,
+        noteId: material.noteId || null,
+        material,
+        title: material.title || exam.name,
+      }).catch(() => null);
+    }
+  }, [exam.id, exam.name, materials, materialsLoading]);
+
   const deletePracticeForMaterial = async (materialId) => {
     const [quizzesResult, flashcardsResult] = await Promise.all([
       listQuizzes({ examId: exam.id, sourceMaterialId: materialId }),
@@ -1778,19 +1791,6 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       ];
     });
   };
-  const getReadyMaterialSeed = ({ chapterId = null } = {}) => {
-    const readyMaterials = materials.filter((material) => {
-      if (material.processingStatus !== 'ready' || !material.extractedText) return false;
-      if (chapterId && String(material.chapterId) !== String(chapterId)) return false;
-      return true;
-    });
-    if (!readyMaterials.length) return { seedText: '', sourceMaterialId: null, seedPageCount: null };
-    return {
-      seedText: readyMaterials.map((material) => material.extractedText).join('\n\n'),
-      sourceMaterialId: readyMaterials.length === 1 ? readyMaterials[0].id : null,
-      seedPageCount: readyMaterials.reduce((sum, material) => sum + (Number(material.pageCount || material.page_count) || 0), 0) || null,
-    };
-  };
   const openQuizConfigurator = ({ title, chapterId = null, count = 10 } = {}) => {
     if (!onOpenQuiz) return;
     onOpenQuiz({
@@ -1830,174 +1830,10 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     });
   };
 
-  const startStudy = async () => {
-    const seed = getReadyMaterialSeed();
-    const result = await handleGenerateQuiz({
-      title: exam.name,
-      seedQuestions: seed.seedText ? [] : chapters.flatMap((c) => c.questions || []),
-      seedText: seed.seedText,
-      seedPageCount: seed.seedPageCount,
-      sourceMaterialId: seed.sourceMaterialId,
-      actionKey: 'exam',
-    });
-    return result;
-  };
-
-  const handleGenerateQuiz = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedQuestions = [], seedText = '', seedPageCount = null, actionKey = 'exam' }) => {
-    if (!onOpenQuiz) return null;
-    setMaterialsError(null);
-    setSavingStudyAction(`generate-quiz-${actionKey}`);
-
-    try {
-      const shouldReuseExisting = !seedText || sourceMaterialId;
-      const filters = {
-        examId: exam.id,
-        ...(chapterId ? { chapterId } : {}),
-        ...(noteId ? { noteId } : {}),
-        sourceMaterialId: sourceMaterialId || null,
-      };
-      const desiredQuestionCount = seedText ? estimateQuestionBankPlan({ sourceText: seedText, pageCount: seedPageCount }).questionCount : 5;
-      const reuseThreshold = Math.max(5, Math.floor(desiredQuestionCount * 0.85));
-      if (shouldReuseExisting) {
-        const existing = await listQuizzes(filters);
-        if (!existing.error) {
-          const existingQuiz = (existing.data || []).find((quiz) => {
-            const questions = quiz.questions || [];
-            return questions.length >= reuseThreshold && !questions.some(isFallbackPracticeQuestion);
-          });
-          if (existingQuiz) {
-            openQuizConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, (existingQuiz.questions || []).length || 10)) });
-            return existingQuiz;
-          }
-        }
-      }
-
-      let questions = buildGeneratedQuestions(title, seedQuestions, seedText);
-      if (seedText && sourceMaterialId) {
-        const quiz = await createQuestionBankForMaterial({
-          examId: exam.id,
-          chapterId,
-          noteId,
-          sourceMaterialId,
-          material: {
-            id: sourceMaterialId,
-            title,
-            processingStatus: 'ready',
-            extractedText: seedText,
-            pageCount: seedPageCount,
-          },
-          title: cleanPracticeTitle(title, exam.name),
-        });
-        if (quiz) {
-          openQuizConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, (quiz.questions || []).length || 10)) });
-          return quiz;
-        }
-      } else if (seedText) {
-        questions = await buildQuestionBankQuestions({
-          title: cleanPracticeTitle(title, exam.name),
-          sourceText: seedText,
-          pageCount: seedPageCount,
-        });
-      }
-      const result = await createQuiz({
-        examId: exam.id,
-        chapterId,
-        noteId,
-        sourceMaterialId,
-        title: cleanPracticeTitle(title, exam.name),
-        questions,
-      });
-      if (result.error) {
-        setMaterialsError(formatStudyServiceError(result.error, 'Unable to generate quiz.'));
-        return null;
-      }
-      const quiz = result.data;
-      openQuizConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, (quiz.questions || questions).length || 10)) });
-      return quiz;
-    } catch (error) {
-      setMaterialsError(error?.message || 'Unable to generate quiz.');
-      return null;
-    } finally {
-      setSavingStudyAction(null);
-    }
-  };
-
-  const handleGenerateFlashcards = async ({ title, chapterId = null, noteId = null, sourceMaterialId = null, seedCards = [], seedText = '', seedPageCount = null, actionKey = 'exam' }) => {
-    if (!onOpenFlashcards) return null;
-    setMaterialsError(null);
-    setSavingStudyAction(`generate-flashcards-${actionKey}`);
-
-    try {
-      const desiredFlashcards = seedText ? estimateFlashcardPlan({ sourceText: seedText, pageCount: seedPageCount }).cardCount : Math.max(5, Math.min(20, seedCards.length || 10));
-      let existingCards = [];
-      if ((chapterId || noteId || sourceMaterialId) && (!seedText || sourceMaterialId)) {
-        const existing = await listFlashcards({
-          examId: exam.id,
-          ...(chapterId ? { chapterId } : {}),
-          ...(noteId ? { noteId } : {}),
-          sourceMaterialId: sourceMaterialId || null,
-        });
-        existingCards = existing.error ? [] : (existing.data || []);
-        if (existingCards.length >= Math.max(5, Math.floor(desiredFlashcards * 0.85))) {
-          openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, existingCards.length || 10)) });
-          return existingCards;
-        }
-      }
-
-      let cards = buildGeneratedFlashcards(title, seedCards, seedText);
-      if (seedText && sourceMaterialId) {
-        const bankCards = await createFlashcardBankForMaterial({
-          examId: exam.id,
-          chapterId,
-          noteId,
-          sourceMaterialId,
-          material: {
-            id: sourceMaterialId,
-            title,
-            processingStatus: 'ready',
-            extractedText: seedText,
-            pageCount: seedPageCount,
-          },
-          title: cleanPracticeTitle(title, exam.name),
-        });
-        const totalCards = Array.isArray(bankCards) ? bankCards.length : 0;
-        openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, totalCards || 10)) });
-        return bankCards;
-      } else if (seedText) {
-        cards = await buildFlashcardBankCards({
-          title: cleanPracticeTitle(title, exam.name),
-          sourceText: seedText,
-          pageCount: seedPageCount,
-        });
-      }
-      cards = cards.slice(0, Math.max(0, desiredFlashcards - existingCards.length));
-      const created = [];
-      for (const card of cards) {
-        const result = await createFlashcard({
-          examId: exam.id,
-          chapterId,
-          noteId,
-          sourceMaterialId,
-          front: card.front,
-          back: card.back,
-        });
-        if (result.error) {
-          setMaterialsError(formatStudyServiceError(result.error, 'Unable to create flashcards.'));
-          return null;
-        }
-        created.push(result.data);
-      }
-
-      const totalCards = existingCards.length + created.length;
-      openFlashcardConfigurator({ title, chapterId: chapterId || 'all', count: Math.min(10, Math.max(5, totalCards || 10)) });
-      return [...existingCards, ...created];
-    } catch (error) {
-      setMaterialsError(error?.message || 'Unable to create flashcards.');
-      return null;
-    } finally {
-      setSavingStudyAction(null);
-    }
-  };
+  const openExamQuiz = () => openQuizConfigurator({ title: exam.name, chapterId: 'all', count: 10 });
+  const openExamFlashcards = () => openFlashcardConfigurator({ title: exam.name, chapterId: 'all', count: 10 });
+  const openChapterQuiz = (chapter) => openQuizConfigurator({ title: chapter.title, chapterId: chapter.id, count: 10 });
+  const openChapterFlashcards = (chapter) => openFlashcardConfigurator({ title: chapter.title, chapterId: chapter.id, count: 10 });
 
   const resetNoteForm = () => {
     setNoteTitle('');
@@ -2195,23 +2031,15 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     const validation = validateStudyMaterialFile(file);
     if (validation.error) setMaterialsError(formatStudyServiceError(validation.error, 'File is not valid.'));
   };
-  const handleMaterialQuiz = (material) => handleGenerateQuiz({
+  const handleMaterialQuiz = (material) => openQuizConfigurator({
     title: getDisplayFileName(material),
-    chapterId: material.chapterId || null,
-    noteId: material.noteId || null,
-    sourceMaterialId: material.id,
-    seedText: material.extractedText || '',
-    seedPageCount: material.pageCount || material.page_count || null,
-    actionKey: `material-${material.id}`,
+    chapterId: material.chapterId || 'all',
+    count: 10,
   });
-  const handleMaterialFlashcards = (material) => handleGenerateFlashcards({
+  const handleMaterialFlashcards = (material) => openFlashcardConfigurator({
     title: getDisplayFileName(material),
-    chapterId: material.chapterId || null,
-    noteId: material.noteId || null,
-    sourceMaterialId: material.id,
-    seedText: material.extractedText || '',
-    seedPageCount: material.pageCount || material.page_count || null,
-    actionKey: `material-${material.id}`,
+    chapterId: material.chapterId || 'all',
+    count: 10,
   });
   const handleAddChapterDocuments = async (chapter, files) => {
     const pickedFiles = Array.from(files || []);
@@ -2283,32 +2111,9 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           onNewChapter={() => setShowUpload(true)}
           onEditChapter={setEditingChapter}
           onOpenPdf={setPdfChapter}
-          onQuiz={(chapter) => {
-            const seed = getReadyMaterialSeed({ chapterId: chapter.id });
-            return handleGenerateQuiz({
-              title: chapter.title,
-              chapterId: chapter.id,
-              sourceMaterialId: seed.sourceMaterialId,
-              seedQuestions: seed.seedText ? [] : chapter.questions || [],
-              seedText: seed.seedText,
-              seedPageCount: seed.seedPageCount,
-              actionKey: `chapter-${chapter.id}`,
-            });
-          }}
-          onFlashcards={(chapter) => {
-            const seed = getReadyMaterialSeed({ chapterId: chapter.id });
-            return handleGenerateFlashcards({
-              title: chapter.title,
-              chapterId: chapter.id,
-              sourceMaterialId: seed.sourceMaterialId,
-              seedCards: seed.seedText ? [] : chapter.cards || [],
-              seedText: seed.seedText,
-              seedPageCount: seed.seedPageCount,
-              actionKey: `chapter-${chapter.id}`,
-            });
-          }}
+          onQuiz={openChapterQuiz}
+          onFlashcards={openChapterFlashcards}
           quizRuns={quizRuns}
-          savingStudyAction={savingStudyAction}
         />
 
         <WideReadinessCard
@@ -2327,19 +2132,8 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           quizRuns={quizRuns}
           recentFlashDecks={recentFlashDecks}
           exam={exam}
-          onQuiz={startStudy}
-          onFlashcards={() => {
-            const seed = getReadyMaterialSeed();
-            return handleGenerateFlashcards({
-              title: exam.name,
-              sourceMaterialId: seed.sourceMaterialId,
-              seedCards: seed.seedText ? [] : chapters.flatMap((c) => c.cards || []),
-              seedText: seed.seedText,
-              seedPageCount: seed.seedPageCount,
-              actionKey: 'exam',
-            });
-          }}
-          savingStudyAction={savingStudyAction}
+          onQuiz={openExamQuiz}
+          onFlashcards={openExamFlashcards}
         />
 
         {editingChapter && (
