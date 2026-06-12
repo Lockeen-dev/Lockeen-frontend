@@ -1,16 +1,9 @@
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
+import { fail, ok } from './_shared';
 
 const PRACTICE_TIMEOUT_MS = 30000;
 const DIFFICULTIES = ['easy', 'medium', 'hard', 'extreme'];
-
-function ok(data) {
-  return { data: structuredClone(data), error: null };
-}
-
-function fail(message, code = 'UNKNOWN_ERROR') {
-  return { data: null, error: { code, message } };
-}
 
 function normalizeQuestion(question = {}) {
   const options = Array.isArray(question.options)

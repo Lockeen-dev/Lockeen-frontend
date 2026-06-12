@@ -1,20 +1,9 @@
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 import { requireAuthenticatedUserId } from './auth';
+import { fail, normalizeError, ok } from './_shared';
 
 const mockSessions = [];
-
-function ok(data) {
-  return { data: structuredClone(data), error: null };
-}
-
-function fail(message, code = 'UNKNOWN_ERROR') {
-  return { data: null, error: { code, message } };
-}
-
-function normalizeError(error, fallback = 'Request failed.') {
-  return { code: error?.code || error?.name || 'SUPABASE_ERROR', message: error?.message || fallback };
-}
 
 function toSession(row) {
   return {
