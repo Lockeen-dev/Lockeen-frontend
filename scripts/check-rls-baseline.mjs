@@ -113,6 +113,26 @@ const expectedTables = [
     ownerColumn: 'user_id',
     operations: ['select'],
   },
+  {
+    table: 'study_plans',
+    ownerColumn: 'user_id',
+    operations: ['select', 'insert', 'update', 'delete'],
+  },
+  {
+    table: 'study_plan_items',
+    ownerColumn: 'user_id',
+    operations: ['select', 'insert', 'update', 'delete'],
+    parentChecks: [
+      'public.study_plans',
+      'public.exams',
+      'public.chapters',
+      'public.study_materials',
+      'study_plans.user_id = auth.uid()',
+      'exams.user_id = auth.uid()',
+      'chapters.user_id = auth.uid()',
+      'study_materials.user_id = auth.uid()',
+    ],
+  },
 ];
 
 const storageChecks = [
