@@ -1,8 +1,5 @@
 import { listExams } from './exams';
-
-function ok(data) {
-  return { data: structuredClone(data), error: null };
-}
+import { ok } from './_shared';
 
 function failFrom(error) {
   return {

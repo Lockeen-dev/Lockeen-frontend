@@ -1,9 +1,6 @@
 import { listExams } from './exams';
 import { getStudySummary } from './analytics';
-
-function ok(data) {
-  return { data: structuredClone(data), error: null };
-}
+import { ok } from './_shared';
 
 function failFrom(error) {
   return {

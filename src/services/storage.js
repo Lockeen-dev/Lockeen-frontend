@@ -1,6 +1,7 @@
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 import { requireAuthenticatedUserId } from './auth';
+import { fail, normalizeError as normalizeServiceError, ok } from './_shared';
 
 export const STUDY_MATERIALS_BUCKET = 'study-materials';
 export const MAX_STUDY_MATERIAL_BYTES = 10 * 1024 * 1024;
@@ -11,19 +12,8 @@ export const ALLOWED_STUDY_MATERIAL_TYPES = new Set([
   'text/plain',
 ]);
 
-function ok(data) {
-  return { data: structuredClone(data), error: null };
-}
-
-function fail(message, code = 'UNKNOWN_ERROR') {
-  return { data: null, error: { code, message } };
-}
-
 function normalizeError(error, fallback = 'Storage request failed.') {
-  return {
-    code: error?.code || error?.name || 'STORAGE_ERROR',
-    message: error?.message || fallback,
-  };
+  return normalizeServiceError(error, fallback, 'STORAGE_ERROR');
 }
 
 function sanitizeFileName(fileName = 'material') {
