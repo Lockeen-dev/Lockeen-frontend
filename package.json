@@ -11,7 +11,8 @@
     "security:frontend-env": "node scripts/check-frontend-secrets.mjs",
     "security:real-mode": "node scripts/check-real-mode-mock-guards.mjs",
     "security:rls": "node scripts/check-rls-baseline.mjs",
-    "ci": "npm run setup:check && npm run security:frontend-env && npm run security:real-mode && npm run security:rls && npm run build"
+    "planner:check": "node scripts/check-study-planner.mjs",
+    "ci": "npm run setup:check && npm run security:frontend-env && npm run security:real-mode && npm run security:rls && npm run planner:check && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
