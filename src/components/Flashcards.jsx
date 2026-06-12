@@ -141,6 +141,26 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
   const maxCards = availableCards.length;
   const effectiveCards = Math.min(numCards, maxCards || 1);
   const focusedFromNotes = deck?._practiceConfig?.source === 'study-material';
+  const waitingForPractice = focusedFromNotes && !loadingCards && maxCards === 0;
+  useEffect(() => {
+    if (!focusedFromNotes || !selectedExamId || maxCards > 0 || loadingCards) return undefined;
+    let cancelled = false;
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      attempts += 1;
+      const result = await listFlashcards({ examId: selectedExamId });
+      if (!cancelled && !result.error) {
+        setCards((result.data || []).map(normalizeFlashcard));
+        setCardsLoaded(true);
+      }
+      if (attempts >= 20) clearInterval(timer);
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [focusedFromNotes, selectedExamId, maxCards, loadingCards]);
+
   const selectedChapter = selectedChapterId === 'all'
     ? null
     : selectedExam?.chapters?.find((chapter) => String(chapter.id) === String(selectedChapterId));
@@ -234,7 +254,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
           <div style={{ fontSize:12, fontWeight:900, textTransform:'uppercase', letterSpacing:'.08em', opacity:.75 }}>{focusScopeLabel} selezionato</div>
           <div style={{ marginTop:4, fontSize:16, fontWeight:900 }}>{focusTitle}</div>
           <div style={{ marginTop:3, fontSize:12, fontWeight:700, opacity:.75 }}>
-            {loadingCards ? 'Carico flashcards...' : maxCards > 0 ? `${maxCards} carte pronte. Puoi studiare direttamente.` : 'Flashcards ancora in preparazione.'}
+            {loadingCards ? 'Carico flashcards...' : maxCards > 0 ? `${maxCards} carte pronte. Puoi studiare direttamente.` : 'Sto generando le flashcards in background. Puoi lasciare questa pagina aperta: si aggiorna da sola.'}
           </div>
         </div>
       )}
@@ -308,7 +328,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
           </div>
           <button type="button" onClick={startConfiguredDeck} disabled={!maxCards || loadingCards}
             style={{ width:'100%', borderRadius:16, padding:'16px', background: maxCards && !loadingCards ? `linear-gradient(135deg, ${selectedPalette.dot} 0%, ${selectedPalette.dot}cc 100%)` : '#CBD5E1', color:'#fff', fontWeight:900, fontSize:16, cursor: maxCards && !loadingCards ? 'pointer' : 'not-allowed', border:'none', marginBottom:24 }}>
-            {loadingCards ? 'Loading...' : maxCards ? `Studia ${effectiveCards} carte · ${focusTitle}` : 'Flashcards in preparazione'}
+            {loadingCards ? 'Loading...' : maxCards ? `Studia ${effectiveCards} carte · ${focusTitle}` : waitingForPractice ? 'Generazione flashcards in corso...' : 'Flashcards in preparazione'}
           </button>
 
           <div style={sL}>Capitoli — {selectedExam.name}</div>
