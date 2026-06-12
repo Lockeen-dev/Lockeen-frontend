@@ -592,6 +592,12 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   const difficultySummary = selectedDiffs.length === DIFFICULTY_IDS.length
     ? 'All difficulties'
     : selectedDiffs.map((id) => DIFFICULTY_LABELS[id]).join(' + ');
+  const focusedFromNotes = deck?._practiceConfig?.source === 'study-material';
+  const selectedChapter = selectedChapterId === 'all'
+    ? null
+    : selectedExam?.chapters?.find((chapter) => String(chapter.id) === String(selectedChapterId));
+  const focusTitle = selectedChapter?.title || deck?._practiceConfig?.chapterName || selectedExam?.name || 'Quiz';
+  const focusScopeLabel = selectedChapterId === 'all' ? 'Intero esame' : 'Capitolo';
 
   const startQuiz = async (overrides = {}) => {
     const examId = overrides.examId ?? selectedExamId;
@@ -732,13 +738,24 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       {/* Page header */}
       <div style={{ marginBottom:24, display:'flex', alignItems:'flex-end', justifyContent:'space-between' }}>
         <div>
-          <h2 style={{ margin:'0 0 3px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>Quiz</h2>
+          <h2 style={{ margin:'0 0 3px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>
+            {focusedFromNotes ? `Quiz · ${focusTitle}` : 'Quiz'}
+          </h2>
           <p style={{ margin:0, fontSize:13, color:'var(--gray)' }}>
-            {selectedExam ? `${selectedExam.name} · ${loadingQuizzes ? 'loading...' : maxQ > 0 ? `${effectiveNumQ} di ${maxQ} domande` : 'nessuna domanda'}` : 'Configura il tuo quiz'}
+            {selectedExam ? `${selectedExam.name} · ${focusScopeLabel} · ${loadingQuizzes ? 'loading...' : maxQ > 0 ? `${effectiveNumQ} di ${maxQ} domande` : 'Preparazione in corso...'}` : 'Configura il tuo quiz'}
           </p>
         </div>
       </div>
       {quizError && <p style={{ margin:'0 0 12px', color:'#DC2626', fontSize:13 }}>{quizError}</p>}
+      {focusedFromNotes && (
+        <div style={{ margin:'0 0 14px', padding:'14px 16px', borderRadius:16, border:`1.5px solid ${selectedPalette.dot}33`, background:selectedPalette.bg, color:selectedPalette.text }}>
+          <div style={{ fontSize:12, fontWeight:900, textTransform:'uppercase', letterSpacing:'.08em', opacity:.75 }}>{focusScopeLabel} selezionato</div>
+          <div style={{ marginTop:4, fontSize:16, fontWeight:900 }}>{focusTitle}</div>
+          <div style={{ marginTop:3, fontSize:12, fontWeight:700, opacity:.75 }}>
+            {loadingQuizzes ? 'Carico domande...' : maxQ > 0 ? `${maxQ} domande pronte. Puoi iniziare direttamente.` : 'Quiz ancora in preparazione.'}
+          </div>
+        </div>
+      )}
 
       {/* Config card */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:22, overflow:'hidden', boxShadow:'0 2px 16px rgba(0,0,0,.04)', marginBottom:14 }}>
@@ -881,7 +898,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 && !loadingQuizzes ? `linear-gradient(135deg, ${selectedPalette.dot} 0%, ${selectedPalette.dot}cc 100%)` : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 && !loadingQuizzes ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 && !loadingQuizzes ? `0 4px 16px ${selectedPalette.dot}35` : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
         onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.9'; }}
         onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}>
-        {loadingQuizzes ? 'Loading...' : 'Inizia Quiz'}
+        {loadingQuizzes ? 'Loading...' : maxQ > 0 ? `Inizia Quiz · ${focusTitle}` : 'Quiz in preparazione'}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       </button>
 
