@@ -559,6 +559,27 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
 
   const maxQ = availableQuestions.length;
   const effectiveNumQ = Math.min(numQ, maxQ || 1);
+  const focusedFromNotes = deck?._practiceConfig?.source === 'study-material';
+  const waitingForPractice = focusedFromNotes && !loadingQuizzes && maxQ === 0;
+
+  useEffect(() => {
+    if (!focusedFromNotes || !selectedExamId || activeDeck || maxQ > 0 || loadingQuizzes) return undefined;
+    let cancelled = false;
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      attempts += 1;
+      const result = await listQuizzes({ examId: selectedExamId });
+      if (!cancelled && !result.error) {
+        setServiceQuizzes((result.data || []).map(normalizeQuiz));
+      }
+      if (attempts >= 20) clearInterval(timer);
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [focusedFromNotes, selectedExamId, activeDeck, maxQ, loadingQuizzes]);
+
   const countQuestionsInQuizzes = (quizzes = [], difficulties = DIFFICULTY_IDS) =>
     filterQuestionsByDifficulty(quizzes.flatMap((quiz) => quiz.questions || []), difficulties).length;
   const countQuestionsForChapter = (chapterId) => {
@@ -592,7 +613,6 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   const difficultySummary = selectedDiffs.length === DIFFICULTY_IDS.length
     ? 'All difficulties'
     : selectedDiffs.map((id) => DIFFICULTY_LABELS[id]).join(' + ');
-  const focusedFromNotes = deck?._practiceConfig?.source === 'study-material';
   const selectedChapter = selectedChapterId === 'all'
     ? null
     : selectedExam?.chapters?.find((chapter) => String(chapter.id) === String(selectedChapterId));
@@ -742,7 +762,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             {focusedFromNotes ? `Quiz · ${focusTitle}` : 'Quiz'}
           </h2>
           <p style={{ margin:0, fontSize:13, color:'var(--gray)' }}>
-            {selectedExam ? `${selectedExam.name} · ${focusScopeLabel} · ${loadingQuizzes ? 'loading...' : maxQ > 0 ? `${effectiveNumQ} di ${maxQ} domande` : 'Preparazione in corso...'}` : 'Configura il tuo quiz'}
+            {selectedExam ? `${selectedExam.name} · ${focusScopeLabel} · ${loadingQuizzes ? 'loading...' : maxQ > 0 ? `${effectiveNumQ} di ${maxQ} domande` : 'Generazione in corso...'}` : 'Configura il tuo quiz'}
           </p>
         </div>
       </div>
@@ -752,7 +772,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
           <div style={{ fontSize:12, fontWeight:900, textTransform:'uppercase', letterSpacing:'.08em', opacity:.75 }}>{focusScopeLabel} selezionato</div>
           <div style={{ marginTop:4, fontSize:16, fontWeight:900 }}>{focusTitle}</div>
           <div style={{ marginTop:3, fontSize:12, fontWeight:700, opacity:.75 }}>
-            {loadingQuizzes ? 'Carico domande...' : maxQ > 0 ? `${maxQ} domande pronte. Puoi iniziare direttamente.` : 'Quiz ancora in preparazione.'}
+            {loadingQuizzes ? 'Carico domande...' : maxQ > 0 ? `${maxQ} domande pronte. Puoi iniziare direttamente.` : 'Sto generando il quiz in background. Puoi lasciare questa pagina aperta: si aggiorna da sola.'}
           </div>
         </div>
       )}
@@ -898,7 +918,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 && !loadingQuizzes ? `linear-gradient(135deg, ${selectedPalette.dot} 0%, ${selectedPalette.dot}cc 100%)` : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 && !loadingQuizzes ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 && !loadingQuizzes ? `0 4px 16px ${selectedPalette.dot}35` : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
         onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.9'; }}
         onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}>
-        {loadingQuizzes ? 'Loading...' : maxQ > 0 ? `Inizia Quiz · ${focusTitle}` : 'Quiz in preparazione'}
+        {loadingQuizzes ? 'Loading...' : maxQ > 0 ? `Inizia Quiz · ${focusTitle}` : waitingForPractice ? 'Generazione quiz in corso...' : 'Quiz in preparazione'}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       </button>
 

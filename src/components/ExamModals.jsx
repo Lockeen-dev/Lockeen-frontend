@@ -380,7 +380,7 @@ const CloudUpload = (p) => <Icon {...p}><path d="M20 16.5a4 4 0 0 0-1.6-7.66A6 6
 const XIcon      = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
 
 function UploadChapterModal({ existingChapters, onClose, onUpload }) {
-  const progressSteps = ['Upload', 'OCR', 'Generazione quiz', 'Generazione flashcards', 'Pronto'];
+  const progressSteps = ['Upload', 'OCR', 'Pronto'];
   const [files, setFiles] = useState([]);
   // selection: chapter id (number) for existing, or '__new' for a new chapter
   const initialSelection = existingChapters && existingChapters.length ? existingChapters[0].id : '__new';
@@ -520,7 +520,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
               <div style={uploadS.spinner} />
               <div>
                 <div style={uploadS.loadingTitle}>{uploadStep || 'Uploading...'}</div>
-                <div style={uploadS.loadingText}>Ti mostro ogni fase fino a quando quiz e flashcards sono pronti.</div>
+                <div style={uploadS.loadingText}>Salvo il materiale ora. Quiz e flashcards continueranno in background.</div>
               </div>
             </div>
             <div style={uploadS.stepList}>

@@ -384,23 +384,20 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
               if (failedUpdate.data) nextMaterial = failedUpdate.data;
             }
           }
-          if (nextMaterial.processingStatus === 'ready' && nextMaterial.extractedText) {
-            const practiceInput = {
-              examId: activeId,
-              chapterId: targetChapter.id,
-              material: nextMaterial,
-              title: targetChapter.title || chapterName || nextMaterial.title,
-            };
-            reportProgress(2, `Generazione quiz ${file.name}...`, 62);
-            await createQuestionBankForMaterial(practiceInput);
-            reportProgress(3, `Generazione flashcards ${file.name}...`, 82);
-            await createFlashcardBankForMaterial(practiceInput);
-          }
           createdMaterials.push(nextMaterial);
         }
       }
 
-      reportProgress(4, 'Pronto.', 100);
+      for (const material of createdMaterials) {
+        if (material.processingStatus !== 'ready' || !material.extractedText) continue;
+        createPracticeBanksForMaterial({
+          examId: activeId,
+          chapterId: targetChapter.id,
+          material,
+          title: targetChapter.title || chapterName || material.title,
+        }).then(() => null).catch(() => null);
+      }
+      reportProgress(2, 'Pronto. Quiz e flashcards continuano in background.', 100);
       await refreshExams();
       return { chapter: targetChapter, materials: createdMaterials };
     };
@@ -993,10 +990,11 @@ function getPracticeStatus({ quizCount = 0, flashcardCount = 0, hasReadyMaterial
   const quizReady = quizCount > 0;
   const flashcardsReady = flashcardCount > 0;
   const preparing = hasPendingMaterial || (hasReadyMaterial && (!quizReady || !flashcardsReady));
+  const canOpen = quizReady || flashcardsReady || preparing;
 
-  if (quizReady && flashcardsReady) return { tone: 'ready', label: 'Quiz e flashcard pronti', quizReady, flashcardsReady };
-  if (preparing) return { tone: 'preparing', label: 'Preparazione in corso...', quizReady, flashcardsReady };
-  return { tone: 'empty', label: 'Carica materiale per preparare quiz e flashcard', quizReady, flashcardsReady };
+  if (quizReady && flashcardsReady) return { tone: 'ready', label: 'Quiz e flashcard pronti', quizReady, flashcardsReady, canOpen };
+  if (preparing) return { tone: 'preparing', label: 'Preparazione in corso...', quizReady, flashcardsReady, canOpen };
+  return { tone: 'empty', label: 'Carica materiale per preparare quiz e flashcard', quizReady, flashcardsReady, canOpen };
 }
 
 function PracticeStatusPill({ status }) {
@@ -1231,10 +1229,10 @@ function MaterialCard({ material, savingStudyAction, onOpen, onDelete, onQuiz, o
                 <Eye size={15} /> {savingStudyAction === `open-material-${material.id}` ? 'Opening...' : 'Open'}
               </button>
             )}
-            <button type="button" onClick={onQuiz} disabled={!practiceStatus?.quizReady} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="button" onClick={onQuiz} disabled={!practiceStatus?.canOpen} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
               <Sparkles size={15} /> Open {scopeLabel} quiz
             </button>
-            <button type="button" onClick={onFlashcards} disabled={!practiceStatus?.flashcardsReady} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="button" onClick={onFlashcards} disabled={!practiceStatus?.canOpen} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
               <Layers size={15} /> Open {scopeLabel} flashcards
             </button>
             <div className="relative">
@@ -1493,10 +1491,10 @@ function CleanChapterGrid({ chapters, filtered, palette, practiceStatusByChapter
               </div>
               {lastRun && <p className="mt-2 text-sm font-bold text-slate-600">Last quiz {lastRun.score}% · {lastRun.date}</p>}
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => onQuiz(chapter)} disabled={!practiceStatus.quizReady} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="button" onClick={() => onQuiz(chapter)} disabled={!practiceStatus.canOpen} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">
                   <Sparkles size={17} /> Quiz
                 </button>
-                <button type="button" onClick={() => onFlashcards(chapter)} disabled={!practiceStatus.flashcardsReady} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="button" onClick={() => onFlashcards(chapter)} disabled={!practiceStatus.canOpen} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
                   <Layers size={18} /> Flashcards
                 </button>
               </div>
@@ -1896,6 +1894,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   };
   const openQuizConfigurator = ({ title, chapterId = null, count = 10 } = {}) => {
     if (!onOpenQuiz) return;
+    const status = chapterId && chapterId !== 'all' ? practiceStatusByChapter[String(chapterId)] : null;
     onOpenQuiz({
       _examId: exam.id,
       _practiceConfig: {
@@ -1910,6 +1909,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         timerOn: false,
         timerSecs: 30,
         autoStart: false,
+        practiceGenerating: status?.tone === 'preparing',
         requestedAt: new Date().toISOString(),
       },
       questions: [],
@@ -1917,6 +1917,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   };
   const openFlashcardConfigurator = ({ title, chapterId = null, count = 10 } = {}) => {
     if (!onOpenFlashcards) return;
+    const status = chapterId && chapterId !== 'all' ? practiceStatusByChapter[String(chapterId)] : null;
     onOpenFlashcards({
       _examId: exam.id,
       _practiceConfig: {
@@ -1927,6 +1928,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         chapterId: chapterId || 'all',
         chapterName: title || exam.name,
         count,
+        practiceGenerating: status?.tone === 'preparing',
         requestedAt: new Date().toISOString(),
       },
       cards: [],
