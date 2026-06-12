@@ -313,8 +313,12 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to reload exams.'));
       setExams(result.data || []);
     };
-    const onAddChapter = async ({ chapterId, chapterName, fileCount, files = [] }) => {
+    const onAddChapter = async ({ chapterId, chapterName, fileCount, files = [], onProgress = null }) => {
+      const reportProgress = (step, label, progress) => {
+        if (typeof onProgress === 'function') onProgress({ step, label, progress });
+      };
       let targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
+      reportProgress(0, 'Lettura file...', 8);
       const materialMetadataResults = await Promise.all((files || []).map(buildMaterialFileMetadata));
       const metadataError = materialMetadataResults.find((result) => result.error);
       if (metadataError) throw new Error(formatStudyServiceError(metadataError.error, 'Unable to inspect material file.'));
@@ -342,6 +346,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
 
       const createdMaterials = [];
       for (const [index, file] of files.entries()) {
+        reportProgress(0, `Upload file ${index + 1}/${files.length}...`, 18 + Math.round((index / Math.max(files.length, 1)) * 20));
         const uploadResult = await uploadStudyMaterialFile({ file, materialId: crypto.randomUUID() });
         if (uploadResult.error) throw new Error(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
         const materialResult = await createMaterial({
@@ -364,7 +369,9 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
             ...materialResult.data,
             pageCount: materialResult.data.pageCount ?? materialMetadata[index]?.pageCount ?? null,
           };
+          reportProgress(1, `Estrazione testo ${file.name}...`, 42);
           if (shouldRunImageOcr(nextMaterial)) {
+            reportProgress(1, `OCR ${file.name}...`, 42);
             const ocrResult = await requestMaterialOcr(nextMaterial.id);
             if (ocrResult.data) {
               nextMaterial = ocrResult.data;
@@ -378,17 +385,22 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
             }
           }
           if (nextMaterial.processingStatus === 'ready' && nextMaterial.extractedText) {
-            createPracticeBanksForMaterial({
+            const practiceInput = {
               examId: activeId,
               chapterId: targetChapter.id,
               material: nextMaterial,
               title: targetChapter.title || chapterName || nextMaterial.title,
-            }).then(() => refreshExams()).catch(() => null);
+            };
+            reportProgress(2, `Generazione quiz ${file.name}...`, 62);
+            await createQuestionBankForMaterial(practiceInput);
+            reportProgress(3, `Generazione flashcards ${file.name}...`, 82);
+            await createFlashcardBankForMaterial(practiceInput);
           }
           createdMaterials.push(nextMaterial);
         }
       }
 
+      reportProgress(4, 'Pronto.', 100);
       await refreshExams();
       return { chapter: targetChapter, materials: createdMaterials };
     };
