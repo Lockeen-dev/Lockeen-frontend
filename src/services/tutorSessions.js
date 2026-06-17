@@ -11,6 +11,7 @@ function toSession(row) {
     title: row.title,
     msgs: row.messages || [],
     status: row.status,
+    pinned: Boolean(row.pinned),
     date: row.updated_at ? new Date(row.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -23,6 +24,7 @@ function toInsert(input, userId) {
     title: input.title || 'New conversation',
     messages: input.msgs || input.messages || [],
     status: input.status || 'active',
+    pinned: Boolean(input.pinned),
   };
 }
 
@@ -32,6 +34,7 @@ function toPatch(patch) {
     ...(patch.msgs !== undefined ? { messages: patch.msgs || [] } : {}),
     ...(patch.messages !== undefined ? { messages: patch.messages || [] } : {}),
     ...(patch.status !== undefined ? { status: patch.status } : {}),
+    ...(patch.pinned !== undefined ? { pinned: Boolean(patch.pinned) } : {}),
     updated_at: new Date().toISOString(),
   };
 }
@@ -47,6 +50,7 @@ async function listRealTutorSessions() {
     .select('*')
     .eq('user_id', userResult.data)
     .eq('status', 'active')
+    .order('pinned', { ascending: false })
     .order('updated_at', { ascending: false });
 
   if (error) {
@@ -100,9 +104,35 @@ async function updateRealTutorSession(id, patch = {}) {
   return ok(toSession(data));
 }
 
+async function deleteRealTutorSession(id) {
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+  const userResult = await requireAuthenticatedUserId();
+  if (userResult.error) return userResult;
+
+  const { data, error } = await supabase
+    .from('tutor_sessions')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userResult.data)
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    const normalized = normalizeError(error);
+    return fail(normalized.message, normalized.code);
+  }
+  if (!data) return fail('Tutor session not found.', 'NOT_FOUND');
+
+  return ok({ id: data.id });
+}
+
 export async function listTutorSessions() {
   if (!isMockMode()) return listRealTutorSessions();
-  return ok(mockSessions);
+  return ok([...mockSessions].sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+  }));
 }
 
 export async function createTutorSession(input = {}) {
@@ -113,6 +143,7 @@ export async function createTutorSession(input = {}) {
     title: input.title || 'New conversation',
     msgs: input.msgs || input.messages || [],
     status: input.status || 'active',
+    pinned: Boolean(input.pinned),
     date: 'Today',
     createdAt: now,
     updatedAt: now,
@@ -127,4 +158,12 @@ export async function updateTutorSession(id, patch = {}) {
   if (index === -1) return fail('Tutor session not found.', 'NOT_FOUND');
   mockSessions[index] = { ...mockSessions[index], ...patch, updatedAt: new Date().toISOString() };
   return ok(mockSessions[index]);
+}
+
+export async function deleteTutorSession(id) {
+  if (!isMockMode()) return deleteRealTutorSession(id);
+  const index = mockSessions.findIndex((session) => String(session.id) === String(id));
+  if (index === -1) return fail('Tutor session not found.', 'NOT_FOUND');
+  const [removed] = mockSessions.splice(index, 1);
+  return ok({ id: removed.id });
 }

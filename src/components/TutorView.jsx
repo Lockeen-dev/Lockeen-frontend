@@ -3,7 +3,7 @@ import { Brain, MsgCircle, Paperclip, Plus, Send } from '../lib/icons';
 import useIsMobile from '../lib/useIsMobile';
 import { askTutor } from '../services/ai';
 import { extractTextFromFile } from '../services/materials';
-import { createTutorSession, listTutorSessions, updateTutorSession } from '../services/tutorSessions';
+import { createTutorSession, deleteTutorSession, listTutorSessions, updateTutorSession } from '../services/tutorSessions';
 
 /* ===================== AI TUTOR ===================== */
 const INITIAL_MSGS = [
@@ -470,6 +470,57 @@ export default function TutorView() {
     if (isMobile) setHistoryOpen(false);
   };
 
+  const renameSession = async (session) => {
+    const title = window.prompt('Rename chat', session.title || 'New conversation');
+    const cleanTitle = title?.trim();
+    if (!cleanTitle || cleanTitle === session.title) return;
+
+    const result = await updateTutorSession(session.id, { title: cleanTitle });
+    if (result.error) {
+      setAiError(formatAiError(result.error));
+      return;
+    }
+    setSessions(prev => prev.map(s => String(s.id) === String(session.id) ? result.data : s));
+  };
+
+  const togglePinned = async (session) => {
+    const result = await updateTutorSession(session.id, { pinned: !session.pinned });
+    if (result.error) {
+      setAiError(formatAiError(result.error));
+      return;
+    }
+    setSessions(prev => prev
+      .map(s => String(s.id) === String(session.id) ? result.data : s)
+      .sort((a, b) => {
+        if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+        return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+      }));
+  };
+
+  const removeSession = async (session) => {
+    const confirmed = window.confirm(`Delete "${session.title || 'New conversation'}"? This cannot be undone.`);
+    if (!confirmed) return;
+
+    const result = await deleteTutorSession(session.id);
+    if (result.error) {
+      setAiError(formatAiError(result.error));
+      return;
+    }
+
+    setSessions(prev => {
+      const remaining = prev.filter(s => String(s.id) !== String(session.id));
+      if (String(activeId) === String(session.id)) {
+        const next = remaining[0];
+        setActiveId(next?.id || null);
+        setMsgs(next?.msgs?.length ? next.msgs : INITIAL_MSGS);
+      }
+      return remaining;
+    });
+    setFiles([]);
+  };
+
+  const pinnedSessions = sessions.filter(s => s.pinned);
+  const recentSessions = sessions.filter(s => !s.pinned);
   const suggestions = ['Explain a concept', 'Make a study plan', 'Quiz me on my notes', 'Create a quick recap'];
 
   return (
@@ -490,15 +541,49 @@ export default function TutorView() {
         <button onClick={newChat} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '9px 12px', borderRadius: 10, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 12, border: 'none', cursor: 'pointer', marginBottom: 12 }}>
           <Plus size={13} /> New chat
         </button>
-        <p style={{ margin: '0 0 8px', fontSize: 10, fontWeight: 700, color: 'var(--gray-2)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Recent</p>
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {loadingSessions && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>Loading...</div>}
-          {!loadingSessions && sessions.map(s => (
-            <button key={s.id} onClick={() => switchSession(s)} style={{ textAlign: 'left', padding: '8px 10px', borderRadius: 8, background: s.id === activeId ? 'var(--lavender)' : 'transparent', border: `1px solid ${s.id === activeId ? 'rgba(55,48,232,.18)' : 'transparent'}`, cursor: 'pointer', width: '100%' }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: s.id === activeId ? 'var(--indigo)' : 'var(--ink)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginBottom: 2 }}>{s.title}</div>
-              <div style={{ fontSize: 11, color: 'var(--gray)' }}>{s.date}</div>
-            </button>
-          ))}
+          {!loadingSessions && pinnedSessions.length > 0 && (
+            <>
+              <p style={tutorS.historyLabel}>Pinned</p>
+              {pinnedSessions.map(s => (
+                <div key={s.id} style={{ ...tutorS.historyItem, ...(s.id === activeId ? tutorS.historyItemActive : {}) }}>
+                  <button type="button" onClick={() => switchSession(s)} style={tutorS.historyMain}>
+                    <div style={{ ...tutorS.historyTitle, color: s.id === activeId ? 'var(--indigo)' : 'var(--ink)' }}>{s.title}</div>
+                    <div style={tutorS.historyDate}>{s.date}</div>
+                  </button>
+                  {s.id === activeId && (
+                    <div style={tutorS.historyActions}>
+                      <button type="button" onClick={() => togglePinned(s)} style={tutorS.historyActionBtn}>Unpin</button>
+                      <button type="button" onClick={() => renameSession(s)} style={tutorS.historyActionBtn}>Rename</button>
+                      <button type="button" onClick={() => removeSession(s)} style={tutorS.historyDangerBtn}>Delete</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+          {!loadingSessions && (
+            <>
+              <p style={tutorS.historyLabel}>Recent</p>
+              {recentSessions.map(s => (
+                <div key={s.id} style={{ ...tutorS.historyItem, ...(s.id === activeId ? tutorS.historyItemActive : {}) }}>
+                  <button type="button" onClick={() => switchSession(s)} style={tutorS.historyMain}>
+                    <div style={{ ...tutorS.historyTitle, color: s.id === activeId ? 'var(--indigo)' : 'var(--ink)' }}>{s.title}</div>
+                    <div style={tutorS.historyDate}>{s.date}</div>
+                  </button>
+                  {s.id === activeId && (
+                    <div style={tutorS.historyActions}>
+                      <button type="button" onClick={() => togglePinned(s)} style={tutorS.historyActionBtn}>Pin</button>
+                      <button type="button" onClick={() => renameSession(s)} style={tutorS.historyActionBtn}>Rename</button>
+                      <button type="button" onClick={() => removeSession(s)} style={tutorS.historyDangerBtn}>Delete</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {sessions.length === 0 && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>No chats yet.</div>}
+            </>
+          )}
         </div>
       </div>}
 
@@ -628,6 +713,15 @@ const tutorS = {
   head: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' },
   avatar: { width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center' },
   onlineDot: { display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: '#10B981', marginRight: 6, verticalAlign: 'middle' },
+  historyLabel: { margin: '10px 0 8px', fontSize: 10, fontWeight: 800, color: 'var(--gray-2)', textTransform: 'uppercase', letterSpacing: '.06em' },
+  historyItem: { borderRadius: 10, border: '1px solid transparent', background: 'transparent', padding: 0 },
+  historyItemActive: { background: 'var(--lavender)', borderColor: 'rgba(55,48,232,.18)' },
+  historyMain: { textAlign: 'left', padding: '8px 10px', borderRadius: 8, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%' },
+  historyTitle: { fontSize: 12, fontWeight: 700, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginBottom: 2 },
+  historyDate: { fontSize: 11, color: 'var(--gray)' },
+  historyActions: { display: 'flex', gap: 4, flexWrap: 'wrap', padding: '0 8px 8px' },
+  historyActionBtn: { height: 24, padding: '0 7px', borderRadius: 999, border: '1px solid rgba(55,48,232,.18)', background: '#fff', color: 'var(--indigo)', fontSize: 10, fontWeight: 800, cursor: 'pointer' },
+  historyDangerBtn: { height: 24, padding: '0 7px', borderRadius: 999, border: '1px solid rgba(239,68,68,.24)', background: '#FEF2F2', color: '#B91C1C', fontSize: 10, fontWeight: 800, cursor: 'pointer' },
   thread: { flex: 1, display: 'flex', flexDirection: 'column', gap: 10, padding: '8px 4px', maxHeight: 420, overflowY: 'auto' },
   bubbleAI:   { maxWidth: '82%', background: 'var(--bubble-ai-bg)', color: 'var(--ink)', padding: '14px 16px', borderRadius: 18, borderTopLeftRadius: 6, fontSize: 14, lineHeight: 1.5 },
   bubbleUser: { maxWidth: '78%', background: 'var(--indigo)', color: '#fff', padding: '12px 16px', borderRadius: 18, borderTopRightRadius: 6, fontSize: 14, lineHeight: 1.5 },
