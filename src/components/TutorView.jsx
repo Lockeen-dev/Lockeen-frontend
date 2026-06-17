@@ -547,7 +547,7 @@ export default function TutorView() {
         </button>
         {isActive && (
           <div style={tutorS.historyIconActions}>
-            <button type="button" onClick={() => togglePinned(s)} title={s.pinned ? 'Unpin chat' : 'Pin chat'} aria-label={s.pinned ? 'Unpin chat' : 'Pin chat'} style={tutorS.historyIconBtn}>
+            <button type="button" onClick={() => togglePinned(s)} title={s.pinned ? 'Unpin chat' : 'Pin chat'} aria-label={s.pinned ? 'Unpin chat' : 'Pin chat'} style={{ ...tutorS.historyIconBtn, ...(s.pinned ? tutorS.historyPinnedIconBtn : {}) }}>
               <Pin size={12} />
             </button>
             <button type="button" onClick={() => openRenameSession(s)} title="Rename chat" aria-label="Rename chat" style={tutorS.historyIconBtn}>
@@ -770,13 +770,14 @@ const tutorS = {
   avatar: { width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center' },
   onlineDot: { display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: '#10B981', marginRight: 6, verticalAlign: 'middle' },
   historyLabel: { margin: '10px 0 8px', fontSize: 10, fontWeight: 800, color: 'var(--gray-2)', textTransform: 'uppercase', letterSpacing: '.06em' },
-  historyItem: { position: 'relative', borderRadius: 10, border: '1px solid transparent', background: 'transparent', padding: 0 },
-  historyItemActive: { background: 'var(--lavender)', borderColor: 'rgba(55,48,232,.18)' },
+  historyItem: { position: 'relative', borderRadius: 10, border: '1px solid var(--border)', background: '#fff', padding: 0, boxShadow: '0 6px 18px rgba(15,23,42,.035)' },
+  historyItemActive: { background: 'var(--lavender)', borderColor: 'rgba(55,48,232,.22)', boxShadow: '0 8px 24px rgba(55,48,232,.08)' },
   historyMain: { textAlign: 'left', padding: '8px 10px', borderRadius: 8, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%' },
   historyTitle: { fontSize: 12, fontWeight: 700, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginBottom: 2 },
   historyDate: { fontSize: 11, color: 'var(--gray)' },
   historyIconActions: { position: 'absolute', top: 7, right: 7, display: 'flex', alignItems: 'center', gap: 3 },
   historyIconBtn: { width: 22, height: 22, borderRadius: 999, border: '1px solid rgba(55,48,232,.16)', background: '#fff', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 4px 10px rgba(15,23,42,.06)' },
+  historyPinnedIconBtn: { borderColor: 'var(--indigo)', background: 'var(--indigo)', color: '#fff', boxShadow: '0 8px 18px rgba(55,48,232,.2)' },
   historyDangerIconBtn: { borderColor: 'rgba(239,68,68,.22)', background: '#FFF7F7', color: '#B91C1C' },
   thread: { flex: 1, display: 'flex', flexDirection: 'column', gap: 10, padding: '8px 4px', maxHeight: 420, overflowY: 'auto' },
   bubbleAI:   { maxWidth: '82%', background: 'var(--bubble-ai-bg)', color: 'var(--ink)', padding: '14px 16px', borderRadius: 18, borderTopLeftRadius: 6, fontSize: 14, lineHeight: 1.5 },
