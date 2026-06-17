@@ -34,6 +34,7 @@ export function DashboardRoutes({
   onMarkEventDone,
   onQuizComplete,
   onStartTimer,
+  onStudySessionsChanged,
   openExam,
   openFlashcards,
   openQuiz,
@@ -75,8 +76,8 @@ export function DashboardRoutes({
           )}
           {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={darkMode} />}
           {tab === 'tutor'     && <TutorView />}
-          {tab === 'analytics' && <AnalyticsView weekData={weekData} studySessions={studySessions} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuizForExam={openQuizForExam} />}
-          {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} exams={exams} />}
+          {tab === 'analytics' && <AnalyticsView weekData={weekData} studySessions={studySessions} calEvents={calEvents} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuizForExam={openQuizForExam} />}
+          {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} exams={exams} onStudySessionsChanged={onStudySessionsChanged} />}
           {tab === 'earn'      && <EarnView />}
           {tab === 'account'   && <AccountView user={user} lang={lang} onLangChange={onLangChange} onLogout={handleLogout} />}
         </motion.div>

@@ -7,6 +7,7 @@ import { listMaterials } from './materials';
 import { listNotes } from './notes';
 import { listQuizzes } from './quiz';
 import { listStudyPlanItems } from './studyPlans';
+import { listUserCalendarActivities } from './calendar';
 
 const STUDY_SESSIONS_TABLE = 'study_sessions';
 const LOCAL_STUDY_SESSIONS_KEY = 'lockeen.studySessions.v1';
@@ -95,25 +96,49 @@ function toStudySession(row) {
   };
 }
 
+function normalizeTimeForDateTime(value = '12:00') {
+  const [hour = '12', minute = '00'] = String(value || '12:00').split(':');
+  const parsedHour = Number(hour);
+  const parsedMinute = Number(minute);
+  return `${String(Number.isFinite(parsedHour) ? parsedHour : 12).padStart(2, '0')}:${String(Number.isFinite(parsedMinute) ? parsedMinute : 0).padStart(2, '0')}`;
+}
+
 function plannerItemToStudySession(item = {}) {
-  const time = item.completedAt || `${item.plannedDate || new Date().toISOString().slice(0, 10)}T${item.plannedTime || '12:00'}:00`;
+  const plannedDate = item.plannedDate || item.planned_date || new Date().toISOString().slice(0, 10);
+  const plannedTime = normalizeTimeForDateTime(item.plannedTime || item.planned_time || '12:00');
   return {
     id: `planner-${item.id}`,
-    minutes: Number(item.durationMin || 0),
-    studiedAt: time,
+    minutes: Number(item.durationMin ?? item.duration_min ?? 0),
+    studiedAt: `${plannedDate}T${plannedTime}:00`,
     source: 'study-plan',
   };
 }
 
-function mergeStudySessions(timerSessions = [], plannerItems = [], since = null) {
+function calendarActivityToStudySession(activity = {}) {
+  const activityDate = activity.activityDate || activity.activity_date;
+  const activityTime = normalizeTimeForDateTime(activity.activityTime || activity.activity_time || '12:00');
+  return {
+    id: `calendar-activity-${activity.id}`,
+    minutes: Number(activity.durationMin ?? activity.duration_min ?? 0),
+    studiedAt: `${activityDate || new Date().toISOString().slice(0, 10)}T${activityTime}:00`,
+    source: 'calendar-activity',
+  };
+}
+
+function mergeStudySessions(timerSessions = [], plannerItems = [], calendarActivities = [], since = null) {
   const sinceTime = since?.getTime?.() || 0;
   const plannerSessions = (plannerItems || [])
     .filter((item) => item.status === 'done')
     .map(plannerItemToStudySession)
     .filter((session) => Number(session.minutes) > 0)
     .filter((session) => (parseDate(session.studiedAt)?.getTime() || 0) >= sinceTime);
+  const calendarSessions = (calendarActivities || [])
+    .filter((activity) => Boolean(activity.completed) && (activity.category || activity.category_name || 'study') === 'study')
+    .map(calendarActivityToStudySession)
+    .filter((session) => Number(session.minutes) > 0)
+    .filter((session) => (parseDate(session.studiedAt)?.getTime() || 0) >= sinceTime);
   const seen = new Set();
-  return [...timerSessions, ...plannerSessions]
+  return [...timerSessions, ...plannerSessions, ...calendarSessions]
     .filter((session) => {
       const key = `${session.source}:${session.id}`;
       if (seen.has(key)) return false;
@@ -180,20 +205,27 @@ export async function listStudySessions({ days = 30 } = {}) {
   since.setDate(since.getDate() - days);
   since.setHours(0, 0, 0, 0);
 
-  const localTimerSessions = readLocalStudySessions().filter((session) => (parseDate(session.studiedAt)?.getTime() || 0) >= since.getTime());
-
   if (isMockMode()) {
-    const planResult = await listStudyPlanItems({ status: 'done' });
-    return ok(mergeStudySessions(localTimerSessions, planResult.error ? [] : (planResult.data || []), since));
+    const localTimerSessions = readLocalStudySessions().filter((session) => (parseDate(session.studiedAt)?.getTime() || 0) >= since.getTime());
+    const [planResult, calendarResult] = await Promise.all([
+      listStudyPlanItems({ status: 'done' }),
+      listUserCalendarActivities({ fromDate: since.toISOString().slice(0, 10), category: 'study' }),
+    ]);
+    return ok(mergeStudySessions(
+      localTimerSessions,
+      planResult.error ? [] : (planResult.data || []),
+      calendarResult.error ? [] : (calendarResult.data || []),
+      since,
+    ));
   }
 
   const clientError = requireSupabaseClient();
-  if (clientError) return ok(localTimerSessions);
+  if (clientError) return ok([]);
 
   const userResult = await requireAuthenticatedUserId();
-  if (userResult.error) return ok(localTimerSessions);
+  if (userResult.error) return ok([]);
 
-  const [timerResult, planResult] = await Promise.all([
+  const [timerResult, planResult, calendarResult] = await Promise.all([
     supabase
       .from(STUDY_SESSIONS_TABLE)
       .select('id, minutes, studied_at, source, created_at')
@@ -201,19 +233,30 @@ export async function listStudySessions({ days = 30 } = {}) {
       .gte('studied_at', since.toISOString())
       .order('studied_at', { ascending: false }),
     listStudyPlanItems({ status: 'done' }),
+    supabase
+      .from('calendar_activities')
+      .select('id, duration_min, activity_date, activity_time, category, completed, created_at, updated_at')
+      .eq('user_id', userResult.data)
+      .eq('completed', true)
+      .eq('category', 'study')
+      .gte('activity_date', since.toISOString().slice(0, 10))
+      .order('activity_date', { ascending: false })
+      .order('activity_time', { ascending: false, nullsFirst: false }),
   ]);
+
+  const calendarActivities = calendarResult.error ? [] : (calendarResult.data || []);
 
   if (timerResult.error) {
     if (isMissingStudySessionsTable(timerResult.error)) {
-      return ok(mergeStudySessions(localTimerSessions, planResult.error ? [] : (planResult.data || []), since));
+      return ok(mergeStudySessions([], planResult.error ? [] : (planResult.data || []), calendarActivities, since));
     }
     const normalized = normalizeError(timerResult.error);
     return fail(normalized.message, normalized.code);
   }
 
-  if (planResult.error) return ok((timerResult.data || []).map(toStudySession));
+  if (planResult.error) return ok(mergeStudySessions((timerResult.data || []).map(toStudySession), [], calendarActivities, since));
 
-  return ok(mergeStudySessions((timerResult.data || []).map(toStudySession), planResult.data || [], since));
+  return ok(mergeStudySessions((timerResult.data || []).map(toStudySession), planResult.data || [], calendarActivities, since));
 }
 
 export async function createStudySession(input = {}) {
