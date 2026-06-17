@@ -6,24 +6,18 @@ export const SUBJECT_EMOJI = {
 };
 
 export const EXAM_COLOR_PALETTE = [
-  { name: 'Indigo', bg: '#EEF2FF', dot: '#4F46E5', text: '#3730A3', border: '#C7D2FE' },
-  { name: 'Violet', bg: '#F5F3FF', dot: '#7C3AED', text: '#5B21B6', border: '#DDD6FE' },
-  { name: 'Rose', bg: '#FFF1F2', dot: '#E11D48', text: '#9F1239', border: '#FFE4E6' },
-  { name: 'Amber', bg: '#FFFBEB', dot: '#D97706', text: '#92400E', border: '#FDE68A' },
-  { name: 'Emerald', bg: '#ECFDF5', dot: '#059669', text: '#065F46', border: '#A7F3D0' },
-  { name: 'Cyan', bg: '#ECFEFF', dot: '#0891B2', text: '#155E75', border: '#A5F3FC' },
-  { name: 'Blue', bg: '#EFF6FF', dot: '#2563EB', text: '#1D4ED8', border: '#BFDBFE' },
-  { name: 'Fuchsia', bg: '#FDF4FF', dot: '#C026D3', text: '#86198F', border: '#F5D0FE' },
-  { name: 'Lime', bg: '#F7FEE7', dot: '#65A30D', text: '#3F6212', border: '#D9F99D' },
-  { name: 'Orange', bg: '#FFF7ED', dot: '#EA580C', text: '#9A3412', border: '#FED7AA' },
-  { name: 'Teal', bg: '#F0FDFA', dot: '#0D9488', text: '#115E59', border: '#99F6E4' },
-  { name: 'Sky', bg: '#F0F9FF', dot: '#0284C7', text: '#075985', border: '#BAE6FD' },
-  { name: 'Pink', bg: '#FDF2F8', dot: '#DB2777', text: '#9D174D', border: '#FBCFE8' },
-  { name: 'Slate', bg: '#F8FAFC', dot: '#475569', text: '#334155', border: '#CBD5E1' },
-  { name: 'Red', bg: '#FEF2F2', dot: '#DC2626', text: '#991B1B', border: '#FECACA' },
-  { name: 'Yellow', bg: '#FEFCE8', dot: '#CA8A04', text: '#854D0E', border: '#FEF08A' },
-  { name: 'Green', bg: '#F0FDF4', dot: '#16A34A', text: '#166534', border: '#BBF7D0' },
-  { name: 'Purple', bg: '#FAF5FF', dot: '#9333EA', text: '#6B21A8', border: '#E9D5FF' },
+  { name: 'Sapphire', bg: '#EEF4FF', dot: '#3157E8', text: '#203B9A', border: '#BFD0FF' },
+  { name: 'Amethyst', bg: '#F3EEFF', dot: '#7A3FF2', text: '#5426B8', border: '#D7C8FF' },
+  { name: 'Aqua', bg: '#E8FAFF', dot: '#0E92B5', text: '#075E78', border: '#B7EAF4' },
+  { name: 'Jade', bg: '#EAFBF4', dot: '#07845F', text: '#075F46', border: '#B7E8D5' },
+  { name: 'Forest', bg: '#EFF8E8', dot: '#4D8F10', text: '#315F0D', border: '#CEE8B7' },
+  { name: 'Gold', bg: '#FFF7DF', dot: '#B97800', text: '#765000', border: '#F2D99A' },
+  { name: 'Coral', bg: '#FFF0EA', dot: '#E15A2A', text: '#9A3519', border: '#F6C4B1' },
+  { name: 'Ruby', bg: '#FFF0F3', dot: '#CF244F', text: '#8F1837', border: '#F3BCCB' },
+  { name: 'Plum', bg: '#F9EDFF', dot: '#B62DCC', text: '#7B1C8D', border: '#E9BDF2' },
+  { name: 'Graphite', bg: '#F4F6FA', dot: '#475569', text: '#263241', border: '#CBD3DF' },
+  { name: 'Copper', bg: '#FFF4E8', dot: '#C86418', text: '#82400F', border: '#EEC6A2' },
+  { name: 'Mint', bg: '#EAFBF8', dot: '#0A8F86', text: '#075F59', border: '#B8E8E1' },
 ];
 
 export function getExamEmoji(exam) {
