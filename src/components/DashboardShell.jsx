@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { BarChart3, Bell, BookOpen, Layers, LogOut, Pencil, Sparkles, ZapSolid } from '../lib/icons';
+import { BarChart3, Bell, BookOpen, CalendarIcon, Layers, LogOut, Pencil, Sparkles, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import LanguageSelect from './LanguageSelect';
 import Sidebar from './Sidebar';
@@ -9,6 +9,7 @@ export function BottomNav({ tab, setTab, lang = 'en' }) {
   const items = [
     { id: 'dashboard', label: tt(lang, 'home'), Icon: ZapSolid },
     { id: 'notes', label: tt(lang, 'exams'), Icon: BookOpen },
+    { id: 'calendar', label: tt(lang, 'calendar'), Icon: CalendarIcon },
     { id: 'flashcards', label: tt(lang, 'flash'), Icon: Layers },
     { id: 'quiz', label: tt(lang, 'quiz'), Icon: Sparkles },
     { id: 'analytics', label: tt(lang, 'stats'), Icon: BarChart3 },
@@ -22,10 +23,10 @@ export function BottomNav({ tab, setTab, lang = 'en' }) {
           <button
             key={id}
             onClick={() => setTab(id)}
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, border: 'none', background: 'none', padding: '8px 0 6px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor: 'pointer', minHeight: 56 }}
+            style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, border: 'none', background: 'none', padding: '7px 0 5px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor: 'pointer', minHeight: 54 }}
           >
-            <I size={20} />
-            <span style={{ fontSize: 10, fontWeight: 600, lineHeight: 1 }}>{label}</span>
+            <I size={19} />
+            <span style={{ fontSize: 9, fontWeight: 600, lineHeight: 1, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
             {active && <span style={{ position: 'absolute', bottom: 0, width: 24, height: 3, borderRadius: 999, background: 'var(--indigo)', marginTop: 2 }} />}
           </button>
         );
