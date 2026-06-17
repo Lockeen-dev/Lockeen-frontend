@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 
-import { FileText, Icon, Trash, Trash2 } from '../lib/icons';
+import { Check, FileText, Icon, Trash, Trash2 } from '../lib/icons';
 import { EXTRA_SUBJECT_COLORS, getSubjectPalette, inferSubjectFromName } from '../data/mockData';
 import { EXAM_COLOR_PALETTE, SUBJECT_EMOJI, getExamEmoji, getExamPalette, getNextExamPalette } from '../lib/examUi';
 import { EmojiPickerButton, GradeValue, PrioritySelector, gradeS } from './common/ExamControls';
@@ -371,14 +371,21 @@ function ColorPicker({ label, value, onChange, disabled = false }) {
               disabled={disabled}
               onClick={() => onChange(palette)}
               style={{
-                ...colorS.swatch,
+                ...colorS.card,
                 background: palette.bg,
                 borderColor: active ? palette.dot : palette.border,
-                boxShadow: active ? `0 0 0 3px ${palette.dot}22` : 'none',
+                boxShadow: active ? `0 12px 26px -18px ${palette.dot}` : 'none',
+                color: palette.text,
                 opacity: disabled ? .55 : 1,
               }}
             >
-              <span style={{ ...colorS.dot, background: palette.dot }} />
+              <span style={colorS.swatchRow}>
+                <span style={{ ...colorS.dot, background: palette.dot }}>
+                  {active && <Check size={12} color="#fff" />}
+                </span>
+                <span style={colorS.name}>{palette.name}</span>
+              </span>
+              <span style={{ ...colorS.line, background: `linear-gradient(90deg, ${palette.dot}, ${palette.border})` }} />
             </button>
           );
         })}
@@ -414,9 +421,26 @@ const dateS = {
 };
 
 const colorS = {
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(9, minmax(0, 1fr))', gap: 8 },
-  swatch: { height: 34, borderRadius: 10, border: '2px solid transparent', display: 'grid', placeItems: 'center', cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s, transform .15s' },
-  dot: { width: 16, height: 16, borderRadius: 999, boxShadow: '0 1px 4px rgba(15,23,42,.2)' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 },
+  card: {
+    minHeight: 52,
+    borderRadius: 14,
+    border: '1.5px solid transparent',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    alignItems: 'stretch',
+    gap: 8,
+    padding: '9px 10px 8px',
+    cursor: 'pointer',
+    transition: 'border-color .15s, box-shadow .15s, transform .15s',
+    fontFamily: 'inherit',
+    minWidth: 0,
+  },
+  swatchRow: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 },
+  dot: { width: 20, height: 20, borderRadius: 999, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.55), 0 5px 12px rgba(15,23,42,.16)', display: 'grid', placeItems: 'center', flexShrink: 0 },
+  name: { fontSize: 11, fontWeight: 850, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  line: { height: 3, borderRadius: 999, opacity: .72 },
 };
 
 

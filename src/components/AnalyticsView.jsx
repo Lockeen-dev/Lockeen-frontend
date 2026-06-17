@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { Clock, Flame, Trend, Trophy } from '../lib/icons';
 import { formatExamDate, getSubjectPalette } from '../data/mockData';
+import { getExamPalette } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { homeS } from '../styles/dashboardStyles';
 import { getStudyStreak, getStudySummary, listStudySessions, sessionsToWeekData } from '../services/analytics';
@@ -118,7 +119,6 @@ function clamp(value, min, max) {
 }
 
 function getExamMastery(notes = [], quizHistory = {}, flashHistory = {}) {
-  const colors = ['var(--indigo)', 'var(--purple)', '#06B6D4', '#F59E0B', '#EF4444'];
   return (notes || [])
     .filter((exam) => !exam.status || exam.status === 'active')
     .map((exam) => {
@@ -139,14 +139,10 @@ function getExamMastery(notes = [], quizHistory = {}, flashHistory = {}) {
         .filter((value) => Number.isFinite(value));
       const progress = performanceScore != null ? Math.round(performanceScore) : getAverage(scores) ?? getAverage(mastery);
       if (progress == null) return null;
-      return { name, progress };
+      return { name, progress, color: getExamPalette(exam).dot };
     })
     .filter(Boolean)
-    .slice(0, 5)
-    .map((exam, index) => ({
-      ...exam,
-      color: colors[index % colors.length],
-    }));
+    .slice(0, 5);
 }
 
 function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}) {
