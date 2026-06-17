@@ -36,6 +36,13 @@ function isCalendarActivitiesTableMissing(error = {}) {
   return error.code === '42P01' || error.code === 'PGRST404' || message.includes('calendar_activities');
 }
 
+function calendarActivitiesSchemaMissing() {
+  return fail(
+    'Calendar activities table is missing. Apply the calendar_activities migration.',
+    'CALENDAR_ACTIVITIES_SCHEMA_MISSING',
+  );
+}
+
 function failFrom(error) {
   const normalized = normalizeError(error, 'Calendar operation failed.', 'CALENDAR_ERROR');
   return fail(normalized.message, normalized.code);
@@ -240,13 +247,7 @@ export async function listUserCalendarActivities(filters = {}) {
 
   if (error) {
     if (isCalendarActivitiesTableMissing(error)) {
-      const fallbackRows = readStoredActivities(userId).filter((row) => {
-        if (fromDate && String(row.activityDate) < String(fromDate)) return false;
-        if (toDate && String(row.activityDate) > String(toDate)) return false;
-        if (category && row.category !== category) return false;
-        return true;
-      });
-      return ok(fallbackRows);
+      return calendarActivitiesSchemaMissing();
     }
     return failFrom(error);
   }
@@ -294,15 +295,7 @@ export async function createCalendarActivity(input = {}) {
 
   if (result.error) {
     if (isCalendarActivitiesTableMissing(result.error)) {
-      const fallback = toCalendarActivity({
-        id: `local-${Date.now()}`,
-        user_id: userId,
-        ...toCalendarActivityInsert(input, userId),
-        created_at: nowIso(),
-        updated_at: nowIso(),
-      });
-      withLocalFallback(userId, (current) => [fallback, ...current].sort((a, b) => new Date(dateTimeSortKey(a)).getTime() - new Date(dateTimeSortKey(b)).getTime()));
-      return ok(fallback);
+      return calendarActivitiesSchemaMissing();
     }
     return failFrom(result.error);
   }
@@ -345,15 +338,7 @@ export async function updateCalendarActivity(activityId, patch = {}) {
 
   if (result.error) {
     if (isCalendarActivitiesTableMissing(result.error)) {
-      let found = null;
-      withLocalFallback(userId, (current) => current.map((item) => {
-        if (String(item.id) !== String(activityId)) return item;
-        const nextItem = { ...item, ...mappedPatch, updatedAt: nowIso(), activityTime: normalizeClockTime(item.activityTime) };
-        found = nextItem;
-        return nextItem;
-      }));
-      if (!found) return fail('Calendar activity not found.', 'NOT_FOUND');
-      return ok(found);
+      return calendarActivitiesSchemaMissing();
     }
     return failFrom(result.error);
   }
@@ -395,17 +380,7 @@ export async function deleteCalendarActivity(activityId, options = {}) {
 
   if (result.error) {
     if (isCalendarActivitiesTableMissing(result.error)) {
-      let removed;
-      withLocalFallback(userId, (current) => {
-        const next = [];
-        current.forEach((item) => {
-          if (String(item.id) === String(activityId)) removed = item;
-          else next.push(item);
-        });
-        return next;
-      });
-      if (!removed) return fail('Calendar activity not found.', 'NOT_FOUND');
-      return ok(removed);
+      return calendarActivitiesSchemaMissing();
     }
     return failFrom(result.error);
   }
