@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { isMockMode } from '../lib/apiClient';
 import { cellularRespirationCards, cellularRespirationQuestions, seedExams } from '../data/mockData';
@@ -8,12 +8,13 @@ import StudyTimer from './StudyTimer';
 import PracticeConfigModal from './PracticeConfigModal';
 import { DashboardRoutes, PlannerOverlay } from './DashboardRoutes';
 import { BottomNav, DashboardCard, DashboardHeader, shellS } from './DashboardShell';
-import { durToMins, initCalEvents, initialWeekData } from './calendarData';
+import { calendarKeyFromDate, durToMins, initCalEvents, initialWeekData, studyPlanItemToCalendarEvent } from './calendarData';
 import { createStudySession, listStudySessions, sessionsToWeekData } from '../services/analytics';
 import { listExams } from '../services/exams';
 import { listFlashcardReviews, listFlashcards } from '../services/flashcards';
 import { listQuizAttempts } from '../services/quiz';
-import { updateStudyPlanItem } from '../services/studyPlans';
+import { listStudyPlanItems, listStudyPlans, updateStudyPlanItem } from '../services/studyPlans';
+import { listCalendarEvents, listUserCalendarActivities, updateCalendarActivity } from '../services/calendar';
 
 /* ===================== DASHBOARD SHELL ===================== */
 const CALENDAR_EVENTS_STORAGE_PREFIX = 'lockeen.calendarEvents.v1';
@@ -41,29 +42,97 @@ function persistableCalendarEvents(events = {}) {
   );
 }
 
-function plannerDoneSessionsFromEvents(events = {}) {
+function isStudyLikeCalendarEvent(event = {}) {
+  if (!event || event.source === 'exam-service' || event.type === 'exam') return false;
+  if (String(event.name || '').startsWith('📝 Exam:')) return false;
+  if (event.source === 'study-plan-service') return true;
+  const category = String(event.cat || event.category || '').toLowerCase();
+  if (category === 'study') return true;
+  const type = String(event.type || event.studyType || '').toLowerCase();
+  if (['study', 'review', 'quiz', 'flashcards', 'mock_exam'].includes(type)) return true;
+  if (!event.source && !category && !type) return true;
+  return false;
+}
+
+function calendarKeyToIsoDate(key) {
+  const [year, month, day] = String(key || '').split('-').map(Number);
+  if (!year || !month || !day) return new Date().toISOString().slice(0, 10);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function doneStudySessionsFromEvents(events = {}) {
   return Object.entries(events || {}).flatMap(([dateKey, dayEvents]) =>
     (dayEvents || [])
-      .filter((event) => event.source === 'study-plan-service' && event.serviceId && event.completed)
-      .map((event) => ({
-        id: `planner-${event.serviceId}`,
-        minutes: Math.max(1, durToMins(event.dur || '30m') || 30),
-        studiedAt: `${dateKey}T${event.time || '12:00'}:00`,
-        source: 'study-plan',
-      })),
+      .filter((event) => event.completed && isStudyLikeCalendarEvent(event))
+      .map((event) => {
+        const source = event.source === 'study-plan-service' ? 'study-plan' : 'calendar-activity';
+        const id = event.source === 'study-plan-service'
+          ? `planner-${event.serviceId}`
+          : `calendar-activity-${event.serviceId || `${dateKey}-${event.time || '12:00'}-${event.name || 'activity'}`}`;
+        return {
+          id,
+          minutes: Math.max(1, durToMins(event.dur || '30m') || 30),
+          studiedAt: `${calendarKeyToIsoDate(dateKey)}T${event.time || '12:00'}:00`,
+          source,
+        };
+      }),
   );
 }
 
-function mergePlannerDoneSessions(sessions = [], events = {}) {
-  const base = (sessions || []).filter((session) => session.source !== 'study-plan');
-  const planner = plannerDoneSessionsFromEvents(events);
+function mergeCalendarDoneStudySessions(sessions = [], events = {}) {
+  const calendarStudy = doneStudySessionsFromEvents(events);
+  const calendarKeys = new Set(calendarStudy.map((session) => `${session.source}:${session.id}`));
+  const base = (sessions || []).filter((session) => !calendarKeys.has(`${session.source}:${session.id}`));
   const seen = new Set();
-  return [...planner, ...base].filter((session) => {
+  return [...calendarStudy, ...base].filter((session) => {
     const key = `${session.source}:${session.id}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+function dashboardExamEventToCalendarEvent(event) {
+  return {
+    type: event.type,
+    source: 'exam-service',
+    serviceId: event.id,
+    examId: event.examId,
+    name: `📝 Exam: ${event.title}`,
+    time: event.time || '09:00',
+    dur: event.durationMin ? `${Math.max(1, Number(event.durationMin))}m` : '2h',
+    cat: 'study',
+    noteId: event.examId,
+  };
+}
+
+function dashboardActivityToCalendarEvent(activity = {}) {
+  return {
+    source: 'calendar-activity-service',
+    serviceId: activity.id,
+    name: activity.title || 'Activity',
+    time: activity.activityTime || '09:00',
+    dur: activity.durationMin ? `${Math.max(1, Number(activity.durationMin))}m` : '1h',
+    cat: activity.category || 'study',
+    noteId: activity.noteId || null,
+    noteColor: activity.noteColor || null,
+    noteBg: activity.noteBg || null,
+    noteText: activity.noteText || null,
+    noteSubject: activity.noteSubject || null,
+    notes: activity.notes || '',
+    materials: activity.materials || [],
+    files: activity.files || [],
+    completed: Boolean(activity.completed),
+  };
+}
+
+function isDashboardServiceEvent(event = {}) {
+  return (
+    event.source === 'exam-service' ||
+    event.source === 'study-plan-service' ||
+    event.source === 'calendar-activity-service' ||
+    (event.cat === 'study' && String(event.name || '').startsWith('📝 Exam:'))
+  );
 }
 
 function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange }) {
@@ -201,6 +270,23 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
     return () => { cancelled = true; };
   }, [exams]);
 
+  async function refreshStudySessions(optimisticEvents = null) {
+    if (optimisticEvents) {
+      setStudySessions((current) => {
+        const next = mergeCalendarDoneStudySessions(current, optimisticEvents);
+        setWeekData(sessionsToWeekData(next));
+        return next;
+      });
+    }
+    const result = await listStudySessions({ days: 30 });
+    if (result.error) return;
+    const sessions = optimisticEvents
+      ? mergeCalendarDoneStudySessions(result.data || [], optimisticEvents)
+      : (result.data || []);
+    setStudySessions(sessions);
+    if (realMode || sessions.length > 0) setWeekData(sessionsToWeekData(sessions));
+  }
+
   useEffect(() => {
     let cancelled = false;
     async function loadStudySessions() {
@@ -262,31 +348,122 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   }, [calEvents, user]);
 
   useEffect(() => {
+    if (!realMode) return undefined;
+    let cancelled = false;
+    async function hydrateCalendarReadModel() {
+      const [examResult, planListResult, activityResult] = await Promise.all([
+        listCalendarEvents(),
+        listStudyPlans({ status: 'active' }),
+        listUserCalendarActivities(),
+      ]);
+      if (cancelled || examResult.error) return;
+
+      const activePlans = planListResult.error ? [] : [...(planListResult.data || [])].sort((a, b) => {
+        const bt = new Date(b.createdAt || 0).getTime();
+        const at = new Date(a.createdAt || 0).getTime();
+        return bt - at;
+      });
+      const latestPlan = activePlans[0] || null;
+      const planResult = latestPlan ? await listStudyPlanItems({ planId: latestPlan.id }) : { data: [] };
+      if (cancelled) return;
+
+      const grouped = {};
+      (examResult.data || []).forEach((event) => {
+        const key = calendarKeyFromDate(event.date);
+        if (!key) return;
+        grouped[key] = [...(grouped[key] || []), dashboardExamEventToCalendarEvent(event)];
+      });
+      (planResult.error ? [] : (planResult.data || []))
+        .filter((item) => item.status !== 'rescheduled' && item.status !== 'missed' && item.status !== 'skipped')
+        .forEach((item) => {
+          const key = calendarKeyFromDate(item.plannedDate);
+          if (!key) return;
+          const examIndex = exams.findIndex((entry) => String(entry.id) === String(item.examId));
+          const exam = exams[examIndex];
+          grouped[key] = [...(grouped[key] || []), studyPlanItemToCalendarEvent(item, exam, examIndex)];
+        });
+      (activityResult.error ? [] : (activityResult.data || [])).forEach((activity) => {
+        const key = calendarKeyFromDate(activity.activityDate);
+        if (!key) return;
+        grouped[key] = [...(grouped[key] || []), dashboardActivityToCalendarEvent(activity)];
+      });
+
+      setCalEvents((prev) => {
+        const next = { ...(prev || {}) };
+        Object.keys(next).forEach((key) => {
+          const kept = (next[key] || []).filter((event) => !isDashboardServiceEvent(event));
+          if (kept.length) next[key] = kept;
+          else delete next[key];
+        });
+        Object.entries(grouped).forEach(([key, value]) => {
+          next[key] = [...(next[key] || []), ...value];
+        });
+        return next;
+      });
+    }
+    hydrateCalendarReadModel();
+    return () => { cancelled = true; };
+  }, [exams, realMode]);
+
+  useEffect(() => {
     setStudySessions((current) => {
-      if (!realMode && plannerDoneSessionsFromEvents(calEvents).length === 0) return current;
-      const next = mergePlannerDoneSessions(current, calEvents);
+      if (!realMode && doneStudySessionsFromEvents(calEvents).length === 0) return current;
+      const next = mergeCalendarDoneStudySessions(current, calEvents);
       setWeekData(sessionsToWeekData(next));
       return next;
     });
   }, [calEvents, realMode]);
 
   function onStartTimer(mins) { setTimerTrigger({ mins, ts: Date.now() }); }
-  function onMarkEventDone(dk, evIdx, evName, completed = true) {
-    let targetEvent = null;
-    setCalEvents(prev => {
-      const next = { ...prev };
-      const arr = [...(next[dk] || [])];
-      targetEvent = arr[evIdx] || null;
-      arr[evIdx] = { ...arr[evIdx], completed };
-      next[dk] = arr;
-      return next;
-    });
+  async function onMarkEventDone(dk, evIdx, evName, completed = true, eventRef = null) {
+    const dayEvents = calEvents[dk] || [];
+    const resolvedIndex = (() => {
+      const byShape = dayEvents.findIndex((event, index) => (
+        index === evIdx &&
+        String(event.time || '') === String(eventRef?.time || '') &&
+        String(event.name || '') === String(eventRef?.name || '')
+      ));
+      if (byShape >= 0) return byShape;
+      const byTimeName = dayEvents.findIndex((event) => (
+        String(event.time || '') === String(eventRef?.time || '') &&
+        String(event.name || '') === String(eventRef?.name || '') &&
+        String(event.dur || '') === String(eventRef?.dur || '')
+      ));
+      if (byTimeName >= 0) return byTimeName;
+      const refServiceId = eventRef?.serviceId ? String(eventRef.serviceId) : null;
+      if (refServiceId) {
+        const byServiceId = dayEvents.findIndex((event) => String(event.serviceId || '') === refServiceId);
+        if (byServiceId >= 0) return byServiceId;
+      }
+      return evIdx;
+    })();
+    const targetEvent = dayEvents[resolvedIndex] || null;
+    if (!targetEvent) return;
+
     if (targetEvent?.source === 'study-plan-service' && targetEvent.serviceId) {
-      updateStudyPlanItem(targetEvent.serviceId, {
+      const result = await updateStudyPlanItem(targetEvent.serviceId, {
         status: completed ? 'done' : 'planned',
         completedAt: completed ? new Date().toISOString() : null,
       });
+      if (result.error) {
+        addNotification(`Could not update: ${evName || targetEvent.name || 'study session'}`, 'error');
+        return;
+      }
     }
+    if (targetEvent?.source === 'calendar-activity-service' && targetEvent.serviceId) {
+      const result = await updateCalendarActivity(targetEvent.serviceId, { completed });
+      if (result.error) {
+        addNotification(`Could not update: ${evName || targetEvent.name || 'study activity'}`, 'error');
+        return;
+      }
+    }
+
+    const arr = [...dayEvents];
+    if (!arr[resolvedIndex]) return;
+    arr[resolvedIndex] = { ...arr[resolvedIndex], completed };
+    const updatedEvents = { ...calEvents, [dk]: arr };
+    setCalEvents(updatedEvents);
+    void refreshStudySessions(updatedEvents);
     if (evName) addNotification(`${completed ? 'Completed' : 'Reopened'}: ${evName}`, completed ? 'done' : 'info');
   }
 
@@ -320,6 +497,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       });
       return next;
     });
+    void refreshStudySessions();
     addNotification('Study plan deleted', 'info');
   }
 
@@ -331,6 +509,15 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
     setActiveExamId(id);
     setTab('notes');
   };
+
+  const analyticsStudySessions = useMemo(
+    () => mergeCalendarDoneStudySessions(studySessions, calEvents),
+    [studySessions, calEvents],
+  );
+  const analyticsWeekData = useMemo(
+    () => sessionsToWeekData(analyticsStudySessions),
+    [analyticsStudySessions],
+  );
 
   function onQuizComplete(noteId, scorePct, runMeta) {
     if (!noteId) return;
@@ -530,6 +717,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
           onMarkEventDone={onMarkEventDone}
           onQuizComplete={onQuizComplete}
           onStartTimer={onStartTimer}
+          onStudySessionsChanged={refreshStudySessions}
           openExam={openExam}
           openFlashcards={openFlashcards}
           openQuiz={openQuiz}
@@ -547,10 +735,10 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
           setPlannerOpen={setPlannerOpen}
           setTab={setTab}
           startQuickQuizForExam={startQuickQuizForExam}
-          studySessions={studySessions}
+          studySessions={analyticsStudySessions}
           tab={tab}
           user={user}
-          weekData={weekData}
+          weekData={analyticsWeekData}
         />
       </DashboardCard>
       {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}

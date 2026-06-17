@@ -56,6 +56,18 @@ function renameStudyPlanEvent(event = {}, studyType = 'review') {
   return `${label} — ${scope}`;
 }
 
+function isStudyLikeEvent(event = {}) {
+  if (!event || event.source === 'exam-service' || event.type === 'exam') return false;
+  if (String(event.name || '').startsWith('📝 Exam:')) return false;
+  if (event.source === 'study-plan-service') return true;
+  const category = String(event.cat || event.category || '').toLowerCase();
+  if (category === 'study') return true;
+  const type = String(event.type || event.studyType || '').toLowerCase();
+  if (['study', 'review', 'quiz', 'flashcards', 'mock_exam'].includes(type)) return true;
+  if (!event.source && !category && !type) return true;
+  return false;
+}
+
 function clockToMinutes(value = '09:00') {
   const [hour, minute] = normalizeClockTime(value).split(':').map(Number);
   return hour * 60 + minute;
@@ -252,7 +264,7 @@ function examCutoffKey(exam = null) {
   return date ? dayKey(calAddDays(date, -1)) : null;
 }
 
-export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams = [] }) {
+export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams = [], onStudySessionsChanged }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const [view, setView]           = useState('week');
   const [weekStart, setWeekStart] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
@@ -483,6 +495,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     }
 
     const applyMove = () => {
+      let updatedEvents = null;
       setEvents((current) => {
         const next = { ...current };
         const fromArr = [...(next[fromKey] || [])];
@@ -495,8 +508,10 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
         if (fromArr.length) next[fromKey] = fromArr;
         else delete next[fromKey];
         next[toKey] = [...(next[toKey] || []), moved];
+        updatedEvents = next;
         return next;
       });
+      if (updatedEvents) onStudySessionsChanged?.(updatedEvents);
     };
     const persist = async () => {
       if (target.source === 'study-plan-service' && target.serviceId) {
@@ -580,7 +595,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       if (!m.active) return;
       m.active = false;
       m.wasDrag = Boolean(m.moved);
-      if (m.toKey && m.toTime) {
+      if (m.moved && m.toKey && m.toTime) {
         moveCalendarEvent(m.fromKey, { ...m.ev, index: m.fromIdx }, m.toKey, m.toTime);
       }
       setDrag(null);
@@ -639,6 +654,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
   const openDayDetail = (key) => setDayDetailKey(key);
   const closeDayDetail = () => setDayDetailKey(null);
   const toggleCat = (id) => setActiveCats(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const isStudyActionEvent = (event) => isStudyLikeEvent(event);
   const persistEventStatus = async (event, patch) => {
     if (!event?.serviceId) return true;
     if (event?.source === 'study-plan-service' && event.serviceId) {
@@ -721,18 +737,18 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     const ok = await persistEventStatus(target, patch);
     if (!ok) return;
 
-    setEvents((current) => {
-      const next = { ...current };
-      const arr = [...(next[key] || [])];
-      if (idx < 0 || idx >= arr.length) return current;
-      arr[idx] = updated;
-      next[key] = arr;
-      return next;
-    });
+    const nextEvents = { ...events };
+    const nextDay = [...(nextEvents[key] || [])];
+    if (idx < 0 || idx >= nextDay.length) return;
+    nextDay[idx] = updated;
+    nextEvents[key] = nextDay;
+    setEvents(nextEvents);
+    onStudySessionsChanged?.(nextEvents);
   };
 
   const deleteEvent = (key, idx) => {
     let target = null;
+    let updatedEvents = null;
     setEvents(ev => {
       target = (ev[key] || [])[idx] || null;
       if (!target) return ev;
@@ -740,16 +756,24 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
         setRescheduleNotice('Exam sessions are fixed and cannot be deleted from calendar.');
         return ev;
       }
+      updatedEvents = { ...ev, [key]: ev[key].filter((_, i) => i !== idx) };
+      if (!updatedEvents[key].length) delete updatedEvents[key];
       if (target.source === 'calendar-activity-service' && target.serviceId) {
         void deleteCalendarActivity(target.serviceId).then((result) => {
           if (result?.error) {
             setRescheduleNotice(result.error.message || 'Unable to delete activity.');
+          } else {
+            onStudySessionsChanged?.(updatedEvents);
           }
         });
       } else if (target?.source === 'study-plan-service' && target.serviceId) {
-        persistEventStatus(target, { status: 'skipped' });
+        persistEventStatus(target, { status: 'skipped' }).then((ok) => {
+          if (ok) onStudySessionsChanged?.(updatedEvents);
+        });
+      } else if (isStudyActionEvent(target)) {
+        onStudySessionsChanged?.(updatedEvents);
       }
-      return { ...ev, [key]: ev[key].filter((_, i) => i !== idx) };
+      return updatedEvents;
     });
   };
 
@@ -757,7 +781,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     const dayEvents = events[fromKey] || [];
     const sourceIdx = resolveEventIndex(fromKey, eventRef);
     const target = sourceIdx >= 0 ? dayEvents[sourceIdx] : null;
-    if (!target?.serviceId || target.source !== 'study-plan-service') return;
+    if (!target?.serviceId || !isStudyActionEvent(target)) return;
     moveCalendarEvent(fromKey, eventRef, toKey);
   };
 
@@ -930,13 +954,18 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       : true;
     if (!ok) return;
 
-    setEvents(prev => ({ ...prev, [key]: (prev[key] || []).map((e, i) => i === idx ? updated : e) }));
+    const editedEvents = { ...events, [key]: (events[key] || []).map((e, i) => i === idx ? updated : e) };
+    setEvents(editedEvents);
     if (isPlannerEvent) {
       const patchedCurrent = {
         ...updated,
         type: f.studyType,
       };
-      setEvents(prev => ({ ...prev, [key]: (prev[key] || []).map((e, i) => i === idx ? patchedCurrent : e) }));
+      const plannerEditedEvents = { ...events, [key]: (events[key] || []).map((e, i) => i === idx ? patchedCurrent : e) };
+      setEvents(plannerEditedEvents);
+      if (isStudyActionEvent(patchedCurrent)) onStudySessionsChanged?.(plannerEditedEvents);
+    } else if (isStudyActionEvent(updated)) {
+      onStudySessionsChanged?.(editedEvents);
     }
     closeEditEvent();
   };
@@ -1102,6 +1131,24 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                     const leftPct = (layout.col / layout.cols) * 100;
                     const widthPct = 100 / layout.cols;
                     const isDragging = drag && drag.fromKey === key && drag.fromIdx === eventIndex;
+                    const isStudyAction = isStudyActionEvent(ev);
+                    const actionButtonStyle = {
+                      height: compact ? 16 : 18,
+                      minWidth: compact ? 18 : 24,
+                      padding: compact ? '0 4px' : '1px 6px',
+                      borderRadius:999,
+                      border:`1px solid ${color}33`,
+                      background:'rgba(255,255,255,.76)',
+                      color,
+                      cursor:'pointer',
+                      display:'inline-flex',
+                      alignItems:'center',
+                      justifyContent:'center',
+                      fontSize:9,
+                      fontWeight:900,
+                      lineHeight:1,
+                      flex:'0 0 auto',
+                    };
                     return (
                       <div key={idx}
                         onMouseDown={e => startDrag(e, ev, key, eventIndex)}
@@ -1117,30 +1164,33 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                         style={{ position:'absolute', top, left:`calc(${leftPct}% + 3px)`, width:`calc(${widthPct}% - 6px)`, height: h - 2, borderRadius:7, background:bg, borderLeft:`3px solid ${color}`, boxShadow:`inset 0 0 0 1px ${color}22`, padding: compact ? '3px 5px' : '4px 6px', cursor:'grab', overflow:'hidden', zIndex:1 + layout.col, boxSizing:'border-box', opacity: isDragging ? 0.25 : ev.completed ? 0.5 : 1, userSelect:'none' }}>
                         <div style={{ fontSize: compact ? 10 : 11, fontWeight:800, color:text, lineHeight:1.15, overflow:'hidden', textDecoration: ev.completed ? 'line-through' : 'none', whiteSpace: compact ? 'nowrap' : 'normal', textOverflow:'ellipsis' }}>{ev.name}</div>
                         {!compact && h > 32 && <div style={{ fontSize:10, color:text, opacity:.75, marginTop:2 }}>{normalizeClockTime(ev.time)}{ev.dur ? ` · ${ev.dur}` : ''}</div>}
-                        {ev.source === 'study-plan-service' && (
+                        <div style={{ position:'absolute', right:2, bottom:2, maxWidth:'calc(100% - 4px)', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:2, overflow:'hidden' }}>
+                          {isStudyAction && (
+                            <button
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={e => { e.stopPropagation(); toggleEventDone(key, eventIndex); }}
+                              title={ev.completed ? 'Mark planned' : 'Mark done'}
+                              style={{ ...actionButtonStyle, background:ev.completed ? '#DCFCE7' : actionButtonStyle.background, color:ev.completed ? '#16A34A' : color }}>
+                              {ev.completed ? (compact ? '↺' : 'Done') : '✓'}
+                            </button>
+                          )}
+                          {isStudyAction && (
+                            <button
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={e => { e.stopPropagation(); moveStudyEvent(key, { ...ev, index: eventIndex }, keyAddDays(key, 1)); }}
+                              title="Move tomorrow"
+                              style={actionButtonStyle}>
+                              +1
+                            </button>
+                          )}
                           <button
                             onMouseDown={(e) => e.stopPropagation()}
-                            onClick={e => { e.stopPropagation(); toggleEventDone(key, eventIndex); }}
-                            title={ev.completed ? 'Mark planned' : 'Mark done'}
-                            style={{ position:'absolute', bottom:2, right: compact ? 36 : 44, background:ev.completed ? '#DCFCE7' : 'rgba(255,255,255,.72)', border:`1px solid ${color}33`, cursor:'pointer', padding:'1px 5px', borderRadius:999, color:ev.completed ? '#16A34A' : color, fontSize:9, fontWeight:900 }}>
-                            {ev.completed ? 'Done' : '✓'}
+                            onClick={e => { e.stopPropagation(); deleteEvent(key, eventIndex); }}
+                            title="Delete"
+                            style={{ ...actionButtonStyle, minWidth:compact ? 16 : 18, width:compact ? 16 : 18, padding:0, background:'rgba(255,255,255,.58)', opacity:.72 }}>
+                            <Trash size={10} color={color} />
                           </button>
-                        )}
-                        {ev.source === 'study-plan-service' && (
-                          <button
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={e => { e.stopPropagation(); moveStudyEvent(key, { ...ev, index: eventIndex }, keyAddDays(key, 1)); }}
-                            title="Move tomorrow"
-                            style={{ position:'absolute', bottom:2, right:18, background:'rgba(255,255,255,.72)', border:`1px solid ${color}33`, cursor:'pointer', padding:'1px 5px', borderRadius:999, color, fontSize:9, fontWeight:900 }}>
-                            +1
-                          </button>
-                        )}
-                        <button
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={e => { e.stopPropagation(); deleteEvent(key, eventIndex); }}
-                          style={{ position:'absolute', bottom:2, right:2, background:'transparent', border:'none', cursor:'pointer', padding:2, opacity:.6, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                          <Trash size={10} color={color} />
-                        </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -1271,6 +1321,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     const f = editForm;
     const currentEvent = editEv ? (events[editEv.key] || [])[editEv.idx] : null;
     const isPlannerEvent = currentEvent?.source === 'study-plan-service';
+    const isStudyAction = isStudyActionEvent(currentEvent);
     const plannerExam = isPlannerEvent ? exams.find((exam) => String(exam.id) === String(currentEvent.examId)) : null;
     const plannerChapter = plannerExam?.chapters?.find((chapter) => String(chapter.id) === String(currentEvent.chapterId));
     const plannerSubject = plannerChapter?.title && plannerChapter.title !== plannerExam?.name ? plannerChapter.title : null;
@@ -1335,6 +1386,18 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                   Mark missed
                 </button>
               </div>
+            </div>
+          )}
+          {!isPlannerEvent && isStudyAction && (
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:16 }}>
+              <button onClick={() => { toggleEventDone(editEv.key, editEv.idx); upd({ completed: !f.completed }); }}
+                style={{ ...calS.repairBtn, color:'#166534', borderColor:'#86EFAC', background:'#DCFCE7' }}>
+                {f.completed ? 'Mark planned' : 'Mark done'}
+              </button>
+              <button onClick={() => { moveStudyEvent(editEv.key, { ...(events[editEv.key] || [])[editEv.idx], index: editEv.idx }, keyAddDays(editEv.key, 1)); closeEditEvent(); }}
+                style={{ ...calS.repairBtn, color:'var(--indigo)', borderColor:'#C7D2FE', background:'#EEF2FF' }}>
+                Move tomorrow
+              </button>
             </div>
           )}
           {!isPlannerEvent && (
@@ -1576,7 +1639,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                         </div>
                       </div>
                       <button onClick={e => { e.stopPropagation(); deleteEvent(key, eventIndex); }} style={{ color:'var(--gray-2)', padding:4, borderRadius:6, border:'none', background:'transparent', cursor:'pointer', opacity:.6, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}><Trash size={13} /></button>
-                      {ev.source === 'study-plan-service' && (
+                      {isStudyActionEvent(ev) && (
                         <button onClick={e => { e.stopPropagation(); toggleEventDone(key, eventIndex); }} style={{ color:ev.completed ? '#16A34A' : 'var(--gray-2)', padding:4, borderRadius:6, border:'none', background:ev.completed ? '#DCFCE7' : 'transparent', cursor:'pointer', opacity:.9, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}><Check size={13} /></button>
                       )}
                     </div>

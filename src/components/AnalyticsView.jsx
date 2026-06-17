@@ -4,7 +4,8 @@ import { Clock, Flame, Trend, Trophy } from '../lib/icons';
 import { formatExamDate, getSubjectPalette } from '../data/mockData';
 import useIsMobile from '../lib/useIsMobile';
 import { homeS } from '../styles/dashboardStyles';
-import { getStudyStreak, getStudySummary } from '../services/analytics';
+import { getStudyStreak, getStudySummary, sessionsToWeekData } from '../services/analytics';
+import { durToMins } from './calendarData';
 
 function useCountUp(target, duration = 1000, delay = 0) {
   const [value, setValue] = useState(0);
@@ -267,17 +268,68 @@ function AnimatedProgress({ progress, color }) {
   );
 }
 
-function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flashHistory, setTab, openQuizForExam }) {
+function isStudyLikeCalendarEvent(event = {}) {
+  if (!event || event.source === 'exam-service' || event.type === 'exam') return false;
+  if (String(event.name || '').startsWith('📝 Exam:')) return false;
+  if (event.source === 'study-plan-service') return true;
+  const category = String(event.cat || event.category || '').toLowerCase();
+  if (category === 'study') return true;
+  const type = String(event.type || event.studyType || '').toLowerCase();
+  if (['study', 'review', 'quiz', 'flashcards', 'mock_exam'].includes(type)) return true;
+  if (!event.source && !category && !type) return true;
+  return false;
+}
+
+function calendarKeyToIsoDate(key) {
+  const [year, month, day] = String(key || '').split('-').map(Number);
+  if (!year || !month || !day) return new Date().toISOString().slice(0, 10);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function doneStudySessionsFromCalendar(events = {}) {
+  return Object.entries(events || {}).flatMap(([dateKey, dayEvents]) =>
+    (dayEvents || [])
+      .filter((event) => event?.completed && isStudyLikeCalendarEvent(event))
+      .map((event) => ({
+        id: event.source === 'study-plan-service'
+          ? `planner-${event.serviceId}`
+          : `calendar-activity-${event.serviceId || `${dateKey}-${event.time || '12:00'}-${event.name || 'activity'}`}`,
+        minutes: Math.max(1, durToMins(event.dur || '30m') || 30),
+        studiedAt: `${calendarKeyToIsoDate(dateKey)}T${event.time || '12:00'}:00`,
+        source: event.source === 'study-plan-service' ? 'study-plan' : 'calendar-activity',
+      })),
+  );
+}
+
+function mergeStudySessionsWithCalendar(studySessions = [], calEvents = {}) {
+  const calendarSessions = doneStudySessionsFromCalendar(calEvents);
+  const calendarKeys = new Set(calendarSessions.map((session) => `${session.source}:${session.id}`));
+  const merged = [
+    ...calendarSessions,
+    ...(studySessions || []).filter((session) => !calendarKeys.has(`${session.source}:${session.id}`)),
+  ];
+  const seen = new Set();
+  return merged.filter((session) => {
+    const key = `${session.source}:${session.id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, quizHistory, flashHistory, setTab, openQuizForExam }) {
   const isMobile = useIsMobile();
-  const maxMin = getChartMaxMinutes(weekData.map(d => d.mins));
-  const totalMin = weekData.reduce((a, b) => a + b.mins, 0);
+  const visibleStudySessions = mergeStudySessionsWithCalendar(studySessions, calEvents);
+  const visibleWeekData = sessionsToWeekData(visibleStudySessions);
+  const maxMin = getChartMaxMinutes(visibleWeekData.map(d => d.mins));
+  const totalMin = visibleWeekData.reduce((a, b) => a + b.mins, 0);
   const trackedNotes = notes || [];
 
   const [chartRef, chartInView] = useInView('-40px');
   const [summary, setSummary] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState('');
-  const studySessionsVersion = studySessions.map((session) => `${session.id}:${session.minutes}:${session.studiedAt}`).join('|');
+  const studySessionsVersion = visibleStudySessions.map((session) => `${session.id}:${session.minutes}:${session.studiedAt}`).join('|');
 
   useEffect(() => {
     let cancelled = false;
@@ -311,7 +363,7 @@ function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flash
   const hasFlashData = Number(summary?.flashcardReviewsCount || 0) > 0 || localFlashScores.length > 0;
   const hasPracticeData = hasQuizData || hasFlashData;
   const currentGrade = hasPracticeData ? getCurrentGradeFromScore(averagePracticeScore ?? averageQuizScore) : null;
-  const streakDays = getStudyStreak(studySessions);
+  const streakDays = getStudyStreak(visibleStudySessions);
   const subjectMastery = getSubjectMastery(trackedNotes, quizHistory, flashHistory);
   const missingSignals = [
     totalMin === 0 ? 'No study time logged yet. Start timer or mark planner sessions done.' : null,
@@ -320,8 +372,8 @@ function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flash
   ].filter(Boolean);
 
   // Count-up values
-  const studyH = useCountUp(Math.floor(totalMin / 60), 900, 0);
-  const studyM = useCountUp(totalMin % 60, 900, 0);
+  const studyH = Math.floor(totalMin / 60);
+  const studyM = totalMin % 60;
   const quizScoreDisplay = hasQuizData && averageQuizScore != null ? `${averageQuizScore}%` : 'n.a.';
   const flashScoreDisplay = averageFlashcardScore != null ? `${averageFlashcardScore}%` : 'n.a.';
   const currentGradeDisplay = currentGrade != null ? currentGrade.toFixed(1) : 'n.a.';
@@ -371,7 +423,7 @@ function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flash
             <span style={analS.legend}><span style={{ ...analS.legendDot, background: 'var(--indigo)' }} /> mins</span>
           </div>
           <div style={analS.chart}>
-            {weekData.map((d, i) => (
+            {visibleWeekData.map((d, i) => (
               <AnimatedBar key={d.day} mins={d.mins} maxMin={maxMin} day={d.day} animate={chartInView} />
             ))}
           </div>

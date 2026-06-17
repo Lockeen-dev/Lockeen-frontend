@@ -95,7 +95,6 @@ function DashboardHome({
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [localDone, setLocalDone] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -137,11 +136,7 @@ function DashboardHome({
   }, [allExams]);
 
   const nextExam = summary?.nextExam || upcoming[0] || null;
-  const eventDoneKey = (event, index) => `${todayKey}:${index}:${event.time || ''}:${event.name || ''}`;
-  const isEventDone = (event, index) => {
-    const key = eventDoneKey(event, index);
-    return Object.prototype.hasOwnProperty.call(localDone, key) ? localDone[key] : !!event.completed;
-  };
+  const isEventDone = (event) => !!event.completed;
   const completedToday = todayEvents.filter((event, index) => isEventDone(event, index)).length;
   const totalToday = todayEvents.length || 0;
   const nextEvent = todayEvents.find((event, index) => !isEventDone(event, index));
@@ -171,10 +166,8 @@ function DashboardHome({
   const heroDate = new Date().toLocaleDateString(lang === 'it' ? 'it-IT' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
 
   function toggleEventDone(event, index) {
-    const key = eventDoneKey(event, index);
     const nextDone = !isEventDone(event, index);
-    setLocalDone((prev) => ({ ...prev, [key]: nextDone }));
-    onMarkEventDone && onMarkEventDone(todayKey, index, event.name, nextDone);
+    onMarkEventDone && onMarkEventDone(todayKey, index, event.name, nextDone, event);
   }
 
   function startExamQuiz(exam) {
