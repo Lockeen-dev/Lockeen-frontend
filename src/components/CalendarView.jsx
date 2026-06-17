@@ -289,6 +289,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
   const [density, setDensity] = useState('compact');
   const dragMeta   = useRef({});
   const monthDragMeta = useRef({});
+  const moveCalendarEventRef = useRef(null);
   const [monthDrag, setMonthDrag] = useState(null);
   const gridBodyRef = useRef(null);
   const eventWithExamPalette = useMemo(() => (event) => applyExamPaletteToEvent(event, exams), [exams]);
@@ -432,7 +433,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     return dayEvents.findIndex((event) => String(event?.serviceId || '').trim() === targetServiceId);
   };
 
-  const moveCalendarEvent = (fromKey, fromRef, toKey, forcedTime) => {
+  const moveCalendarEvent = (fromKey, fromRef, toKey, forcedTime, options = {}) => {
     const sourceDay = events[fromKey] || [];
     const sourceIndex = resolveEventIndex(fromKey, fromRef);
     const resolvedSourceIndex = sourceIndex >= 0 ? sourceIndex : -1;
@@ -446,7 +447,10 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
 
     const desiredTime = normalizeClockTime(forcedTime || target.time || '09:00');
     const preview = { ...target, time: desiredTime };
-    const maybeTime = findFreeTimeForEvent(toKey, preview, fromKey, resolvedSourceIndex, target);
+    const manualExactTime = Boolean(options.manualExactTime && forcedTime);
+    const maybeTime = manualExactTime
+      ? desiredTime
+      : findFreeTimeForEvent(toKey, preview, fromKey, resolvedSourceIndex, target);
     if (!maybeTime) {
       setRescheduleNotice(`No free slot found on ${fmtModalDate(toKey)} for ${target.name || 'that event'}.`);
       return;
@@ -462,7 +466,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
         },
       );
     };
-    const resolvedTime = hasOverlapOnTarget(maybeTime)
+    const resolvedTime = !manualExactTime && hasOverlapOnTarget(maybeTime)
       ? findFreeTimeForEvent(toKey, { ...preview, time: normalizeClockTime(maybeTime) }, toKey, resolvedSourceIndex, target)
       : maybeTime;
     if (!resolvedTime || hasOverlapOnTarget(resolvedTime)) {
@@ -471,7 +475,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     }
     const freeTime = resolvedTime;
 
-    if (target.source === 'study-plan-service' && target.serviceId) {
+    if (!manualExactTime && target.source === 'study-plan-service' && target.serviceId) {
       const exam = exams.find((entry) => String(entry.id) === String(target.examId));
       const cutoff = examCutoffKey(exam);
       if (cutoff && keyToPlannerDate(toKey) > keyToPlannerDate(cutoff)) {
@@ -546,6 +550,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       applyMove();
     })();
   };
+  moveCalendarEventRef.current = moveCalendarEvent;
 
   const startDrag = (e, ev, key, idx) => {
     if (!ev || ev.source === 'exam-service' || ev.type === 'exam') return;
@@ -596,13 +601,18 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       m.active = false;
       m.wasDrag = Boolean(m.moved);
       if (m.moved && m.toKey && m.toTime) {
-        moveCalendarEvent(m.fromKey, { ...m.ev, index: m.fromIdx }, m.toKey, m.toTime);
+        moveCalendarEventRef.current?.(m.fromKey, { ...m.ev, index: m.fromIdx }, m.toKey, m.toTime, { manualExactTime: true });
       }
       setDrag(null);
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup',   onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup',   onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
   }, []);
 
   const startMonthDrag = (e, ev, key, idx) => {
@@ -631,13 +641,18 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       const wasStarted = m.started;
       m.active = false; m.started = false;
       if (wasStarted && m.toKey && m.toKey !== m.fromKey) {
-        moveCalendarEvent(m.fromKey, { ...m.ev, index: m.fromIdx }, m.toKey, m.ev.time);
+        moveCalendarEventRef.current?.(m.fromKey, { ...m.ev, index: m.fromIdx }, m.toKey, m.ev.time);
       }
       setMonthDrag(null);
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
   }, [setEvents]);
 
   const navPrev = () => {
@@ -1151,7 +1166,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                     };
                     return (
                       <div key={idx}
-                        onMouseDown={e => startDrag(e, ev, key, eventIndex)}
+                        onPointerDown={e => startDrag(e, ev, key, eventIndex)}
                         onClick={e => {
                           const dragged = dragMeta.current?.wasDrag && dragMeta.current?.fromKey === key && dragMeta.current?.fromIdx === eventIndex;
                           if (dragged) {
@@ -1161,13 +1176,13 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                           e.stopPropagation();
                           handleEvClick(ev, key, eventIndex);
                         }}
-                        style={{ position:'absolute', top, left:`calc(${leftPct}% + 3px)`, width:`calc(${widthPct}% - 6px)`, height: h - 2, borderRadius:7, background:bg, borderLeft:`3px solid ${color}`, boxShadow:`inset 0 0 0 1px ${color}22`, padding: compact ? '3px 5px' : '4px 6px', cursor:'grab', overflow:'hidden', zIndex:1 + layout.col, boxSizing:'border-box', opacity: isDragging ? 0.25 : ev.completed ? 0.5 : 1, userSelect:'none' }}>
+                        style={{ position:'absolute', top, left:`calc(${leftPct}% + 3px)`, width:`calc(${widthPct}% - 6px)`, height: h - 2, borderRadius:7, background:bg, borderLeft:`3px solid ${color}`, boxShadow:`inset 0 0 0 1px ${color}22`, padding: compact ? '3px 5px' : '4px 6px', cursor:'grab', overflow:'hidden', zIndex:1 + layout.col, boxSizing:'border-box', opacity: isDragging ? 0.25 : ev.completed ? 0.5 : 1, userSelect:'none', touchAction:'none' }}>
                         <div style={{ fontSize: compact ? 10 : 11, fontWeight:800, color:text, lineHeight:1.15, overflow:'hidden', textDecoration: ev.completed ? 'line-through' : 'none', whiteSpace: compact ? 'nowrap' : 'normal', textOverflow:'ellipsis' }}>{ev.name}</div>
                         {!compact && h > 32 && <div style={{ fontSize:10, color:text, opacity:.75, marginTop:2 }}>{normalizeClockTime(ev.time)}{ev.dur ? ` · ${ev.dur}` : ''}</div>}
                         <div style={{ position:'absolute', right:2, bottom:2, maxWidth:'calc(100% - 4px)', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:2, overflow:'hidden' }}>
                           {isStudyAction && (
                             <button
-                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
                               onClick={e => { e.stopPropagation(); toggleEventDone(key, eventIndex); }}
                               title={ev.completed ? 'Mark planned' : 'Mark done'}
                               style={{ ...actionButtonStyle, background:ev.completed ? '#DCFCE7' : actionButtonStyle.background, color:ev.completed ? '#16A34A' : color }}>
@@ -1176,7 +1191,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                           )}
                           {isStudyAction && (
                             <button
-                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
                               onClick={e => { e.stopPropagation(); moveStudyEvent(key, { ...ev, index: eventIndex }, keyAddDays(key, 1)); }}
                               title="Move tomorrow"
                               style={actionButtonStyle}>
@@ -1184,7 +1199,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                             </button>
                           )}
                           <button
-                            onMouseDown={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={e => { e.stopPropagation(); deleteEvent(key, eventIndex); }}
                             title="Delete"
                             style={{ ...actionButtonStyle, minWidth:compact ? 16 : 18, width:compact ? 16 : 18, padding:0, background:'rgba(255,255,255,.58)', opacity:.72 }}>
@@ -1231,8 +1246,8 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                   const { color, bg, text } = paletteForEvent(ev);
                   const isDragging = monthDrag && monthDrag.fromKey === key && monthDrag.ev === ev;
                   return <div key={idx}
-                    onMouseDown={e => startMonthDrag(e, ev, key, eventIndex)}
-                    style={{ ...calS.monthPill, background:bg, color:text, border:`1px solid ${color}33`, opacity:isDragging?0.3:(ev.completed?0.5:1), textDecoration:ev.completed?'line-through':'none', cursor:'grab', userSelect:'none' }}>{ev.name}</div>;
+                    onPointerDown={e => startMonthDrag(e, ev, key, eventIndex)}
+                    style={{ ...calS.monthPill, background:bg, color:text, border:`1px solid ${color}33`, opacity:isDragging?0.3:(ev.completed?0.5:1), textDecoration:ev.completed?'line-through':'none', cursor:'grab', userSelect:'none', touchAction:'none' }}>{ev.name}</div>;
                 })}
                 {dayEvs.length > 2 && <div style={calS.monthMore}>+{dayEvs.length-2} more</div>}
               </div>
