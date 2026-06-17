@@ -4,6 +4,8 @@ const MAX_PROMPT_CHARS = 4000;
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_DAILY_QUOTA = 20;
 const DEFAULT_MODEL = 'gpt-4.1-mini';
+const MAX_ATTACHMENT_TEXT_CHARS = 12000;
+const MAX_INLINE_IMAGES = 3;
 
 const usageByUser = new Map();
 let supabaseAdmin = null;
@@ -203,6 +205,43 @@ function inferDepth(prompt) {
   return 'standard';
 }
 
+function normalizeTutorAttachments(attachments = []) {
+  if (!Array.isArray(attachments)) return { summary: [], images: [] };
+
+  const summary = [];
+  const images = [];
+
+  for (const raw of attachments.slice(0, 5)) {
+    const item = {
+      name: String(raw?.name || 'attachment').slice(0, 180),
+      type: String(raw?.type || ''),
+      size: Number(raw?.size || 0),
+      kind: String(raw?.kind || ''),
+      status: String(raw?.status || ''),
+      note: raw?.note ? String(raw.note).slice(0, 240) : '',
+    };
+
+    if (typeof raw?.text === 'string' && raw.text.trim()) {
+      item.text = raw.text.slice(0, MAX_ATTACHMENT_TEXT_CHARS);
+      item.truncated = Boolean(raw.truncated || raw.text.length > MAX_ATTACHMENT_TEXT_CHARS);
+    }
+
+    if (
+      images.length < MAX_INLINE_IMAGES &&
+      item.kind === 'image' &&
+      typeof raw?.dataUrl === 'string' &&
+      /^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(raw.dataUrl)
+    ) {
+      images.push({ name: item.name, imageUrl: raw.dataUrl });
+      item.hasImageContent = true;
+    }
+
+    summary.push(item);
+  }
+
+  return { summary, images };
+}
+
 function buildTutorSystemText({ mode, depth }) {
   return [
     'You are Lockeen AI, a high-quality private tutor for students.',
@@ -241,7 +280,8 @@ function buildTutorSystemText({ mode, depth }) {
     '',
     'Personalization:',
     '- Use current subject, exam goals, preferred depth, weak topics, previous chat, and uploaded note context when provided.',
-    '- If attachments only contain filenames, say you can use filename context only; do not pretend to read files.',
+    '- Use attached image or text content when provided.',
+    '- If an attachment is metadata_only, say you can use filename context only; do not pretend to read it.',
     '- If user says they are confused, simplify and build from intuition first.',
     '',
     'Length:',
@@ -264,6 +304,24 @@ async function callOpenAI({ kind, prompt, context }) {
   const mode = inferResponseMode(prompt, kind);
   const depth = inferDepth(prompt);
   const systemText = buildTutorSystemText({ mode, depth });
+  const { summary: attachments, images } = normalizeTutorAttachments(context?.attachments);
+  const safeContext = { ...(context || {}), attachments };
+  const userContent = [
+    {
+      type: 'input_text',
+      text: JSON.stringify({
+        kind,
+        responseMode: mode,
+        depth,
+        prompt,
+        context: safeContext,
+      }),
+    },
+    ...images.map((image) => ({
+      type: 'input_image',
+      image_url: image.imageUrl,
+    })),
+  ];
 
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -277,13 +335,7 @@ async function callOpenAI({ kind, prompt, context }) {
         { role: 'system', content: systemText },
         {
           role: 'user',
-          content: JSON.stringify({
-            kind,
-            responseMode: mode,
-            depth,
-            prompt,
-            context: context || {},
-          }),
+          content: userContent,
         },
       ],
       max_output_tokens: depth === 'deep' ? 900 : 520,

@@ -9,6 +9,96 @@ const INITIAL_MSGS = [
   { who: 'ai', text: "Hi! I'm your AI tutor. What would you like to study today?" },
 ];
 
+const MAX_TUTOR_FILES = 5;
+const MAX_INLINE_IMAGE_BYTES = 2.5 * 1024 * 1024;
+const MAX_INLINE_TEXT_CHARS = 12000;
+const TUTOR_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+const TUTOR_TEXT_TYPES = new Set(['text/plain', 'text/markdown']);
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Unable to read file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Unable to read file.'));
+    reader.readAsText(file);
+  });
+}
+
+function attachmentKind(file) {
+  if (TUTOR_IMAGE_TYPES.has(file.type)) return 'image';
+  if (TUTOR_TEXT_TYPES.has(file.type) || /\.(txt|md)$/i.test(file.name)) return 'text';
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) return 'pdf';
+  return 'metadata';
+}
+
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function prepareTutorAttachments(files) {
+  const attachments = [];
+
+  for (const file of files.slice(0, MAX_TUTOR_FILES)) {
+    const kind = attachmentKind(file);
+    const base = {
+      name: file.name,
+      type: file.type || 'application/octet-stream',
+      size: file.size,
+      kind,
+    };
+
+    if (kind === 'image') {
+      if (file.size > MAX_INLINE_IMAGE_BYTES) {
+        attachments.push({
+          ...base,
+          status: 'metadata_only',
+          note: 'Image is too large to read inline in AI Tutor.',
+        });
+        continue;
+      }
+
+      attachments.push({
+        ...base,
+        status: 'read',
+        dataUrl: await readFileAsDataUrl(file),
+      });
+      continue;
+    }
+
+    if (kind === 'text') {
+      const text = await readFileAsText(file);
+      attachments.push({
+        ...base,
+        status: 'read',
+        text: text.slice(0, MAX_INLINE_TEXT_CHARS),
+        truncated: text.length > MAX_INLINE_TEXT_CHARS,
+      });
+      continue;
+    }
+
+    attachments.push({
+      ...base,
+      status: 'metadata_only',
+      note: kind === 'pdf'
+        ? 'PDF reading is not enabled directly in AI Tutor yet.'
+        : 'Unsupported file type for direct AI Tutor reading.',
+    });
+  }
+
+  return attachments;
+}
+
 function inlineMarkdown(text) {
   const parts = String(text || '').split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, index) => {
@@ -184,12 +274,27 @@ export default function TutorView() {
   const [aiError, setAiError] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [files, setFiles] = useState([]);
+  const [filePreviews, setFilePreviews] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const fileRef = useRef(null);
   const endRef = useRef(null);
 
   useEffect(() => { endRef.current?.scrollTo({ top: endRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, typing]);
   useEffect(() => { if (!isMobile) setHistoryOpen(true); else setHistoryOpen(false); }, [isMobile]);
+  useEffect(() => {
+    const previews = files.map((file) => ({
+      name: file.name,
+      kind: attachmentKind(file),
+      size: formatFileSize(file.size),
+      url: TUTOR_IMAGE_TYPES.has(file.type) ? URL.createObjectURL(file) : '',
+    }));
+
+    setFilePreviews(previews);
+    return () => previews.forEach((preview) => {
+      if (preview.url) URL.revokeObjectURL(preview.url);
+    });
+  }, [files]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -259,6 +364,14 @@ export default function TutorView() {
     const nextTitle = activeSession?.title === 'New conversation' && text
       ? text.slice(0, 42)
       : null;
+    let preparedAttachments = [];
+    try {
+      preparedAttachments = await prepareTutorAttachments(files);
+    } catch {
+      setAiError('Could not read the selected file. Try another image or text file.');
+      return;
+    }
+
     let userMsgs = [];
     setMsgs(m => {
       const next = [...m, { who: 'user', text: fullText }];
@@ -280,7 +393,7 @@ export default function TutorView() {
           weakTopics: [],
           examGoals: [],
           history: msgs.slice(-8),
-          attachments: files.map(f => ({ name: f.name, type: f.type, size: f.size })),
+          attachments: preparedAttachments,
         },
       });
       const reply = result.data?.text || 'No answer returned.';
@@ -396,31 +509,76 @@ export default function TutorView() {
           )}
         </div>
 
-        <div style={tutorS.suggestRow}>
-          {suggestions.map(s => (
-            <button key={s} onClick={() => setInput(s)} style={tutorS.suggestChip}>{s}</button>
-          ))}
-        </div>
-        {aiError && <div style={tutorS.errorBox}>{aiError}</div>}
-
-        {files.length > 0 && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
-            {files.map((f, i) => (
-              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: 'var(--lavender)', border: '1px solid rgba(55,48,232,.2)', fontSize: 11, fontWeight: 600, color: 'var(--indigo)' }}>
-                <Paperclip size={10} />{f.name}
-                <button type="button" onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 0 2px', color: 'var(--gray)', fontSize: 14, lineHeight: 1 }}>×</button>
-              </span>
+        {files.length === 0 && (
+          <div style={tutorS.suggestRow}>
+            {suggestions.map(s => (
+              <button key={s} onClick={() => setInput(s)} style={tutorS.suggestChip}>{s}</button>
             ))}
           </div>
         )}
+        {aiError && <div style={tutorS.errorBox}>{aiError}</div>}
 
         <form onSubmit={(e) => { e.preventDefault(); send(); }} style={tutorS.composer}>
-          <input type="file" multiple ref={fileRef} style={{ display: 'none' }} onChange={e => { setFiles(prev => [...prev, ...Array.from(e.target.files)].slice(0, 5)); e.target.value = ''; }} />
+          {filePreviews.length > 0 && (
+            <div style={tutorS.attachmentTray}>
+              {filePreviews.map((file, i) => (
+                <div key={`${file.name}-${i}`} style={file.url ? tutorS.imageAttachment : tutorS.fileAttachment}>
+                  {file.url ? (
+                    <img src={file.url} alt={file.name} style={tutorS.attachmentImage} />
+                  ) : (
+                    <div style={tutorS.fileAttachmentBody}>
+                      <Paperclip size={15} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={tutorS.fileAttachmentName}>{file.name}</div>
+                        <div style={tutorS.fileAttachmentMeta}>{file.kind.toUpperCase()}{file.size ? ` · ${file.size}` : ''}</div>
+                      </div>
+                    </div>
+                  )}
+                  {file.url && (
+                    <div style={tutorS.imageAttachmentMeta}>
+                      <span style={tutorS.imageAttachmentName}>{file.name}</span>
+                      {file.size && <span>{file.size}</span>}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
+                    aria-label={`Remove ${file.name}`}
+                    style={tutorS.removeAttachmentBtn}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={tutorS.composerRow}>
+          <input
+            type="file"
+            multiple
+            accept="image/png,image/jpeg,image/webp,image/gif,text/plain,text/markdown,.txt,.md,.pdf"
+            ref={fileRef}
+            style={{ display: 'none' }}
+            onChange={e => {
+              const selected = Array.from(e.target.files);
+              setFiles(prev => {
+                const next = [...prev, ...selected].slice(0, MAX_TUTOR_FILES);
+                if (prev.length + selected.length > MAX_TUTOR_FILES) {
+                  setAiError(`You can attach up to ${MAX_TUTOR_FILES} files.`);
+                } else {
+                  setAiError('');
+                }
+                return next;
+              });
+              e.target.value = '';
+            }}
+          />
           <button type="button" onClick={() => fileRef.current.click()} title="Attach file" style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray)', display: 'grid', placeItems: 'center' }}>
             <Paperclip size={16} />
           </button>
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask me anything…" style={tutorS.composerInput} />
           <button type="submit" disabled={typing} style={{ ...tutorS.sendBtn, opacity: typing ? .6 : 1, cursor: typing ? 'not-allowed' : 'pointer' }} aria-label="Send"><Send size={16} /></button>
+          </div>
         </form>
       </div>
 
@@ -456,7 +614,18 @@ const tutorS = {
   suggestRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' },
   suggestChip: { padding: '8px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12 },
   errorBox: { marginBottom: 8, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600 },
-  composer: { display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
+  composer: { display: 'flex', flexDirection: 'column', gap: 10, padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
+  composerRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%' },
   composerInput: { flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: 'var(--ink)' },
   sendBtn: { width: 40, height: 40, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
+  attachmentTray: { width: '100%', display: 'flex', alignItems: 'stretch', gap: 10, flexWrap: 'wrap', padding: '4px 4px 0' },
+  imageAttachment: { position: 'relative', width: 108, minHeight: 136, borderRadius: 16, border: '1px solid var(--border)', background: '#fff', boxShadow: '0 12px 28px rgba(15,23,42,.1)', overflow: 'hidden' },
+  attachmentImage: { display: 'block', width: '100%', height: 96, objectFit: 'cover', background: 'var(--lavender)' },
+  imageAttachmentMeta: { display: 'flex', flexDirection: 'column', gap: 2, padding: '7px 8px 8px', fontSize: 10, lineHeight: 1.1, color: 'var(--gray)', fontWeight: 700 },
+  imageAttachmentName: { color: 'var(--ink)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' },
+  fileAttachment: { position: 'relative', minWidth: 220, maxWidth: 280, minHeight: 82, borderRadius: 16, border: '1px solid var(--border)', background: '#fff', boxShadow: '0 12px 28px rgba(15,23,42,.1)', padding: '14px 44px 14px 14px', display: 'flex', alignItems: 'center' },
+  fileAttachmentBody: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, color: 'var(--indigo)' },
+  fileAttachmentName: { overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 13, fontWeight: 800, color: 'var(--ink)' },
+  fileAttachmentMeta: { marginTop: 3, fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
+  removeAttachmentBtn: { position: 'absolute', top: 7, right: 7, width: 28, height: 28, borderRadius: 999, border: '1px solid rgba(255,255,255,.4)', background: 'rgba(15,23,42,.92)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 20, lineHeight: 1, boxShadow: '0 6px 16px rgba(15,23,42,.22)' },
 };
