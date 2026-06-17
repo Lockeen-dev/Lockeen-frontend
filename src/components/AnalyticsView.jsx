@@ -61,7 +61,7 @@ function formatAnalyticsError(error) {
 }
 
 function getCurrentGradeFromScore(score) {
-  if (score == null) return null;
+  if (score == null || !Number.isFinite(Number(score)) || Number(score) <= 0) return null;
   return Math.round((18 + (Number(score) / 100) * 12) * 10) / 10;
 }
 
@@ -307,11 +307,17 @@ function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flash
     ...localQuizScores,
     ...localFlashScores,
   ]);
-  const hasQuizData = Number(summary?.quizAttemptsCount || 0) > 0 || localQuizScores.length > 0 || averageQuizScore != null;
-  const hasPracticeData = hasQuizData || Number(summary?.flashcardReviewsCount || 0) > 0 || localFlashScores.length > 0 || averagePracticeScore != null;
+  const hasQuizData = Number(summary?.quizAttemptsCount || 0) > 0 || localQuizScores.length > 0;
+  const hasFlashData = Number(summary?.flashcardReviewsCount || 0) > 0 || localFlashScores.length > 0;
+  const hasPracticeData = hasQuizData || hasFlashData;
   const currentGrade = hasPracticeData ? getCurrentGradeFromScore(averagePracticeScore ?? averageQuizScore) : null;
   const streakDays = getStudyStreak(studySessions);
   const subjectMastery = getSubjectMastery(trackedNotes, quizHistory, flashHistory);
+  const missingSignals = [
+    totalMin === 0 ? 'No study time logged yet. Start timer or mark planner sessions done.' : null,
+    !hasQuizData ? 'No quiz attempts yet.' : null,
+    !hasFlashData ? 'No flashcard reviews yet.' : null,
+  ].filter(Boolean);
 
   // Count-up values
   const studyH = useCountUp(Math.floor(totalMin / 60), 900, 0);
@@ -343,6 +349,14 @@ function AnalyticsView({ weekData, studySessions = [], notes, quizHistory, flash
       {!analyticsLoading && !analyticsError && (
         <div style={{ ...analS.statsGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(150px, 1fr))' }}>
           {kpiCards.map(s => <KpiStat key={s.label} {...s} />)}
+        </div>
+      )}
+      {!analyticsLoading && !analyticsError && missingSignals.length > 0 && (
+        <div style={{ ...analS.noticeCard, marginBottom:22, background:'#F8FAFC' }}>
+          <b style={{ color:'var(--ink)' }}>Analytics need more data</b>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:10 }}>
+            {missingSignals.map((signal) => <span key={signal} style={analS.dataPill}>{signal}</span>)}
+          </div>
         </div>
       )}
 
@@ -473,6 +487,7 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuizF
 
 const analS = {
   noticeCard: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, padding:16, color:'var(--gray)', fontSize:14 },
+  dataPill: { display:'inline-flex', alignItems:'center', border:'1px solid var(--border)', background:'#fff', color:'var(--gray)', borderRadius:999, padding:'8px 11px', fontSize:12, fontWeight:800 },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 22 },
   kpiCard: { borderRadius: 20, padding: '18px 20px', display: 'flex', flexDirection: 'column' },
   statCard: { display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },

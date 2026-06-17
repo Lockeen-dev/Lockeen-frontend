@@ -436,7 +436,8 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {recentDecks.map((deck, i) => {
               const sc = deck.lastScore != null ? fmtScore(deck.lastScore) : null;
-              const pal = getExamPalette({ subject: deck.subject, color: deck._examColor || deck._meta?.examColor, dot: deck._examDot || deck._meta?.examDot }, darkMode);
+              const deckExam = exams.find((exam) => String(exam.id) === String(deck._meta?.examId || deck._examId));
+              const pal = getExamPalette(deckExam || { subject: deck.subject, color: deck._examColor || deck._meta?.examColor, dot: deck._examDot || deck._meta?.examDot }, darkMode);
               return (
                 <div key={i}
                   style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, cursor:'pointer', transition:'border-color .15s' }}
@@ -463,8 +464,9 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
   );
 }
 
-export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examColor, _examDot, setTab, darkMode, onFlashComplete, onBackToLanding }) {
-  const palette = getExamPalette({ subject, color: _meta?.examColor || _examColor, dot: _meta?.examDot || _examDot }, darkMode);
+export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examColor, _examDot, setTab, darkMode, exams = [], onFlashComplete, onBackToLanding }) {
+  const currentExam = exams.find((exam) => String(exam.id) === String(_meta?.examId || noteId));
+  const palette = getExamPalette(currentExam || { subject, color: _meta?.examColor || _examColor, dot: _meta?.examDot || _examDot }, darkMode);
   const normalizedCards = (cards || []).map(normalizeFlashcard);
   const total = normalizedCards.length;
   const [idx, setIdx] = useState(0);

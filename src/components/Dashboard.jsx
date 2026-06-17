@@ -8,11 +8,12 @@ import StudyTimer from './StudyTimer';
 import PracticeConfigModal from './PracticeConfigModal';
 import { DashboardRoutes, PlannerOverlay } from './DashboardRoutes';
 import { BottomNav, DashboardCard, DashboardHeader, shellS } from './DashboardShell';
-import { initCalEvents, initialWeekData } from './calendarData';
+import { durToMins, initCalEvents, initialWeekData } from './calendarData';
 import { createStudySession, listStudySessions, sessionsToWeekData } from '../services/analytics';
 import { listExams } from '../services/exams';
 import { listFlashcardReviews, listFlashcards } from '../services/flashcards';
 import { listQuizAttempts } from '../services/quiz';
+import { updateStudyPlanItem } from '../services/studyPlans';
 
 /* ===================== DASHBOARD SHELL ===================== */
 const CALENDAR_EVENTS_STORAGE_PREFIX = 'lockeen.calendarEvents.v1';
@@ -35,9 +36,34 @@ function readStoredCalendarEvents(user, fallback) {
 function persistableCalendarEvents(events = {}) {
   return Object.fromEntries(
     Object.entries(events)
-      .map(([key, value]) => [key, (value || []).filter((event) => event.source !== 'exam-service' && event.source !== 'study-plan-service')])
+      .map(([key, value]) => [key, (value || []).filter((event) => event.source !== 'exam-service' && event.source !== 'study-plan-service' && event.source !== 'calendar-activity-service')])
       .filter(([, value]) => value.length > 0),
   );
+}
+
+function plannerDoneSessionsFromEvents(events = {}) {
+  return Object.entries(events || {}).flatMap(([dateKey, dayEvents]) =>
+    (dayEvents || [])
+      .filter((event) => event.source === 'study-plan-service' && event.serviceId && event.completed)
+      .map((event) => ({
+        id: `planner-${event.serviceId}`,
+        minutes: Math.max(1, durToMins(event.dur || '30m') || 30),
+        studiedAt: `${dateKey}T${event.time || '12:00'}:00`,
+        source: 'study-plan',
+      })),
+  );
+}
+
+function mergePlannerDoneSessions(sessions = [], events = {}) {
+  const base = (sessions || []).filter((session) => session.source !== 'study-plan');
+  const planner = plannerDoneSessionsFromEvents(events);
+  const seen = new Set();
+  return [...planner, ...base].filter((session) => {
+    const key = `${session.source}:${session.id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange }) {
@@ -235,29 +261,70 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
     } catch (_) {}
   }, [calEvents, user]);
 
+  useEffect(() => {
+    setStudySessions((current) => {
+      if (!realMode && plannerDoneSessionsFromEvents(calEvents).length === 0) return current;
+      const next = mergePlannerDoneSessions(current, calEvents);
+      setWeekData(sessionsToWeekData(next));
+      return next;
+    });
+  }, [calEvents, realMode]);
+
   function onStartTimer(mins) { setTimerTrigger({ mins, ts: Date.now() }); }
   function onMarkEventDone(dk, evIdx, evName, completed = true) {
+    let targetEvent = null;
     setCalEvents(prev => {
       const next = { ...prev };
       const arr = [...(next[dk] || [])];
+      targetEvent = arr[evIdx] || null;
       arr[evIdx] = { ...arr[evIdx], completed };
       next[dk] = arr;
       return next;
     });
+    if (targetEvent?.source === 'study-plan-service' && targetEvent.serviceId) {
+      updateStudyPlanItem(targetEvent.serviceId, {
+        status: completed ? 'done' : 'planned',
+        completedAt: completed ? new Date().toISOString() : null,
+      });
+    }
     if (evName) addNotification(`${completed ? 'Completed' : 'Reopened'}: ${evName}`, completed ? 'done' : 'info');
   }
 
   function handlePlanAdded(evArr) {
     setCalEvents(prev => {
       const next = { ...prev };
+      Object.keys(next).forEach((dateKey) => {
+        const kept = (next[dateKey] || []).filter((event) => event.source !== 'study-plan-service');
+        if (kept.length) next[dateKey] = kept;
+        else delete next[dateKey];
+      });
       evArr.forEach(({ dateKey, event }) => { next[dateKey] = [...(next[dateKey] || []), event]; });
       return next;
     });
-    if (evArr.length > 0) addNotification(`Study plan added: ${evArr.length} session${evArr.length > 1 ? 's' : ''} scheduled`, 'plan');
+    if (evArr.length > 0) {
+      addNotification(`Study plan added: ${evArr.length} session${evArr.length > 1 ? 's' : ''} scheduled`, 'plan');
+      const firstDateKey = evArr.find((entry) => entry.dateKey)?.dateKey;
+      if (firstDateKey) {
+        window.dispatchEvent(new CustomEvent('lockeen:calendar-focus', { detail: { dateKey: firstDateKey } }));
+      }
+    }
   }
 
-  function handleExamAdded(dateKey, examEvent) {
-    setCalEvents(prev => ({ ...prev, [dateKey]: [...(prev[dateKey] || []), examEvent] }));
+  function handlePlanCleared() {
+    setCalEvents(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach((dateKey) => {
+        const kept = (next[dateKey] || []).filter((event) => event.source !== 'study-plan-service');
+        if (kept.length) next[dateKey] = kept;
+        else delete next[dateKey];
+      });
+      return next;
+    });
+    addNotification('Study plan deleted', 'info');
+  }
+
+  function handleExamAdded(dateKey) {
+    window.dispatchEvent(new CustomEvent('lockeen:calendar-focus', { detail: { dateKey } }));
   }
 
   const openExam = (id) => {
@@ -487,7 +554,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         />
       </DashboardCard>
       {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
-      <PlannerOverlay plannerOpen={plannerOpen} setPlannerOpen={setPlannerOpen} setPlannerNoteId={setPlannerNoteId} handlePlanAdded={handlePlanAdded} calEvents={calEvents} exams={exams} quizRuns={quizRuns} />
+      <PlannerOverlay plannerOpen={plannerOpen} setPlannerOpen={setPlannerOpen} setPlannerNoteId={setPlannerNoteId} handlePlanAdded={handlePlanAdded} handlePlanCleared={handlePlanCleared} calEvents={calEvents} exams={exams} quizRuns={quizRuns} />
       {practiceConfig && (
         <PracticeConfigModal
           config={practiceConfig}

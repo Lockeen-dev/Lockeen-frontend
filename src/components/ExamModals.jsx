@@ -5,6 +5,21 @@ import { EXTRA_SUBJECT_COLORS, getSubjectPalette, inferSubjectFromName } from '.
 import { EXAM_COLOR_PALETTE, SUBJECT_EMOJI, getExamEmoji, getExamPalette, getNextExamPalette } from '../lib/examUi';
 import { EmojiPickerButton, GradeValue, PrioritySelector, gradeS } from './common/ExamControls';
 
+const EXAM_TIME_OPTIONS = Array.from({ length: 34 }, (_, index) => {
+  const totalMinutes = (7 * 60) + (index * 30);
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+});
+
+const EXAM_DURATION_OPTIONS = [
+  { value: 60, label: '1h' },
+  { value: 90, label: '1h30m' },
+  { value: 120, label: '2h' },
+  { value: 180, label: '3h' },
+  { value: 240, label: '4h' },
+];
+
 function DeleteExamModal({ exam, onClose, onConfirm, saving = false, error = null }) {
   return (
     <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}>
@@ -41,6 +56,8 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
   const [day, setDay]     = useState(parsedDate.getDate());
   const [month, setMonth] = useState(parsedDate.getMonth() + 1);
   const [year, setYear]   = useState(parsedDate.getFullYear());
+  const [examTime, setExamTime] = useState(exam.time || exam.examTime || '09:00');
+  const [durationMin, setDurationMin] = useState(exam.durationMin || exam.examDurationMin || 120);
 
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years  = [2025, 2026, 2027, 2028];
@@ -56,7 +73,7 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
     }
     const lastDay = new Date(year, month, 0).getDate();
     const safeDay = Math.min(Number(day), lastDay);
-    onSave({ name: name.trim(), date: `${year}-${pad(month)}-${pad(safeDay)}`, targetGrade, priority, emoji, color: selectedPalette.bg, dot: selectedPalette.dot });
+    onSave({ name: name.trim(), date: `${year}-${pad(month)}-${pad(safeDay)}`, time: examTime, durationMin, targetGrade, priority, emoji, color: selectedPalette.bg, dot: selectedPalette.dot });
   };
 
   return (
@@ -108,6 +125,18 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
         </div>
 
         <div style={uploadS.field}>
+          <label style={dateS.label}>Ora esame</label>
+          <div style={dateS.row}>
+            <select value={examTime} onChange={(e) => setExamTime(e.target.value)} disabled={saving} style={dateS.select}>
+              {EXAM_TIME_OPTIONS.map((time) => <option key={time} value={time}>{time}</option>)}
+            </select>
+            <select value={durationMin} onChange={(e) => setDurationMin(Number(e.target.value))} disabled={saving} style={dateS.select}>
+              {EXAM_DURATION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={uploadS.field}>
           <label style={dateS.label}>Voto target 🎯</label>
           <div style={gradeS.sliderRow}>
             <div style={gradeS.sliderValue}>
@@ -149,6 +178,8 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
   const [day, setDay]     = useState(today.getDate());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear]   = useState(today.getFullYear());
+  const [examTime, setExamTime] = useState('09:00');
+  const [durationMin, setDurationMin] = useState(120);
   const [emojiOverride, setEmojiOverride] = useState(null);
   const [selectedPalette, setSelectedPalette] = useState(() => getNextExamPalette(existingExamCount));
   const [priority, setPriority] = useState(3);
@@ -184,6 +215,8 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
       name: name.trim(),
       subject: name.trim(),
       date: iso,
+      time: examTime,
+      durationMin,
       updated: 'Just now',
       targetGrade,
       priority,
@@ -238,6 +271,18 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
               {years.map((y) => (
                 <option key={y} value={y}>{y}</option>
               ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={uploadS.field}>
+          <label style={dateS.label}>Exam time</label>
+          <div style={dateS.row}>
+            <select value={examTime} onChange={(e) => setExamTime(e.target.value)} disabled={saving} style={dateS.select}>
+              {EXAM_TIME_OPTIONS.map((time) => <option key={time} value={time}>{time}</option>)}
+            </select>
+            <select value={durationMin} onChange={(e) => setDurationMin(Number(e.target.value))} disabled={saving} style={dateS.select}>
+              {EXAM_DURATION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </div>
         </div>

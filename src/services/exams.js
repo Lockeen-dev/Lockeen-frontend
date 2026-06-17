@@ -36,6 +36,10 @@ function toExam(row) {
     subject: row.subject,
     subjectId: row.subject_id,
     date: row.date,
+    time: row.exam_time ? String(row.exam_time).slice(0, 5) : null,
+    examTime: row.exam_time ? String(row.exam_time).slice(0, 5) : null,
+    durationMin: row.exam_duration_min ?? 120,
+    examDurationMin: row.exam_duration_min ?? 120,
     color: row.color,
     dot: row.dot,
     emoji: row.emoji,
@@ -71,6 +75,8 @@ function toExamInsert(input, userId) {
     subject: input.subject || null,
     subject_id: input.subjectId || null,
     date: input.date || null,
+    exam_time: input.time || input.examTime || null,
+    exam_duration_min: input.durationMin ?? input.examDurationMin ?? 120,
     color: input.color || null,
     dot: input.dot || null,
     emoji: input.emoji || null,
@@ -86,6 +92,8 @@ function toExamInsertBase(input, userId) {
   delete row.emoji;
   delete row.priority;
   delete row.target_grade;
+  delete row.exam_time;
+  delete row.exam_duration_min;
   return row;
 }
 
@@ -95,6 +103,10 @@ function toExamPatch(patch) {
     ...(patch.subject !== undefined ? { subject: patch.subject } : {}),
     ...(patch.subjectId !== undefined ? { subject_id: patch.subjectId } : {}),
     ...(patch.date !== undefined ? { date: patch.date } : {}),
+    ...(patch.time !== undefined ? { exam_time: patch.time || null } : {}),
+    ...(patch.examTime !== undefined ? { exam_time: patch.examTime || null } : {}),
+    ...(patch.durationMin !== undefined ? { exam_duration_min: patch.durationMin } : {}),
+    ...(patch.examDurationMin !== undefined ? { exam_duration_min: patch.examDurationMin } : {}),
     ...(patch.color !== undefined ? { color: patch.color } : {}),
     ...(patch.dot !== undefined ? { dot: patch.dot } : {}),
     ...(patch.emoji !== undefined ? { emoji: patch.emoji } : {}),
@@ -111,6 +123,8 @@ function toExamPatchBase(patch) {
   delete row.emoji;
   delete row.priority;
   delete row.target_grade;
+  delete row.exam_time;
+  delete row.exam_duration_min;
   return row;
 }
 
