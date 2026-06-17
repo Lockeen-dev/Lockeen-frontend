@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Brain, MsgCircle, Paperclip, Plus, Send } from '../lib/icons';
 import useIsMobile from '../lib/useIsMobile';
 import { askTutor } from '../services/ai';
+import { extractTextFromFile } from '../services/materials';
 import { createTutorSession, listTutorSessions, updateTutorSession } from '../services/tutorSessions';
 
 /* ===================== AI TUTOR ===================== */
@@ -11,6 +12,7 @@ const INITIAL_MSGS = [
 
 const MAX_TUTOR_FILES = 5;
 const MAX_INLINE_IMAGE_BYTES = 2.5 * 1024 * 1024;
+const MAX_INLINE_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_INLINE_TEXT_CHARS = 12000;
 const TUTOR_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 const TUTOR_TEXT_TYPES = new Set(['text/plain', 'text/markdown']);
@@ -87,12 +89,42 @@ async function prepareTutorAttachments(files) {
       continue;
     }
 
+    if (kind === 'pdf') {
+      if (file.size > MAX_INLINE_PDF_BYTES) {
+        attachments.push({
+          ...base,
+          status: 'metadata_only',
+          note: 'PDF is too large to read inline in AI Tutor.',
+        });
+        continue;
+      }
+
+      const result = await extractTextFromFile(file);
+      const extractedText = result.data?.extractedText || '';
+      if (result.error || !extractedText.trim()) {
+        attachments.push({
+          ...base,
+          status: 'metadata_only',
+          pageCount: result.data?.pageCount || null,
+          note: result.error?.message || result.data?.extractionError || 'PDF has no selectable text. OCR is not available in AI Tutor yet.',
+        });
+        continue;
+      }
+
+      attachments.push({
+        ...base,
+        status: 'read',
+        text: extractedText.slice(0, MAX_INLINE_TEXT_CHARS),
+        truncated: extractedText.length > MAX_INLINE_TEXT_CHARS,
+        pageCount: result.data?.pageCount || null,
+      });
+      continue;
+    }
+
     attachments.push({
       ...base,
       status: 'metadata_only',
-      note: kind === 'pdf'
-        ? 'PDF reading is not enabled directly in AI Tutor yet.'
-        : 'Unsupported file type for direct AI Tutor reading.',
+      note: 'Unsupported file type for direct AI Tutor reading.',
     });
   }
 
