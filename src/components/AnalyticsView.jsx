@@ -4,7 +4,7 @@ import { Clock, Flame, Trend, Trophy } from '../lib/icons';
 import { formatExamDate, getSubjectPalette } from '../data/mockData';
 import useIsMobile from '../lib/useIsMobile';
 import { homeS } from '../styles/dashboardStyles';
-import { getStudyStreak, getStudySummary, sessionsToWeekData } from '../services/analytics';
+import { getStudyStreak, getStudySummary, listStudySessions, sessionsToWeekData } from '../services/analytics';
 import { durToMins } from './calendarData';
 
 function useCountUp(target, duration = 1000, delay = 0) {
@@ -336,9 +336,12 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
     async function loadAnalytics() {
       setAnalyticsLoading(true);
       setAnalyticsError('');
-      const summaryResult = await getStudySummary();
+      const [summaryResult, sessionsResult] = await Promise.all([
+        getStudySummary(),
+        listStudySessions({ days: 30 }),
+      ]);
       if (cancelled) return;
-      const error = summaryResult.error;
+      const error = summaryResult.error || sessionsResult.error;
       if (error) {
         setAnalyticsError(formatAnalyticsError(error));
         setSummary(null);

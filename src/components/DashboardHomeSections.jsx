@@ -200,8 +200,15 @@ export function RecommendationsPanel({ s, recommendations, totalExams, daysUntil
           {recommendations.map(({ exam, source, event }, index) => {
             const days = daysUntil(exam.date);
             const isPrimary = index === 0;
+            const recommendationKey = [
+              source || 'recommendation',
+              exam.id || exam.name || index,
+              event?.serviceId || event?.id || '',
+              event?.time || '',
+              event?.name || '',
+            ].map((part) => String(part).trim()).join(':');
             return (
-              <article key={exam.id || exam.name} style={{ ...s.recoCard, background: isPrimary ? '#F4F6FF' : '#FFF7FC' }}>
+              <article key={recommendationKey} style={{ ...s.recoCard, background: isPrimary ? '#F4F6FF' : '#FFF7FC' }}>
                 <div style={s.recoTop}>
                   <IconTile s={s} tone={isPrimary ? 'indigo' : 'purple'}>{isPrimary ? <Sparkles size={18} /> : <Layers size={18} />}</IconTile>
                   <span style={s.recoTag}>{days <= 7 ? 'Priorita' : `${days} giorni`}</span>

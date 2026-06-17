@@ -220,10 +220,10 @@ export async function listStudySessions({ days = 30 } = {}) {
   }
 
   const clientError = requireSupabaseClient();
-  if (clientError) return ok([]);
+  if (clientError) return clientError;
 
   const userResult = await requireAuthenticatedUserId();
-  if (userResult.error) return ok([]);
+  if (userResult.error) return userResult;
 
   const [timerResult, planResult, calendarResult] = await Promise.all([
     supabase
@@ -246,15 +246,23 @@ export async function listStudySessions({ days = 30 } = {}) {
 
   const calendarActivities = calendarResult.error ? [] : (calendarResult.data || []);
 
+  if (planResult.error) {
+    const normalized = normalizeError(planResult.error);
+    return fail(normalized.message, normalized.code);
+  }
+
+  if (calendarResult.error) {
+    const normalized = normalizeError(calendarResult.error);
+    return fail(normalized.message, normalized.code);
+  }
+
   if (timerResult.error) {
     if (isMissingStudySessionsTable(timerResult.error)) {
-      return ok(mergeStudySessions([], planResult.error ? [] : (planResult.data || []), calendarActivities, since));
+      return ok(mergeStudySessions([], planResult.data || [], calendarActivities, since));
     }
     const normalized = normalizeError(timerResult.error);
     return fail(normalized.message, normalized.code);
   }
-
-  if (planResult.error) return ok(mergeStudySessions((timerResult.data || []).map(toStudySession), [], calendarActivities, since));
 
   return ok(mergeStudySessions((timerResult.data || []).map(toStudySession), planResult.data || [], calendarActivities, since));
 }
