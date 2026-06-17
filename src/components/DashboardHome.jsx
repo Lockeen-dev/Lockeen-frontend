@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 import useIsMobile from '../lib/useIsMobile';
 import { getDashboardSummary } from '../services/dashboard';
-import { dayKey } from './calendarData';
+import { applyExamPaletteToEvent, dayKey } from './calendarData';
 import {
   AssistantPanel,
   DashboardHero,
@@ -88,7 +88,10 @@ function DashboardHome({
 }) {
   const isMobile = useIsMobile();
   const todayKey = dayKey(new Date());
-  const todayEvents = (calEvents && calEvents[todayKey]) || [];
+  const todayEvents = useMemo(
+    () => ((calEvents && calEvents[todayKey]) || []).map((event) => applyExamPaletteToEvent(event, exams)),
+    [calEvents, exams, todayKey]
+  );
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

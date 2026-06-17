@@ -6,6 +6,7 @@ import { listFlashcards } from './flashcards';
 import { listMaterials } from './materials';
 import { listNotes } from './notes';
 import { listQuizzes } from './quiz';
+import { listStudyPlanItems } from './studyPlans';
 
 const STUDY_SESSIONS_TABLE = 'study_sessions';
 const LOCAL_STUDY_SESSIONS_KEY = 'lockeen.studySessions.v1';
@@ -94,6 +95,34 @@ function toStudySession(row) {
   };
 }
 
+function plannerItemToStudySession(item = {}) {
+  const time = item.completedAt || `${item.plannedDate || new Date().toISOString().slice(0, 10)}T${item.plannedTime || '12:00'}:00`;
+  return {
+    id: `planner-${item.id}`,
+    minutes: Number(item.durationMin || 0),
+    studiedAt: time,
+    source: 'study-plan',
+  };
+}
+
+function mergeStudySessions(timerSessions = [], plannerItems = [], since = null) {
+  const sinceTime = since?.getTime?.() || 0;
+  const plannerSessions = (plannerItems || [])
+    .filter((item) => item.status === 'done')
+    .map(plannerItemToStudySession)
+    .filter((session) => Number(session.minutes) > 0)
+    .filter((session) => (parseDate(session.studiedAt)?.getTime() || 0) >= sinceTime);
+  const seen = new Set();
+  return [...timerSessions, ...plannerSessions]
+    .filter((session) => {
+      const key = `${session.source}:${session.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => (parseDate(b.studiedAt)?.getTime() || 0) - (parseDate(a.studiedAt)?.getTime() || 0));
+}
+
 function isMissingStudySessionsTable(error) {
   const message = String(error?.message || '').toLowerCase();
   return error?.code === '42P01' || error?.code === 'PGRST205' || message.includes(STUDY_SESSIONS_TABLE);
@@ -151,30 +180,40 @@ export async function listStudySessions({ days = 30 } = {}) {
   since.setDate(since.getDate() - days);
   since.setHours(0, 0, 0, 0);
 
+  const localTimerSessions = readLocalStudySessions().filter((session) => (parseDate(session.studiedAt)?.getTime() || 0) >= since.getTime());
+
   if (isMockMode()) {
-    return ok(readLocalStudySessions().filter((session) => (parseDate(session.studiedAt)?.getTime() || 0) >= since.getTime()));
+    const planResult = await listStudyPlanItems({ status: 'done' });
+    return ok(mergeStudySessions(localTimerSessions, planResult.error ? [] : (planResult.data || []), since));
   }
 
   const clientError = requireSupabaseClient();
-  if (clientError) return ok(readLocalStudySessions());
+  if (clientError) return ok(localTimerSessions);
 
   const userResult = await requireAuthenticatedUserId();
-  if (userResult.error) return ok(readLocalStudySessions());
+  if (userResult.error) return ok(localTimerSessions);
 
-  const { data, error } = await supabase
-    .from(STUDY_SESSIONS_TABLE)
-    .select('id, minutes, studied_at, source, created_at')
-    .eq('user_id', userResult.data)
-    .gte('studied_at', since.toISOString())
-    .order('studied_at', { ascending: false });
+  const [timerResult, planResult] = await Promise.all([
+    supabase
+      .from(STUDY_SESSIONS_TABLE)
+      .select('id, minutes, studied_at, source, created_at')
+      .eq('user_id', userResult.data)
+      .gte('studied_at', since.toISOString())
+      .order('studied_at', { ascending: false }),
+    listStudyPlanItems({ status: 'done' }),
+  ]);
 
-  if (error) {
-    if (isMissingStudySessionsTable(error)) return ok(readLocalStudySessions());
-    const normalized = normalizeError(error);
+  if (timerResult.error) {
+    if (isMissingStudySessionsTable(timerResult.error)) {
+      return ok(mergeStudySessions(localTimerSessions, planResult.error ? [] : (planResult.data || []), since));
+    }
+    const normalized = normalizeError(timerResult.error);
     return fail(normalized.message, normalized.code);
   }
 
-  return ok((data || []).map(toStudySession));
+  if (planResult.error) return ok((timerResult.data || []).map(toStudySession));
+
+  return ok(mergeStudySessions((timerResult.data || []).map(toStudySession), planResult.data || [], since));
 }
 
 export async function createStudySession(input = {}) {

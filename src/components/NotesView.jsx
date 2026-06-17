@@ -292,17 +292,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
     setExams((p) => [created, ...p]);
     setShowCreate(false);
     setSavingAction(null);
-    if (created.date && onExamAdded) {
-      const [yr, mo, dy] = created.date.split('-').map(Number);
-      const dateKey = `${yr}-${mo}-${dy}`;
-      onExamAdded(dateKey, {
-        name: '📝 Exam: ' + created.name,
-        time: '09:00', dur: '2h', cat: 'study',
-        noteId: created.id,
-        noteColor: enriched.dot, noteBg: enriched.color,
-        noteText: palette.text, noteSubject: created.subject,
-      });
-    }
+    if (created.date && onExamAdded) onExamAdded(created.date);
   };
 
   const activeExam = exams.find((x) => x.id === activeId);
@@ -510,7 +500,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                   return (
                     <>
                       <span style={{ position:'absolute', top:12, left:12, fontSize:11, fontWeight:700, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--ink)', lineHeight:1.3 }}>
-                        {formatExamDate(x.date)}
+                        {formatExamDate(x.date)}{x.time ? ` · ${x.time}` : ''}
                       </span>
                       {dl >= 0 && (
                         <span style={{ position:'absolute', top:12, right:12, fontSize:11, fontWeight:700, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--indigo)', lineHeight:1.3 }}>
@@ -1026,7 +1016,7 @@ function ExamHeader({ exam, palette, stats, onBack, onStartStudy, onAddMaterial 
             {exam.date && (
               <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold text-slate-700" style={{ background: palette.bg, borderColor: `${palette.dot}33` }}>
                 <span className="h-2 w-2 rounded-full" style={{ background: palette.dot }} />
-                {formatExamDate(exam.date)}
+                {formatExamDate(exam.date)}{exam.time ? ` · ${exam.time}` : ''}
               </span>
             )}
           </div>
@@ -1423,7 +1413,7 @@ function CleanExamHeader({ exam, palette, chapters, q, setQ, onBack, onNewChapte
             {exam.date && (
               <span className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-base font-extrabold text-slate-950" style={{ background: palette.bg }}>
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: palette.dot }} />
-                {formatExamDate(exam.date)}
+                {formatExamDate(exam.date)}{exam.time ? ` · ${exam.time}` : ''}
               </span>
             )}
           </div>
@@ -1669,7 +1659,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const [materialFile, setMaterialFile] = useState(null);
   const [savingStudyAction, setSavingStudyAction] = useState(null);
   const autoPracticeMaterialIdsRef = useRef(new Set());
-  const palette = getSubjectPalette(exam.subject, exam, darkMode);
+  const palette = getExamPalette(exam, darkMode);
   const materialStatsByChapter = materials.reduce((acc, material) => {
     if (!material.chapterId) return acc;
     const key = String(material.chapterId);

@@ -71,7 +71,7 @@ export function DashboardRoutes({
           {tab === 'notes'     && <NotesView exams={exams} lang={lang} setExams={setExams} activeId={activeExamId} setActiveId={setActiveExamId} onOpenFlashcards={openFlashcards} onOpenQuiz={openQuiz} onOpenQuizForExam={openQuizForExam} darkMode={darkMode} onOpenPlanner={(nid) => { setPlannerNoteId(nid); setPlannerOpen(true); }} onExamAdded={handleExamAdded} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />}
           {tab === 'flashcards' && (flashLanding
             ? <FlashcardLanding deck={flashcardDeck} recentDecks={recentFlashDecks} onOpenDeck={openFlashcards} setTab={setTab} darkMode={darkMode} exams={exams} />
-            : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} />
+            : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} exams={exams} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} />
           )}
           {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={darkMode} />}
           {tab === 'tutor'     && <TutorView />}
@@ -85,12 +85,12 @@ export function DashboardRoutes({
   );
 }
 
-export function PlannerOverlay({ plannerOpen, setPlannerOpen, setPlannerNoteId, handlePlanAdded, calEvents, exams, quizRuns }) {
+export function PlannerOverlay({ plannerOpen, setPlannerOpen, setPlannerNoteId, handlePlanAdded, handlePlanCleared, calEvents, exams, quizRuns }) {
   if (!plannerOpen) return null;
 
   return (
     <Suspense fallback={<ViewFallback />}>
-      <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} exams={exams} quizRuns={quizRuns} />
+      <AIStudyPlanner onClose={() => { setPlannerOpen(false); setPlannerNoteId(null); }} onPlanAdded={handlePlanAdded} onPlanCleared={handlePlanCleared} exams={exams} quizRuns={quizRuns} calEvents={calEvents} />
     </Suspense>
   );
 }

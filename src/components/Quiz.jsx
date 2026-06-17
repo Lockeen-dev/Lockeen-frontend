@@ -721,6 +721,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   }
 
   if (activeDeck) {
+    const activeExam = exams.find((exam) => String(exam.id) === String(activeDeck._meta?.examId || activeDeck._examId));
     return (
       <QuizView
         noteId={activeDeck.noteId}
@@ -736,8 +737,8 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         initialDifficulty={activeDeck._difficulty || 'medium'}
         timerOn={!!activeDeck._timerOn}
         timerSecs={activeDeck._timerSecs || 30}
-        examColor={activeDeck._examColor}
-        examDot={activeDeck._examDot}
+        examColor={activeExam?.color || activeDeck._examColor}
+        examDot={activeExam?.dot || activeDeck._examDot}
       />
     );
   }

@@ -1,4 +1,5 @@
 import { getSubjectPalette, inferSubjectFromName } from '../data/mockData';
+import { getExamPalette } from '../lib/examUi';
 
 export const LIFE_CATS = [
   { id: 'study', label: 'Study', color: '#3730E8', bg: '#EEF2FF', text: '#3730E8' },
@@ -18,6 +19,11 @@ export function calendarKeyFromDate(value) {
   return `${year}-${month}-${day}`;
 }
 
+export function normalizeClockTime(value = '09:00') {
+  const [hour, minute] = String(value || '09:00').split(':').map(Number);
+  return `${String(Number.isFinite(hour) ? hour : 9).padStart(2, '0')}:${String(Number.isFinite(minute) ? minute : 0).padStart(2, '0')}`;
+}
+
 function minutesToDuration(minutes) {
   const value = Math.max(1, Number(minutes) || 30);
   if (value >= 60 && value % 60 === 0) return `${value / 60}h`;
@@ -34,6 +40,44 @@ export const SUBJECT_NOTE_MAP = {
   Finance: { noteId: 5, bg: '#DCFCE7', color: '#10B981', text: '#065F46' },
   Literature: { noteId: 6, bg: '#FEE2E2', color: '#EF4444', text: '#991B1B' },
 };
+
+export const PLANNER_EXAM_COLORS = [
+  { bg: '#2563EB', border: '#2563EB', text: '#FFFFFF', softBg: '#EFF6FF', softText: '#2563EB' },
+  { bg: '#DB2777', border: '#DB2777', text: '#FFFFFF', softBg: '#FDF2F8', softText: '#DB2777' },
+  { bg: '#FFF7ED', border: '#FDBA74', text: '#C2410C', softBg: '#FFF7ED', softText: '#C2410C' },
+  { bg: '#ECFEFF', border: '#99F6E4', text: '#0F766E', softBg: '#ECFEFF', softText: '#0F766E' },
+  { bg: '#F0FDF4', border: '#86EFAC', text: '#16A34A', softBg: '#F0FDF4', softText: '#16A34A' },
+];
+
+export function getExamCalendarPalette(exam = null, index = 0) {
+  const fallback = PLANNER_EXAM_COLORS[Math.max(0, index) % PLANNER_EXAM_COLORS.length];
+  const resolved = exam ? getExamPalette(exam, false) : null;
+  const dot = resolved?.dot || exam?.dot || fallback.border;
+  const bg = resolved?.bg || exam?.color || fallback.softBg;
+  return {
+    color: dot,
+    bg,
+    text: resolved?.text || exam?.text || fallback.softText || dot,
+    chipBg: bg,
+    chipText: resolved?.text || fallback.text,
+    border: resolved?.border || dot,
+  };
+}
+
+export function applyExamPaletteToEvent(event = {}, exams = []) {
+  if (!event?.examId) return event;
+  const examIndex = exams.findIndex((entry) => String(entry.id) === String(event.examId));
+  if (examIndex < 0) return event;
+  const exam = exams[examIndex];
+  const palette = getExamCalendarPalette(exam, examIndex);
+  return {
+    ...event,
+    noteColor: palette.color,
+    noteBg: palette.bg,
+    noteText: palette.text,
+    noteSubject: exam?.subject || exam?.name || event.noteSubject,
+  };
+}
 
 const NEUTRAL_EXAM_COLORS = new Set(['#374151', '#6B7280', '#9CA3AF', '#94A3B8', '#F3F4F6', '#E5E7EB']);
 
@@ -77,6 +121,14 @@ export const initCalEvents = () => {
 
 export function resolveStudyPalette(input = {}) {
   const subject = input.noteSubject || input.subject || input.title || input.name || 'Study';
+  if (input.noteColor && input.noteBg && input.noteText) {
+    return {
+      subject,
+      color: input.noteColor,
+      bg: input.noteBg,
+      text: input.noteText,
+    };
+  }
   const inferred = inferSubjectFromName(subject);
   const note = calSeedNotes.find((item) => String(item.id) === String(input.noteId));
   const subjectInfo = SUBJECT_NOTE_MAP[input.noteSubject] || SUBJECT_NOTE_MAP[inferred];
@@ -105,12 +157,13 @@ export function resolveEventPalette(ev = {}) {
   };
 }
 
-export function studyPlanItemToCalendarEvent(item = {}, exam = null) {
+export function studyPlanItemToCalendarEvent(item = {}, exam = null, examIndex = 0) {
   const title = exam?.name || 'Study';
   const chapter = exam?.chapters?.find((entry) => String(entry.id) === String(item.chapterId));
+  const palette = getExamCalendarPalette(exam, examIndex);
   const scope = chapter?.title || title;
   const typeLabel = {
-    review: 'Review',
+    review: 'Study',
     quiz: 'Quiz',
     flashcards: 'Flashcards',
     mock_exam: 'Mock exam',
@@ -119,18 +172,23 @@ export function studyPlanItemToCalendarEvent(item = {}, exam = null) {
 
   return {
     name: `${typeLabel} — ${scope}`,
-    time: item.plannedTime || '09:00',
+    time: normalizeClockTime(item.plannedTime || '09:00'),
     dur: minutesToDuration(item.durationMin),
     cat: 'study',
     source: 'study-plan-service',
     serviceId: item.id,
     planId: item.planId,
+    studyType: item.type,
     examId: item.examId,
     chapterId: item.chapterId,
     materialId: item.materialId,
     noteId: null,
+    noteColor: palette.color,
+    noteBg: palette.bg,
+    noteText: palette.text,
     noteSubject: exam?.subject || title,
     notes: item.reason || '',
+    completed: item.status === 'done',
     materialPending: item.materialPending,
   };
 }
