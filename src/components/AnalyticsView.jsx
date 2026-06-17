@@ -117,27 +117,36 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function getSubjectMastery(notes = [], quizHistory = {}, flashHistory = {}) {
+function getExamMastery(notes = [], quizHistory = {}, flashHistory = {}) {
   const colors = ['var(--indigo)', 'var(--purple)', '#06B6D4', '#F59E0B', '#EF4444'];
-  const groups = new Map();
-  (notes || []).forEach((exam) => {
-    const name = exam.subject || exam.name || 'General';
-    const current = groups.get(name) || { name, scores: [], mastery: [] };
-    const ids = [exam.id, ...(exam.chapters || []).map((chapter) => chapter.id)];
-    ids.forEach((id) => {
-      current.scores.push(...((quizHistory || {})[id] || []), ...((flashHistory || {})[id] || []));
-    });
-    (exam.chapters || []).forEach((chapter) => {
-      if (Number.isFinite(Number(chapter.mastery))) current.mastery.push(Number(chapter.mastery));
-    });
-    groups.set(name, current);
-  });
-
-  return Array.from(groups.values()).slice(0, 5).map((group, index) => ({
-    name: group.name,
-    progress: getAverage(group.scores) ?? getAverage(group.mastery) ?? 0,
-    color: colors[index % colors.length],
-  }));
+  return (notes || [])
+    .filter((exam) => !exam.status || exam.status === 'active')
+    .map((exam) => {
+      const name = String(exam.name || exam.subject || '').trim();
+      if (!name) return null;
+      const ids = [exam.id, ...(exam.chapters || []).map((chapter) => chapter.id)];
+      const scores = ids.flatMap((id) => [
+        ...((quizHistory || {})[id] || []),
+        ...((flashHistory || {})[id] || []),
+      ]).filter((score) => Number.isFinite(Number(score))).map(Number);
+      const quizScores = ids.flatMap((id) => (quizHistory || {})[id] || [])
+        .filter((score) => Number.isFinite(Number(score))).map(Number);
+      const flashScores = ids.flatMap((id) => (flashHistory || {})[id] || [])
+        .filter((score) => Number.isFinite(Number(score))).map(Number);
+      const performanceScore = getPerformanceScore(getAverage(quizScores), getAverage(flashScores));
+      const mastery = (exam.chapters || [])
+        .map((chapter) => Number(chapter.mastery ?? chapter.progress))
+        .filter((value) => Number.isFinite(value));
+      const progress = performanceScore != null ? Math.round(performanceScore) : getAverage(scores) ?? getAverage(mastery);
+      if (progress == null) return null;
+      return { name, progress };
+    })
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((exam, index) => ({
+      ...exam,
+      color: colors[index % colors.length],
+    }));
 }
 
 function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}) {
@@ -399,7 +408,7 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
     .filter((prediction) => Number.isFinite(Number(prediction)));
   const averagePredictedGrade = getAverageDecimal(gradePredictions);
   const streakDays = getStudyStreak(visibleStudySessions);
-  const subjectMastery = getSubjectMastery(trackedNotes, quizHistory, flashHistory);
+  const examMastery = getExamMastery(trackedNotes, quizHistory, flashHistory);
   const missingSignals = [
     totalMin === 0 ? 'No study time logged yet. Start timer or mark planner sessions done.' : null,
     !hasQuizData ? 'No quiz attempts yet.' : null,
@@ -465,18 +474,18 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
         </div>
 
         <div style={analS.subjectCard}>
-          <h3 style={{ ...analS.cardTitle, marginBottom: 4 }}>Subject mastery</h3>
-          <p style={{ ...analS.cardSub, marginBottom: 24 }}>Your progress per subject</p>
+          <h3 style={{ ...analS.cardTitle, marginBottom: 4 }}>Exam mastery</h3>
+          <p style={{ ...analS.cardSub, marginBottom: 24 }}>Your progress by active exam</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-            {subjectMastery.length === 0 ? (
-              <p style={{ margin:0, color:'var(--gray)', fontSize:13 }}>No subject data yet.</p>
-            ) : subjectMastery.map(subject => (
-              <div key={subject.name}>
+            {examMastery.length === 0 ? (
+              <p style={{ margin:0, color:'var(--gray)', fontSize:13 }}>No exam mastery data yet.</p>
+            ) : examMastery.map(exam => (
+              <div key={exam.name}>
                 <div style={analS.subjRow}>
-                  <span style={analS.subjName}>{subject.name}</span>
-                  <span style={analS.subjPct}>{subject.progress}%</span>
+                  <span style={analS.subjName}>{exam.name}</span>
+                  <span style={analS.subjPct}>{exam.progress}%</span>
                 </div>
-                <AnimatedProgress progress={subject.progress} color={subject.color} />
+                <AnimatedProgress progress={exam.progress} color={exam.color} />
               </div>
             ))}
           </div>
