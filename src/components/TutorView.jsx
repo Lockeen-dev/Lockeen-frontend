@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Brain, MsgCircle, Paperclip, Plus, Send } from '../lib/icons';
+import { Brain, MsgCircle, Paperclip, Pencil, Pin, Plus, Send, Trash2 } from '../lib/icons';
 import useIsMobile from '../lib/useIsMobile';
 import { askTutor } from '../services/ai';
 import { extractTextFromFile } from '../services/materials';
@@ -308,6 +308,9 @@ export default function TutorView() {
   const [files, setFiles] = useState([]);
   const [filePreviews, setFilePreviews] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const fileRef = useRef(null);
   const endRef = useRef(null);
 
@@ -470,17 +473,28 @@ export default function TutorView() {
     if (isMobile) setHistoryOpen(false);
   };
 
-  const renameSession = async (session) => {
-    const title = window.prompt('Rename chat', session.title || 'New conversation');
-    const cleanTitle = title?.trim();
-    if (!cleanTitle || cleanTitle === session.title) return;
+  const openRenameSession = (session) => {
+    setRenameTarget(session);
+    setRenameDraft(session.title || 'New conversation');
+  };
 
-    const result = await updateTutorSession(session.id, { title: cleanTitle });
+  const confirmRenameSession = async () => {
+    if (!renameTarget) return;
+    const cleanTitle = renameDraft.trim();
+    if (!cleanTitle || cleanTitle === renameTarget.title) {
+      setRenameTarget(null);
+      setRenameDraft('');
+      return;
+    }
+
+    const result = await updateTutorSession(renameTarget.id, { title: cleanTitle });
     if (result.error) {
       setAiError(formatAiError(result.error));
       return;
     }
-    setSessions(prev => prev.map(s => String(s.id) === String(session.id) ? result.data : s));
+    setSessions(prev => prev.map(s => String(s.id) === String(renameTarget.id) ? result.data : s));
+    setRenameTarget(null);
+    setRenameDraft('');
   };
 
   const togglePinned = async (session) => {
@@ -497,19 +511,18 @@ export default function TutorView() {
       }));
   };
 
-  const removeSession = async (session) => {
-    const confirmed = window.confirm(`Delete "${session.title || 'New conversation'}"? This cannot be undone.`);
-    if (!confirmed) return;
+  const confirmDeleteSession = async () => {
+    if (!deleteTarget) return;
 
-    const result = await deleteTutorSession(session.id);
+    const result = await deleteTutorSession(deleteTarget.id);
     if (result.error) {
       setAiError(formatAiError(result.error));
       return;
     }
 
     setSessions(prev => {
-      const remaining = prev.filter(s => String(s.id) !== String(session.id));
-      if (String(activeId) === String(session.id)) {
+      const remaining = prev.filter(s => String(s.id) !== String(deleteTarget.id));
+      if (String(activeId) === String(deleteTarget.id)) {
         const next = remaining[0];
         setActiveId(next?.id || null);
         setMsgs(next?.msgs?.length ? next.msgs : INITIAL_MSGS);
@@ -517,11 +530,37 @@ export default function TutorView() {
       return remaining;
     });
     setFiles([]);
+    setDeleteTarget(null);
   };
 
   const pinnedSessions = sessions.filter(s => s.pinned);
   const recentSessions = sessions.filter(s => !s.pinned);
   const suggestions = ['Explain a concept', 'Make a study plan', 'Quiz me on my notes', 'Create a quick recap'];
+
+  const renderSessionItem = (s) => {
+    const isActive = s.id === activeId;
+    return (
+      <div key={s.id} style={{ ...tutorS.historyItem, ...(isActive ? tutorS.historyItemActive : {}) }}>
+        <button type="button" onClick={() => switchSession(s)} style={{ ...tutorS.historyMain, paddingRight: isActive ? 82 : 10 }}>
+          <div style={{ ...tutorS.historyTitle, color: isActive ? 'var(--indigo)' : 'var(--ink)' }}>{s.title}</div>
+          <div style={tutorS.historyDate}>{s.date}</div>
+        </button>
+        {isActive && (
+          <div style={tutorS.historyIconActions}>
+            <button type="button" onClick={() => togglePinned(s)} title={s.pinned ? 'Unpin chat' : 'Pin chat'} aria-label={s.pinned ? 'Unpin chat' : 'Pin chat'} style={tutorS.historyIconBtn}>
+              <Pin size={12} />
+            </button>
+            <button type="button" onClick={() => openRenameSession(s)} title="Rename chat" aria-label="Rename chat" style={tutorS.historyIconBtn}>
+              <Pencil size={12} />
+            </button>
+            <button type="button" onClick={() => setDeleteTarget(s)} title="Delete chat" aria-label="Delete chat" style={{ ...tutorS.historyIconBtn, ...tutorS.historyDangerIconBtn }}>
+              <Trash2 size={12} />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 0, minHeight: isMobile ? 'calc(100vh - 190px)' : 560 }}>
@@ -546,41 +585,13 @@ export default function TutorView() {
           {!loadingSessions && pinnedSessions.length > 0 && (
             <>
               <p style={tutorS.historyLabel}>Pinned</p>
-              {pinnedSessions.map(s => (
-                <div key={s.id} style={{ ...tutorS.historyItem, ...(s.id === activeId ? tutorS.historyItemActive : {}) }}>
-                  <button type="button" onClick={() => switchSession(s)} style={tutorS.historyMain}>
-                    <div style={{ ...tutorS.historyTitle, color: s.id === activeId ? 'var(--indigo)' : 'var(--ink)' }}>{s.title}</div>
-                    <div style={tutorS.historyDate}>{s.date}</div>
-                  </button>
-                  {s.id === activeId && (
-                    <div style={tutorS.historyActions}>
-                      <button type="button" onClick={() => togglePinned(s)} style={tutorS.historyActionBtn}>Unpin</button>
-                      <button type="button" onClick={() => renameSession(s)} style={tutorS.historyActionBtn}>Rename</button>
-                      <button type="button" onClick={() => removeSession(s)} style={tutorS.historyDangerBtn}>Delete</button>
-                    </div>
-                  )}
-                </div>
-              ))}
+              {pinnedSessions.map(renderSessionItem)}
             </>
           )}
           {!loadingSessions && (
             <>
               <p style={tutorS.historyLabel}>Recent</p>
-              {recentSessions.map(s => (
-                <div key={s.id} style={{ ...tutorS.historyItem, ...(s.id === activeId ? tutorS.historyItemActive : {}) }}>
-                  <button type="button" onClick={() => switchSession(s)} style={tutorS.historyMain}>
-                    <div style={{ ...tutorS.historyTitle, color: s.id === activeId ? 'var(--indigo)' : 'var(--ink)' }}>{s.title}</div>
-                    <div style={tutorS.historyDate}>{s.date}</div>
-                  </button>
-                  {s.id === activeId && (
-                    <div style={tutorS.historyActions}>
-                      <button type="button" onClick={() => togglePinned(s)} style={tutorS.historyActionBtn}>Pin</button>
-                      <button type="button" onClick={() => renameSession(s)} style={tutorS.historyActionBtn}>Rename</button>
-                      <button type="button" onClick={() => removeSession(s)} style={tutorS.historyDangerBtn}>Delete</button>
-                    </div>
-                  )}
-                </div>
-              ))}
+              {recentSessions.map(renderSessionItem)}
               {sessions.length === 0 && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>No chats yet.</div>}
             </>
           )}
@@ -699,6 +710,51 @@ export default function TutorView() {
         </form>
       </div>
 
+      {renameTarget && (
+        <div style={tutorS.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="rename-chat-title">
+          <div style={tutorS.modalCard}>
+            <div>
+              <h3 id="rename-chat-title" style={tutorS.modalTitle}>Rename chat</h3>
+              <p style={tutorS.modalCopy}>Choose a short name so you can find this conversation later.</p>
+            </div>
+            <input
+              autoFocus
+              value={renameDraft}
+              onChange={(e) => setRenameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmRenameSession();
+                if (e.key === 'Escape') {
+                  setRenameTarget(null);
+                  setRenameDraft('');
+                }
+              }}
+              style={tutorS.modalInput}
+            />
+            <div style={tutorS.modalActions}>
+              <button type="button" onClick={() => { setRenameTarget(null); setRenameDraft(''); }} style={tutorS.modalGhostBtn}>Cancel</button>
+              <button type="button" onClick={confirmRenameSession} style={tutorS.modalPrimaryBtn}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div style={tutorS.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="delete-chat-title">
+          <div style={tutorS.modalCard}>
+            <div>
+              <h3 id="delete-chat-title" style={tutorS.modalTitle}>Delete chat?</h3>
+              <p style={tutorS.modalCopy}>
+                This will permanently remove “{deleteTarget.title || 'New conversation'}” from your history.
+              </p>
+            </div>
+            <div style={tutorS.modalActions}>
+              <button type="button" onClick={() => setDeleteTarget(null)} style={tutorS.modalGhostBtn}>Cancel</button>
+              <button type="button" onClick={confirmDeleteSession} style={{ ...tutorS.modalPrimaryBtn, ...tutorS.modalDangerBtn }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
     @keyframes tdot { 0%,80%,100% { transform: translateY(0); opacity:.4 } 40% { transform: translateY(-4px); opacity:1 } }
     @keyframes msgSlideLeft  { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:translateX(0); } }
@@ -714,14 +770,14 @@ const tutorS = {
   avatar: { width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center' },
   onlineDot: { display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: '#10B981', marginRight: 6, verticalAlign: 'middle' },
   historyLabel: { margin: '10px 0 8px', fontSize: 10, fontWeight: 800, color: 'var(--gray-2)', textTransform: 'uppercase', letterSpacing: '.06em' },
-  historyItem: { borderRadius: 10, border: '1px solid transparent', background: 'transparent', padding: 0 },
+  historyItem: { position: 'relative', borderRadius: 10, border: '1px solid transparent', background: 'transparent', padding: 0 },
   historyItemActive: { background: 'var(--lavender)', borderColor: 'rgba(55,48,232,.18)' },
   historyMain: { textAlign: 'left', padding: '8px 10px', borderRadius: 8, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%' },
   historyTitle: { fontSize: 12, fontWeight: 700, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginBottom: 2 },
   historyDate: { fontSize: 11, color: 'var(--gray)' },
-  historyActions: { display: 'flex', gap: 4, flexWrap: 'wrap', padding: '0 8px 8px' },
-  historyActionBtn: { height: 24, padding: '0 7px', borderRadius: 999, border: '1px solid rgba(55,48,232,.18)', background: '#fff', color: 'var(--indigo)', fontSize: 10, fontWeight: 800, cursor: 'pointer' },
-  historyDangerBtn: { height: 24, padding: '0 7px', borderRadius: 999, border: '1px solid rgba(239,68,68,.24)', background: '#FEF2F2', color: '#B91C1C', fontSize: 10, fontWeight: 800, cursor: 'pointer' },
+  historyIconActions: { position: 'absolute', top: 7, right: 7, display: 'flex', alignItems: 'center', gap: 3 },
+  historyIconBtn: { width: 22, height: 22, borderRadius: 999, border: '1px solid rgba(55,48,232,.16)', background: '#fff', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 4px 10px rgba(15,23,42,.06)' },
+  historyDangerIconBtn: { borderColor: 'rgba(239,68,68,.22)', background: '#FFF7F7', color: '#B91C1C' },
   thread: { flex: 1, display: 'flex', flexDirection: 'column', gap: 10, padding: '8px 4px', maxHeight: 420, overflowY: 'auto' },
   bubbleAI:   { maxWidth: '82%', background: 'var(--bubble-ai-bg)', color: 'var(--ink)', padding: '14px 16px', borderRadius: 18, borderTopLeftRadius: 6, fontSize: 14, lineHeight: 1.5 },
   bubbleUser: { maxWidth: '78%', background: 'var(--indigo)', color: '#fff', padding: '12px 16px', borderRadius: 18, borderTopRightRadius: 6, fontSize: 14, lineHeight: 1.5 },
@@ -754,4 +810,13 @@ const tutorS = {
   fileAttachmentName: { overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 13, fontWeight: 800, color: 'var(--ink)' },
   fileAttachmentMeta: { marginTop: 3, fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
   removeAttachmentBtn: { position: 'absolute', top: 7, right: 7, width: 28, height: 28, borderRadius: 999, border: '1px solid rgba(255,255,255,.4)', background: 'rgba(15,23,42,.92)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 20, lineHeight: 1, boxShadow: '0 6px 16px rgba(15,23,42,.22)' },
+  modalOverlay: { position: 'fixed', inset: 0, zIndex: 50, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.34)', backdropFilter: 'blur(6px)' },
+  modalCard: { width: 'min(430px, 100%)', borderRadius: 20, border: '1px solid rgba(226,232,240,.95)', background: '#fff', boxShadow: '0 28px 80px rgba(15,23,42,.22)', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 },
+  modalTitle: { margin: 0, fontSize: 18, lineHeight: 1.2, fontWeight: 800, color: 'var(--ink)' },
+  modalCopy: { margin: '6px 0 0', fontSize: 13, lineHeight: 1.45, color: 'var(--gray)' },
+  modalInput: { width: '100%', boxSizing: 'border-box', borderRadius: 12, border: '1px solid rgba(55,48,232,.24)', background: 'var(--surface)', color: 'var(--ink)', padding: '12px 13px', outline: 'none', fontSize: 14, fontWeight: 700 },
+  modalActions: { display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' },
+  modalGhostBtn: { height: 38, padding: '0 15px', borderRadius: 999, border: '1px solid var(--border)', background: '#fff', color: 'var(--ink)', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
+  modalPrimaryBtn: { height: 38, padding: '0 17px', borderRadius: 999, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', boxShadow: '0 10px 24px rgba(55,48,232,.22)' },
+  modalDangerBtn: { background: '#DC2626', boxShadow: '0 10px 24px rgba(220,38,38,.2)' },
 };
