@@ -134,6 +134,8 @@ function hasBalancedOptions(options = []) {
   return shortest >= 18 && longest <= MAX_OPTION_CHARS && longest / Math.max(shortest, 1) <= 2.8;
 }
 
+const OBVIOUS_OPTION_CUE_RE = /(^|[\s,.;:])(?:sempre|mai|solo|soltanto|qualsiasi|automaticamente|elimina(?:re|no|te)?|garantisce|garantiscono|impedisce|impossibile|nessun[oa]?|tutt[ioe]|completamente|scomparir[aà]|scompare|prive? di|senza ulteriori)(?=$|[\s,.;:])/i;
+
 function hasCorrectLengthBias(options = [], correct = 0) {
   const lengths = options.map((option) => compactLine(option).length);
   if (lengths.length !== 4 || !Number.isInteger(correct) || correct < 0 || correct >= lengths.length) return false;
@@ -141,7 +143,15 @@ function hasCorrectLengthBias(options = [], correct = 0) {
   const otherLengths = lengths.filter((_, index) => index !== correct).sort((a, b) => b - a);
   const secondLongest = otherLengths[0] || 0;
   const medianOther = otherLengths[1] || secondLongest || 1;
-  return correctLen > secondLongest + 24 && correctLen / Math.max(medianOther, 1) > 1.2;
+  return correctLen > secondLongest + 12 && correctLen / Math.max(medianOther, 1) > 1.12;
+}
+
+function hasObviousDistractorBias(options = [], correct = 0) {
+  if (options.length !== 4 || !Number.isInteger(correct) || correct < 0 || correct >= options.length) return false;
+  const cueScores = options.map((option) => (compactLine(option).match(OBVIOUS_OPTION_CUE_RE) ? 1 : 0));
+  const correctScore = cueScores[correct] || 0;
+  const distractorCueCount = cueScores.filter((score, index) => index !== correct && score > 0).length;
+  return correctScore === 0 && distractorCueCount >= 2;
 }
 
 function qualityNotes(question, title) {
@@ -165,6 +175,7 @@ function qualityNotes(question, title) {
   if (isGenericQuestion(question.q)) notes.push('generic_question');
   if (!hasBalancedOptions(options)) notes.push('unbalanced_options');
   if (hasCorrectLengthBias(options, correct)) notes.push('correct_length_bias');
+  if (hasObviousDistractorBias(options, correct)) notes.push('obvious_distractor_bias');
   if (!compactLine(question.explanation) || compactLine(question.explanation).length < 35) notes.push('weak_explanation');
   if (!compactLine(question.topic) || compactLine(question.topic).length < 3) notes.push('missing_topic');
   return notes;
@@ -292,7 +303,8 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
               'Good stems ask for definition, implication, application, comparison, causal relation, or common misconception.',
               'Every option must be a complete readable phrase or sentence. No ellipsis. No trailing fragments. No copied headings.',
               'All four options must have similar length and grammatical shape. The correct option must stay close to the median option length and must not be consistently or noticeably longer than distractors.',
-              'Distractors must be plausible misconceptions from the same concept area.',
+              'Distractors must be plausible misconceptions from the same concept area, not caricatures. Do not make wrong options obviously false with cues like sempre, mai, solo, qualsiasi, automaticamente, elimina, garantisce, or impossibile unless the source requires that wording and all options use comparable tone.',
+              'Keep all options equally specific: if one option includes numbers, conditions, or examples, the other options should have comparable specificity.',
               'Exactly one answer must be clearly correct. Avoid double negatives and avoid "which is NOT".',
               'Use about 40% easy, 40% medium, 20% hard. Do not use extreme.',
               'sourceChunk must be a short content snippet that proves the answer. It must not be a layout/header/page reference.',

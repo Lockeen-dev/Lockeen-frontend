@@ -115,7 +115,16 @@ function hasCorrectPracticeLengthBias(options = [], correct = 0) {
   const otherLengths = lengths.filter((_, index) => index !== correct).sort((a, b) => b - a);
   const secondLongest = otherLengths[0] || 0;
   const medianOther = otherLengths[1] || secondLongest || 1;
-  return correctLen > secondLongest + 24 && correctLen / Math.max(medianOther, 1) > 1.2;
+  return correctLen > secondLongest + 12 && correctLen / Math.max(medianOther, 1) > 1.12;
+}
+
+function hasObviousPracticeDistractorBias(options = [], correct = 0) {
+  if (options.length < 4 || !Number.isInteger(correct) || correct < 0 || correct >= options.length) return false;
+  const cueRe = /(^|[\s,.;:])(?:sempre|mai|solo|soltanto|qualsiasi|automaticamente|elimina(?:re|no|te)?|garantisce|garantiscono|impedisce|impossibile|nessun[oa]?|tutt[ioe]|completamente|scomparir[aà]|scompare|prive? di|senza ulteriori)(?=$|[\s,.;:])/i;
+  const cueScores = options.map((option) => (cueRe.test(normalizePracticeText(option)) ? 1 : 0));
+  const correctScore = cueScores[correct] || 0;
+  const distractorCueCount = cueScores.filter((score, index) => index !== correct && score > 0).length;
+  return correctScore === 0 && distractorCueCount >= 2;
 }
 
 function isPlayablePracticeQuestion(question = {}) {
@@ -134,6 +143,7 @@ function isPlayablePracticeQuestion(question = {}) {
     correct < options.length &&
     !isFallbackPracticeQuestion(question) &&
     !hasCorrectPracticeLengthBias(options, correct) &&
+    !hasObviousPracticeDistractorBias(options, correct) &&
     !texts.some(hasBadPracticeReference) &&
     !texts.some(hasBrokenPracticeText)
   );
