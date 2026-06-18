@@ -2,7 +2,7 @@ import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 import { fail, ok } from './_shared';
 
-const PRACTICE_TIMEOUT_MS = 30000;
+const PRACTICE_TIMEOUT_MS = 90000;
 const DIFFICULTIES = ['easy', 'medium', 'hard', 'extreme'];
 
 function normalizeQuestion(question = {}) {
@@ -17,6 +17,22 @@ function normalizeQuestion(question = {}) {
     explanation: String(question.explanation || '').trim(),
     difficulty: DIFFICULTIES.includes(String(question.difficulty || '').toLowerCase()) ? String(question.difficulty).toLowerCase() : 'medium',
     topic: String(question.topic || '').trim(),
+    conceptKey: String(question.conceptKey || question.concept_key || '').trim(),
+    sourceChunk: String(question.sourceChunk || question.sourceSnippet || '').trim(),
+    sourceSnippet: String(question.sourceSnippet || question.sourceChunk || '').trim(),
+    qualityScore: question.qualityScore ?? null,
+    validationStatus: question.validationStatus || 'valid',
+    validationNotes: Array.isArray(question.validationNotes) ? question.validationNotes : [],
+  };
+}
+
+function normalizeConcept(concept = {}) {
+  return {
+    conceptKey: String(concept.conceptKey || concept.concept_key || concept.title || '').trim(),
+    title: String(concept.title || concept.topic || '').trim(),
+    summary: String(concept.summary || concept.description || '').trim(),
+    importance: Math.max(1, Math.min(5, Number(concept.importance || 3))),
+    chunkIndex: Number(concept.chunkIndex || concept.chunk_index || 0),
   };
 }
 
@@ -55,7 +71,9 @@ export async function generatePracticeFromText({ kind = 'quiz', title, sourceTex
     });
   } catch (error) {
     return fail(
-      error?.name === 'AbortError' ? 'AI practice generation timed out.' : 'AI practice generation failed.',
+      error?.name === 'AbortError'
+        ? 'AI practice generation timed out.'
+        : `AI practice generation failed${error?.message ? `: ${error.message}` : '.'}`,
       error?.name || 'AI_PRACTICE_FAILED',
     );
   } finally {
@@ -71,7 +89,10 @@ export async function generatePracticeFromText({ kind = 'quiz', title, sourceTex
 
   if (!response.ok || payload.error) {
     const error = payload.error || {};
-    return fail(error.message || 'AI practice generation failed.', error.code || 'AI_PRACTICE_FAILED');
+    return fail(
+      error.message || `AI practice generation failed with HTTP ${response.status}.`,
+      error.code || 'AI_PRACTICE_FAILED',
+    );
   }
 
   if (kind === 'flashcards') {
@@ -79,6 +100,9 @@ export async function generatePracticeFromText({ kind = 'quiz', title, sourceTex
     return cards.length ? ok({ cards, provider: payload.data?.provider || 'openai' }) : fail('AI returned no valid flashcards.', 'AI_PRACTICE_EMPTY');
   }
 
-  const questions = (payload.data?.questions || []).map(normalizeQuestion).filter((question) => question.q && question.options.length >= 2);
-  return questions.length ? ok({ questions, provider: payload.data?.provider || 'openai' }) : fail('AI returned no valid questions.', 'AI_PRACTICE_EMPTY');
+  const questions = (payload.data?.questions || []).map(normalizeQuestion).filter((question) => question.q && question.options.length >= 4);
+  const concepts = (payload.data?.concepts || []).map(normalizeConcept).filter((concept) => concept.conceptKey && concept.title && concept.summary);
+  return questions.length
+    ? ok({ questions, concepts, provider: payload.data?.provider || 'openai', model: payload.data?.model || null })
+    : fail('AI returned no valid questions.', 'AI_PRACTICE_EMPTY');
 }

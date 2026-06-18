@@ -22,6 +22,10 @@ function normalizeQuestion(question) {
     correct: Number(question.correct ?? question.correctAnswer ?? 0),
     explanation: question.explanation || '',
     difficulty: DIFFICULTY_IDS.includes(question.difficulty) ? question.difficulty : 'medium',
+    validationStatus: question.validationStatus || question.validation_status || 'valid',
+    validationNotes: Array.isArray(question.validationNotes) ? question.validationNotes : [],
+    sourceSnippet: question.sourceSnippet || question.sourceChunk || '',
+    conceptKey: question.conceptKey || '',
   };
 }
 
@@ -40,6 +44,7 @@ function isFallbackPracticeQuestion(question) {
     'what should you do after missing a question on ',
     'which note is most useful for ',
     'when should ',
+    'quale affermazione descrive meglio un concetto chiave',
   ].some((pattern) => text.includes(pattern));
 }
 
@@ -61,6 +66,97 @@ function normalizeDifficultySelection(value) {
 function filterQuestionsByDifficulty(questions = [], difficulties = DIFFICULTY_IDS) {
   const selected = normalizeDifficultySelection(difficulties);
   return questions.filter((question) => selected.includes(question.difficulty || 'medium'));
+}
+
+function normalizeQuestionText(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function hasLayoutReference(value = '') {
+  const text = normalizeQuestionText(value).toLowerCase();
+  return (
+    /\b(page|pagina|chapter|capitolo|indice|index|table of contents|sommario|study point|punto\s+studio)\b/.test(text) ||
+    /\b\d{1,2}\.\d{1,2}(?:\.\d{1,2})?\b/.test(text)
+  );
+}
+
+function hasTruncatedText(value = '') {
+  const text = normalizeQuestionText(value);
+  return /\.{2,}|…/.test(text) ||
+    /(?:\b(di|del|della|delle|che|per|con|tra|fra|a|in|il|la|lo|gli|le|un|una|the|of|to|and|with|for)\b)[,;:]?$/i.test(text);
+}
+
+function isGenericPrompt(value = '') {
+  const text = normalizeQuestionText(value).toLowerCase();
+  return [
+    'which statement best explains the concept',
+    'which statement best matches the concept',
+    'which statement is directly supported by the uploaded material',
+    'which example best matches the idea',
+    'what is the main implication of this concept',
+    'what is the main implication of the concept',
+    'which statement best matches study point',
+  ].some((pattern) => text.includes(pattern));
+}
+
+function hasCorrectLengthBias(options = [], correct = 0) {
+  const lengths = options.map((option) => normalizeQuestionText(option).length);
+  if (lengths.length < 4 || !Number.isInteger(correct) || correct < 0 || correct >= lengths.length) return false;
+  const correctLen = lengths[correct];
+  const otherLengths = lengths.filter((_, index) => index !== correct).sort((a, b) => b - a);
+  const secondLongest = otherLengths[0] || 0;
+  const medianOther = otherLengths[1] || secondLongest || 1;
+  return correctLen > secondLongest + 24 && correctLen / Math.max(medianOther, 1) > 1.2;
+}
+
+function isPlayableQuestion(question = {}) {
+  const normalized = normalizeQuestion(question);
+  const options = normalized.options.map(normalizeQuestionText).filter(Boolean);
+  const uniqueOptions = new Set(options.map((option) => option.toLowerCase()));
+  const texts = [normalized.q, normalized.explanation, normalized.topic, ...options];
+  return (
+    normalized.validationStatus !== 'rejected' &&
+    normalized.q &&
+    options.length >= 4 &&
+    uniqueOptions.size >= 4 &&
+    Number.isInteger(normalized.correct) &&
+    normalized.correct >= 0 &&
+    normalized.correct < options.length &&
+    !isFallbackPracticeQuestion(normalized) &&
+    !isGenericPrompt(normalized.q) &&
+    !hasCorrectLengthBias(options, normalized.correct) &&
+    !texts.some(hasLayoutReference) &&
+    !texts.some(hasTruncatedText)
+  );
+}
+
+function getPlayableQuestions(questions = [], difficulties = DIFFICULTY_IDS) {
+  return filterQuestionsByDifficulty((questions || []).map(normalizeQuestion), difficulties).filter(isPlayableQuestion);
+}
+
+function questionMemoryKey(question = {}) {
+  const normalized = normalizeQuestion(question);
+  if (normalized.id) return `id:${normalized.id}`;
+  return normalizeQuestionText(`${normalized.q} ${normalized.options[normalized.correct] || ''}`).toLowerCase().slice(0, 260);
+}
+
+function selectRotatingQuestions(questions = [], count = 10, quizRuns = []) {
+  const seen = new Set();
+  (quizRuns || []).forEach((run) => {
+    (run.answerDetails || []).forEach((answer) => {
+      if (answer?.questionId) seen.add(`id:${answer.questionId}`);
+      if (answer?.questionKey) seen.add(answer.questionKey);
+    });
+    (run.questions || []).forEach((question) => seen.add(questionMemoryKey(question)));
+  });
+  const unseen = questions.filter((question) => !seen.has(questionMemoryKey(question)));
+  const pool = unseen.length >= Math.min(count, questions.length) ? unseen : questions;
+  const shuffled = [...pool];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled.slice(0, count);
 }
 
 function QuizResultScreen({ percent, correct, total, palette, resultTitle, subject, subjectStyle, attemptError, attemptSaved, onRestart, onBack }) {
@@ -203,7 +299,16 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
     if (!done || !total || resultSavedRef.current) return;
     resultSavedRef.current = true;
     async function saveAttempt() {
-      const answers = [...userAnswers.current];
+      const answers = normalizedQuestions.map((question, index) => {
+        const selectedIndex = Number(userAnswers.current[index] ?? -1);
+        return {
+          questionId: question.id || null,
+          questionKey: questionMemoryKey(question),
+          selected: Number.isFinite(selectedIndex) ? selectedIndex : -1,
+          correct: Number(question.correct),
+          isCorrect: Number(selectedIndex) === Number(question.correct),
+        };
+      });
       if (quizId) {
         const result = await submitQuizAttempt(quizId, {
           score: correct,
@@ -360,9 +465,9 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
           <div style={quizS.questionText}>{q.q}</div>
           <div style={quizS.options}>
             {q.options.map((option, i) => (
-              <button key={option} className={!answered && pendingIdx === null ? 'quiz-option-ready' : ''} disabled={answered} onClick={() => handleSelect(i)} style={{ ...quizS.optionBase, ...optionStyle(i) }}>
+              <button key={`${q.id || idx}-${i}`} className={!answered && pendingIdx === null ? 'quiz-option-ready' : ''} disabled={answered} onClick={() => handleSelect(i)} style={{ ...quizS.optionBase, ...optionStyle(i) }}>
                 <span style={quizS.optionLetter}>{String.fromCharCode(65 + i)}</span>
-                <span>{option}</span>
+                <span style={quizS.optionText}>{option}</span>
               </button>
             ))}
           </div>
@@ -408,7 +513,7 @@ const quizS = {
   difficultyBadge: { flexShrink: 0, border: '1px solid transparent', borderRadius: 999, padding: '4px 8px', fontSize: 11, fontWeight: 800, lineHeight: 1 },
   questionText: { color: 'var(--ink)', fontSize: 18, fontWeight: 700, lineHeight: 1.4 },
   options: { display: 'flex', flexDirection: 'column', gap: 10 },
-  optionBase: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px', borderRadius: 14, textAlign: 'left', fontWeight: 600, transition: 'background .15s, border-color .15s, color .15s, opacity .15s' },
+  optionBase: { display: 'flex', alignItems: 'flex-start', gap: 12, width: '100%', padding: '12px 14px', borderRadius: 14, textAlign: 'left', fontWeight: 600, transition: 'background .15s, border-color .15s, color .15s, opacity .15s' },
   option: { background: 'var(--surface)', border: '1.5px solid var(--border)', color: 'var(--ink)', cursor: 'pointer' },
   optionPending: { background: '#F1F5F9', border: '1.5px solid #94a3b8', color: 'var(--ink)' },
   optionCorrect: { background: '#DCFCE7', border: '1.5px solid #86efac', color: '#166534' },
@@ -416,8 +521,9 @@ const quizS = {
   optionCorrectMuted: { background: '#DCFCE7', border: '1.5px solid #86efac', color: '#166534', opacity: .7 },
   optionNeutral: { background: 'var(--sidebar-bg)', border: '1.5px solid var(--border)', color: 'var(--ink)', opacity: .5 },
   optionLetter: { width: 24, height: 24, borderRadius: 999, border: '1.5px solid currentColor', opacity: .6, display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 12 },
-  feedbackOk: { display: 'flex', alignItems: 'center', gap: 8, background: '#DCFCE7', color: '#166534', borderRadius: 12, padding: '11px 14px', fontSize: 13 },
-  feedbackKo: { display: 'flex', alignItems: 'center', gap: 8, background: '#FEE2E2', color: '#991B1B', borderRadius: 12, padding: '11px 14px', fontSize: 13 },
+  optionText: { flex: 1, minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.4 },
+  feedbackOk: { display: 'flex', alignItems: 'flex-start', gap: 8, background: '#DCFCE7', color: '#166534', borderRadius: 12, padding: '11px 14px', fontSize: 13, lineHeight: 1.45 },
+  feedbackKo: { display: 'flex', alignItems: 'flex-start', gap: 8, background: '#FEE2E2', color: '#991B1B', borderRadius: 12, padding: '11px 14px', fontSize: 13, lineHeight: 1.45 },
   nextBtn: { alignItems: 'center', justifyContent: 'center', width: '100%', color: '#fff', borderRadius: 14, padding: '13px 16px', fontWeight: 600 },
   resultWrap: { maxWidth: 520, minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
   scoreCircle: { width: 96, height: 96, borderRadius: 999, border: '3px solid transparent', display: 'grid', placeItems: 'center', alignContent: 'center' },
@@ -446,7 +552,8 @@ export function QuizReview({ run, onBack, darkMode }) {
         <p style={{ color: 'var(--gray)', textAlign: 'center', marginTop: 40 }}>Nessuna domanda salvata per questo quiz.</p>
       )}
       {questions.map((q, qi) => {
-        const userIdx = answers[qi] ?? -1;
+        const rawAnswer = answers[qi] ?? -1;
+        const userIdx = Number(rawAnswer && typeof rawAnswer === 'object' ? rawAnswer.selected : rawAnswer);
         const correctIdx = q.correct;
         const isCorrect = userIdx === correctIdx;
         return (
@@ -539,22 +646,22 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
 
   const allAvailableQuestions = React.useMemo(() => {
     const serviceQuestions = scopedQuizzes.flatMap(quiz => quiz.questions || []);
-    if (serviceQuestions.length > 0) return serviceQuestions;
+    if (serviceQuestions.length > 0) return getPlayableQuestions(serviceQuestions);
     if (deck?._practiceConfig?.source === 'analytics-grade-predictor') return [];
     if (!selectedExam) return [];
-    if (selectedChapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []);
+    if (selectedChapterId === 'all') return getPlayableQuestions(selectedExam.chapters.flatMap(c => c.questions || []));
     const ch = selectedExam.chapters.find(c => c.id === selectedChapterId);
-    return ch?.questions || [];
+    return getPlayableQuestions(ch?.questions || []);
   }, [deck?._practiceConfig?.source, selectedExam, selectedChapterId, scopedQuizzes]);
 
   const availableQuestions = React.useMemo(() => {
-    const serviceQuestions = filterQuestionsByDifficulty(scopedQuizzes.flatMap(quiz => quiz.questions || []), selectedDiffs);
+    const serviceQuestions = getPlayableQuestions(scopedQuizzes.flatMap(quiz => quiz.questions || []), selectedDiffs);
     if (serviceQuestions.length > 0) return serviceQuestions;
     if (deck?._practiceConfig?.source === 'analytics-grade-predictor') return [];
     if (!selectedExam) return [];
-    if (selectedChapterId === 'all') return selectedExam.chapters.flatMap(c => c.questions || []);
+    if (selectedChapterId === 'all') return getPlayableQuestions(selectedExam.chapters.flatMap(c => c.questions || []), selectedDiffs);
     const ch = selectedExam.chapters.find(c => c.id === selectedChapterId);
-    return ch?.questions || [];
+    return getPlayableQuestions(ch?.questions || [], selectedDiffs);
   }, [deck?._practiceConfig?.source, selectedDiffs, selectedExam, selectedChapterId, scopedQuizzes]);
 
   const maxQ = availableQuestions.length;
@@ -581,22 +688,22 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   }, [focusedFromNotes, selectedExamId, activeDeck, maxQ, loadingQuizzes]);
 
   const countQuestionsInQuizzes = (quizzes = [], difficulties = DIFFICULTY_IDS) =>
-    filterQuestionsByDifficulty(quizzes.flatMap((quiz) => quiz.questions || []), difficulties).length;
+    getPlayableQuestions(quizzes.flatMap((quiz) => quiz.questions || []), difficulties).length;
   const countQuestionsForChapter = (chapterId) => {
     if (!selectedExam) return 0;
     if (chapterId === 'all') {
       const serviceCount = countQuestionsInQuizzes(serviceQuizzes);
       if (serviceCount > 0) return serviceCount;
-      return selectedExam.chapters.flatMap(c => c.questions || []).length;
+      return getPlayableQuestions(selectedExam.chapters.flatMap(c => c.questions || [])).length;
     }
     const chapterQuizzes = serviceQuizzes.filter((quiz) => String(quiz.chapterId) === String(chapterId));
     const serviceCount = countQuestionsInQuizzes(chapterQuizzes);
     if (serviceCount > 0) return serviceCount;
     const ch = selectedExam.chapters.find(c => c.id === chapterId);
-    return ch?.questions?.length || 0;
+    return getPlayableQuestions(ch?.questions || []).length;
   };
   const difficultyCounts = React.useMemo(() => {
-    const questions = scopedQuizzes.flatMap((quiz) => quiz.questions || []);
+    const questions = getPlayableQuestions(scopedQuizzes.flatMap((quiz) => quiz.questions || []));
     return DIFFICULTY_IDS.reduce((acc, id) => {
       acc[id] = questions.filter((question) => (question.difficulty || 'medium') === id).length;
       return acc;
@@ -639,7 +746,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         : (listResult.data || []);
       const matchingQuizzes = candidateQuizzes
         .map(normalizeQuiz)
-        .map((quiz) => ({ ...quiz, questions: filterQuestionsByDifficulty(quiz.questions || [], overrides._difficulties || selectedDiffs) }))
+        .map((quiz) => ({ ...quiz, questions: getPlayableQuestions(quiz.questions || [], overrides._difficulties || selectedDiffs) }))
         .filter((quiz) => quiz.questions.length > 0);
       serviceQuiz = matchingQuizzes.length === 1 ? matchingQuizzes[0] : null;
       serviceQuestions = matchingQuizzes.flatMap((quiz) => quiz.questions || []);
@@ -650,7 +757,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
           serviceQuiz = normalizeQuiz(serviceQuiz);
         } else {
           serviceQuiz = normalizeQuiz(quizResult.data);
-          serviceQuiz.questions = filterQuestionsByDifficulty(serviceQuiz.questions || [], overrides._difficulties || selectedDiffs);
+          serviceQuiz.questions = getPlayableQuestions(serviceQuiz.questions || [], overrides._difficulties || selectedDiffs);
           serviceQuestions = serviceQuiz.questions;
         }
       }
@@ -665,20 +772,23 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       : (exam?.chapters.find(c => c.id === chapterId)?.questions || []);
     const qs = serviceQuestions.length
       ? serviceQuestions
-      : fallbackQs;
+      : getPlayableQuestions(fallbackQs, overrides._difficulties || selectedDiffs);
     if (overrides.requireServiceQuiz && !qs.length) {
       setQuizError(`No material questions available for ${difficultySummary}. Generate a quiz from uploaded material first.`);
       return;
     }
     const chapterName = chapterId === 'all' ? 'Intero esame' : (exam?.chapters.find(c => c.id === chapterId)?.title || '');
     const n = overrides.numQ ?? effectiveNumQ;
+    const selectedQuestions = selectRotatingQuestions(qs.map(normalizeQuestion), Math.min(n, qs.length), quizRuns);
+    const selectedQuizIds = new Set(selectedQuestions.map((question) => question.quizId).filter(Boolean).map(String));
+    const saveQuizId = selectedQuizIds.size === 1 ? [...selectedQuizIds][0] : serviceQuiz?.id || null;
     setActiveDeck({
       noteId: chapterId === 'all' ? examId : chapterId,
-      quizId: serviceQuiz?.id || null,
+      quizId: saveQuizId,
       subject: exam?.subject || '',
       title: serviceQuiz?.title || chapterName,
-      questions: qs.map(normalizeQuestion).slice(0, n),
-      _meta: { ...(deck?._practiceConfig || {}), examId, examName: exam?.name || '', chapterId, chapterName, numQ: Math.min(n, qs.length) },
+      questions: selectedQuestions,
+      _meta: { ...(deck?._practiceConfig || {}), examId, examName: exam?.name || '', chapterId, chapterName, numQ: selectedQuestions.length },
       _examColor: exam?.color || null,
       _examDot: exam?.dot || null,
       _autoStart: overrides._autoStart || false,
@@ -749,6 +859,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
     { id:'hard',    label:'Hard',    color:'#EF4444', bg:'#FEF2F2', desc:'Avanzato' },
     { id:'extreme', label:'Extreme', color:'#64748B', bg:'#F8FAFC', desc:'Difficile' },
   ];
+  const visibleDiffs = focusedFromNotes ? DIFF.filter((diff) => diff.id !== 'extreme') : DIFF;
 
   const secLabel = { fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.1em', color:'var(--gray-2)', marginBottom:10 };
   const divider = { height:1, background:'var(--border)', margin:'0' };
@@ -834,7 +945,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
                 <div style={secLabel}>Domande</div>
                 <span style={{ fontSize:12, color:'var(--gray)', fontWeight:500 }}>Disponibili: {maxQ}</span>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
+              <div style={{ display:'grid', gridTemplateColumns:`repeat(${visibleDiffs.length},1fr)`, gap:8 }}>
                 {[5,10,15,20].map(n => {
                   const disabled = n > maxQ;
                   const active = numQ === n && !disabled;
@@ -861,7 +972,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
                 <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>{difficultySummary}</span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
-                {DIFF.map(d => (
+                {visibleDiffs.map(d => (
                   <button key={d.id}
                     onClick={() => toggleDifficulty(d.id)}
                     style={{ padding:'14px 6px', borderRadius:14, border:`1.5px solid ${selectedDiffs.includes(d.id) ? d.color : 'var(--border)'}`, background:selectedDiffs.includes(d.id) ? d.bg : 'var(--surface)', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:8, transition:'all .15s' }}
@@ -947,17 +1058,22 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
                     </button>
                     <button onClick={() => {
                       const exam = exams.find(e => e.id === run.examId);
+                      const retryQuestions = getPlayableQuestions(run.questions && run.questions.length > 0 ? run.questions : (() => {
+                        const qs = run.chapterId === 'all'
+                          ? (exam?.chapters || []).flatMap(c => c.questions || [])
+                          : (exam?.chapters.find(c => c.id === run.chapterId)?.questions || []);
+                        return qs.slice(0, run.numQ);
+                      })());
+                      if (!retryQuestions.length) {
+                        setQuizError('This older quiz attempt does not have playable material-quality questions anymore. Generate a fresh quiz from the uploaded material.');
+                        return;
+                      }
                       setActiveDeck({
                         noteId: run.chapterId === 'all' ? run.examId : run.chapterId,
                         subject: exam?.subject || '',
                         title: run.chapterName || run.examName || '',
-                        questions: run.questions && run.questions.length > 0 ? run.questions : (() => {
-                          const qs = run.chapterId === 'all'
-                            ? (exam?.chapters || []).flatMap(c => c.questions || [])
-                            : (exam?.chapters.find(c => c.id === run.chapterId)?.questions || []);
-                          return qs.slice(0, run.numQ);
-                        })(),
-                        _meta: { examId: run.examId, examName: run.examName, chapterId: run.chapterId, chapterName: run.chapterName, numQ: run.numQ },
+                        questions: retryQuestions,
+                        _meta: { examId: run.examId, examName: run.examName, chapterId: run.chapterId, chapterName: run.chapterName, numQ: retryQuestions.length },
                         _examColor: exam?.color || null,
                         _examDot: exam?.dot || null,
                         _autoStart: true,
