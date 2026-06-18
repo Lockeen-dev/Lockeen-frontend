@@ -10,12 +10,21 @@ function PracticeConfigModal({ config, onChange, onClose, onStart }) {
   const { exam, mode, scopeId, difficulty, count, timerOn = true, timerSecs = 30 } = config;
   const chapters = exam.chapters || [];
   const setField = (key, value) => onChange({ ...config, [key]: value });
+  const difficultySelection = Array.isArray(config.difficulties) && config.difficulties.length
+    ? config.difficulties
+    : [difficulty || 'medium'];
+  const toggleDifficulty = (id) => {
+    const set = new Set(difficultySelection);
+    if (set.has(id) && set.size > 1) set.delete(id);
+    else set.add(id);
+    const next = difficulties.map((item) => item.id).filter((item) => set.has(item));
+    onChange({ ...config, difficulty: next[0] || 'medium', difficulties: next });
+  };
   const scopeOptions = [
-    { id: 'all', label: 'Whole exam', count: Math.max(12, chapters.reduce((sum, chapter) => sum + (chapter.questions?.length || chapter.cards?.length || 0), 0) || 12) },
+    { id: 'all', label: 'Whole exam' },
     ...chapters.map((chapter) => ({
       id: chapter.id,
       label: chapter.title || chapter.name || 'Chapter',
-      count: Math.max(1, chapter.questions?.length || chapter.cards?.length || 6),
     })),
   ];
   const modes = [
@@ -26,9 +35,8 @@ function PracticeConfigModal({ config, onChange, onClose, onStart }) {
     { id: 'easy', title: 'Easy', sub: 'Warm-up' },
     { id: 'medium', title: 'Medium', sub: 'Balanced' },
     { id: 'hard', title: 'Hard', sub: 'Exam mode' },
-    { id: 'extreme', title: 'Extreme', sub: 'Deep reasoning' },
   ];
-  const counts = [10, 20, 30, 50];
+  const counts = mode === 'quiz' ? [5, 10, 15, 20] : [10, 20, 30, 50];
   const timerOptions = [15, 30, 60, 90];
 
   return (
@@ -43,7 +51,12 @@ function PracticeConfigModal({ config, onChange, onClose, onStart }) {
           {modes.map(({ id, title, sub, Icon: ModeIcon }) => {
             const active = mode === id;
             return (
-              <button key={id} type="button" onClick={() => setField('mode', id)} style={{ ...practiceS.modeCard, ...(active ? practiceS.modeCardActive : null) }}>
+              <button
+                key={id}
+                type="button"
+                onClick={() => onChange({ ...config, mode: id, count: id === 'quiz' ? Math.min(count || 10, 20) : Math.max(count || 10, 10) })}
+                style={{ ...practiceS.modeCard, ...(active ? practiceS.modeCardActive : null) }}
+              >
                 <span style={{ ...practiceS.modeIcon, color: 'var(--indigo)', background: '#EEF2FF' }}><ModeIcon size={26} /></span>
                 <span style={practiceS.modeTitle}>{title}</span>
                 <span style={practiceS.modeSub}>{sub}</span>
@@ -60,7 +73,6 @@ function PracticeConfigModal({ config, onChange, onClose, onStart }) {
             return (
               <button key={option.id} type="button" onClick={() => setField('scopeId', option.id)} style={{ ...practiceS.scopePill, ...(active ? practiceS.scopePillActive : null) }}>
                 <span>{option.label}</span>
-                <span style={{ ...practiceS.countBadge, ...(active ? practiceS.countBadgeActive : null) }}>{option.count}</span>
               </button>
             );
           })}
@@ -70,9 +82,9 @@ function PracticeConfigModal({ config, onChange, onClose, onStart }) {
         <SectionLabel>Difficulty</SectionLabel>
         <div style={practiceS.difficultyGrid}>
           {difficulties.map((option) => {
-            const active = difficulty === option.id;
+            const active = difficultySelection.includes(option.id);
             return (
-              <button key={option.id} type="button" onClick={() => setField('difficulty', option.id)} style={{ ...practiceS.difficultyCard, ...(active ? practiceS.difficultyCardActive : null) }}>
+              <button key={option.id} type="button" onClick={() => toggleDifficulty(option.id)} style={{ ...practiceS.difficultyCard, ...(active ? practiceS.difficultyCardActive : null) }}>
                 <span style={practiceS.diffTitle}>{option.title}</span>
                 <span style={practiceS.diffSub}>{option.sub}</span>
               </button>
@@ -149,7 +161,7 @@ const practiceS = {
   scopePillActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)' },
   countBadge: { minWidth: 24, height: 24, borderRadius: 999, background: '#F1F5F9', color: '#6B7280', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 900, padding: '0 7px' },
   countBadgeActive: { background: 'var(--indigo)', color: '#fff' },
-  difficultyGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 9 },
+  difficultyGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 },
   difficultyCard: { minHeight: 68, borderRadius: 16, border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', gap: 5, padding: 12 },
   difficultyCardActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)' },
   diffTitle: { color: 'inherit', fontSize: 17, fontWeight: 900, lineHeight: 1 },
