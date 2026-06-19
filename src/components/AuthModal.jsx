@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, Google } from '../lib/icons';
 import { useAuth } from '../context/AuthContext';
+import { normalizeLang, tt } from '../lib/i18n';
 
 const AUTH_STYLES = `
   @keyframes authCardIn { from { opacity:0; transform:scale(.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
@@ -9,8 +10,10 @@ const AUTH_STYLES = `
 `;
 
 /* ===================== AUTH SCREEN ===================== */
-export default function AuthModal({ initialMode = "signin", onAuth, onClose, darkMode }) {
+export default function AuthModal({ initialMode = "signin", onAuth, onClose, darkMode, lang = 'en' }) {
   const { requestPasswordReset, signIn, signInWithGoogle, signUp, updatePassword } = useAuth();
+  const safeLang = normalizeLang(lang);
+  const t = (key, vars) => tt(safeLang, key, vars);
   const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -28,7 +31,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     if (loading) return;
     if (mode === 'forgot') {
       if (!email.trim()) {
-        setError('Email is required.');
+        setError(t('authEmailRequired'));
         return;
       }
       setError(null);
@@ -37,23 +40,23 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
       const result = await requestPasswordReset({ email });
       setLoading(false);
       if (result.error) {
-        setError(result.error.message || 'Unable to send reset email.');
+        setError(result.error.message || t('authResetEmailFailed'));
         return;
       }
-      setNotice('Password reset email sent. Check your inbox.');
+      setNotice(t('authResetEmailSent'));
       return;
     }
     if (mode === 'reset') {
       if (!password) {
-        setError('New password is required.');
+        setError(t('authNewPasswordRequired'));
         return;
       }
       if (password.length < 6) {
-        setError('Password must be at least 6 characters.');
+        setError(t('authPasswordTooShort'));
         return;
       }
       if (password !== confirmPassword) {
-        setError('Passwords do not match.');
+        setError(t('authPasswordsMismatch'));
         return;
       }
       setError(null);
@@ -62,7 +65,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
       const result = await updatePassword({ password });
       setLoading(false);
       if (result.error) {
-        setError(result.error.message || 'Unable to update password.');
+        setError(result.error.message || t('authPasswordUpdateFailed'));
         return;
       }
       onAuth && onAuth(result.data.user);
@@ -70,11 +73,11 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     }
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
-      setError('Email is required.');
+      setError(t('authEmailRequired'));
       return;
     }
     if (!password) {
-      setError('Password is required.');
+      setError(t('authPasswordRequired'));
       return;
     }
     setError(null);
@@ -84,7 +87,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     const result = mode === 'signin' ? await signIn(input) : await signUp(input);
     setLoading(false);
     if (result.error) {
-      setError(result.error.message || 'Unable to authenticate.');
+      setError(result.error.message || t('authFailed'));
       return;
     }
     onAuth && onAuth(result.data.user);
@@ -98,7 +101,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     const result = await signInWithGoogle();
     setLoading(false);
     if (result.error) {
-      setError(result.error.message || 'Unable to authenticate.');
+      setError(result.error.message || t('authFailed'));
       return;
     }
     if (result.data?.user) onAuth && onAuth(result.data.user);
@@ -135,47 +138,47 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
 
         <h1 style={authS.title}>
           {mode === 'signin'
-            ? 'Welcome back'
+            ? t('authWelcomeBack')
             : mode === 'signup'
-              ? 'Create your account'
+              ? t('authCreateAccountTitle')
               : mode === 'forgot'
-                ? 'Reset your password'
-                : 'Choose a new password'}
+                ? t('authResetPasswordTitle')
+                : t('authChooseNewPasswordTitle')}
         </h1>
         <p style={authS.sub}>
           {mode === 'signin'
-            ? 'Sign in to continue your learning journey'
+            ? t('authSigninSubtitle')
             : mode === 'signup'
-              ? 'Start studying smarter with AI in seconds'
+              ? t('authSignupSubtitle')
               : mode === 'forgot'
-                ? 'Enter your email and we will send a reset link'
-                : 'Create a secure password for your account'}
+                ? t('authForgotSubtitle')
+                : t('authResetSubtitle')}
         </p>
 
         {mode !== 'forgot' && mode !== 'reset' && (
           <button type="button" onClick={google} style={{ ...authS.googleBtn, background: darkMode ? '#1e293b' : '#fff' }} disabled={loading}>
-            <Google /> Continue with Google
+            <Google /> {t('continueWithGoogle')}
           </button>
         )}
 
         {mode !== 'forgot' && mode !== 'reset' && (
           <div style={authS.divider}>
             <span style={authS.dividerLine} />
-            <span style={authS.dividerText}>or</span>
+            <span style={authS.dividerText}>{t('or')}</span>
             <span style={authS.dividerLine} />
           </div>
         )}
 
         <form key={modeKey} onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'authModeSwitch .22s ease' }}>
           {mode === 'signup' && (
-            <Field label="Full name">
+            <Field label={t('fullName')}>
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe"
                 onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)}
                 style={{ ...authS.input, background: darkMode ? '#0f172a' : '#fff', ...focusStyle('name') }} />
             </Field>
           )}
           {mode !== 'reset' && (
-            <Field label="Email">
+            <Field label={t('email')}>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
                 required
                 disabled={loading}
@@ -185,7 +188,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
             </Field>
           )}
           {mode !== 'forgot' && (
-            <Field label={mode === 'reset' ? 'New password' : 'Password'} right={mode === 'signin' && <button type="button" onClick={() => switchMode('forgot')} style={authS.forgot}>Forgot?</button>}>
+            <Field label={mode === 'reset' ? t('newPassword') : t('password')} right={mode === 'signin' && <button type="button" onClick={() => switchMode('forgot')} style={authS.forgot}>{t('forgot')}</button>}>
               <div style={{ position: 'relative' }}>
                 <input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
                   required
@@ -202,7 +205,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
                     e.stopPropagation();
                     setShowPw(v => !v);
                   }}
-                  aria-label="Toggle password"
+                  aria-label={t('togglePassword')}
                   style={authS.eyeBtn}
                 >
                   {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -211,7 +214,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
             </Field>
           )}
           {mode === 'reset' && (
-            <Field label="Confirm password">
+            <Field label={t('confirmPassword')}>
               <input type={showPw ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••"
                 required
                 minLength={6}
@@ -227,23 +230,23 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
 
           <button type="submit" disabled={loading} style={{ ...authS.submit, opacity: loading ? .85 : 1 }}>
             {loading
-              ? <><span style={{ width: 18, height: 18, border: '2.5px solid rgba(255,255,255,.35)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'authSpin .7s linear infinite' }} /> Just a sec…</>
-              : <>{mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : mode === 'forgot' ? 'Send Reset Link' : 'Update Password'} <ArrowRight size={18} /></>}
+              ? <><span style={{ width: 18, height: 18, border: '2.5px solid rgba(255,255,255,.35)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'authSpin .7s linear infinite' }} /> {t('justASec')}</>
+              : <>{mode === 'signin' ? t('signIn') : mode === 'signup' ? t('createAccount') : mode === 'forgot' ? t('sendResetLink') : t('updatePassword')} <ArrowRight size={18} /></>}
           </button>
         </form>
 
         <p style={authS.toggle}>
           {mode === 'signin'
-            ? "Don't have an account?"
+            ? t('dontHaveAccount')
             : mode === 'signup'
-              ? 'Already have an account?'
-              : 'Remembered your password?'}{' '}
+              ? t('alreadyHaveAccount')
+              : t('rememberedPassword')}{' '}
           <button type="button" onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')} style={authS.toggleLink}>
-            {mode === 'signin' ? 'Sign up' : 'Sign in'}
+            {mode === 'signin' ? t('signUp') : t('signIn')}
           </button>
         </p>
       </div>
-        <button type="button" onClick={onClose} aria-label="Close" style={authS.closeBtn}>×</button>
+        <button type="button" onClick={onClose} aria-label={t('close')} style={authS.closeBtn}>×</button>
       </div>
     </div>
   );

@@ -120,7 +120,6 @@ export default function LandingPage() {
       if (gridDiv) gridDiv.remove();
       setHeroGridRoot(null);
       if (window.showPage === showPage) window.showPage = undefined;
-      window.setLockeenLanguage = undefined;
       observer?.disconnect();
       buttonHandlers.forEach(([button, onPointerDown, onPointerUp]) => {
         button.removeEventListener('pointerdown', onPointerDown);
