@@ -1,22 +1,111 @@
+import { useEffect, useState } from 'react';
 import { BookOpen, Calendar, CreditCard, LayoutDashboard, MessageSquare, Star, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ContainerScroll } from './ui/container-scroll-animation';
 
-const navItems = [
-  { icon: Zap, label: 'Dashboard', active: true },
-  { icon: BookOpen, label: 'My Exams' },
-  { icon: CreditCard, label: 'Flashcards' },
-  { icon: Star, label: 'Quiz' },
-  { icon: MessageSquare, label: 'AI Tutor' },
-  { icon: LayoutDashboard, label: 'Analytics' },
-  { icon: Calendar, label: 'Calendar' },
-];
+const copy = {
+  en: {
+    title: 'A workspace designed for',
+    highlight: 'modern learners',
+    subtitle: 'Clean, intuitive, and packed with intelligent features',
+    nav: {
+      dashboard: 'Dashboard',
+      myExams: 'My Exams',
+      flashcards: 'Flashcards',
+      quiz: 'Quiz',
+      aiTutor: 'AI Tutor',
+      analytics: 'Analytics',
+      calendar: 'Calendar',
+    },
+    weeklyGoal: 'Weekly Goal',
+    greeting: 'Good morning, Alex',
+    ready: 'Ready to continue your learning path?',
+    todaySchedule: "Today's schedule",
+    completed: '0/2 completed',
+    cellular: 'Cellular respiration',
+    limits: 'Limits and continuity',
+    biology: 'Biology',
+    math: 'Mathematics',
+    recommended: 'RECOMMENDED TODAY',
+    media: 'Media',
+    practice: 'Practice',
+    biologyQuiz: 'Biology Quiz',
+    chemistryFlash: 'Chemistry Flash',
+    quizMeta: '15 questions • 20 min',
+    flashMeta: '48 cards • Review',
+    startQuiz: 'Start Quiz',
+    reviewCards: 'Review Cards',
+    assistant: 'AI Study Assistant',
+    assistantPrompt: 'Explain photosynthesis in simple terms',
+  },
+  it: {
+    title: 'Uno spazio progettato per',
+    highlight: 'studenti moderni',
+    subtitle: 'Pulito, intuitivo e pieno di funzioni intelligenti',
+    nav: {
+      dashboard: 'Dashboard',
+      myExams: 'I miei esami',
+      flashcards: 'Flashcard',
+      quiz: 'Quiz',
+      aiTutor: 'Tutor AI',
+      analytics: 'Analytics',
+      calendar: 'Calendario',
+    },
+    weeklyGoal: 'Obiettivo settimanale',
+    greeting: 'Buongiorno, Alex',
+    ready: 'Pronto a continuare il tuo percorso?',
+    todaySchedule: 'Programma di oggi',
+    completed: '0/2 completati',
+    cellular: 'Respirazione cellulare',
+    limits: 'Limiti e continuità',
+    biology: 'Biologia',
+    math: 'Matematica',
+    recommended: 'CONSIGLIATI OGGI',
+    media: 'Media',
+    practice: 'Practice',
+    biologyQuiz: 'Quiz di biologia',
+    chemistryFlash: 'Flashcard di chimica',
+    quizMeta: '15 domande • 20 min',
+    flashMeta: '48 carte • Ripasso',
+    startQuiz: 'Inizia quiz',
+    reviewCards: 'Ripassa carte',
+    assistant: 'Assistente AI',
+    assistantPrompt: 'Spiega la fotosintesi in modo semplice',
+  },
+};
 
-function Sidebar() {
+function useMarketingLang() {
+  const [lang, setLang] = useState(() => {
+    if (typeof window === 'undefined') return 'en';
+    return localStorage.getItem('lockeen-lang') === 'it' ? 'it' : 'en';
+  });
+
+  useEffect(() => {
+    const onLanguage = (event) => setLang(event?.detail?.lang === 'it' ? 'it' : 'en');
+    window.addEventListener('lockeen-language', onLanguage);
+    return () => window.removeEventListener('lockeen-language', onLanguage);
+  }, []);
+
+  return lang;
+}
+
+function getNavItems(t) {
+  return [
+    { icon: Zap, label: t.nav.dashboard, active: true },
+    { icon: BookOpen, label: t.nav.myExams },
+    { icon: CreditCard, label: t.nav.flashcards },
+    { icon: Star, label: t.nav.quiz },
+    { icon: MessageSquare, label: t.nav.aiTutor },
+    { icon: LayoutDashboard, label: t.nav.analytics },
+    { icon: Calendar, label: t.nav.calendar },
+  ];
+}
+
+function Sidebar({ t }) {
   return (
     <aside className="hidden w-[260px] shrink-0 flex-col justify-between border-r border-[#E4E7F0] bg-[#F7F8FC] p-5 lg:flex">
       <div className="space-y-2">
-        {navItems.map(({ icon: Icon, label, active }, index) => (
+        {getNavItems(t).map(({ icon: Icon, label, active }, index) => (
           <motion.div
             key={label}
             initial={{ opacity: 0, x: -12 }}
@@ -43,7 +132,7 @@ function Sidebar() {
         viewport={{ once: true }}
         transition={{ duration: 0.45, delay: 0.2 }}
       >
-        <p className="text-sm font-medium text-[#565B73]">Weekly Goal</p>
+        <p className="text-sm font-medium text-[#565B73]">{t.weeklyGoal}</p>
         <p className="mt-3 text-4xl font-extrabold tracking-normal text-[#332BFF]">78%</p>
         <div className="mt-4 h-2 rounded-full bg-[#DCDDF4]">
           <motion.div
@@ -126,7 +215,7 @@ function RecommendationCard({ tone, label, title, meta, cta }) {
   );
 }
 
-function DashboardPreview() {
+function DashboardPreview({ t }) {
   return (
     <motion.div
       className="relative h-full overflow-hidden rounded-[22px] bg-white"
@@ -136,14 +225,14 @@ function DashboardPreview() {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-white/60 to-transparent" />
       <BrowserChrome />
       <div className="flex h-[calc(100%-3.5rem)]">
-        <Sidebar />
+        <Sidebar t={t} />
         <main className="min-w-0 flex-1 overflow-hidden p-5 sm:p-8 lg:p-10">
           <div className="mb-6">
             <h2 className="text-2xl font-extrabold tracking-normal text-[#12142F] sm:text-3xl">
-              Buongiorno, Alex
+              {t.greeting}
             </h2>
             <p className="mt-2 text-sm font-medium text-[#9AA1B2] sm:text-base">
-              Pronto a continuare il tuo percorso?
+              {t.ready}
             </p>
           </div>
 
@@ -157,24 +246,24 @@ function DashboardPreview() {
             <div className="mb-4 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2 text-base font-extrabold text-[#20233E]">
                 <Calendar size={18} className="text-[#4B43FF]" />
-                Programma di oggi
+                {t.todaySchedule}
               </div>
-              <span className="text-sm font-bold text-[#A0A5B5]">0/2 completati</span>
+              <span className="text-sm font-bold text-[#A0A5B5]">{t.completed}</span>
             </div>
             <div className="space-y-3">
-              <ScheduleRow time="09:00" title="Respirazione cellulare" color="#4B43FF" tag="Biologia" />
-              <ScheduleRow time="14:00" title="Limiti e continuità" color="#8B3EF5" tag="Matematica" />
+              <ScheduleRow time="09:00" title={t.cellular} color="#4B43FF" tag={t.biology} />
+              <ScheduleRow time="14:00" title={t.limits} color="#8B3EF5" tag={t.math} />
             </div>
           </motion.section>
 
           <div className="mt-6 flex items-center gap-2 text-sm font-extrabold tracking-wide text-[#9AA1B2]">
             <Star size={20} className="fill-[#FFD966] text-[#F5B400]" />
-            CONSIGLIATI OGGI
+            {t.recommended}
           </div>
 
           <section className="mt-4 grid gap-4 md:grid-cols-2">
-            <RecommendationCard tone="blue" label="Media" title="Biology Quiz" meta="15 questions • 20 min" cta="Start Quiz" />
-            <RecommendationCard tone="purple" label="Practice" title="Chemistry Flash" meta="48 cards • Review" cta="Review Cards" />
+            <RecommendationCard tone="blue" label={t.media} title={t.biologyQuiz} meta={t.quizMeta} cta={t.startQuiz} />
+            <RecommendationCard tone="purple" label={t.practice} title={t.chemistryFlash} meta={t.flashMeta} cta={t.reviewCards} />
           </section>
 
           <motion.section
@@ -186,8 +275,8 @@ function DashboardPreview() {
                 <MessageSquare size={22} />
               </div>
               <div className="min-w-0">
-                <h3 className="text-base font-extrabold text-[#151733]">AI Study Assistant</h3>
-                <p className="truncate text-sm font-medium text-[#9AA1B2]">Explain photosynthesis in simple terms</p>
+                <h3 className="text-base font-extrabold text-[#151733]">{t.assistant}</h3>
+                <p className="truncate text-sm font-medium text-[#9AA1B2]">{t.assistantPrompt}</p>
               </div>
             </div>
           </motion.section>
@@ -198,24 +287,27 @@ function DashboardPreview() {
 }
 
 export default function ProductScrollPreview() {
+  const lang = useMarketingLang();
+  const t = copy[lang] || copy.en;
+
   return (
     <ContainerScroll
       titleComponent={
         <div className="mx-auto max-w-3xl px-6">
           <h2 className="text-4xl font-bold tracking-normal text-[#080A2B] md:text-5xl lg:text-6xl" style={{ lineHeight: 1.08 }}>
-            A workspace designed for
+            {t.title}
             <br />
             <span className="bg-gradient-to-r from-[#332BFF] to-[#8B5CF6] bg-clip-text text-transparent">
-              modern learners
+              {t.highlight}
             </span>
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg font-medium text-[#62677A] md:text-xl">
-            Clean, intuitive, and packed with intelligent features
+            {t.subtitle}
           </p>
         </div>
       }
     >
-      <DashboardPreview />
+      <DashboardPreview t={t} />
     </ContainerScroll>
   );
 }
