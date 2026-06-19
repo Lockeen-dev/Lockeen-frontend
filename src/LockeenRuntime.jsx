@@ -93,6 +93,7 @@ function AuthShell() {
           onAuth={handleAuth}
           onClose={() => setModal(null)}
           darkMode={false}
+          lang={lang}
         />
       )}
       {isAuthenticated && pageAppEl && createPortal(

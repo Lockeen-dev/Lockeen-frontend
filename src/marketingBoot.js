@@ -194,10 +194,6 @@ export function initMarketingDom() {
   const LOCKEEN_LANGS = {
     en: { flag:'🇬🇧', label:'English' },
     it: { flag:'🇮🇹', label:'Italiano' },
-    de: { flag:'🇩🇪', label:'Deutsch' },
-    es: { flag:'🇪🇸', label:'Español' },
-    fr: { flag:'🇫🇷', label:'Français' },
-    pt: { flag:'🇵🇹', label:'Português' },
   };
   const LOCKEEN_I18N = {
     en: {
@@ -215,6 +211,22 @@ export function initMarketingDom() {
       'product.title':'A workspace designed for<br /><span class="gradient-text">modern learners</span>', 'product.sub':'Clean, intuitive, and packed with intelligent features',
       'pricing.title':'Simple, <span class="gradient-text">transparent pricing</span>', 'pricing.sub':'Three plans. No hidden fees.', 'pricing.monthly':'Monthly', 'pricing.annual':'Annual', 'pricing.teams':'For schools & teams', 'pricing.teamsSub':'Volume pricing from <strong>$6</strong>/student/mo · dedicated workspace · admin controls', 'pricing.contact':'Contact Sales →',
       'app.dashboard':'Dashboard', 'app.myExams':'My Exams', 'app.flashcards':'Flashcards', 'app.quiz':'Quiz', 'app.aiTutor':'AI Tutor', 'app.analytics':'Analytics', 'app.calendar':'Calendar', 'app.weeklyGoal':'Weekly Goal',
+      'pricing.note':'14-day free trial · No credit card required · Cancel anytime',
+      'cta.title':'Ready to transform your<br />study experience?',
+      'cta.sub':'Join thousands of students who are already achieving better grades with AI-powered learning.',
+      'cta.start':'Start Free Trial', 'cta.demo':'Schedule Demo',
+      'cta.note':'No credit card required • 14-day free trial • Cancel anytime',
+      'footer.description':'The AI-powered workspace for smarter studying. Learn better, achieve more.',
+      'footer.product':'Product', 'footer.company':'Company', 'footer.resources':'Resources', 'footer.legal':'Legal',
+      'footer.pricing':'Pricing', 'footer.about':'About', 'footer.blog':'Blog', 'footer.careers':'Careers', 'footer.earn':'Earn',
+      'footer.press':'Press', 'footer.partners':'Partners', 'footer.help':'Help Center', 'footer.guides':'Guides',
+      'footer.api':'API Docs', 'footer.status':'Status', 'footer.privacy':'Privacy', 'footer.terms':'Terms',
+      'footer.security':'Security', 'footer.cookies':'Cookie Policy',
+      'ambassador.program':'Lockeen Ambassador Program', 'ambassador.title':'Earn with Lockeen',
+      'ambassador.copy':'Become an Ambassador at your university. Earn <strong style="color:#34D399">€2 for every student</strong> who signs up with your link — forever, with no limits.',
+      'ambassador.cta':'Become an Ambassador →',
+      'footer.rights':'© 2026 Lockeen. All rights reserved.',
+      'footer.privacyPolicy':'Privacy Policy', 'footer.termsService':'Terms of Service', 'footer.cookieSettings':'Cookie Settings',
     },
     it: {
       'nav.features':'Funzioni', 'nav.product':'Prodotto', 'nav.pricing':'Prezzi', 'nav.calendar':'Calendario',
@@ -231,6 +243,22 @@ export function initMarketingDom() {
       'product.title':'Uno spazio progettato per<br /><span class="gradient-text">studenti moderni</span>', 'product.sub':'Pulito, intuitivo e pieno di funzioni intelligenti',
       'pricing.title':'Prezzi <span class="gradient-text">semplici e trasparenti</span>', 'pricing.sub':'Tre piani. Nessun costo nascosto.', 'pricing.monthly':'Mensile', 'pricing.annual':'Annuale', 'pricing.teams':'Per scuole e team', 'pricing.teamsSub':'Prezzi volume da <strong>$6</strong>/studente/mese · workspace dedicato · controlli admin', 'pricing.contact':'Contatta vendite →',
       'app.dashboard':'Dashboard', 'app.myExams':'I miei esami', 'app.flashcards':'Flashcard', 'app.quiz':'Quiz', 'app.aiTutor':'Tutor AI', 'app.analytics':'Analytics', 'app.calendar':'Calendario', 'app.weeklyGoal':'Obiettivo settimanale',
+      'pricing.note':'14 giorni di prova gratis · Nessuna carta richiesta · Cancelli quando vuoi',
+      'cta.title':'Pronto a trasformare<br />il tuo modo di studiare?',
+      'cta.sub':'Unisciti agli studenti che stanno già migliorando i risultati con lo studio potenziato dall’AI.',
+      'cta.start':'Inizia la prova gratis', 'cta.demo':'Prenota una demo',
+      'cta.note':'Nessuna carta richiesta • 14 giorni gratis • Cancelli quando vuoi',
+      'footer.description':'Lo spazio AI per studiare meglio. Impara meglio, raggiungi di più.',
+      'footer.product':'Prodotto', 'footer.company':'Azienda', 'footer.resources':'Risorse', 'footer.legal':'Legale',
+      'footer.pricing':'Prezzi', 'footer.about':'Chi siamo', 'footer.blog':'Blog', 'footer.careers':'Lavora con noi', 'footer.earn':'Guadagna',
+      'footer.press':'Stampa', 'footer.partners':'Partner', 'footer.help':'Centro assistenza', 'footer.guides':'Guide',
+      'footer.api':'Documentazione API', 'footer.status':'Stato', 'footer.privacy':'Privacy', 'footer.terms':'Termini',
+      'footer.security':'Sicurezza', 'footer.cookies':'Cookie Policy',
+      'ambassador.program':'Programma Ambassador Lockeen', 'ambassador.title':'Guadagna con Lockeen',
+      'ambassador.copy':'Diventa Ambassador nella tua università. Guadagni <strong style="color:#34D399">€2 per ogni studente</strong> che si iscrive con il tuo link — per sempre, senza limiti.',
+      'ambassador.cta':'Diventa Ambassador →',
+      'footer.rights':'© 2026 Lockeen. Tutti i diritti riservati.',
+      'footer.privacyPolicy':'Informativa privacy', 'footer.termsService':'Termini di servizio', 'footer.cookieSettings':'Impostazioni cookie',
     },
     de: {
       'nav.features':'Funktionen', 'nav.product':'Produkt', 'nav.pricing':'Preise', 'nav.calendar':'Kalender',
@@ -285,11 +313,86 @@ export function initMarketingDom() {
       'app.dashboard':'Dashboard', 'app.myExams':'Meus exames', 'app.flashcards':'Flashcards', 'app.quiz':'Quiz', 'app.aiTutor':'Tutor IA', 'app.analytics':'Analytics', 'app.calendar':'Calendário', 'app.weeklyGoal':'Meta semanal',
     },
   };
+  function syncLanguageSelectOptions() {
+    document.querySelectorAll('.js-lang-select').forEach(function(sel) {
+      Array.from(sel.options).forEach(function(option) {
+        if (!LOCKEEN_LANGS[option.value]) option.remove();
+      });
+      Object.entries(LOCKEEN_LANGS).forEach(function(entry) {
+        const value = entry[0];
+        const meta = entry[1];
+        let option = Array.from(sel.options).find(function(item) { return item.value === value; });
+        if (!option) {
+          option = document.createElement('option');
+          option.value = value;
+          sel.appendChild(option);
+        }
+        option.textContent = `${meta.flag} ${value.toUpperCase()}`;
+      });
+    });
+  }
+
+  function applyText(el, value, html) {
+    if (!el || !value) return;
+    if (html) el.innerHTML = value;
+    else el.textContent = value;
+  }
+
+  function translateStaticLanding(dict) {
+    applyText(document.querySelector('#pricing .text-center.mt-8 p'), dict['pricing.note']);
+
+    const finalCta = document.querySelector('main > section.relative.py-24.overflow-hidden');
+    if (finalCta) {
+      applyText(finalCta.querySelector('h2'), dict['cta.title'], true);
+      applyText(finalCta.querySelector('p.text-xl'), dict['cta.sub']);
+      const buttons = finalCta.querySelectorAll('button');
+      applyText(buttons[0]?.childNodes?.[0], dict['cta.start']);
+      applyText(buttons[1], dict['cta.demo']);
+      const paragraphs = finalCta.querySelectorAll('p');
+      applyText(paragraphs[paragraphs.length - 1], dict['cta.note']);
+    }
+
+    const footer = document.querySelector('footer');
+    if (!footer) return;
+    applyText(footer.querySelector('.col-span-2 p'), dict['footer.description']);
+    const headings = footer.querySelectorAll('h4');
+    ['footer.product', 'footer.company', 'footer.resources', 'footer.legal'].forEach(function(key, index) {
+      applyText(headings[index], dict[key]);
+    });
+    const footerLinks = footer.querySelectorAll('ul a');
+    [
+      'footer.pricing', 'app.aiTutor', 'app.flashcards', 'app.quiz', 'app.analytics', 'app.calendar',
+      'footer.about', 'footer.blog', 'footer.careers', 'footer.earn', 'footer.press', 'footer.partners',
+      'footer.help', 'footer.guides', 'footer.api', 'footer.status',
+      'footer.privacy', 'footer.terms', 'footer.security', 'footer.cookies',
+    ].forEach(function(key, index) {
+      applyText(footerLinks[index], dict[key]);
+    });
+
+    const ambassador = footer.querySelector('.rounded-2xl.p-8.mb-12');
+    if (ambassador) {
+      applyText(ambassador.querySelector('.uppercase'), dict['ambassador.program']);
+      applyText(ambassador.querySelector('h3'), dict['ambassador.title']);
+      applyText(ambassador.querySelector('p'), dict['ambassador.copy'], true);
+      applyText(ambassador.querySelector('a'), dict['ambassador.cta']);
+    }
+
+    const bottom = footer.querySelector('.pt-8.border-t');
+    if (bottom) {
+      applyText(bottom.querySelector('p'), dict['footer.rights']);
+      const links = bottom.querySelectorAll('a');
+      applyText(links[0], dict['footer.privacyPolicy']);
+      applyText(links[1], dict['footer.termsService']);
+      applyText(links[2], dict['footer.cookieSettings']);
+    }
+  }
+
   function applyLockeenLanguage(lang) {
-    const safeLang = LOCKEEN_I18N[lang] ? lang : 'en';
+    const safeLang = LOCKEEN_LANGS[lang] ? lang : 'en';
     const dict = LOCKEEN_I18N[safeLang];
     document.documentElement.lang = safeLang;
     localStorage.setItem('lockeen-lang', safeLang);
+    syncLanguageSelectOptions();
     document.querySelectorAll('.js-lang-select').forEach(function(sel){ sel.value = safeLang; });
     document.querySelectorAll('[data-i18n]').forEach(function(el){
       const text = dict[el.getAttribute('data-i18n')];
@@ -301,12 +404,14 @@ export function initMarketingDom() {
     });
     renderFeatures(safeLang);
     renderPricing(safeLang);
+    translateStaticLanding(dict);
   }
   window.setLockeenLanguage = function(lang) {
-    applyLockeenLanguage(lang);
-    renderPricing(lang);
-    if (window.lockeenApplyGlobalLanguage) window.lockeenApplyGlobalLanguage(lang);
-    window.dispatchEvent(new CustomEvent('lockeen-language', { detail: { lang } }));
+    const safeLang = LOCKEEN_LANGS[lang] ? lang : 'en';
+    applyLockeenLanguage(safeLang);
+    renderPricing(safeLang);
+    if (window.lockeenApplyGlobalLanguage) window.lockeenApplyGlobalLanguage(safeLang);
+    window.dispatchEvent(new CustomEvent('lockeen-language', { detail: { lang: safeLang } }));
   };
   const initialLockeenLang = localStorage.getItem('lockeen-lang') || 'en';
   applyLockeenLanguage(initialLockeenLang);
