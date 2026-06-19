@@ -377,7 +377,7 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
             'You are the quiz engine of a premium study app. Use only the supplied source text. Do not invent facts.',
             wantsQuiz ? [
               'First identify the real concepts in the source. Then write multiple-choice questions from those concepts.',
-              'Write in Italian unless the source is clearly English-only.',
+              'Write in the dominant language of the supplied source. If the source is Italian, write Italian. If the source is English, write English. Do not mix languages.',
               `Create up to ${quizCount} high-quality questions, but return fewer if the source does not support enough good questions.`,
               'Never ask about the PDF, file name, source name, page number, chapter number, index, table of contents, headings, layout, or study points.',
               'A question must name the specific concept being tested. Avoid generic stems like "quale affermazione descrive meglio un concetto".',
@@ -392,7 +392,7 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
               coverageHint,
             ].join(' ') : [
               'Create premium flashcards from real concepts in the supplied source.',
-              'Write in Italian unless the source is clearly English-only.',
+              'Write in the dominant language of the supplied source. If the source is Italian, write Italian. If the source is English, write English. Do not mix languages.',
               `Create up to ${flashcardCount} high-quality cards, but return fewer if the source does not support enough good cards.`,
               'Use only the supplied source. Do not invent facts.',
               'Never mention the PDF, file name, source name, page number, chapter number, index, table of contents, headings, layout, section number, or study points.',

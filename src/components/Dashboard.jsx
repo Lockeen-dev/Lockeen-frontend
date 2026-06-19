@@ -744,10 +744,11 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         />
       </DashboardCard>
       {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
-      <PlannerOverlay plannerOpen={plannerOpen} setPlannerOpen={setPlannerOpen} setPlannerNoteId={setPlannerNoteId} handlePlanAdded={handlePlanAdded} handlePlanCleared={handlePlanCleared} calEvents={calEvents} exams={exams} quizRuns={quizRuns} />
+      <PlannerOverlay plannerOpen={plannerOpen} setPlannerOpen={setPlannerOpen} setPlannerNoteId={setPlannerNoteId} handlePlanAdded={handlePlanAdded} handlePlanCleared={handlePlanCleared} calEvents={calEvents} exams={exams} quizRuns={quizRuns} lang={lang} />
       {practiceConfig && (
         <PracticeConfigModal
           config={practiceConfig}
+          lang={lang}
           onChange={setPracticeConfig}
           onClose={() => setPracticeConfig(null)}
           onStart={startConfiguredPractice}

@@ -4,11 +4,18 @@ import useIsMobile from '../lib/useIsMobile';
 import { askTutor } from '../services/ai';
 import { extractTextFromFile } from '../services/materials';
 import { createTutorSession, deleteTutorSession, listTutorSessions, updateTutorSession } from '../services/tutorSessions';
+import { tt } from '../lib/i18n';
 
 /* ===================== AI TUTOR ===================== */
-const INITIAL_MSGS = [
-  { who: 'ai', text: "Hi! I'm your AI tutor. What would you like to study today?" },
-];
+const UNTITLED_SESSION_TITLES = new Set(['New conversation', 'Nuova conversazione']);
+
+function initialTutorMsgs(lang = 'en') {
+  return [{ who: 'ai', text: tt(lang, 'tutorWelcome') }];
+}
+
+function isUntitledSessionTitle(title) {
+  return !title || UNTITLED_SESSION_TITLES.has(String(title).trim());
+}
 
 const MAX_TUTOR_FILES = 5;
 const MAX_INLINE_IMAGE_BYTES = 2.5 * 1024 * 1024;
@@ -48,7 +55,7 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function prepareTutorAttachments(files) {
+async function prepareTutorAttachments(files, lang = 'en') {
   const attachments = [];
 
   for (const file of files.slice(0, MAX_TUTOR_FILES)) {
@@ -65,7 +72,7 @@ async function prepareTutorAttachments(files) {
         attachments.push({
           ...base,
           status: 'metadata_only',
-          note: 'Image is too large to read inline in AI Tutor.',
+          note: tt(lang, 'imageTooLargeTutor'),
         });
         continue;
       }
@@ -94,7 +101,7 @@ async function prepareTutorAttachments(files) {
         attachments.push({
           ...base,
           status: 'metadata_only',
-          note: 'PDF is too large to read inline in AI Tutor.',
+          note: tt(lang, 'pdfTooLargeTutor'),
         });
         continue;
       }
@@ -106,7 +113,7 @@ async function prepareTutorAttachments(files) {
           ...base,
           status: 'metadata_only',
           pageCount: result.data?.pageCount || null,
-          note: result.error?.message || result.data?.extractionError || 'PDF has no selectable text. OCR is not available in AI Tutor yet.',
+          note: result.error?.message || result.data?.extractionError || tt(lang, 'pdfNoTextTutor'),
         });
         continue;
       }
@@ -124,7 +131,7 @@ async function prepareTutorAttachments(files) {
     attachments.push({
       ...base,
       status: 'metadata_only',
-      note: 'Unsupported file type for direct AI Tutor reading.',
+      note: tt(lang, 'unsupportedTutorFile'),
     });
   }
 
@@ -296,11 +303,11 @@ function MarkdownMessage({ text }) {
   );
 }
 
-export default function TutorView() {
+export default function TutorView({ lang = 'en' }) {
   const isMobile = useIsMobile();
   const [sessions, setSessions] = useState([]);
   const [activeId, setActiveId] = useState(null);
-  const [msgs, setMsgs] = useState(INITIAL_MSGS);
+  const [msgs, setMsgs] = useState(() => initialTutorMsgs(lang));
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const [aiError, setAiError] = useState('');
@@ -313,6 +320,13 @@ export default function TutorView() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const fileRef = useRef(null);
   const endRef = useRef(null);
+
+  const formatAiError = (error) => {
+    if (!error) return tt(lang, 'aiRequestFailed');
+    if (error.code === 'AI_QUOTA_EXCEEDED') return tt(lang, 'aiQuotaReached');
+    if (error.code === 'AI_PROVIDER_UNAVAILABLE') return tt(lang, 'aiProviderUnavailable');
+    return error.message || tt(lang, 'aiRequestFailed');
+  };
 
   useEffect(() => { endRef.current?.scrollTo({ top: endRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, typing]);
   useEffect(() => { if (!isMobile) setHistoryOpen(true); else setHistoryOpen(false); }, [isMobile]);
@@ -341,7 +355,7 @@ export default function TutorView() {
       if (result.error) {
         setAiError(formatAiError(result.error));
         setSessions([]);
-        setMsgs(INITIAL_MSGS);
+        setMsgs(initialTutorMsgs(lang));
         setLoadingSessions(false);
         return;
       }
@@ -350,35 +364,29 @@ export default function TutorView() {
         const first = result.data[0];
         setSessions(result.data);
         setActiveId(first.id);
-        setMsgs(first.msgs?.length ? first.msgs : INITIAL_MSGS);
+        setMsgs(first.msgs?.length ? first.msgs : initialTutorMsgs(lang));
         setLoadingSessions(false);
         return;
       }
 
-      const createResult = await createTutorSession({ title: 'New conversation', msgs: INITIAL_MSGS });
+      const initMsgs = initialTutorMsgs(lang);
+      const createResult = await createTutorSession({ title: tt(lang, 'newConversation'), msgs: initMsgs });
       if (cancelled) return;
       if (createResult.error) {
         setAiError(formatAiError(createResult.error));
         setSessions([]);
-        setMsgs(INITIAL_MSGS);
+        setMsgs(initMsgs);
       } else {
         setSessions([createResult.data]);
         setActiveId(createResult.data.id);
-        setMsgs(createResult.data.msgs?.length ? createResult.data.msgs : INITIAL_MSGS);
+        setMsgs(createResult.data.msgs?.length ? createResult.data.msgs : initMsgs);
       }
       setLoadingSessions(false);
     }
 
     loadSessions();
     return () => { cancelled = true; };
-  }, []);
-
-  const formatAiError = (error) => {
-    if (!error) return 'AI request failed.';
-    if (error.code === 'AI_QUOTA_EXCEEDED') return 'Daily AI quota reached. Try again tomorrow.';
-    if (error.code === 'AI_PROVIDER_UNAVAILABLE') return 'AI provider is not configured. Showing fallback when available.';
-    return error.message || 'AI request failed.';
-  };
+  }, [lang]);
 
   const persistSession = async (sessionId, nextMsgs, nextTitle) => {
     if (!sessionId) return;
@@ -396,14 +404,14 @@ export default function TutorView() {
     const fullText = text + fileNote;
     const sessionId = activeId;
     const activeSession = sessions.find(s => String(s.id) === String(sessionId));
-    const nextTitle = activeSession?.title === 'New conversation' && text
+    const nextTitle = isUntitledSessionTitle(activeSession?.title) && text
       ? text.slice(0, 42)
       : null;
     let preparedAttachments = [];
     try {
-      preparedAttachments = await prepareTutorAttachments(files);
+      preparedAttachments = await prepareTutorAttachments(files, lang);
     } catch {
-      setAiError('Could not read the selected file. Try another image or text file.');
+      setAiError(tt(lang, 'couldNotReadFile'));
       return;
     }
 
@@ -423,7 +431,7 @@ export default function TutorView() {
       const result = await askTutor({
         prompt: fullText,
         context: {
-          currentSubject: activeSession?.title && activeSession.title !== 'New conversation' ? activeSession.title : null,
+          currentSubject: !isUntitledSessionTitle(activeSession?.title) ? activeSession.title : null,
           preferredDepth: /quick|brief|short/i.test(text) ? 'quick' : /deep|detail|well/i.test(text) ? 'deep' : 'standard',
           weakTopics: [],
           examGoals: [],
@@ -431,7 +439,7 @@ export default function TutorView() {
           attachments: preparedAttachments,
         },
       });
-      const reply = result.data?.text || 'No answer returned.';
+      const reply = result.data?.text || tt(lang, 'noAnswerReturned');
       if (result.error) setAiError(formatAiError(result.error));
       setMsgs(m => {
         const next = [...m, { who: 'ai', text: result.error ? formatAiError(result.error) : reply }];
@@ -440,7 +448,7 @@ export default function TutorView() {
         return next;
       });
     } catch {
-      const message = 'AI provider unavailable. Try again later.';
+      const message = tt(lang, 'aiUnavailableLater');
       setAiError(message);
       setMsgs(m => {
         const next = [...m, { who: 'ai', text: message }];
@@ -454,8 +462,8 @@ export default function TutorView() {
   };
 
   const newChat = async () => {
-    const init = [{ who: 'ai', text: "Hi! I'm your AI tutor. What would you like to explore today?" }];
-    const result = await createTutorSession({ title: 'New conversation', msgs: init });
+    const init = initialTutorMsgs(lang);
+    const result = await createTutorSession({ title: tt(lang, 'newConversation'), msgs: init });
     if (result.error) {
       setAiError(formatAiError(result.error));
       return;
@@ -475,7 +483,7 @@ export default function TutorView() {
 
   const openRenameSession = (session) => {
     setRenameTarget(session);
-    setRenameDraft(session.title || 'New conversation');
+    setRenameDraft(session.title || tt(lang, 'newConversation'));
   };
 
   const confirmRenameSession = async () => {
@@ -525,7 +533,7 @@ export default function TutorView() {
       if (String(activeId) === String(deleteTarget.id)) {
         const next = remaining[0];
         setActiveId(next?.id || null);
-        setMsgs(next?.msgs?.length ? next.msgs : INITIAL_MSGS);
+        setMsgs(next?.msgs?.length ? next.msgs : initialTutorMsgs(lang));
       }
       return remaining;
     });
@@ -535,7 +543,12 @@ export default function TutorView() {
 
   const pinnedSessions = sessions.filter(s => s.pinned);
   const recentSessions = sessions.filter(s => !s.pinned);
-  const suggestions = ['Explain a concept', 'Make a study plan', 'Quiz me on my notes', 'Create a quick recap'];
+  const suggestions = [
+    tt(lang, 'explainConcept'),
+    tt(lang, 'makeStudyPlan'),
+    tt(lang, 'quizMe'),
+    tt(lang, 'createRecap'),
+  ];
 
   const renderSessionItem = (s) => {
     const isActive = s.id === activeId;
@@ -547,13 +560,13 @@ export default function TutorView() {
         </button>
         {isActive && (
           <div style={tutorS.historyIconActions}>
-            <button type="button" onClick={() => togglePinned(s)} title={s.pinned ? 'Unpin chat' : 'Pin chat'} aria-label={s.pinned ? 'Unpin chat' : 'Pin chat'} style={{ ...tutorS.historyIconBtn, ...(s.pinned ? tutorS.historyPinnedIconBtn : {}) }}>
+            <button type="button" onClick={() => togglePinned(s)} title={s.pinned ? tt(lang, 'unpinChat') : tt(lang, 'pinChat')} aria-label={s.pinned ? tt(lang, 'unpinChat') : tt(lang, 'pinChat')} style={{ ...tutorS.historyIconBtn, ...(s.pinned ? tutorS.historyPinnedIconBtn : {}) }}>
               <Pin size={12} />
             </button>
-            <button type="button" onClick={() => openRenameSession(s)} title="Rename chat" aria-label="Rename chat" style={tutorS.historyIconBtn}>
+            <button type="button" onClick={() => openRenameSession(s)} title={tt(lang, 'renameChat')} aria-label={tt(lang, 'renameChat')} style={tutorS.historyIconBtn}>
               <Pencil size={12} />
             </button>
-            <button type="button" onClick={() => setDeleteTarget(s)} title="Delete chat" aria-label="Delete chat" style={{ ...tutorS.historyIconBtn, ...tutorS.historyDangerIconBtn }}>
+            <button type="button" onClick={() => setDeleteTarget(s)} title={tt(lang, 'deleteChat')} aria-label={tt(lang, 'deleteChat')} style={{ ...tutorS.historyIconBtn, ...tutorS.historyDangerIconBtn }}>
               <Trash2 size={12} />
             </button>
           </div>
@@ -578,21 +591,21 @@ export default function TutorView() {
         maxHeight: isMobile ? 220 : 'none',
       }}>
         <button onClick={newChat} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '9px 12px', borderRadius: 10, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 12, border: 'none', cursor: 'pointer', marginBottom: 12 }}>
-          <Plus size={13} /> New chat
+          <Plus size={13} /> {tt(lang, 'newChat')}
         </button>
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {loadingSessions && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>Loading...</div>}
+          {loadingSessions && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>{tt(lang, 'loading')}</div>}
           {!loadingSessions && pinnedSessions.length > 0 && (
             <>
-              <p style={tutorS.historyLabel}>Pinned</p>
+              <p style={tutorS.historyLabel}>{tt(lang, 'pinned')}</p>
               {pinnedSessions.map(renderSessionItem)}
             </>
           )}
           {!loadingSessions && (
             <>
-              <p style={tutorS.historyLabel}>Recent</p>
+              <p style={tutorS.historyLabel}>{tt(lang, 'recent')}</p>
               {recentSessions.map(renderSessionItem)}
-              {sessions.length === 0 && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>No chats yet.</div>}
+              {sessions.length === 0 && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>{tt(lang, 'noChatsYet')}</div>}
             </>
           )}
         </div>
@@ -606,13 +619,13 @@ export default function TutorView() {
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>AI Tutor</h2>
               <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--gray)' }}>
-                <span style={tutorS.onlineDot} /> Online • Powered by Lockeen AI
+                <span style={tutorS.onlineDot} /> {tt(lang, 'tutorOnline')}
               </p>
             </div>
           </div>
           {isMobile && (
             <button onClick={() => setHistoryOpen(p => !p)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 999, border: '1px solid var(--border)', background: historyOpen ? 'var(--lavender)' : 'var(--surface)', color: historyOpen ? 'var(--indigo)' : 'var(--ink)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-              <MsgCircle size={14} /> History
+              <MsgCircle size={14} /> {tt(lang, 'history')}
             </button>
           )}
         </div>
@@ -671,7 +684,7 @@ export default function TutorView() {
                   <button
                     type="button"
                     onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
-                    aria-label={`Remove ${file.name}`}
+                    aria-label={tt(lang, 'removeFile', { name: file.name })}
                     style={tutorS.removeAttachmentBtn}
                   >
                     ×
@@ -692,7 +705,7 @@ export default function TutorView() {
               setFiles(prev => {
                 const next = [...prev, ...selected].slice(0, MAX_TUTOR_FILES);
                 if (prev.length + selected.length > MAX_TUTOR_FILES) {
-                  setAiError(`You can attach up to ${MAX_TUTOR_FILES} files.`);
+                  setAiError(tt(lang, 'fileLimit', { count: MAX_TUTOR_FILES }));
                 } else {
                   setAiError('');
                 }
@@ -701,11 +714,11 @@ export default function TutorView() {
               e.target.value = '';
             }}
           />
-          <button type="button" onClick={() => fileRef.current.click()} title="Attach file" style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray)', display: 'grid', placeItems: 'center' }}>
+          <button type="button" onClick={() => fileRef.current.click()} title={tt(lang, 'attachFile')} aria-label={tt(lang, 'attachFile')} style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray)', display: 'grid', placeItems: 'center' }}>
             <Paperclip size={16} />
           </button>
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask me anything…" style={tutorS.composerInput} />
-          <button type="submit" disabled={typing} style={{ ...tutorS.sendBtn, opacity: typing ? .6 : 1, cursor: typing ? 'not-allowed' : 'pointer' }} aria-label="Send"><Send size={16} /></button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={tt(lang, 'askAnything')} style={tutorS.composerInput} />
+          <button type="submit" disabled={typing} style={{ ...tutorS.sendBtn, opacity: typing ? .6 : 1, cursor: typing ? 'not-allowed' : 'pointer' }} aria-label={tt(lang, 'send')}><Send size={16} /></button>
           </div>
         </form>
       </div>
@@ -714,8 +727,8 @@ export default function TutorView() {
         <div style={tutorS.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="rename-chat-title">
           <div style={tutorS.modalCard}>
             <div>
-              <h3 id="rename-chat-title" style={tutorS.modalTitle}>Rename chat</h3>
-              <p style={tutorS.modalCopy}>Choose a short name so you can find this conversation later.</p>
+              <h3 id="rename-chat-title" style={tutorS.modalTitle}>{tt(lang, 'renameChat')}</h3>
+              <p style={tutorS.modalCopy}>{tt(lang, 'renameChatCopy')}</p>
             </div>
             <input
               autoFocus
@@ -731,8 +744,8 @@ export default function TutorView() {
               style={tutorS.modalInput}
             />
             <div style={tutorS.modalActions}>
-              <button type="button" onClick={() => { setRenameTarget(null); setRenameDraft(''); }} style={tutorS.modalGhostBtn}>Cancel</button>
-              <button type="button" onClick={confirmRenameSession} style={tutorS.modalPrimaryBtn}>Save</button>
+              <button type="button" onClick={() => { setRenameTarget(null); setRenameDraft(''); }} style={tutorS.modalGhostBtn}>{tt(lang, 'cancel')}</button>
+              <button type="button" onClick={confirmRenameSession} style={tutorS.modalPrimaryBtn}>{tt(lang, 'save')}</button>
             </div>
           </div>
         </div>
@@ -742,14 +755,14 @@ export default function TutorView() {
         <div style={tutorS.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="delete-chat-title">
           <div style={tutorS.modalCard}>
             <div>
-              <h3 id="delete-chat-title" style={tutorS.modalTitle}>Delete chat?</h3>
+              <h3 id="delete-chat-title" style={tutorS.modalTitle}>{tt(lang, 'deleteChatQuestion')}</h3>
               <p style={tutorS.modalCopy}>
-                This will permanently remove “{deleteTarget.title || 'New conversation'}” from your history.
+                {tt(lang, 'deleteChatCopy', { title: deleteTarget.title || tt(lang, 'newConversation') })}
               </p>
             </div>
             <div style={tutorS.modalActions}>
-              <button type="button" onClick={() => setDeleteTarget(null)} style={tutorS.modalGhostBtn}>Cancel</button>
-              <button type="button" onClick={confirmDeleteSession} style={{ ...tutorS.modalPrimaryBtn, ...tutorS.modalDangerBtn }}>Delete</button>
+              <button type="button" onClick={() => setDeleteTarget(null)} style={tutorS.modalGhostBtn}>{tt(lang, 'cancel')}</button>
+              <button type="button" onClick={confirmDeleteSession} style={{ ...tutorS.modalPrimaryBtn, ...tutorS.modalDangerBtn }}>{tt(lang, 'delete')}</button>
             </div>
           </div>
         </div>

@@ -69,7 +69,7 @@ export function DashboardHeader({
               <button
                 type="button"
                 style={{ ...shellS.iconBtn, position: 'relative', cursor: 'pointer' }}
-                aria-label="Notifications"
+                aria-label={tt(lang, 'notifications')}
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowNotifPanel((p) => {
@@ -86,7 +86,7 @@ export function DashboardHeader({
                   </span>
                 )}
               </button>
-              {showNotifPanel && <NotificationsPanel notifications={notifications} clearAll={clearAll} />}
+              {showNotifPanel && <NotificationsPanel notifications={notifications} clearAll={clearAll} lang={lang} />}
             </div>
           )}
           <ProfileMenu
@@ -104,18 +104,18 @@ export function DashboardHeader({
   );
 }
 
-function NotificationsPanel({ notifications, clearAll }) {
+function NotificationsPanel({ notifications, clearAll, lang = 'en' }) {
   return (
     <div style={{ position: 'absolute', top: 46, right: 0, width: 340, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 16px 40px -8px rgba(15,16,53,.25)', zIndex: 9999, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', borderBottom: '1px solid var(--border)' }}>
-        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>Notifications</span>
+        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{tt(lang, 'notifications')}</span>
         {notifications.length > 0 && (
-          <button onClick={clearAll} style={{ fontSize: 11, color: 'var(--gray)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Clear all</button>
+          <button onClick={clearAll} style={{ fontSize: 11, color: 'var(--gray)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>{tt(lang, 'clearAll')}</button>
         )}
       </div>
       <div style={{ maxHeight: 320, overflowY: 'auto' }}>
         {notifications.length === 0 ? (
-          <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--gray)', fontSize: 13 }}>No notifications yet</div>
+          <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--gray)', fontSize: 13 }}>{tt(lang, 'noNotifications')}</div>
         ) : notifications.map((n) => <NotificationItem key={n.id} notification={n} />)}
       </div>
     </div>
@@ -164,7 +164,7 @@ function ProfileMenu({ user, lang, profileRef, showProfileMenu, setShowProfileMe
             <div style={{ fontSize: 11, color: 'var(--gray)', marginTop: 2 }}>{user.email || 'alex@lockeen.com'}</div>
           </div>
           <button onClick={() => { setTab('account'); setShowProfileMenu(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
-            <Pencil size={15} /> Account settings
+            <Pencil size={15} /> {tt(lang, 'accountSettings')}
           </button>
           <button onClick={handleLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
             <LogOut size={15} /> {tt(lang, 'signOut')}

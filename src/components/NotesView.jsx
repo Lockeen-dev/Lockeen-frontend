@@ -569,6 +569,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
 
       {deletingExam && (
         <DeleteExamModal
+          lang={lang}
           exam={deletingExam}
           onClose={() => { setDeletingExam(null); setActionError(null); }}
           onConfirm={() => handleDeleteExam(deletingExam.id)}
@@ -578,6 +579,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       )}
       {editingExam && (
         <EditExamModal
+          lang={lang}
           exam={editingExam}
           onClose={() => { setEditingExam(null); setActionError(null); }}
           onSave={(changes) => handleEditExam(editingExam.id, changes)}
@@ -588,6 +590,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
 
       {showCreate && (
         <CreateExamModal
+          lang={lang}
           onClose={() => { setShowCreate(false); setActionError(null); }}
           onCreate={handleCreateExam}
           saving={savingAction === 'create'}
@@ -599,15 +602,15 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       {loading && (
         <div style={examsS.empty}>
           <div style={examsS.emptyIcon}><FileText size={22} /></div>
-          <div style={examsS.emptyTitle}>Loading exams...</div>
-          <div style={examsS.emptySub}>Fetching your mock exam list.</div>
+          <div style={examsS.emptyTitle}>{tt(lang, 'loadingExams')}</div>
+          <div style={examsS.emptySub}>{tt(lang, 'fetchingExamList')}</div>
         </div>
       )}
 
       {!loading && loadError && (
         <div style={examsS.empty}>
           <div style={examsS.emptyIcon}><FileText size={22} /></div>
-          <div style={examsS.emptyTitle}>Unable to load exams</div>
+          <div style={examsS.emptyTitle}>{tt(lang, 'unableLoadExams')}</div>
           <div style={examsS.emptySub}>{loadError}</div>
         </div>
       )}
@@ -615,8 +618,8 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       {!loading && !loadError && filtered.length === 0 && (
         <div style={examsS.empty}>
           <div style={examsS.emptyIcon}><FileText size={22} /></div>
-          <div style={examsS.emptyTitle}>{exams.length === 0 ? 'No exams yet' : 'No exams found'}</div>
-          <div style={examsS.emptySub}>{exams.length === 0 ? 'Create your first exam to start organizing chapters.' : 'Try a different search term.'}</div>
+          <div style={examsS.emptyTitle}>{exams.length === 0 ? tt(lang, 'noExamsYet') : tt(lang, 'noExamsFound')}</div>
+          <div style={examsS.emptySub}>{exams.length === 0 ? tt(lang, 'createFirstExam') : tt(lang, 'tryDifferentSearch')}</div>
         </div>
       )}
 
@@ -644,7 +647,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                       </span>
                       {dl >= 0 && (
                         <span style={{ position:'absolute', top:12, right:12, fontSize:11, fontWeight:700, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--indigo)', lineHeight:1.3 }}>
-                          {dl === 0 ? 'Oggi!' : `${dl} giorni`}
+                          {dl === 0 ? `${tt(lang, 'today')}!` : tt(lang, 'daysLeft', { count: dl })}
                         </span>
                       )}
                     </>
@@ -664,30 +667,30 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                 <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, marginBottom:4 }}>
                   <h3 style={{ ...notesS.title, margin:0, flex:1 }}>{x.name}</h3>
                   <div style={{ display:'flex', gap:4, flexShrink:0 }}>
-                    <button title="Modifica" onClick={() => setEditingExam(x)}
+                    <button title={tt(lang, 'edit')} onClick={() => setEditingExam(x)}
                       style={{ width:28, height:28, borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--gray)', cursor:'pointer', display:'grid', placeItems:'center' }}>
                       <Pencil size={13} />
                     </button>
-                    <button title="Elimina" onClick={() => setDeletingExam(x)}
+                    <button title={tt(lang, 'delete')} onClick={() => setDeletingExam(x)}
                       style={{ width:28, height:28, borderRadius:8, border:'1.5px solid #FCA5A5', background:'#FEF2F2', color:'#EF4444', cursor:'pointer', display:'grid', placeItems:'center' }}>
                       <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
                 <p style={notesS.meta}>
-                  {x.chapters.length} {x.chapters.length === 1 ? 'chapter' : 'chapters'}
+                  {tt(lang, x.chapters.length === 1 ? 'chapterCount' : 'chaptersCount', { count: x.chapters.length })}
                 </p>
                 <div style={gradeS.cardTarget}>
                   <span style={{ width: 7, height: 7, borderRadius: 999, background: palette.dot }} />
-                  <span style={gradeS.cardTargetLabel}>Target</span>
+                  <span style={gradeS.cardTargetLabel}>{tt(lang, 'target')}</span>
                   <GradeValue value={x.targetGrade || 27} color={palette.dot} size={18} />
                 </div>
                 <div style={notesS.actions}>
                   <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
-                    <LockeenLogo size={16} /> Open Exam
+                    <LockeenLogo size={16} /> {tt(lang, 'openExam')}
                   </button>
                   <button style={notesS.ghostSmall} onClick={() => onOpenQuizForExam && onOpenQuizForExam(x.id)}>
-                    <Sparkles size={14} /> Quick Quiz
+                    <Sparkles size={14} /> {tt(lang, 'quickQuiz')}
                   </button>
                 </div>
               </div>
@@ -2493,6 +2496,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
 
         {showUpload && (
           <UploadChapterModal
+            lang={lang}
             existingChapters={chapters}
             onClose={() => setShowUpload(false)}
             onUpload={async (payload) => {
@@ -2539,6 +2543,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
 
         {editingChapter && (
           <EditChapterModal
+            lang={lang}
             chapter={editingChapter}
             onClose={() => setEditingChapter(null)}
             onSave={async (newTitle) => { await onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
