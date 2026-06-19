@@ -956,7 +956,7 @@ async function buildFlashcardBankCards({ title, sourceText, pageCount = null }) 
   const generated = [];
   const errors = [];
 
-  for (const [index, chunk] of chunks.entries()) {
+  async function generateChunk(chunk, index) {
     const aiResult = await generatePracticeFromText({
       kind: 'flashcards',
       title,
@@ -964,14 +964,27 @@ async function buildFlashcardBankCards({ title, sourceText, pageCount = null }) 
       cardCount: Math.min(60, perChunk),
       coverageHint: `${plan.coverageHint} Source part ${index + 1} of ${chunks.length}: cover only concepts visible in this source part, but never refer to the source part number.`,
     });
-    if (aiResult.error) errors.push(aiResult.error);
+    const chunkErrors = aiResult.error ? [aiResult.error] : [];
     const aiCards = (aiResult.data?.cards || [])
       .map((card) => normalizeGeneratedFlashcard(card, title))
       .filter(isPlayableFlashcard);
-    generated.push(...aiCards);
-    if (aiCards.length < Math.min(4, perChunk)) {
-      generated.push(...buildFlashcardsFromText(title, chunk.text || chunk, perChunk));
-    }
+    const fallbackCards = aiCards.length < Math.min(4, perChunk)
+      ? buildFlashcardsFromText(title, chunk.text || chunk, perChunk)
+      : [];
+    return {
+      cards: [...aiCards, ...fallbackCards],
+      errors: chunkErrors,
+    };
+  }
+
+  const concurrency = chunks.length > 8 ? 3 : 2;
+  for (let start = 0; start < chunks.length; start += concurrency) {
+    const batch = chunks.slice(start, start + concurrency);
+    const batchResults = await Promise.all(batch.map((chunk, offset) => generateChunk(chunk, start + offset)));
+    batchResults.forEach((result) => {
+      generated.push(...result.cards);
+      errors.push(...result.errors);
+    });
   }
 
   const cards = dedupeFlashcards(generated.map((card) => normalizeGeneratedFlashcard(card, title)).filter(isPlayableFlashcard));

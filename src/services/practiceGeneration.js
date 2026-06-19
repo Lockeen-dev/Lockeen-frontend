@@ -3,6 +3,7 @@ import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 import { fail, ok } from './_shared';
 
 const PRACTICE_TIMEOUT_MS = 90000;
+const FLASHCARD_PRACTICE_TIMEOUT_MS = 45000;
 const DIFFICULTIES = ['easy', 'medium', 'hard', 'extreme'];
 const CARD_TYPES = ['definition', 'comparison', 'formula', 'example', 'misconception'];
 const CARD_DIFFICULTIES = ['easy', 'medium', 'hard'];
@@ -68,7 +69,8 @@ export async function generatePracticeFromText({ kind = 'quiz', title, sourceTex
   }
 
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), PRACTICE_TIMEOUT_MS);
+  const timeoutMs = kind === 'flashcards' ? FLASHCARD_PRACTICE_TIMEOUT_MS : PRACTICE_TIMEOUT_MS;
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   let response;
   try {
