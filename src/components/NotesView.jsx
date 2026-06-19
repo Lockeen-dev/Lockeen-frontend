@@ -149,6 +149,85 @@ function isPlayablePracticeQuestion(question = {}) {
   );
 }
 
+function hasBadFlashcardReference(value = '') {
+  const text = normalizePracticeText(value).toLowerCase();
+  return (
+    /\b(pdf|file|documento|materiale caricato|uploaded material|source text|page|pagina|chapter|capitolo|figure|figura|indice|index|table of contents|sommario|study point|punto\s+studio|appendix|appendice|section|sezione)\b/.test(text) ||
+    /\btesi\s+matr\b|\bmatr\.\s*\d+/i.test(text) ||
+    /\b\d{1,2}\.\d{1,2}(?:\.\d{1,2})?\b/.test(text)
+  );
+}
+
+function isGenericFlashcardFront(value = '') {
+  const text = normalizePracticeText(value).toLowerCase();
+  return [
+    'main point from uploaded material',
+    'key detail',
+    'core idea of',
+    'best review method',
+    'common weak point',
+    'example check',
+    'next step after a mistake',
+    'what is the main idea',
+    'qual è il concetto principale',
+    'spiega questo concetto',
+  ].some((pattern) => text.includes(pattern));
+}
+
+function hasBrokenFlashcardText(value = '') {
+  const text = normalizePracticeText(value);
+  return (
+    !text ||
+    /\.{2,}|…/.test(text) ||
+    /^[,.;:)\]-]/.test(text) ||
+    /(?:\b(di|del|della|delle|che|per|con|tra|fra|a|in|il|la|lo|gli|le|un|una|the|of|to|and|with|for|come|da|al|ai)\b)[,;:]?$/i.test(text)
+  );
+}
+
+function isPlayableFlashcard(card = {}) {
+  const front = normalizePracticeText(card.front || card.q);
+  const back = normalizePracticeText(card.back || card.a);
+  const visibleTexts = [front, back, card.topic];
+  return (
+    (card.validationStatus || card.validation_status || 'valid') !== 'rejected' &&
+    front.length >= 8 &&
+    front.length <= 150 &&
+    back.length >= 16 &&
+    back.length <= 560 &&
+    front.toLowerCase() !== back.toLowerCase() &&
+    !isGenericFlashcardFront(front) &&
+    !visibleTexts.some(hasBadFlashcardReference) &&
+    ![front, back].some(hasBrokenFlashcardText)
+  );
+}
+
+function normalizeGeneratedFlashcard(card = {}, title = '') {
+  return {
+    front: cleanStudyText(card.front || card.q || ''),
+    back: cleanStudyText(card.back || card.a || ''),
+    type: card.type || card.cardType || null,
+    difficulty: card.difficulty || null,
+    topic: cleanStudyText(card.topic || title || '').slice(0, 60),
+    sourceSnippet: cleanStudyText(card.sourceSnippet || card.sourceChunk || '').slice(0, 260),
+    validationStatus: card.validationStatus || 'valid',
+    validationNotes: Array.isArray(card.validationNotes) ? card.validationNotes : [],
+  };
+}
+
+function dedupeFlashcards(cards = []) {
+  const seen = new Set();
+  const frontSeen = new Set();
+  return cards.filter((card) => {
+    const frontKey = cleanStudyText(card.front || card.q || '').toLowerCase().replace(/[^a-z0-9à-ù]+/gi, ' ').trim();
+    const backKey = cleanStudyText(card.back || card.a || '').toLowerCase().replace(/[^a-z0-9à-ù]+/gi, ' ').trim();
+    const key = `${frontKey} ${backKey}`.slice(0, 220);
+    if (!frontKey || !backKey || seen.has(key) || frontSeen.has(frontKey)) return false;
+    seen.add(key);
+    frontSeen.add(frontKey);
+    return true;
+  });
+}
+
 function cleanStudyText(value = '') {
   return String(value || '')
     .replace(/[\u2018\u2019]/g, "'")
@@ -223,10 +302,31 @@ function buildQuestionsFromText(title, seedText = '') {
 function buildFlashcardsFromText(title, seedText = '', limit = 12) {
   const facts = extractStudyFacts(seedText);
   if (!facts.length) return [];
-  return facts.slice(0, limit).map((fact, index) => ({
-    front: index === 0 ? 'Main point from uploaded material' : `Key detail ${index + 1} from uploaded material`,
-    back: shortFact(fact, 220),
-  }));
+  const topic = cleanPracticeTitle(title, 'Argomento').replace(/\.[a-z0-9]{2,5}$/i, '');
+  const cards = facts.map((fact) => {
+    const cleanFact = compactFact(fact, 260);
+    const match = cleanFact.match(/^(.{10,90}?)\s+(è|sono|misura|indica|rappresenta|descrive|serve|permette|consente|spiega|dipende)\s+(.+)$/i);
+    if (match) {
+      const subject = compactFact(match[1], 88);
+      const verb = match[2].toLowerCase();
+      return {
+        front: `Che cosa ${verb} ${subject}?`,
+        back: cleanFact,
+        type: 'definition',
+        difficulty: 'medium',
+        topic,
+      };
+    }
+    const concept = compactFact(cleanFact.split(/[:;.-]\s+/)[0] || cleanFact, 92);
+    return {
+      front: concept.length >= 16 ? `Qual è il punto chiave su ${concept}?` : `Che cosa va ricordato su ${topic}?`,
+      back: cleanFact,
+      type: 'definition',
+      difficulty: 'medium',
+      topic,
+    };
+  });
+  return dedupeFlashcards(cards.map((card) => normalizeGeneratedFlashcard(card, topic)).filter(isPlayableFlashcard)).slice(0, limit);
 }
 
 function buildGeneratedQuestions(title, seedQuestions = [], seedText = '') {
@@ -245,19 +345,12 @@ function buildGeneratedQuestions(title, seedQuestions = [], seedText = '') {
 function buildGeneratedFlashcards(title, seedCards = [], seedText = '') {
   const normalizedSeeds = (seedCards || [])
     .filter((card) => (card.front || card.q) && (card.back || card.a))
-    .map((card) => ({ front: card.front || card.q, back: card.back || card.a }));
+    .map((card) => normalizeGeneratedFlashcard({ ...card, front: card.front || card.q, back: card.back || card.a }, title))
+    .filter(isPlayableFlashcard);
   if (normalizedSeeds.length) return normalizedSeeds.slice(0, 12);
   const textCards = buildFlashcardsFromText(title, seedText, 20);
   if (textCards.length) return textCards;
-
-  const topic = cleanPracticeTitle(title, 'this topic');
-  return [
-    { front: `Core idea of ${topic}`, back: 'Write the main concept in one clear sentence, then connect one example.' },
-    { front: `Best review method for ${topic}`, back: 'Use active recall: answer first, then check and correct.' },
-    { front: `Common weak point in ${topic}`, back: 'The part you cannot explain without looking should become the next practice target.' },
-    { front: `Example check for ${topic}`, back: 'Create one concrete example and explain why it matches the rule.' },
-    { front: `Next step after a mistake in ${topic}`, back: 'Record why the answer was wrong, review the concept, and retry later.' },
-  ];
+  return [];
 }
 
 function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
@@ -776,9 +869,11 @@ function estimateFlashcardPlan({ sourceText = '', pageCount = null } = {}) {
   const coverageHint = [
     `Estimated pages: ${pages}.`,
     `Estimated words: ${words}.`,
-    `Detected study points: ${facts.length}.`,
+    `Detected concept candidates: ${facts.length}.`,
     `Planned source sections: ${chunks.length || 1}.`,
-    'Create atomic flashcards across meaningful concepts; do not duplicate.',
+    'Create atomic flashcards across definitions, key concepts, comparisons, formulas, examples, applications, and common mistakes.',
+    'Do not mention PDF, file names, page, chapter, index, headings, layout, source section, or study points.',
+    'Every flashcard front must be a useful active-recall prompt. Avoid generic fronts and copied headings.',
   ].join(' ');
   return { cardCount, coverageHint, chunks };
 }
@@ -859,6 +954,7 @@ async function buildFlashcardBankCards({ title, sourceText, pageCount = null }) 
   const chunks = plan.chunks.length ? plan.chunks : [{ text: sourceText }];
   const perChunk = Math.max(5, Math.ceil(plan.cardCount / chunks.length));
   const generated = [];
+  const errors = [];
 
   for (const [index, chunk] of chunks.entries()) {
     const aiResult = await generatePracticeFromText({
@@ -866,24 +962,23 @@ async function buildFlashcardBankCards({ title, sourceText, pageCount = null }) 
       title,
       sourceText: chunk.text || chunk,
       cardCount: Math.min(60, perChunk),
-      coverageHint: `${plan.coverageHint} Section ${index + 1} of ${chunks.length}: cover only concepts visible in this section.`,
+      coverageHint: `${plan.coverageHint} Source part ${index + 1} of ${chunks.length}: cover only concepts visible in this source part, but never refer to the source part number.`,
     });
-    const aiCards = aiResult.data?.cards || [];
+    if (aiResult.error) errors.push(aiResult.error);
+    const aiCards = (aiResult.data?.cards || [])
+      .map((card) => normalizeGeneratedFlashcard(card, title))
+      .filter(isPlayableFlashcard);
     generated.push(...aiCards);
-    if (aiCards.length < Math.min(5, perChunk)) {
+    if (aiCards.length < Math.min(4, perChunk)) {
       generated.push(...buildFlashcardsFromText(title, chunk.text || chunk, perChunk));
     }
   }
 
-  const seen = new Set();
-  return generated
-    .filter((card) => {
-      const key = cleanStudyText(`${card.front || card.q || ''} ${card.back || card.a || ''}`).toLowerCase().slice(0, 180);
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, plan.cardCount);
+  const cards = dedupeFlashcards(generated.map((card) => normalizeGeneratedFlashcard(card, title)).filter(isPlayableFlashcard));
+  if (!cards.length && errors.length) {
+    console.warn('Flashcard generation failed quality validation', errors);
+  }
+  return cards.slice(0, plan.cardCount);
 }
 
 async function createQuestionBankForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
@@ -972,7 +1067,7 @@ async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId
     const desiredCardCount = estimateFlashcardPlan({ sourceText: material.extractedText, pageCount: material.pageCount }).cardCount;
     const reuseThreshold = Math.max(5, Math.floor(desiredCardCount * 0.85));
     const existing = await listFlashcards({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
-    const existingCards = existing.error ? [] : (existing.data || []);
+    const existingCards = existing.error ? [] : (existing.data || []).filter(isPlayableFlashcard);
     if (existingCards.length >= reuseThreshold) return existingCards;
 
     const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
@@ -981,7 +1076,9 @@ async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId
       sourceText: material.extractedText,
       pageCount: material.pageCount,
     });
-    const missingCards = cards.slice(0, Math.max(0, desiredCardCount - existingCards.length));
+    const missingCards = cards.filter(isPlayableFlashcard).slice(0, Math.max(0, desiredCardCount - existingCards.length));
+    if (!missingCards.length && !existingCards.length) return null;
+
     const created = [];
     for (const card of missingCards) {
       const result = await createFlashcard({
@@ -995,7 +1092,8 @@ async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId
       if (result.error) return created.length ? created : null;
       created.push(result.data);
     }
-    return [...existingCards, ...created];
+    const mergedCards = [...existingCards, ...created].filter(isPlayableFlashcard);
+    return mergedCards.length ? mergedCards : null;
   });
 }
 
@@ -1097,11 +1195,17 @@ function EmptyState({ icon: IconCmp = FileText, title, copy, actionLabel, onActi
   );
 }
 
-function makePracticeScope(items = [], fallbackItems = [], predicate = () => true, countItems = (value) => value.length) {
+function makePracticeScope(
+  items = [],
+  fallbackItems = [],
+  predicate = () => true,
+  countItems = (value) => value.length,
+  countFallbackItems = countItems,
+) {
   const matchedItems = (items || []).filter(predicate);
   const serviceCount = countItems(matchedItems);
   if (serviceCount > 0) return serviceCount;
-  return (fallbackItems || []).filter(isPlayablePracticeQuestion).length;
+  return countFallbackItems(fallbackItems || []);
 }
 
 function getPracticeStatus({ quizCount = 0, flashcardCount = 0, hasReadyMaterial = false, hasPendingMaterial = false, hasFailedPractice = false }) {
@@ -1112,7 +1216,10 @@ function getPracticeStatus({ quizCount = 0, flashcardCount = 0, hasReadyMaterial
   const canOpen = quizReady || flashcardsReady || preparing;
 
   if (quizReady && flashcardsReady) return { tone: 'ready', label: 'Quiz e flashcard pronti', quizReady, flashcardsReady, canOpen };
-  if (failed) return { tone: 'failed', label: 'Generazione fallita', quizReady, flashcardsReady, canOpen: false };
+  if (failed) {
+    const label = quizReady ? 'Flashcard non generate' : flashcardsReady ? 'Quiz non generato' : 'Generazione fallita';
+    return { tone: 'failed', label, quizReady, flashcardsReady, canOpen: quizReady || flashcardsReady };
+  }
   if (preparing) return { tone: 'preparing', label: 'Preparazione in corso...', quizReady, flashcardsReady, canOpen };
   return { tone: 'empty', label: 'Carica materiale per preparare quiz e flashcard', quizReady, flashcardsReady, canOpen };
 }
@@ -1850,7 +1957,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
     materials: materials.length,
     notes: notes.length,
     quizzes: practiceItems.quizzes.length || allQuiz.length,
-    flashcards: practiceItems.flashcards.length || allFlash.length,
+    flashcards: practiceItems.flashcards.filter(isPlayableFlashcard).length || allFlash.filter(isPlayableFlashcard).length,
   };
   const practiceStatusByMaterial = materials.reduce((acc, material) => {
     const materialId = String(material.id);
@@ -1859,8 +1966,14 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       [],
       (quiz) => String(quiz.sourceMaterialId) === materialId,
       (quizzes) => quizzes.reduce((sum, quiz) => sum + ((quiz.questions || []).filter(isPlayablePracticeQuestion).length || 0), 0),
+      (questions) => questions.filter(isPlayablePracticeQuestion).length,
     );
-    const flashcardCount = makePracticeScope(practiceItems.flashcards, [], (card) => String(card.sourceMaterialId) === materialId);
+    const flashcardCount = makePracticeScope(
+      practiceItems.flashcards,
+      [],
+      (card) => String(card.sourceMaterialId) === materialId,
+      (cards) => cards.filter(isPlayableFlashcard).length,
+    );
     acc[materialId] = getPracticeStatus({
       quizCount,
       flashcardCount,
@@ -1878,8 +1991,15 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       chapter.questions || [],
       (quiz) => String(quiz.chapterId) === chapterId,
       (quizzes) => quizzes.reduce((sum, quiz) => sum + ((quiz.questions || []).filter(isPlayablePracticeQuestion).length || 0), 0),
+      (questions) => questions.filter(isPlayablePracticeQuestion).length,
     );
-    const flashcardCount = makePracticeScope(practiceItems.flashcards, chapter.cards || [], (card) => String(card.chapterId) === chapterId);
+    const flashcardCount = makePracticeScope(
+      practiceItems.flashcards,
+      chapter.cards || [],
+      (card) => String(card.chapterId) === chapterId,
+      (cards) => cards.filter(isPlayableFlashcard).length,
+      (cards) => cards.filter(isPlayableFlashcard).length,
+    );
     acc[chapterId] = getPracticeStatus({
       quizCount,
       flashcardCount,
@@ -1969,7 +2089,11 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       title: title || material.title || exam.name,
     })
       .then((result) => {
-        if (!result?.quizBank) {
+        const flashcardBank = result?.flashcardBank;
+        const hasFlashcards = Array.isArray(flashcardBank)
+          ? flashcardBank.filter(isPlayableFlashcard).length > 0
+          : Boolean(flashcardBank);
+        if (!result?.quizBank || !hasFlashcards) {
           setFailedPracticeMaterialIds((current) => new Set(current).add(materialId));
         }
         return reloadPracticeItems();

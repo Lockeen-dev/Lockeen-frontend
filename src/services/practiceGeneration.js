@@ -4,6 +4,8 @@ import { fail, ok } from './_shared';
 
 const PRACTICE_TIMEOUT_MS = 90000;
 const DIFFICULTIES = ['easy', 'medium', 'hard', 'extreme'];
+const CARD_TYPES = ['definition', 'comparison', 'formula', 'example', 'misconception'];
+const CARD_DIFFICULTIES = ['easy', 'medium', 'hard'];
 
 function normalizeQuestion(question = {}) {
   const options = Array.isArray(question.options)
@@ -37,9 +39,19 @@ function normalizeConcept(concept = {}) {
 }
 
 function normalizeCard(card = {}) {
+  const type = String(card.type || card.cardType || card.card_type || '').toLowerCase();
+  const difficulty = String(card.difficulty || '').toLowerCase();
   return {
     front: String(card.front || card.q || '').trim(),
     back: String(card.back || card.a || '').trim(),
+    type: CARD_TYPES.includes(type) ? type : null,
+    difficulty: CARD_DIFFICULTIES.includes(difficulty) ? difficulty : null,
+    topic: String(card.topic || '').trim(),
+    sourceSnippet: String(card.sourceSnippet || card.sourceChunk || '').trim(),
+    sourceChunk: String(card.sourceChunk || card.sourceSnippet || '').trim(),
+    qualityScore: card.qualityScore ?? null,
+    validationStatus: card.validationStatus || 'valid',
+    validationNotes: Array.isArray(card.validationNotes) ? card.validationNotes : [],
   };
 }
 
