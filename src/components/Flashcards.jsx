@@ -25,6 +25,61 @@ function normalizeFlashcard(card) {
   };
 }
 
+function cleanFlashcardText(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function hasBadFlashcardReference(value = '') {
+  const text = cleanFlashcardText(value).toLowerCase();
+  return (
+    /\b(pdf|file|documento|materiale caricato|uploaded material|source text|page|pagina|chapter|capitolo|figure|figura|indice|index|table of contents|sommario|study point|punto\s+studio|appendix|appendice|section|sezione)\b/.test(text) ||
+    /\btesi\s+matr\b|\bmatr\.\s*\d+/i.test(text) ||
+    /\b\d{1,2}\.\d{1,2}(?:\.\d{1,2})?\b/.test(text)
+  );
+}
+
+function hasBrokenFlashcardText(value = '') {
+  const text = cleanFlashcardText(value);
+  return (
+    !text ||
+    /\.{2,}|…/.test(text) ||
+    /^[,.;:)\]-]/.test(text) ||
+    /(?:\b(di|del|della|delle|che|per|con|tra|fra|a|in|il|la|lo|gli|le|un|una|the|of|to|and|with|for|come|da|al|ai)\b)[,;:]?$/i.test(text)
+  );
+}
+
+function isGenericFlashcardFront(value = '') {
+  const text = cleanFlashcardText(value).toLowerCase();
+  return [
+    'main point from uploaded material',
+    'key detail',
+    'core idea of',
+    'best review method',
+    'common weak point',
+    'example check',
+    'next step after a mistake',
+    'what is the main idea',
+    'qual è il concetto principale',
+    'spiega questo concetto',
+  ].some((pattern) => text.includes(pattern));
+}
+
+function isPlayableFlashcard(card = {}) {
+  const front = cleanFlashcardText(card.front || card.q);
+  const back = cleanFlashcardText(card.back || card.a);
+  const texts = [front, back, card.topic, card.sourceSnippet, card.sourceChunk];
+  return (
+    front.length >= 8 &&
+    front.length <= 150 &&
+    back.length >= 16 &&
+    back.length <= 560 &&
+    front.toLowerCase() !== back.toLowerCase() &&
+    !isGenericFlashcardFront(front) &&
+    !texts.some(hasBadFlashcardReference) &&
+    !texts.some(hasBrokenFlashcardText)
+  );
+}
+
 function realId(value) {
   return value && value !== 'all' ? value : null;
 }
@@ -130,14 +185,16 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
     if (!deck?._practiceConfig) setSelectedChapterId('all');
   }, [selectedExamId, selectedExam]);
 
+  const playableCards = cards.filter(isPlayableFlashcard);
   const getCardsForChapter = (chapter) => {
-    const serviceCards = cards.filter((card) => String(card.chapterId) === String(chapter.id));
+    const serviceCards = playableCards.filter((card) => String(card.chapterId) === String(chapter.id));
     if (cardsLoaded && !cardsError) return serviceCards;
-    return serviceCards.length ? serviceCards : (chapter.cards || []).map(normalizeFlashcard);
+    const fallbackCards = (chapter.cards || []).map(normalizeFlashcard).filter(isPlayableFlashcard);
+    return serviceCards.length ? serviceCards : fallbackCards;
   };
   const availableCards = selectedChapterId === 'all'
-    ? cards
-    : cards.filter((card) => String(card.chapterId) === String(selectedChapterId));
+    ? playableCards
+    : playableCards.filter((card) => String(card.chapterId) === String(selectedChapterId));
   const maxCards = availableCards.length;
   const effectiveCards = Math.min(numCards, maxCards || 1);
   const focusedFromNotes = deck?._practiceConfig?.source === 'study-material';
@@ -168,8 +225,8 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
   const focusScopeLabel = selectedChapterId === 'all' ? 'Intero esame' : 'Capitolo';
   const countCardsForChapter = (chapterId) => {
     if (!selectedExam) return 0;
-    if (chapterId === 'all') return cards.length;
-    return cards.filter((card) => String(card.chapterId) === String(chapterId)).length;
+    if (chapterId === 'all') return playableCards.length;
+    return playableCards.filter((card) => String(card.chapterId) === String(chapterId)).length;
   };
   const startConfiguredDeck = () => {
     if (!selectedExam || !maxCards) return;
@@ -386,7 +443,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
           </div>
           {loadingCards && <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>Loading flashcards...</p>}
           {cardsError && <p style={{ margin:'12px 0 0', color:'#DC2626', fontSize:13 }}>{cardsError}</p>}
-          {!loadingCards && !cardsError && cards.length === 0 && (
+          {!loadingCards && !cardsError && playableCards.length === 0 && (
             <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>No flashcards yet.</p>
           )}
           <form onSubmit={submitCardForm} style={{ marginTop:16, padding:16, border:'1px solid var(--border)', borderRadius:16, background:'var(--surface)', display:'grid', gap:10 }}>
@@ -411,9 +468,9 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
               )}
             </div>
           </form>
-          {cards.length > 0 && (
+          {playableCards.length > 0 && (
             <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:8 }}>
-              {cards.slice(0, 8).map(card => (
+              {playableCards.slice(0, 8).map(card => (
                 <div key={card.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', border:'1px solid var(--border)', borderRadius:12, background:'var(--surface)' }}>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{card.front}</div>
@@ -467,7 +524,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
 export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examColor, _examDot, setTab, darkMode, exams = [], onFlashComplete, onBackToLanding }) {
   const currentExam = exams.find((exam) => String(exam.id) === String(_meta?.examId || noteId));
   const palette = getExamPalette(currentExam || { subject, color: _meta?.examColor || _examColor, dot: _meta?.examDot || _examDot }, darkMode);
-  const normalizedCards = (cards || []).map(normalizeFlashcard);
+  const normalizedCards = (cards || []).map(normalizeFlashcard).filter(isPlayableFlashcard);
   const total = normalizedCards.length;
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);

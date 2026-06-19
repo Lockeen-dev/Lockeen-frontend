@@ -252,14 +252,95 @@ function normalizeQuizQuestions(value, { limit = 5, title = '' } = {}) {
     .slice(0, limit);
 }
 
-function normalizeFlashcards(value, { limit = 8 } = {}) {
+const FLASHCARD_TYPES = ['definition', 'comparison', 'formula', 'example', 'misconception'];
+const FLASHCARD_DIFFICULTIES = ['easy', 'medium', 'hard'];
+
+function normalizeFlashcardType(value = '') {
+  const type = String(value || '').toLowerCase().trim();
+  return FLASHCARD_TYPES.includes(type) ? type : 'definition';
+}
+
+function normalizeFlashcardDifficulty(value = '') {
+  const difficulty = String(value || '').toLowerCase().trim();
+  return FLASHCARD_DIFFICULTIES.includes(difficulty) ? difficulty : 'medium';
+}
+
+function hasBadFlashcardReference(text = '', title = '') {
+  const value = compactLine(text).toLowerCase();
+  return (
+    hasSourceName(value, title) ||
+    hasLayoutReference(value) ||
+    /\b(pdf|file|documento|materiale caricato|uploaded material|source text|page|pagina|chapter|capitolo|figure|figura|index|indice|table of contents|sommario|appendix|appendice|section|sezione|study point|punto\s+studio)\b/.test(value)
+  );
+}
+
+function isGenericFlashcardFront(text = '') {
+  const value = compactLine(text).toLowerCase();
+  return [
+    'main point from uploaded material',
+    'key detail',
+    'core idea of',
+    'best review method',
+    'common weak point',
+    'example check',
+    'next step after a mistake',
+    'what is the main idea',
+    'qual è il concetto principale',
+    'spiega questo concetto',
+  ].some((pattern) => value.includes(pattern));
+}
+
+function flashcardQualityNotes(card = {}, title = '') {
+  const front = compactLine(card.front);
+  const back = compactLine(card.back);
+  const texts = [front, back, card.topic, card.sourceSnippet].map(compactLine);
+  const notes = [];
+
+  if (!front) notes.push('missing_front');
+  if (!back) notes.push('missing_back');
+  if (front.length < 8) notes.push('front_too_short');
+  if (front.length > 140) notes.push('front_too_long');
+  if (back.length < 18) notes.push('back_too_short');
+  if (back.length > 520) notes.push('back_too_long');
+  if (texts.some((text) => hasBadFlashcardReference(text, title))) notes.push('layout_or_source_reference');
+  if ([front, back].some(hasTruncatedText)) notes.push('truncated_text');
+  if (isGenericFlashcardFront(front)) notes.push('generic_front');
+  if (front.toLowerCase() === back.toLowerCase()) notes.push('front_equals_back');
+  if (back.toLowerCase().startsWith(front.toLowerCase()) && back.length < front.length * 1.7) notes.push('front_repeated_in_back');
+
+  return notes;
+}
+
+function normalizeFlashcards(value, { limit = 8, title = '' } = {}) {
   const raw = Array.isArray(value) ? value : [];
+  const seen = new Set();
   return raw
-    .map((card) => ({
-      front: compactLine(card.front || card.q),
-      back: compactLine(card.back || card.a),
-    }))
-    .filter((card) => card.front && card.back)
+    .map((card) => {
+      const normalized = {
+        front: compactLine(card.front || card.q),
+        back: compactLine(card.back || card.a),
+        type: normalizeFlashcardType(card.type || card.cardType || card.card_type),
+        difficulty: normalizeFlashcardDifficulty(card.difficulty),
+        topic: compactLine(card.topic || '').slice(0, 60),
+        sourceSnippet: compactLine(card.sourceSnippet || card.sourceChunk || '').slice(0, 260),
+      };
+      const notes = flashcardQualityNotes(normalized, title);
+      const key = compactLine(`${normalized.front} ${normalized.back}`).toLowerCase().slice(0, 220);
+      return {
+        ...normalized,
+        qualityScore: Math.max(0, 1 - (notes.length * 0.2)),
+        validationNotes: notes,
+        validationStatus: notes.length ? 'rejected' : 'valid',
+        _key: key,
+      };
+    })
+    .filter((card) => {
+      if (card.validationStatus !== 'valid') return false;
+      if (!card._key || seen.has(card._key)) return false;
+      seen.add(card._key);
+      return true;
+    })
+    .map(({ _key, ...card }) => card)
     .slice(0, limit);
 }
 
@@ -279,7 +360,7 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
   const safeTitle = promptSafeTitle(title);
   const schemaInstruction = wantsQuiz
     ? 'Return JSON only: {"concepts":[{"conceptKey":"short-stable-id","title":"...","summary":"...","importance":1-5}],"questions":[{"q":"...","options":["...","...","...","..."],"correct":0,"explanation":"...","difficulty":"easy|medium|hard","topic":"...","conceptKey":"matching-concept-key","sourceChunk":"short source snippet"}]}.'
-    : `Return JSON only: {"cards":[{"front":"...","back":"..."}]}. Create up to ${flashcardCount} flashcards.`;
+    : `Return JSON only: {"cards":[{"front":"...","back":"...","type":"definition|comparison|formula|example|misconception","difficulty":"easy|medium|hard","topic":"...","sourceSnippet":"short proof snippet"}]}. Create up to ${flashcardCount} flashcards.`;
 
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -309,7 +390,23 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
               'Use about 40% easy, 40% medium, 20% hard. Do not use extreme.',
               'sourceChunk must be a short content snippet that proves the answer. It must not be a layout/header/page reference.',
               coverageHint,
-            ].join(' ') : `Create atomic flashcards across the whole supplied source; no duplicates. ${coverageHint}`,
+            ].join(' ') : [
+              'Create premium flashcards from real concepts in the supplied source.',
+              'Write in Italian unless the source is clearly English-only.',
+              `Create up to ${flashcardCount} high-quality cards, but return fewer if the source does not support enough good cards.`,
+              'Use only the supplied source. Do not invent facts.',
+              'Never mention the PDF, file name, source name, page number, chapter number, index, table of contents, headings, layout, section number, or study points.',
+              'front must be a short active-recall prompt or named concept, max 100 characters. It must not be a copied sentence from the source.',
+              'back must be a complete answer grounded in the source, max 300 characters. No ellipsis. No truncated phrases.',
+              'One atomic idea per card. Split broad ideas into separate cards.',
+              'Prefer cards about definitions, key concepts, comparisons, examples, applications, formulas, and common misconceptions.',
+              'Use plausible learning prompts: "Che cosa misura...", "Perché...", "Qual è la differenza tra...", "Quando...", "Quale ruolo ha...".',
+              'Avoid generic fronts like "Main point", "Key detail", "Core idea", "Spiega questo concetto", or "Concetto principale".',
+              'topic must be a 2-4 word subject label from the material.',
+              'sourceSnippet must be a short content snippet proving the answer, not a layout/header/page reference.',
+              'Use about 45% easy, 40% medium, 15% hard. Do not use extreme.',
+              coverageHint,
+            ].join(' '),
             schemaInstruction,
           ].join(' '),
         },
@@ -325,7 +422,7 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
           }),
         },
       ],
-      max_output_tokens: wantsQuiz ? Math.min(14000, Math.max(4200, quizCount * 430)) : Math.min(7000, Math.max(1800, flashcardCount * 220)),
+      max_output_tokens: wantsQuiz ? Math.min(14000, Math.max(4200, quizCount * 430)) : Math.min(10000, Math.max(2600, flashcardCount * 320)),
       temperature: wantsQuiz ? 0.25 : 0.2,
     }),
   });
@@ -359,7 +456,7 @@ async function callOpenAI({ kind, title, sourceText, questionCount = 5, cardCoun
       : { data: null, providerError: 'AI returned no valid questions after quality validation.' };
   }
 
-  const cards = normalizeFlashcards(parsed.cards, { limit: flashcardCount });
+  const cards = normalizeFlashcards(parsed.cards, { limit: flashcardCount, title });
   return cards.length
     ? { data: { cards, provider: 'openai', model }, providerError: null }
     : { data: null, providerError: 'AI returned no valid flashcards.' };
