@@ -84,6 +84,64 @@ function realId(value) {
   return value && value !== 'all' ? value : null;
 }
 
+const FLASHCARD_ROTATION_PREFIX = 'lockeen.flashcardRotation.v1';
+
+function getFlashcardRotationId(card = {}, index = 0) {
+  if (card.id || card.flashcardId) return String(card.id || card.flashcardId);
+  const front = cleanFlashcardText(card.front || card.q).slice(0, 90);
+  const back = cleanFlashcardText(card.back || card.a).slice(0, 90);
+  return `${index}:${front}:${back}`;
+}
+
+function shuffleFlashcards(items = []) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
+function readFlashcardRotation(key) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(`${FLASHCARD_ROTATION_PREFIX}:${key}`) || '[]');
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeFlashcardRotation(key, ids) {
+  try {
+    localStorage.setItem(`${FLASHCARD_ROTATION_PREFIX}:${key}`, JSON.stringify([...ids].slice(-500)));
+  } catch {
+    // Rotation is a UX helper only; studying still works if storage is unavailable.
+  }
+}
+
+function selectRotatingFlashcards(cards = [], count = 10, rotationKey = 'default') {
+  const indexedCards = cards.map((card, index) => ({
+    card,
+    id: getFlashcardRotationId(card, index),
+  }));
+  const availableIds = new Set(indexedCards.map((item) => item.id));
+  const activeSeenIds = new Set([...readFlashcardRotation(rotationKey)].filter((id) => availableIds.has(id)));
+  const unseen = indexedCards.filter((item) => !activeSeenIds.has(item.id));
+  const seen = indexedCards.filter((item) => activeSeenIds.has(item.id));
+  const shouldRecycle = unseen.length === 0;
+  const selected = shuffleFlashcards(shouldRecycle ? indexedCards : unseen).slice(0, count);
+
+  if (selected.length < count && !shouldRecycle) {
+    selected.push(...shuffleFlashcards(seen).slice(0, count - selected.length));
+  }
+
+  const nextSeenIds = shouldRecycle ? new Set() : activeSeenIds;
+  selected.forEach((item) => nextSeenIds.add(item.id));
+  writeFlashcardRotation(rotationKey, nextSeenIds);
+
+  return selected.map((item) => item.card);
+}
+
 function FlashResultScreen({ percent, correct, total, palette, title, subject, subjectStyle, saveError, saved, onReset, onBack }) {
   const [p, setP] = useState(0);
   useEffect(() => {
@@ -231,11 +289,17 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
   const startConfiguredDeck = () => {
     if (!selectedExam || !maxCards) return;
     const chapter = selectedChapterId === 'all' ? null : selectedExam.chapters.find((item) => String(item.id) === String(selectedChapterId));
+    const rotationKey = [
+      selectedExam.id,
+      chapter?.id || 'all',
+      deck?._practiceConfig?.sourceMaterialId || deck?._practiceConfig?.noteId || 'all-materials',
+    ].map(String).join(':');
+    const sessionCards = selectRotatingFlashcards(availableCards, effectiveCards, rotationKey);
     onOpenDeck({
       noteId: chapter?.id || selectedExam.id,
       subject: selectedExam.subject,
       title: chapter?.title || selectedExam.name,
-      cards: availableCards.slice(0, effectiveCards),
+      cards: sessionCards,
       _examColor: selectedExam.color || null,
       _examDot: selectedExam.dot || null,
       _meta: {
