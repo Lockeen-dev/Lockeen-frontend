@@ -187,7 +187,7 @@ function hasBrokenFlashcardText(value = '') {
 function isPlayableFlashcard(card = {}) {
   const front = normalizePracticeText(card.front || card.q);
   const back = normalizePracticeText(card.back || card.a);
-  const texts = [front, back, card.topic, card.sourceSnippet, card.sourceChunk];
+  const visibleTexts = [front, back, card.topic];
   return (
     (card.validationStatus || card.validation_status || 'valid') !== 'rejected' &&
     front.length >= 8 &&
@@ -196,8 +196,8 @@ function isPlayableFlashcard(card = {}) {
     back.length <= 560 &&
     front.toLowerCase() !== back.toLowerCase() &&
     !isGenericFlashcardFront(front) &&
-    !texts.some(hasBadFlashcardReference) &&
-    !texts.some(hasBrokenFlashcardText)
+    !visibleTexts.some(hasBadFlashcardReference) &&
+    ![front, back].some(hasBrokenFlashcardText)
   );
 }
 
@@ -1077,6 +1077,8 @@ async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId
       pageCount: material.pageCount,
     });
     const missingCards = cards.filter(isPlayableFlashcard).slice(0, Math.max(0, desiredCardCount - existingCards.length));
+    if (!missingCards.length && !existingCards.length) return null;
+
     const created = [];
     for (const card of missingCards) {
       const result = await createFlashcard({
@@ -1090,7 +1092,8 @@ async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId
       if (result.error) return created.length ? created : null;
       created.push(result.data);
     }
-    return [...existingCards, ...created];
+    const mergedCards = [...existingCards, ...created].filter(isPlayableFlashcard);
+    return mergedCards.length ? mergedCards : null;
   });
 }
 
@@ -1213,7 +1216,10 @@ function getPracticeStatus({ quizCount = 0, flashcardCount = 0, hasReadyMaterial
   const canOpen = quizReady || flashcardsReady || preparing;
 
   if (quizReady && flashcardsReady) return { tone: 'ready', label: 'Quiz e flashcard pronti', quizReady, flashcardsReady, canOpen };
-  if (failed) return { tone: 'failed', label: 'Generazione fallita', quizReady, flashcardsReady, canOpen: false };
+  if (failed) {
+    const label = quizReady ? 'Flashcard non generate' : flashcardsReady ? 'Quiz non generato' : 'Generazione fallita';
+    return { tone: 'failed', label, quizReady, flashcardsReady, canOpen: quizReady || flashcardsReady };
+  }
   if (preparing) return { tone: 'preparing', label: 'Preparazione in corso...', quizReady, flashcardsReady, canOpen };
   return { tone: 'empty', label: 'Carica materiale per preparare quiz e flashcard', quizReady, flashcardsReady, canOpen };
 }
@@ -2083,7 +2089,11 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       title: title || material.title || exam.name,
     })
       .then((result) => {
-        if (!result?.quizBank) {
+        const flashcardBank = result?.flashcardBank;
+        const hasFlashcards = Array.isArray(flashcardBank)
+          ? flashcardBank.filter(isPlayableFlashcard).length > 0
+          : Boolean(flashcardBank);
+        if (!result?.quizBank || !hasFlashcards) {
           setFailedPracticeMaterialIds((current) => new Set(current).add(materialId));
         }
         return reloadPracticeItems();

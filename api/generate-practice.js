@@ -293,7 +293,7 @@ function isGenericFlashcardFront(text = '') {
 function flashcardQualityNotes(card = {}, title = '') {
   const front = compactLine(card.front);
   const back = compactLine(card.back);
-  const texts = [front, back, card.topic, card.sourceSnippet].map(compactLine);
+  const visibleTexts = [front, back, card.topic].map(compactLine);
   const notes = [];
 
   if (!front) notes.push('missing_front');
@@ -302,7 +302,7 @@ function flashcardQualityNotes(card = {}, title = '') {
   if (front.length > 140) notes.push('front_too_long');
   if (back.length < 18) notes.push('back_too_short');
   if (back.length > 520) notes.push('back_too_long');
-  if (texts.some((text) => hasBadFlashcardReference(text, title))) notes.push('layout_or_source_reference');
+  if (visibleTexts.some((text) => hasBadFlashcardReference(text, title))) notes.push('layout_or_source_reference');
   if ([front, back].some(hasTruncatedText)) notes.push('truncated_text');
   if (isGenericFlashcardFront(front)) notes.push('generic_front');
   if (front.toLowerCase() === back.toLowerCase()) notes.push('front_equals_back');

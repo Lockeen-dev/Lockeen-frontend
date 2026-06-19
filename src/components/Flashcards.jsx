@@ -67,7 +67,7 @@ function isGenericFlashcardFront(value = '') {
 function isPlayableFlashcard(card = {}) {
   const front = cleanFlashcardText(card.front || card.q);
   const back = cleanFlashcardText(card.back || card.a);
-  const texts = [front, back, card.topic, card.sourceSnippet, card.sourceChunk];
+  const visibleTexts = [front, back, card.topic];
   return (
     front.length >= 8 &&
     front.length <= 150 &&
@@ -75,8 +75,8 @@ function isPlayableFlashcard(card = {}) {
     back.length <= 560 &&
     front.toLowerCase() !== back.toLowerCase() &&
     !isGenericFlashcardFront(front) &&
-    !texts.some(hasBadFlashcardReference) &&
-    !texts.some(hasBrokenFlashcardText)
+    !visibleTexts.some(hasBadFlashcardReference) &&
+    ![front, back].some(hasBrokenFlashcardText)
   );
 }
 
