@@ -56,6 +56,13 @@ function quotaUnavailable(message) {
   return error;
 }
 
+function aiProviderError(message, code = 'AI_PROVIDER_UNAVAILABLE', status = 503) {
+  const error = new Error(message);
+  error.code = code;
+  error.status = status;
+  return error;
+}
+
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -145,40 +152,6 @@ async function checkPersistentQuota(userKey) {
     resetAt: resetAt.toISOString(),
     source: 'persistent',
   };
-}
-
-function fallbackFor(kind, prompt) {
-  if (kind === 'planner') {
-    return [
-      '## Study plan',
-      '',
-      '**Key idea:** use one focused loop: review, practice, check, repeat.',
-      '',
-      '### Session structure',
-      '1. Pick one exam or chapter.',
-      '2. Study for 25 minutes.',
-      '3. Write 5 key points from memory.',
-      '4. Do one short quiz or 5 flashcards.',
-      '',
-      '**Next action:** start a 25 minute session on that weak point now.',
-    ].join('\n');
-  }
-
-  return [
-    '## Quick explanation',
-    '',
-    prompt
-      ? `Focus on: ${prompt.slice(0, 180)}`
-      : 'Break the topic into one core idea and one useful example.',
-    '',
-    '**Core idea:** define it simply, then test it with one example.',
-    '',
-    '### How to study it',
-    '1. Define the topic in one sentence.',
-    '2. Connect it to one concrete example.',
-    '3. Identify the confusing part.',
-    '4. Practice that part once.',
-  ].filter(Boolean).join('\n');
 }
 
 function inferResponseMode(prompt, kind) {
@@ -294,11 +267,7 @@ function buildTutorSystemText({ mode, depth }) {
 async function callOpenAI({ kind, prompt, context }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return {
-      text: fallbackFor(kind, prompt),
-      provider: 'fallback',
-      fallback: true,
-    };
+    throw aiProviderError('AI provider is not configured.', 'AI_PROVIDER_UNAVAILABLE', 503);
   }
 
   const mode = inferResponseMode(prompt, kind);
@@ -345,12 +314,8 @@ async function callOpenAI({ kind, prompt, context }) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    return {
-      text: fallbackFor(kind, prompt),
-      provider: 'fallback',
-      fallback: true,
-      providerError: `OpenAI ${response.status}: ${errorText.slice(0, 300)}`,
-    };
+    const code = response.status === 429 ? 'AI_PROVIDER_QUOTA_EXCEEDED' : 'AI_PROVIDER_ERROR';
+    throw aiProviderError(`OpenAI ${response.status}: ${errorText.slice(0, 300)}`, code, response.status === 429 ? 429 : 502);
   }
 
   const data = await response.json();
@@ -361,10 +326,14 @@ async function callOpenAI({ kind, prompt, context }) {
       .join('\n')
       .trim();
 
+  if (!text) {
+    throw aiProviderError('AI provider returned an empty response.', 'AI_PROVIDER_EMPTY_RESPONSE', 502);
+  }
+
   return {
-    text: text || fallbackFor(kind, prompt),
+    text,
     provider: 'openai',
-    fallback: !text,
+    fallback: false,
     responseMode: mode,
     depth,
   };
@@ -419,17 +388,11 @@ export default async function handler(req, res) {
       error: null,
     });
   } catch (error) {
-    return json(res, 200, {
-      data: {
-        text: fallbackFor(kind, prompt),
-        provider: 'fallback',
-        fallback: true,
-        kind,
-        quota,
-      },
+    return json(res, error?.status || 502, {
+      data: null,
       error: {
-        code: error?.name || 'AI_PROVIDER_ERROR',
-        message: error?.message || 'AI provider failed; fallback returned.',
+        code: error?.code || error?.name || 'AI_PROVIDER_ERROR',
+        message: error?.message || 'AI provider failed.',
       },
     });
   }

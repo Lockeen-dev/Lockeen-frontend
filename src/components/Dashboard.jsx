@@ -325,7 +325,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       setWeekData(sessionsToWeekData(next));
       return next;
     });
-    addNotification(`Study session logged: ${mins} min`, 'timer');
+    addNotification(`Logging study session: ${mins} min`, 'timer');
     const result = await createStudySession({ minutes: mins, studiedAt, source: 'timer' });
     if (!result.error && result.data) {
       setStudySessions(prev => {
@@ -333,7 +333,16 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         setWeekData(sessionsToWeekData(next));
         return next;
       });
+      addNotification(`Study session logged: ${mins} min`, 'timer');
+      return;
     }
+
+    setStudySessions(prev => {
+      const next = prev.filter((session) => session.id !== localSession.id);
+      setWeekData(sessionsToWeekData(next));
+      return next;
+    });
+    addNotification(result.error?.message || 'Could not save study session.', 'error');
   }
 
   const [plannerOpen, setPlannerOpen]       = useState(false);
