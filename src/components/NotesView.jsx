@@ -727,7 +727,6 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
   );
 }
 
-const READINESS_FALLBACKS = { studyTime: 70, planProgress: 55 };
 const MATERIAL_UI_META_KEY = 'lockeen.materialUiMeta.v1';
 
 function readMaterialUiMeta() {
@@ -1222,11 +1221,30 @@ function formatStudyDate(value) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function getReadinessStatus(score) {
-  if (score >= 90) return { label: 'Exam ready', recommendation: 'Keep momentum with quick review sessions.' };
-  if (score >= 70) return { label: 'Almost ready', recommendation: 'Focus on weak topics first.' };
-  if (score >= 40) return { label: 'More practice needed', recommendation: 'Focus on weak topics first.' };
-  return { label: 'Getting started', recommendation: 'Upload material and generate your first quiz.' };
+function averagePercent(values = []) {
+  const valid = values.map(Number).filter((value) => Number.isFinite(value));
+  if (!valid.length) return null;
+  return Math.round(valid.reduce((sum, value) => sum + value, 0) / valid.length);
+}
+
+function summarizeQuizReadiness(runs = [], fallbackScores = []) {
+  const validRuns = (runs || []).filter((run) => Number(run.total) > 0);
+  if (validRuns.length) {
+    const totals = validRuns.reduce((acc, run) => ({
+      score: acc.score + Number(run.rawScore ?? run.score ?? 0),
+      total: acc.total + Number(run.total || 0),
+    }), { score: 0, total: 0 });
+    if (totals.total > 0) {
+      return { value: Math.round((totals.score / totals.total) * 100), count: validRuns.length };
+    }
+  }
+  const fallback = averagePercent(fallbackScores);
+  return fallback == null ? { value: null, count: 0 } : { value: fallback, count: fallbackScores.length };
+}
+
+function summarizeFlashReadiness(scores = []) {
+  const value = averagePercent(scores);
+  return value == null ? { value: null, count: 0 } : { value, count: scores.length };
 }
 
 function EmptyState({ icon: IconCmp = FileText, title, copy, actionLabel, onAction, secondary = false }) {
@@ -1335,68 +1353,6 @@ function ExamHeader({ exam, palette, stats, onBack, onStartStudy, onAddMaterial 
             <Plus size={16} /> Add material
           </button>
         </div>
-      </div>
-    </section>
-  );
-}
-
-function ReadinessCard({ score, bars, exam, chapters, readinessView, setReadinessView, chapterKey, palette }) {
-  const status = getReadinessStatus(score);
-  const circumference = 251.33;
-  const dashOffset = circumference - (score / 100) * circumference;
-
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="m-0 text-base font-bold text-slate-950">Readiness score</h2>
-          <p className="mt-1 text-sm text-slate-500">{status.label}</p>
-        </div>
-        <label className="relative">
-          <select
-            value={readinessView}
-            onChange={(e) => setReadinessView(e.target.value)}
-            className="w-32 appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 pr-8 text-sm font-semibold text-slate-700 outline-none"
-          >
-            <option value="exam">Exam</option>
-            {chapters.map((chapter) => (
-              <option key={chapterKey(chapter)} value={chapterKey(chapter)}>{chapter.name || chapter.title || 'Chapter'}</option>
-            ))}
-          </select>
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-            <ChevronDown size={14} />
-          </span>
-        </label>
-      </div>
-      <div className="flex items-center gap-5">
-        <div className="relative h-28 w-28 shrink-0">
-          <svg width="112" height="112" viewBox="0 0 96 96" className="-rotate-90">
-            <circle cx="48" cy="48" r="40" fill="none" stroke="#E2E8F0" strokeWidth="7" />
-            <circle cx="48" cy="48" r="40" fill="none" stroke={palette.dot} strokeWidth="7" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold text-slate-950">{score}%</span>
-            <span className="text-xs font-medium text-slate-500">ready</span>
-          </div>
-        </div>
-        <p className="text-sm leading-6 text-slate-600">{status.recommendation}</p>
-      </div>
-      <div className="mt-5 space-y-3">
-        {bars.map((bar) => (
-          <div key={bar.label}>
-            <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-600">
-              <span>{bar.label}</span>
-              <span>{bar.value}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-        <div className="text-sm font-semibold text-slate-950">{exam.targetGrade ? `Target ${exam.targetGrade}/30` : 'Keep building consistency'}</div>
-        <p className="mt-1 text-sm text-slate-500">Small sessions plus quick quizzes are best next step.</p>
       </div>
     </section>
   );
@@ -1798,56 +1754,32 @@ function CleanChapterGrid({ chapters, filtered, palette, practiceStatusByChapter
   );
 }
 
-function WideReadinessCard({ score, bars, chapters, readinessView, setReadinessView, chapterKey, palette }) {
-  const status = getReadinessStatus(score);
-  const circumference = 251.33;
-  const dashOffset = circumference - (score / 100) * circumference;
-
+function PracticeProgressCard({ bars }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h2 className="m-0 inline-flex items-center gap-2 text-xl font-black text-slate-950"><BarChart3 size={22} /> Readiness Score</h2>
-        <label className="flex items-center gap-3 text-sm font-extrabold text-slate-500">
-          View
-          <span className="relative">
-            <select value={readinessView} onChange={(e) => setReadinessView(e.target.value)} className="h-12 min-w-44 appearance-none rounded-full border border-slate-200 bg-white px-5 pr-10 text-base font-extrabold text-slate-700 outline-none">
-              <option value="exam">Exam</option>
-              {chapters.map((chapter) => (
-                <option key={chapterKey(chapter)} value={chapterKey(chapter)}>{chapter.name || chapter.title || 'Chapter'}</option>
-              ))}
-            </select>
-            <ChevronDown size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          </span>
-        </label>
+      <div className="mb-6">
+        <h2 className="m-0 inline-flex items-center gap-2 text-xl font-black text-slate-950"><BarChart3 size={22} /> Practice progress</h2>
+        <p className="mt-2 text-base font-semibold text-slate-500">Risultati reali dell'esame intero, da quiz e flashcard completati.</p>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[160px_minmax(0,1fr)] lg:items-center">
-        <div className="relative mx-auto h-36 w-36 lg:mx-0">
-          <svg width="144" height="144" viewBox="0 0 96 96" className="-rotate-90">
-            <circle cx="48" cy="48" r="40" fill="none" stroke="#E5E7EB" strokeWidth="7" />
-            <circle cx="48" cy="48" r="40" fill="none" stroke={palette.dot} strokeWidth="7" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-black text-indigo-600">{score}%</span>
-            <span className="text-sm font-semibold text-slate-500">ready</span>
-          </div>
-        </div>
-        <div className="min-w-0">
-          <div className="mb-5">
-            <div className="text-lg font-black text-slate-950">{score >= 40 ? '⚠ More practice needed' : status.label}</div>
-            <p className="mt-2 text-base font-semibold text-slate-500">{status.recommendation}</p>
-          </div>
-          <div className="space-y-4">
-            {bars.map((bar) => (
-              <div key={bar.label} className="grid grid-cols-[150px_minmax(0,1fr)_42px] items-center gap-4">
-                <span className="text-base font-semibold text-slate-500">{bar.label}</span>
-                <span className="h-1.5 overflow-hidden rounded-full bg-slate-200">
-                  <span className="block h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
-                </span>
-                <span className="text-right text-base font-extrabold" style={{ color: bar.color }}>{bar.value}%</span>
+      <div className="space-y-4">
+        {bars.length ? bars.map((bar) => (
+          <div key={bar.label} className="rounded-2xl border border-slate-100 bg-slate-50/70 px-5 py-4">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-base font-black text-slate-950">{bar.label}</div>
+                <div className="mt-1 text-sm font-semibold text-slate-500">{bar.countLabel}</div>
               </div>
-            ))}
+              <span className="text-2xl font-black" style={{ color: bar.color }}>{bar.value}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
+            </div>
           </div>
-        </div>
+        )) : (
+          <div className="rounded-2xl bg-slate-50 px-5 py-5 text-base font-semibold text-slate-500">
+            Nessun quiz o ripasso flashcard completato per questo esame.
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1936,7 +1868,6 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
   const [showUpload, setShowUpload] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [showUrlField, setShowUrlField] = useState(false);
-  const [readinessView, setReadinessView] = useState('exam');
   const [editingChapter, setEditingChapter] = useState(null);
   const [pdfChapter, setPdfChapter] = useState(null);
   const [notesLoading, setNotesLoading] = useState(true);
@@ -1980,33 +1911,26 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
   });
   const filtered = chapters.filter((c) => (c.title || '').toLowerCase().includes(q.toLowerCase()));
   const chapterKey = (chapter) => String(chapter.id ?? chapter.name ?? chapter.title);
-  const selectedChapter = readinessView === 'exam' ? null : chapters.find((c) => chapterKey(c) === readinessView);
-  const selectedChapterKey = selectedChapter ? chapterKey(selectedChapter) : null;
+  const examQuizRuns = (quizRuns || []).filter((run) => String(run.examId || run.noteId) === String(exam.id));
   const allQuiz = quizHistory[exam.id] || [];
   const allFlash = [
     ...(flashHistory[exam.id] || []),
     ...chapters.flatMap((c) => flashHistory[c.id] || []),
   ];
-  const quizAvg = allQuiz.length ? Math.round(allQuiz.reduce((a, b) => a + b, 0) / allQuiz.length) : 50;
-  const flashAvg = allFlash.length ? Math.round(allFlash.reduce((a, b) => a + b, 0) / allFlash.length) : 50;
-  const chQuiz = selectedChapterKey != null ? (quizHistory[selectedChapterKey] || []) : [];
-  const chFlash = selectedChapterKey != null ? (flashHistory[selectedChapterKey] || []) : [];
-  const chQuizAvg = selectedChapter ? (chQuiz.length ? Math.round(chQuiz.reduce((a, b) => a + b, 0) / chQuiz.length) : (selectedChapter.mastery || 50)) : 50;
-  const chFlashAvg = selectedChapter ? (chFlash.length ? Math.round(chFlash.reduce((a, b) => a + b, 0) / chFlash.length) : (selectedChapter.mastery || 50)) : 50;
-  const readiness = Math.round(quizAvg * 0.4 + flashAvg * 0.3 + READINESS_FALLBACKS.studyTime * 0.2 + READINESS_FALLBACKS.planProgress * 0.1);
-  const chReadiness = Math.round(chQuizAvg * 0.5 + chFlashAvg * 0.5);
-  const currentReadiness = selectedChapter ? chReadiness : readiness;
-  const readinessBars = selectedChapter
-    ? [
-      { label: 'Quiz performance', value: chQuizAvg, color: '#4F46E5' },
-      { label: 'Flashcard mastery', value: chFlashAvg, color: '#7C3AED' },
-    ]
-    : [
-      { label: 'Quiz performance', value: quizAvg, color: '#4F46E5' },
-      { label: 'Flashcard mastery', value: flashAvg, color: '#7C3AED' },
-      { label: 'Study time', value: READINESS_FALLBACKS.studyTime, color: '#059669' },
-      { label: 'Plan progress', value: READINESS_FALLBACKS.planProgress, color: '#D97706' },
-    ];
+  const quizSummary = summarizeQuizReadiness(examQuizRuns, allQuiz);
+  const flashSummary = summarizeFlashReadiness(allFlash);
+  const examMetrics = [
+    { label: 'Quiz mastery', value: quizSummary.value, count: quizSummary.count, color: '#4F46E5' },
+    { label: 'Flashcard mastery', value: flashSummary.value, count: flashSummary.count, color: '#7C3AED' },
+  ];
+  const practiceProgressBars = examMetrics
+    .filter((metric) => metric.value != null)
+    .map((metric) => ({
+      label: metric.label,
+      countLabel: metric.count === 1 ? '1 sessione completata' : `${metric.count} sessioni completate`,
+      value: metric.value,
+      color: metric.color,
+    }));
   const stats = {
     chapters: chapters.length,
     materials: materials.length,
@@ -2588,14 +2512,8 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
           quizRuns={quizRuns}
         />
 
-        <WideReadinessCard
-          score={currentReadiness}
-          bars={readinessBars}
-          chapters={chapters}
-          readinessView={readinessView}
-          setReadinessView={setReadinessView}
-          chapterKey={chapterKey}
-          palette={palette}
+        <PracticeProgressCard
+          bars={practiceProgressBars}
         />
 
         <StudyHistoryPanel
