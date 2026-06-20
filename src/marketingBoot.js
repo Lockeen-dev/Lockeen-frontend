@@ -179,6 +179,11 @@ export function initMarketingDom() {
     refreshIcons();
   }
 
+  const LOCKEEN_SUPPORTED_LANGS = ['en', 'it'];
+  function normalizeLockeenLang(lang) {
+    return LOCKEEN_SUPPORTED_LANGS.includes(lang) ? lang : 'en';
+  }
+
   window.toggleBilling = function() {
     billingAnnual = !billingAnnual;
     const knob = document.getElementById('billing-toggle-knob');
@@ -187,17 +192,13 @@ export function initMarketingDom() {
     if (knob) knob.style.transform = billingAnnual ? 'translateX(26px)' : 'translateX(0)';
     if (annLabel) annLabel.style.opacity = billingAnnual ? '1' : '0.5';
     if (monLabel) monLabel.style.opacity = billingAnnual ? '0.5' : '1';
-    renderPricing(localStorage.getItem('lockeen-lang') || 'en');
+    renderPricing(normalizeLockeenLang(localStorage.getItem('lockeen-lang') || 'en'));
   };
 
-  renderPricing(localStorage.getItem('lockeen-lang') || 'en');
+  renderPricing(normalizeLockeenLang(localStorage.getItem('lockeen-lang') || 'en'));
   const LOCKEEN_LANGS = {
     en: { flag:'🇬🇧', label:'English' },
     it: { flag:'🇮🇹', label:'Italiano' },
-    de: { flag:'🇩🇪', label:'Deutsch' },
-    es: { flag:'🇪🇸', label:'Español' },
-    fr: { flag:'🇫🇷', label:'Français' },
-    pt: { flag:'🇵🇹', label:'Português' },
   };
   const LOCKEEN_I18N = {
     en: {
@@ -286,7 +287,7 @@ export function initMarketingDom() {
     },
   };
   function applyLockeenLanguage(lang) {
-    const safeLang = LOCKEEN_I18N[lang] ? lang : 'en';
+    const safeLang = normalizeLockeenLang(lang);
     const dict = LOCKEEN_I18N[safeLang];
     document.documentElement.lang = safeLang;
     localStorage.setItem('lockeen-lang', safeLang);
@@ -303,12 +304,13 @@ export function initMarketingDom() {
     renderPricing(safeLang);
   }
   window.setLockeenLanguage = function(lang) {
-    applyLockeenLanguage(lang);
-    renderPricing(lang);
-    if (window.lockeenApplyGlobalLanguage) window.lockeenApplyGlobalLanguage(lang);
-    window.dispatchEvent(new CustomEvent('lockeen-language', { detail: { lang } }));
+    const safeLang = normalizeLockeenLang(lang);
+    applyLockeenLanguage(safeLang);
+    renderPricing(safeLang);
+    if (window.lockeenApplyGlobalLanguage) window.lockeenApplyGlobalLanguage(safeLang);
+    window.dispatchEvent(new CustomEvent('lockeen-language', { detail: { lang: safeLang } }));
   };
-  const initialLockeenLang = localStorage.getItem('lockeen-lang') || 'en';
+  const initialLockeenLang = normalizeLockeenLang(localStorage.getItem('lockeen-lang') || 'en');
   applyLockeenLanguage(initialLockeenLang);
   const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
   const mobileMenuPanel = document.getElementById('mobile-menu-panel');
