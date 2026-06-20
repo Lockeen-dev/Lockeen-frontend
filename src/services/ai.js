@@ -42,16 +42,6 @@ function fallbackText(kind, prompt) {
   ].filter(Boolean).join('\n');
 }
 
-function fallbackOk(kind, prompt, providerError) {
-  return ok({
-    text: fallbackText(kind, prompt),
-    provider: 'fallback',
-    fallback: true,
-    kind,
-    providerError,
-  });
-}
-
 async function requestAi({ kind = 'tutor', prompt, context = {} }) {
   if (!prompt?.trim()) {
     return fail('Prompt is required.', 'VALIDATION_ERROR');
@@ -80,14 +70,14 @@ async function requestAi({ kind = 'tutor', prompt, context = {} }) {
       body: JSON.stringify({ kind, prompt, context }),
     });
   } catch (error) {
-    return fallbackOk(kind, prompt, error?.message || 'AI API route unavailable.');
+    return fail(error?.message || 'AI API route unavailable.', 'AI_PROVIDER_UNAVAILABLE');
   }
 
   const isJson = response.headers.get('content-type')?.includes('application/json');
   const payload = isJson ? await response.json().catch(() => null) : null;
 
   if (!payload) {
-    return fallbackOk(kind, prompt, 'AI API route unavailable in this environment.');
+    return fail('AI API route unavailable in this environment.', 'AI_PROVIDER_UNAVAILABLE');
   }
 
   if (!response.ok) {

@@ -322,11 +322,16 @@ export default function TutorView({ lang = 'en' }) {
   const endRef = useRef(null);
 
   const formatAiError = (error) => {
-    if (!error) return tt(lang, 'aiRequestFailed');
-    if (error.code === 'AI_QUOTA_EXCEEDED') return tt(lang, 'aiQuotaReached');
-    if (error.code === 'AI_PROVIDER_UNAVAILABLE') return tt(lang, 'aiProviderUnavailable');
-    return error.message || tt(lang, 'aiRequestFailed');
-  };
+	    if (!error) return tt(lang, 'aiRequestFailed');
+	    if (error.code === 'AI_QUOTA_EXCEEDED') return tt(lang, 'aiQuotaReached');
+	    if (
+	      error.code === 'AI_PROVIDER_UNAVAILABLE' ||
+	      error.code === 'AI_PROVIDER_ERROR' ||
+	      error.code === 'AI_PROVIDER_EMPTY_RESPONSE' ||
+	      error.code === 'AI_PROVIDER_QUOTA_EXCEEDED'
+	    ) return tt(lang, 'aiProviderUnavailable');
+	    return error.message || tt(lang, 'aiRequestFailed');
+	  };
 
   useEffect(() => { endRef.current?.scrollTo({ top: endRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, typing]);
   useEffect(() => { if (!isMobile) setHistoryOpen(true); else setHistoryOpen(false); }, [isMobile]);
