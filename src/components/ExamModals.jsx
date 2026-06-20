@@ -514,17 +514,19 @@ function UploadChapterModal({ existingChapters, onClose, onUpload, lang = 'en' }
         if (nextProgress != null) setProgress(nextProgress);
       },
     };
-    Promise.resolve(onUpload?.(payload)).then(() => {
+    try {
+      await onUpload?.(payload);
       setActiveProgressStep(progressSteps.length - 1);
       setUploadStep('Pronto.');
       setProgress(100);
-    }).catch((err) => {
+      setUploading(false);
+    } catch (err) {
       setError(err?.message || 'Unable to save chapter.');
       setUploading(false);
       setUploadStep('');
       setProgress(0);
       setActiveProgressStep(0);
-    });
+    }
   };
 
   return (

@@ -435,21 +435,38 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
     if (created.date && onExamAdded) onExamAdded(created.date);
   };
 
-  const activeExam = exams.find((x) => x.id === activeId);
+  const activeExam = exams.find((x) => String(x.id) === String(activeId));
 
   if (activeExam) {
     const refreshExams = async () => {
       const result = await listExams();
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to reload exams.'));
-      setExams(result.data || []);
+      const nextExams = result.data || [];
+      setExams(nextExams);
+      return nextExams;
+    };
+    const refreshExamsQuietly = async () => {
+      try {
+        return await refreshExams();
+      } catch (error) {
+        console.warn('Unable to refresh exams after chapter action', error);
+        return null;
+      }
     };
     const onAddChapter = async ({ chapterId, chapterName, fileCount, files = [], onProgress = null }) => {
       const reportProgress = (step, label, progress) => {
         if (typeof onProgress === 'function') onProgress({ step, label, progress });
       };
+      if (!activeId) throw new Error('Open an exam before adding a chapter.');
       const uploadFiles = Array.from(files || []).filter(Boolean);
       const safeFileCount = Number.isFinite(Number(fileCount)) ? Number(fileCount) : uploadFiles.length;
-      let targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
+      const existingChapterId = chapterId == null || chapterId === '' ? null : chapterId;
+      let targetChapter = existingChapterId
+        ? (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(existingChapterId))
+        : null;
+      if (existingChapterId && !targetChapter) {
+        throw new Error('Chapter not found. Reload the exam and try again.');
+      }
       reportProgress(0, 'Lettura file...', 8);
       const materialMetadataResults = await Promise.all(uploadFiles.map(buildMaterialFileMetadata));
       const metadataError = materialMetadataResults.find((result) => result.error);
@@ -458,8 +475,8 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       const knownPageTotal = materialMetadata.reduce((sum, metadata) => sum + (Number(metadata?.pageCount) || 0), 0);
       const pageCount = Math.max(1, knownPageTotal || safeFileCount || 1);
 
-      if (chapterId) {
-        const result = await updateChapter(activeId, chapterId, {
+      if (existingChapterId) {
+        const result = await updateChapter(activeId, existingChapterId, {
           files: (targetChapter?.files || 0) + safeFileCount,
           pages: (targetChapter?.pages || 0) + pageCount,
         });
@@ -525,20 +542,22 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       }
 
       reportProgress(2, 'Pronto. Quiz e flashcards continuano in background.', 100);
-      await refreshExams();
+      await refreshExamsQuietly();
       return { chapter: targetChapter, materials: createdMaterials };
     };
     const onEditChapter = async ({ chapterId, newTitle }) => {
       const cleanTitle = (newTitle || '').trim();
       if (!cleanTitle) return;
+      if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
       const result = await updateChapter(activeId, chapterId, { title: cleanTitle });
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
-      await refreshExams();
+      await refreshExamsQuietly();
     };
     const onDeleteChapter = async (chapterId) => {
+      if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
       const result = await deleteChapter(activeId, chapterId);
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to delete chapter.'));
-      await refreshExams();
+      await refreshExamsQuietly();
     };
     const onDeleteChapterDocument = async ({ chapterId, pages = 6 }) => {
       const targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
@@ -548,7 +567,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         pages: Math.max(0, (targetChapter.pages || 0) - pages),
       });
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
-      await refreshExams();
+      await refreshExamsQuietly();
     };
     return <ExamDetail exam={activeExam} lang={lang} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onDeleteChapterDocument={onDeleteChapterDocument} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
   }
@@ -2408,29 +2427,27 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
   const handleDeleteMaterial = async (id) => {
     setMaterialsError(null);
     setSavingStudyAction(`delete-material-${id}`);
-    const material = materials.find((item) => String(item.id) === String(id));
-    await deletePracticeForMaterial(id);
-    if (material?.storagePath) {
-      const fileResult = await deleteStudyMaterialFile(material.storagePath);
-      if (fileResult.error) {
-        const message = formatStudyServiceError(fileResult.error, 'Unable to delete material file.');
-        setMaterialsError(message);
-        setSavingStudyAction(null);
-        throw new Error(message);
-      }
-    }
-    const { error } = await deleteMaterial(id);
-    if (error) {
-      const message = formatStudyServiceError(error, 'Unable to delete material.');
-      setMaterialsError(message);
-      setSavingStudyAction(null);
-      throw new Error(message);
-    }
-    setMaterials((prev) => prev.filter((material) => String(material.id) !== String(id)));
     try {
+      const material = materials.find((item) => String(item.id) === String(id));
+      await deletePracticeForMaterial(id);
+      if (material?.storagePath) {
+        const fileResult = await deleteStudyMaterialFile(material.storagePath);
+        if (fileResult.error) {
+          throw new Error(formatStudyServiceError(fileResult.error, 'Unable to delete material file.'));
+        }
+      }
+      const { error } = await deleteMaterial(id);
+      if (error) {
+        throw new Error(formatStudyServiceError(error, 'Unable to delete material.'));
+      }
+      setMaterials((prev) => prev.filter((material) => String(material.id) !== String(id)));
       if (material?.chapterId && onDeleteChapterDocument) {
         await onDeleteChapterDocument({ chapterId: material.chapterId, pages: Number(material.pageCount || material.page_count) || 1 });
       }
+    } catch (error) {
+      const message = error?.message || 'Unable to delete material.';
+      setMaterialsError(message);
+      throw new Error(message);
     } finally {
       setSavingStudyAction(null);
     }
@@ -2472,32 +2489,45 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
     const pickedFiles = Array.from(files || []);
     if (!pickedFiles.length) return;
     if (!chapter?.id) {
-      setMaterialsError('Open the chapter again before adding a document.');
-      return;
+      const message = 'Open the chapter again before adding a document.';
+      setMaterialsError(message);
+      throw new Error(message);
     }
-    const result = await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
-    const createdMaterials = result?.materials || [];
-    mergeCreatedMaterials(createdMaterials);
-    if (result?.chapter) {
-      setPdfChapter((current) => current && String(current.id) === String(chapter.id) ? { ...current, ...result.chapter } : current);
+    setMaterialsError(null);
+    try {
+      const result = await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
+      const createdMaterials = result?.materials || [];
+      mergeCreatedMaterials(createdMaterials);
+      if (result?.chapter) {
+        setPdfChapter((current) => current && String(current.id) === String(chapter.id) ? { ...current, ...result.chapter } : current);
+      }
+      await reloadMaterials();
+    } catch (error) {
+      const message = error?.message || 'Unable to add document.';
+      setMaterialsError(message);
+      throw new Error(message);
     }
-    await reloadMaterials();
   };
   const handleRenameChapterDocument = async (material, title) => {
     const cleanTitle = String(title || '').trim();
     if (!material?.id || !cleanTitle) return;
     setMaterialsError(null);
     setSavingStudyAction(`rename-material-${material.id}`);
-    const { data, error } = await updateMaterial(material.id, { title: cleanTitle });
-    setSavingStudyAction(null);
-    if (error) {
-      const message = formatStudyServiceError(error, 'Unable to rename material.');
+    try {
+      const { data, error } = await updateMaterial(material.id, { title: cleanTitle });
+      if (error) {
+        throw new Error(formatStudyServiceError(error, 'Unable to rename material.'));
+      }
+      setMaterials((prev) => prev.map((item) => String(item.id) === String(material.id)
+        ? { ...item, ...data, ...(materialUiMeta[material.id] || {}) }
+        : item));
+    } catch (error) {
+      const message = error?.message || 'Unable to rename material.';
       setMaterialsError(message);
       throw new Error(message);
+    } finally {
+      setSavingStudyAction(null);
     }
-    setMaterials((prev) => prev.map((item) => String(item.id) === String(material.id)
-      ? { ...item, ...data, ...(materialUiMeta[material.id] || {}) }
-      : item));
   };
   const handleDeleteChapterDocument = async (chapter, material) => {
     if (material?.id) await handleDeleteMaterial(material.id);
@@ -2505,10 +2535,17 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
   const handleDeleteChapter = async (chapterId) => {
     setMaterialsError(null);
     setSavingStudyAction(`delete-chapter-${chapterId}`);
-    await deleteChapterStudyData(chapterId);
-    await onDeleteChapter(chapterId);
-    setMaterials((prev) => prev.filter((material) => String(material.chapterId) !== String(chapterId)));
-    setSavingStudyAction(null);
+    try {
+      await deleteChapterStudyData(chapterId);
+      await onDeleteChapter(chapterId);
+      setMaterials((prev) => prev.filter((material) => String(material.chapterId) !== String(chapterId)));
+    } catch (error) {
+      const message = error?.message || 'Unable to delete chapter.';
+      setMaterialsError(message);
+      throw new Error(message);
+    } finally {
+      setSavingStudyAction(null);
+    }
   };
 
   return (
@@ -2576,8 +2613,18 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
             lang={lang}
             chapter={editingChapter}
             onClose={() => setEditingChapter(null)}
-            onSave={async (newTitle) => { await onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
-            onDelete={async () => { await handleDeleteChapter(editingChapter.id); setEditingChapter(null); }}
+            onSave={async (newTitle) => {
+              const chapterId = editingChapter?.id;
+              if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
+              await onEditChapter({ chapterId, newTitle });
+              setEditingChapter(null);
+            }}
+            onDelete={async () => {
+              const chapterId = editingChapter?.id;
+              if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
+              await handleDeleteChapter(chapterId);
+              setEditingChapter(null);
+            }}
           />
         )}
         {pdfChapter && (
@@ -2607,9 +2654,9 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
   const [documentError, setDocumentError] = useState('');
   const safeChapter = chapter || {};
   const title = safeChapter.title || safeChapter.name || 'Chapter';
-  const docs = Array.isArray(materials) ? materials.filter(Boolean) : [];
+  const docs = Array.isArray(materials) ? materials.filter((doc) => doc && doc.id) : [];
   const docCount = docs.length;
-  const docsPreviewKey = docs.map((doc) => `${doc.id}:${doc.storagePath || doc.sourceUrl || ''}`).join('|');
+  const docsPreviewKey = docs.map((doc) => `${String(doc.id)}:${doc.storagePath || doc.sourceUrl || ''}`).join('|');
   const pagesFor = (doc) => {
     if (doc.pageCount) return doc.pageCount;
     if (doc.page_count) return doc.page_count;
@@ -2642,7 +2689,6 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
             const result = await createStudyMaterialSignedUrl(doc.storagePath);
             return [doc.id, result.error ? null : result.data?.url || null];
           }
-          if (!doc.id) return [doc.id, null];
           const result = await getMaterialDownloadUrl(doc.id);
           return [doc.id, result.error ? null : result.data?.url || null];
         }));
@@ -2831,8 +2877,8 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                     key={doc.id || name}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setSelectedDocId(doc.id)}
-                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelectedDocId(doc.id); }}
+                    onClick={() => doc.id && setSelectedDocId(doc.id)}
+                    onKeyDown={(event) => { if ((event.key === 'Enter' || event.key === ' ') && doc.id) setSelectedDocId(doc.id); }}
                     style={{ position: 'relative', minHeight: 210, border: '1px solid #DDE3EE', background: '#fff', borderRadius: 22, padding: '22px 88px 22px 22px', boxShadow: '0 18px 44px rgba(15,23,42,.08)', cursor: 'pointer' }}
                   >
                     <div style={{ width: 64, height: 76, borderRadius: 14, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 24 }}>
