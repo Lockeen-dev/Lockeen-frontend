@@ -449,11 +449,12 @@ const colorS = {
 const CloudUpload = (p) => <Icon {...p}><path d="M20 16.5a4 4 0 0 0-1.6-7.66A6 6 0 0 0 6.5 8.5 4.5 4.5 0 0 0 7 17.5h11a3 3 0 0 0 2-1z"/><polyline points="12 12 12 19"/><polyline points="9 15 12 12 15 15"/></Icon>;
 const XIcon      = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
 
-function UploadChapterModal({ existingChapters, onClose, onUpload }) {
+function UploadChapterModal({ existingChapters, onClose, onUpload, lang = 'en' }) {
   const progressSteps = ['Upload', 'OCR', 'Pronto'];
+  const safeExistingChapters = Array.isArray(existingChapters) ? existingChapters.filter(Boolean) : [];
   const [files, setFiles] = useState([]);
   // selection: chapter id (number) for existing, or '__new' for a new chapter
-  const initialSelection = existingChapters && existingChapters.length ? existingChapters[0].id : '__new';
+  const initialSelection = safeExistingChapters.length ? safeExistingChapters[0].id : '__new';
   const [selection, setSelection] = useState(initialSelection);
   const [newName, setNewName] = useState('');
   const [dragOver, setDragOver] = useState(false);
@@ -465,17 +466,20 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   const inputRef = useRef(null);
   const idRef = useRef(1);
 
-  const stripExt = (name) => name.replace(/\.[^.]+$/, '');
+  const stripExt = (name = '') => String(name || '').replace(/\.[^.]+$/, '');
 
   const addFiles = (list) => {
-    const arr = Array.from(list || []);
+    const arr = Array.from(list || []).filter(Boolean);
     if (!arr.length) return;
     setFiles((prev) => {
       const next = [...prev];
-      arr.forEach((f) => { next.push({ id: idRef.current++, name: f.name, size: f.size, file: f }); });
+      arr.forEach((f) => {
+        const name = String(f.name || 'Document');
+        next.push({ id: idRef.current++, name, size: Number(f.size) || 0, file: f });
+      });
       return next;
     });
-    setNewName((cur) => (selection === '__new' ? (cur || stripExt(arr[0].name)) : cur));
+    setNewName((cur) => (selection === '__new' ? (cur || stripExt(arr[0]?.name || 'Document')) : cur));
   };
 
   const removeFile = (id) => setFiles((prev) => prev.filter((f) => f.id !== id));
@@ -490,7 +494,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   const browse = () => inputRef.current && inputRef.current.click();
 
   const isNew = selection === '__new';
-  const canSubmit = files.length > 0 && (!isNew || newName.trim().length > 0);
+  const canSubmit = files.length > 0 && files.every((entry) => entry.file) && (!isNew || newName.trim().length > 0);
 
   const submit = async () => {
     if (!canSubmit || uploading) return;
@@ -510,7 +514,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
         if (nextProgress != null) setProgress(nextProgress);
       },
     };
-    Promise.resolve(onUpload(payload)).then(() => {
+    Promise.resolve(onUpload?.(payload)).then(() => {
       setActiveProgressStep(progressSteps.length - 1);
       setUploadStep('Pronto.');
       setProgress(100);
@@ -562,13 +566,13 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
             value={selection}
             onChange={(e) => {
               const v = e.target.value;
-              setSelection(v === '__new' ? '__new' : Number(v));
+              setSelection(v === '__new' ? '__new' : v);
             }}
             style={{ ...uploadS.input, appearance: 'none', WebkitAppearance: 'none', backgroundImage: 'linear-gradient(45deg, transparent 50%, #6B7280 50%), linear-gradient(135deg, #6B7280 50%, transparent 50%)', backgroundPosition: 'calc(100% - 18px) 50%, calc(100% - 13px) 50%', backgroundSize: '5px 5px, 5px 5px', backgroundRepeat: 'no-repeat', paddingRight: 36, cursor: 'pointer' }}
             disabled={uploading}
           >
-            {(existingChapters || []).map((c) => (
-              <option key={c.id} value={c.id}>{c.title}</option>
+            {safeExistingChapters.map((c) => (
+              <option key={c.id} value={c.id}>{c.title || c.name || 'Chapter'}</option>
             ))}
             <option value="__new">+ New chapter</option>
           </select>
@@ -626,8 +630,9 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   );
 }
 
-function EditChapterModal({ chapter, onClose, onSave, onDelete }) {
-  const [title, setTitle] = useState(chapter.title || '');
+function EditChapterModal({ chapter, onClose, onSave, onDelete, lang = 'en' }) {
+  const safeChapter = chapter || {};
+  const [title, setTitle] = useState(safeChapter.title || safeChapter.name || '');
   const [confirmDel, setConfirmDel] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
