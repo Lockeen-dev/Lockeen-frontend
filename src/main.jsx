@@ -8,7 +8,7 @@ const ASSET_RELOAD_COOLDOWN_MS = 30000;
 
 function isStaleAssetError(error) {
   const message = String(error?.message || error?.reason?.message || error?.filename || error || '');
-  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS|Loading chunk/i.test(message);
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS|Loading chunk|Expected a JavaScript module script|module script|MIME type|disallowed MIME type|text\/html|Load failed/i.test(message);
 }
 
 function reloadForStaleAsset(error) {
