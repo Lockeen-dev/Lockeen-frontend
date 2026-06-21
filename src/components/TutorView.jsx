@@ -873,7 +873,7 @@ const tutorS = {
   sentFileIcon: { width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 },
   sentFileAttachmentName: { overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 13, fontWeight: 800, color: 'var(--ink)' },
   sentFileAttachmentMeta: { marginTop: 2, fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
-  removeAttachmentBtn: { position: 'absolute', top: 7, right: 7, width: 28, height: 28, borderRadius: 999, border: '1px solid rgba(255,255,255,.4)', background: 'rgba(15,23,42,.92)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 20, lineHeight: 1, boxShadow: '0 6px 16px rgba(15,23,42,.22)' },
+  removeAttachmentBtn: { position: 'absolute', top: 5, right: -6, width: 24, height: 24, borderRadius: 999, border: '1px solid rgba(255,255,255,.55)', background: 'rgba(15,23,42,.94)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 17, lineHeight: 1, boxShadow: '0 5px 14px rgba(15,23,42,.22)' },
   modalOverlay: { position: 'fixed', inset: 0, zIndex: 50, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.34)', backdropFilter: 'blur(6px)' },
   modalCard: { width: 'min(430px, 100%)', borderRadius: 20, border: '1px solid rgba(226,232,240,.95)', background: '#fff', boxShadow: '0 28px 80px rgba(15,23,42,.22)', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 },
   modalTitle: { margin: 0, fontSize: 18, lineHeight: 1.2, fontWeight: 800, color: 'var(--ink)' },
