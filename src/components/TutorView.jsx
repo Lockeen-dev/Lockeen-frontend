@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Brain, MsgCircle, Paperclip, Pencil, Pin, Plus, Send, Trash2 } from '../lib/icons';
+import { Brain, FileText, MsgCircle, Paperclip, Pencil, Pin, Plus, Send, Trash2 } from '../lib/icons';
 import useIsMobile from '../lib/useIsMobile';
 import { askTutor } from '../services/ai';
 import { extractTextFromFile } from '../services/materials';
@@ -53,6 +53,22 @@ function formatFileSize(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '';
   if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatAttachmentKind(kind = '') {
+  if (kind === 'pdf') return 'PDF';
+  if (kind === 'image') return 'Image';
+  if (kind === 'text') return 'Text';
+  return 'File';
+}
+
+function getDisplayAttachments(attachments = []) {
+  return attachments.map((attachment) => ({
+    name: attachment.name || 'Attachment',
+    kind: attachment.kind || 'metadata',
+    size: formatFileSize(Number(attachment.size || 0)),
+    previewUrl: attachment.kind === 'image' && attachment.dataUrl ? attachment.dataUrl : '',
+  }));
 }
 
 async function prepareTutorAttachments(files, lang = 'en') {
@@ -165,6 +181,46 @@ function parseTable(lines, startIndex) {
 
   const filteredRows = rows.filter((row) => !row.every((cell) => /^:?-{3,}:?$/.test(cell)));
   return { rows: filteredRows, nextIndex: index };
+}
+
+function TutorAttachmentStack({ attachments = [], compact = false, onRemove = null, lang = 'en' }) {
+  if (!attachments.length) return null;
+
+  return (
+    <div style={compact ? tutorS.attachmentTray : tutorS.messageAttachmentStack}>
+      {attachments.map((file, i) => {
+        const isImage = Boolean(file.previewUrl || file.url);
+        const imageUrl = file.previewUrl || file.url || '';
+        const label = formatAttachmentKind(file.kind);
+
+        return (
+          <div key={`${file.name}-${i}`} style={compact ? (isImage ? tutorS.composerImageAttachment : tutorS.composerFileAttachment) : (isImage ? tutorS.sentImageAttachment : tutorS.sentFileAttachment)}>
+            {isImage ? (
+              <img src={imageUrl} alt={file.name} style={compact ? tutorS.composerAttachmentImage : tutorS.sentAttachmentImage} />
+            ) : (
+              <div style={compact ? tutorS.composerFileAttachmentBody : tutorS.sentFileAttachmentBody}>
+                <div style={compact ? tutorS.composerFileIcon : tutorS.sentFileIcon}><FileText size={compact ? 14 : 18} /></div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={compact ? tutorS.composerFileAttachmentName : tutorS.sentFileAttachmentName}>{file.name}</div>
+                  <div style={compact ? tutorS.composerFileAttachmentMeta : tutorS.sentFileAttachmentMeta}>{label}{file.size ? ` · ${file.size}` : ''}</div>
+                </div>
+              </div>
+            )}
+            {onRemove && (
+              <button
+                type="button"
+                onClick={() => onRemove(i)}
+                aria-label={tt(lang, 'removeFile', { name: file.name })}
+                style={tutorS.removeAttachmentBtn}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function calloutTone(text) {
@@ -420,10 +476,11 @@ export default function TutorView({ lang = 'en' }) {
       setAiError(tt(lang, 'couldNotReadFile'));
       return;
     }
+    const displayAttachments = getDisplayAttachments(preparedAttachments);
 
     let userMsgs = [];
     setMsgs(m => {
-      const next = [...m, { who: 'user', text: visibleText }];
+      const next = [...m, { who: 'user', text: visibleText, attachments: displayAttachments }];
       userMsgs = next;
       setSessions(prev => prev.map(s => s.id === activeId ? { ...s, msgs: next } : s));
       return next;
@@ -641,8 +698,11 @@ export default function TutorView({ lang = 'en' }) {
             const isNew = i >= msgs.length - 1;
             return (
               <div key={i} style={{ display: 'flex', justifyContent: m.who === 'user' ? 'flex-end' : 'flex-start', animation: isNew ? (m.who === 'user' ? 'msgSlideRight .22s cubic-bezier(.22,1,.36,1)' : 'msgSlideLeft .22s cubic-bezier(.22,1,.36,1)') : 'none' }}>
-                <div style={m.who === 'user' ? tutorS.bubbleUser : tutorS.bubbleAI}>
-                  {m.who === 'ai' ? <MarkdownMessage text={m.text} /> : m.text}
+                <div style={m.who === 'user' ? tutorS.userMessageGroup : tutorS.aiMessageGroup}>
+                  {m.who === 'user' && <TutorAttachmentStack attachments={m.attachments || []} />}
+                  <div style={m.who === 'user' ? tutorS.bubbleUser : tutorS.bubbleAI}>
+                    {m.who === 'ai' ? <MarkdownMessage text={m.text} /> : m.text}
+                  </div>
                 </div>
               </div>
             );
@@ -667,37 +727,12 @@ export default function TutorView({ lang = 'en' }) {
 
         <form onSubmit={(e) => { e.preventDefault(); send(); }} style={tutorS.composer}>
           {filePreviews.length > 0 && (
-            <div style={tutorS.attachmentTray}>
-              {filePreviews.map((file, i) => (
-                <div key={`${file.name}-${i}`} style={file.url ? tutorS.imageAttachment : tutorS.fileAttachment}>
-                  {file.url ? (
-                    <img src={file.url} alt={file.name} style={tutorS.attachmentImage} />
-                  ) : (
-                    <div style={tutorS.fileAttachmentBody}>
-                      <Paperclip size={15} />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={tutorS.fileAttachmentName}>{file.name}</div>
-                        <div style={tutorS.fileAttachmentMeta}>{file.kind.toUpperCase()}{file.size ? ` · ${file.size}` : ''}</div>
-                      </div>
-                    </div>
-                  )}
-                  {file.url && (
-                    <div style={tutorS.imageAttachmentMeta}>
-                      <span style={tutorS.imageAttachmentName}>{file.name}</span>
-                      {file.size && <span>{file.size}</span>}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
-                    aria-label={tt(lang, 'removeFile', { name: file.name })}
-                    style={tutorS.removeAttachmentBtn}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
+            <TutorAttachmentStack
+              attachments={filePreviews}
+              compact
+              lang={lang}
+              onRemove={(index) => setFiles(prev => prev.filter((_, j) => j !== index))}
+            />
           )}
           <div style={tutorS.composerRow}>
           <input
@@ -799,8 +834,10 @@ const tutorS = {
   historyPinnedIconBtn: { borderColor: 'var(--indigo)', background: 'var(--indigo)', color: '#fff', boxShadow: '0 8px 18px rgba(55,48,232,.2)' },
   historyDangerIconBtn: { borderColor: 'rgba(239,68,68,.22)', background: '#FFF7F7', color: '#B91C1C' },
   thread: { flex: 1, display: 'flex', flexDirection: 'column', gap: 10, padding: '8px 4px', maxHeight: 420, overflowY: 'auto' },
-  bubbleAI:   { maxWidth: '82%', background: 'var(--bubble-ai-bg)', color: 'var(--ink)', padding: '14px 16px', borderRadius: 18, borderTopLeftRadius: 6, fontSize: 14, lineHeight: 1.5 },
-  bubbleUser: { maxWidth: '78%', background: 'var(--indigo)', color: '#fff', padding: '12px 16px', borderRadius: 18, borderTopRightRadius: 6, fontSize: 14, lineHeight: 1.5 },
+  userMessageGroup: { maxWidth: '82%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 },
+  aiMessageGroup: { maxWidth: '82%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 },
+  bubbleAI:   { maxWidth: '100%', background: 'var(--bubble-ai-bg)', color: 'var(--ink)', padding: '14px 16px', borderRadius: 18, borderTopLeftRadius: 6, fontSize: 14, lineHeight: 1.5 },
+  bubbleUser: { maxWidth: '100%', background: 'var(--indigo)', color: '#fff', padding: '12px 16px', borderRadius: 18, borderTopRightRadius: 6, fontSize: 14, lineHeight: 1.5 },
   markdown: { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 },
   mdH2: { margin: '0 0 2px', fontSize: 18, lineHeight: 1.25, fontWeight: 800, color: 'var(--ink)', letterSpacing: 0 },
   mdH3: { margin: '8px 0 0', fontSize: 14, lineHeight: 1.3, fontWeight: 800, color: 'var(--ink)', letterSpacing: 0 },
@@ -820,15 +857,22 @@ const tutorS = {
   composerRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%' },
   composerInput: { flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: 'var(--ink)' },
   sendBtn: { width: 40, height: 40, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
-  attachmentTray: { width: '100%', display: 'flex', alignItems: 'stretch', gap: 10, flexWrap: 'wrap', padding: '4px 4px 0' },
-  imageAttachment: { position: 'relative', width: 108, minHeight: 136, borderRadius: 16, border: '1px solid var(--border)', background: '#fff', boxShadow: '0 12px 28px rgba(15,23,42,.1)', overflow: 'hidden' },
-  attachmentImage: { display: 'block', width: '100%', height: 96, objectFit: 'cover', background: 'var(--lavender)' },
-  imageAttachmentMeta: { display: 'flex', flexDirection: 'column', gap: 2, padding: '7px 8px 8px', fontSize: 10, lineHeight: 1.1, color: 'var(--gray)', fontWeight: 700 },
-  imageAttachmentName: { color: 'var(--ink)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' },
-  fileAttachment: { position: 'relative', minWidth: 220, maxWidth: 280, minHeight: 82, borderRadius: 16, border: '1px solid var(--border)', background: '#fff', boxShadow: '0 12px 28px rgba(15,23,42,.1)', padding: '14px 44px 14px 14px', display: 'flex', alignItems: 'center' },
-  fileAttachmentBody: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, color: 'var(--indigo)' },
-  fileAttachmentName: { overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 13, fontWeight: 800, color: 'var(--ink)' },
-  fileAttachmentMeta: { marginTop: 3, fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
+  attachmentTray: { width: '100%', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '4px 4px 0' },
+  composerImageAttachment: { position: 'relative', width: 64, height: 64, borderRadius: 14, border: '1px solid var(--border)', background: '#fff', boxShadow: '0 8px 20px rgba(15,23,42,.1)', overflow: 'visible' },
+  composerAttachmentImage: { display: 'block', width: '100%', height: '100%', borderRadius: 13, objectFit: 'cover', background: 'var(--lavender)' },
+  composerFileAttachment: { position: 'relative', width: 168, height: 58, borderRadius: 14, border: '1px solid var(--border)', background: '#fff', boxShadow: '0 8px 20px rgba(15,23,42,.08)', padding: '9px 36px 9px 10px', display: 'flex', alignItems: 'center' },
+  composerFileAttachmentBody: { display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, color: 'var(--indigo)' },
+  composerFileIcon: { width: 30, height: 30, borderRadius: 9, background: 'var(--lavender)', display: 'grid', placeItems: 'center', flexShrink: 0 },
+  composerFileAttachmentName: { overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 11, fontWeight: 800, color: 'var(--ink)' },
+  composerFileAttachmentMeta: { marginTop: 1, fontSize: 10, fontWeight: 700, color: 'var(--gray)' },
+  messageAttachmentStack: { display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', maxWidth: '100%' },
+  sentImageAttachment: { width: 112, height: 112, borderRadius: 16, border: '1px solid var(--border)', background: '#fff', overflow: 'hidden', boxShadow: '0 10px 26px rgba(15,23,42,.08)' },
+  sentAttachmentImage: { display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: 'var(--lavender)' },
+  sentFileAttachment: { minWidth: 230, maxWidth: 320, minHeight: 64, borderRadius: 16, border: '1px solid var(--border)', background: '#fff', boxShadow: '0 10px 26px rgba(15,23,42,.08)', padding: '10px 14px', display: 'flex', alignItems: 'center' },
+  sentFileAttachmentBody: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, color: 'var(--indigo)' },
+  sentFileIcon: { width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 },
+  sentFileAttachmentName: { overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 13, fontWeight: 800, color: 'var(--ink)' },
+  sentFileAttachmentMeta: { marginTop: 2, fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
   removeAttachmentBtn: { position: 'absolute', top: 7, right: 7, width: 28, height: 28, borderRadius: 999, border: '1px solid rgba(255,255,255,.4)', background: 'rgba(15,23,42,.92)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 20, lineHeight: 1, boxShadow: '0 6px 16px rgba(15,23,42,.22)' },
   modalOverlay: { position: 'fixed', inset: 0, zIndex: 50, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.34)', backdropFilter: 'blur(6px)' },
   modalCard: { width: 'min(430px, 100%)', borderRadius: 20, border: '1px solid rgba(226,232,240,.95)', background: '#fff', boxShadow: '0 28px 80px rgba(15,23,42,.22)', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 },
