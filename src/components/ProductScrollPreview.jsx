@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   BookOpen,
   Calendar,
@@ -203,8 +203,6 @@ const copy = {
     },
   },
 };
-
-const viewIds = ['dashboard', 'myExams', 'flashcards', 'quiz', 'aiTutor', 'analytics', 'calendar'];
 
 function useMarketingLang() {
   const [lang, setLang] = useState(() => {
@@ -838,22 +836,36 @@ function PreviewContent({ activeView, t }) {
   return <AnimatePresence mode="wait">{screens[activeView] || screens.dashboard}</AnimatePresence>;
 }
 
-function DashboardPreview({ t }) {
-  const [activeView, setActiveView] = useState('dashboard');
-  const [isManual, setIsManual] = useState(false);
+const PRODUCT_PREVIEW_VIEWS = new Set(['dashboard', 'myExams', 'flashcards', 'quiz', 'aiTutor', 'analytics', 'calendar']);
 
-  const cycleViews = useMemo(() => viewIds, []);
+function getInitialProductPreviewView() {
+  if (typeof window === 'undefined') return 'analytics';
+  const requestedView = new URLSearchParams(window.location.search).get('preview');
+  return PRODUCT_PREVIEW_VIEWS.has(requestedView) ? requestedView : 'analytics';
+}
+
+function DashboardPreview({ t }) {
+  const [activeView, setActiveView] = useState(getInitialProductPreviewView);
 
   useEffect(() => {
-    if (isManual) return undefined;
-    const interval = window.setInterval(() => {
-      setActiveView((current) => cycleViews[(cycleViews.indexOf(current) + 1) % cycleViews.length]);
-    }, 6000);
-    return () => window.clearInterval(interval);
-  }, [cycleViews, isManual]);
+    const syncPreviewFromUrl = () => {
+      setActiveView(getInitialProductPreviewView());
+    };
+    const syncPreviewFromEvent = (event) => {
+      const requestedView = event?.detail?.view;
+      if (PRODUCT_PREVIEW_VIEWS.has(requestedView)) setActiveView(requestedView);
+    };
+    window.addEventListener('popstate', syncPreviewFromUrl);
+    window.addEventListener('hashchange', syncPreviewFromUrl);
+    window.addEventListener('lockeen-product-preview', syncPreviewFromEvent);
+    return () => {
+      window.removeEventListener('popstate', syncPreviewFromUrl);
+      window.removeEventListener('hashchange', syncPreviewFromUrl);
+      window.removeEventListener('lockeen-product-preview', syncPreviewFromEvent);
+    };
+  }, []);
 
   const handleSelect = (viewId) => {
-    setIsManual(true);
     setActiveView(viewId);
   };
 
@@ -877,6 +889,13 @@ export default function ProductScrollPreview() {
   const lang = useMarketingLang();
   const t = copy[lang] || copy.en;
 
+  useEffect(() => {
+    if (window.location.hash !== '#product-tablet') return;
+    window.setTimeout(() => {
+      document.getElementById('product-tablet')?.scrollIntoView({ block: 'center' });
+    }, 80);
+  }, []);
+
   return (
     <ContainerScroll
       titleComponent={
@@ -894,7 +913,9 @@ export default function ProductScrollPreview() {
         </div>
       }
     >
-      <DashboardPreview t={t} />
+      <div id="product-tablet" className="h-full scroll-mt-24">
+        <DashboardPreview t={t} />
+      </div>
     </ContainerScroll>
   );
 }
