@@ -435,57 +435,80 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
     if (created.date && onExamAdded) onExamAdded(created.date);
   };
 
-  const activeExam = exams.find((x) => x.id === activeId);
+  const activeExam = exams.find((x) => String(x.id) === String(activeId));
 
   if (activeExam) {
     const refreshExams = async () => {
       const result = await listExams();
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to reload exams.'));
-      setExams(result.data || []);
+      const nextExams = result.data || [];
+      setExams(nextExams);
+      return nextExams;
+    };
+    const refreshExamsQuietly = async () => {
+      try {
+        return await refreshExams();
+      } catch (error) {
+        console.warn('Unable to refresh exams after chapter action', error);
+        return null;
+      }
     };
     const onAddChapter = async ({ chapterId, chapterName, fileCount, files = [], onProgress = null }) => {
       const reportProgress = (step, label, progress) => {
         if (typeof onProgress === 'function') onProgress({ step, label, progress });
       };
-      let targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
+      if (!activeId) throw new Error('Open an exam before adding a chapter.');
+      const uploadFiles = Array.from(files || []).filter(Boolean);
+      const safeFileCount = Number.isFinite(Number(fileCount)) ? Number(fileCount) : uploadFiles.length;
+      const existingChapterId = chapterId == null || chapterId === '' ? null : chapterId;
+      let targetChapter = existingChapterId
+        ? (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(existingChapterId))
+        : null;
+      if (existingChapterId && !targetChapter) {
+        throw new Error('Chapter not found. Reload the exam and try again.');
+      }
       reportProgress(0, 'Lettura file...', 8);
-      const materialMetadataResults = await Promise.all((files || []).map(buildMaterialFileMetadata));
+      const materialMetadataResults = await Promise.all(uploadFiles.map(buildMaterialFileMetadata));
       const metadataError = materialMetadataResults.find((result) => result.error);
       if (metadataError) throw new Error(formatStudyServiceError(metadataError.error, 'Unable to inspect material file.'));
       const materialMetadata = materialMetadataResults.map((result) => result.data);
       const knownPageTotal = materialMetadata.reduce((sum, metadata) => sum + (Number(metadata?.pageCount) || 0), 0);
-      const pageCount = Math.max(1, knownPageTotal || fileCount);
+      const pageCount = Math.max(1, knownPageTotal || safeFileCount || 1);
 
-      if (chapterId) {
-        const result = await updateChapter(activeId, chapterId, {
-          files: (targetChapter?.files || 0) + fileCount,
+      if (existingChapterId) {
+        const result = await updateChapter(activeId, existingChapterId, {
+          files: (targetChapter?.files || 0) + safeFileCount,
           pages: (targetChapter?.pages || 0) + pageCount,
         });
         if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
         targetChapter = result.data;
       } else {
         const result = await createChapter(activeId, {
-          title: chapterName,
+          title: String(chapterName || '').trim() || 'New chapter',
           position: activeExam.chapters?.length || 0,
-          files: fileCount,
+          files: safeFileCount,
           pages: pageCount,
         });
         if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to create chapter.'));
         targetChapter = result.data;
       }
+      if (!targetChapter?.id) throw new Error('Unable to save chapter. Please try again.');
 
       const createdMaterials = [];
-      for (const [index, file] of files.entries()) {
-        reportProgress(0, `Upload file ${index + 1}/${files.length}...`, 18 + Math.round((index / Math.max(files.length, 1)) * 20));
+      for (const [index, file] of uploadFiles.entries()) {
+        const fileName = String(file.name || 'Document');
+        reportProgress(0, `Upload file ${index + 1}/${uploadFiles.length}...`, 18 + Math.round((index / Math.max(uploadFiles.length, 1)) * 20));
         const uploadResult = await uploadStudyMaterialFile({ file, materialId: crypto.randomUUID() });
         if (uploadResult.error) throw new Error(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
+        const uploadedFile = uploadResult.data || {};
+        if (!uploadedFile.path) throw new Error('Unable to upload material file.');
         const materialResult = await createMaterial({
           examId: activeId,
           chapterId: targetChapter.id,
-          title: file.name,
-          storagePath: uploadResult.data.path,
-          mimeType: uploadResult.data.mimeType,
-          sizeBytes: uploadResult.data.sizeBytes,
+          title: fileName,
+          storagePath: uploadedFile.path,
+          mimeType: uploadedFile.mimeType || file.type || null,
+          sizeBytes: uploadedFile.sizeBytes ?? file.size ?? null,
           pageCount: materialMetadata[index]?.pageCount ?? null,
           processingStatus: materialMetadata[index]?.processingStatus,
           extractedText: materialMetadata[index]?.extractedText,
@@ -499,9 +522,9 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
             ...materialResult.data,
             pageCount: materialResult.data.pageCount ?? materialMetadata[index]?.pageCount ?? null,
           };
-          reportProgress(1, `Estrazione testo ${file.name}...`, 42);
+          reportProgress(1, `Estrazione testo ${fileName}...`, 42);
           if (shouldRunImageOcr(nextMaterial)) {
-            reportProgress(1, `OCR ${file.name}...`, 42);
+            reportProgress(1, `OCR ${fileName}...`, 42);
             const ocrResult = await requestMaterialOcr(nextMaterial.id);
             if (ocrResult.data) {
               nextMaterial = ocrResult.data;
@@ -519,20 +542,22 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       }
 
       reportProgress(2, 'Pronto. Quiz e flashcards continuano in background.', 100);
-      await refreshExams();
+      await refreshExamsQuietly();
       return { chapter: targetChapter, materials: createdMaterials };
     };
     const onEditChapter = async ({ chapterId, newTitle }) => {
       const cleanTitle = (newTitle || '').trim();
       if (!cleanTitle) return;
+      if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
       const result = await updateChapter(activeId, chapterId, { title: cleanTitle });
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
-      await refreshExams();
+      await refreshExamsQuietly();
     };
     const onDeleteChapter = async (chapterId) => {
+      if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
       const result = await deleteChapter(activeId, chapterId);
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to delete chapter.'));
-      await refreshExams();
+      await refreshExamsQuietly();
     };
     const onDeleteChapterDocument = async ({ chapterId, pages = 6 }) => {
       const targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
@@ -542,9 +567,9 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         pages: Math.max(0, (targetChapter.pages || 0) - pages),
       });
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
-      await refreshExams();
+      await refreshExamsQuietly();
     };
-    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onDeleteChapterDocument={onDeleteChapterDocument} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
+    return <ExamDetail exam={activeExam} lang={lang} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onDeleteChapterDocument={onDeleteChapterDocument} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
   }
 
   const filtered = exams.filter((x) => (x.name + ' ' + (x.subject || '')).toLowerCase().includes(q.toLowerCase()));
@@ -702,7 +727,6 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
   );
 }
 
-const READINESS_FALLBACKS = { studyTime: 70, planProgress: 55 };
 const MATERIAL_UI_META_KEY = 'lockeen.materialUiMeta.v1';
 
 function readMaterialUiMeta() {
@@ -1126,9 +1150,17 @@ function isUuidLike(value = '') {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
+function safeDecodeFileName(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function getDisplayFileName(material = {}) {
   const rawName = material.title || material.storagePath || material.sourceUrl || 'Study material';
-  const lastPart = decodeURIComponent(String(rawName).split('?')[0].split('/').filter(Boolean).pop() || rawName);
+  const lastPart = safeDecodeFileName(String(rawName).split('?')[0].split('/').filter(Boolean).pop() || rawName);
   const clean = lastPart
     .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_]/i, '')
     .split(/[-_]/g)
@@ -1139,20 +1171,26 @@ function getDisplayFileName(material = {}) {
   return clean || 'Study material';
 }
 
+function getMaterialMimeType(material = {}) {
+  return String(material.mimeType || material.mime_type || material.type || '').toLowerCase();
+}
+
 function formatFileSize(sizeBytes) {
-  if (!sizeBytes) return null;
-  if (sizeBytes < 1024 * 1024) return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
-  return `${(sizeBytes / (1024 * 1024)).toFixed(sizeBytes > 10 * 1024 * 1024 ? 0 : 1)} MB`;
+  const bytes = Number(sizeBytes);
+  if (!Number.isFinite(bytes) || bytes <= 0) return null;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(bytes > 10 * 1024 * 1024 ? 0 : 1)} MB`;
 }
 
 function getFileTypeLabel(material = {}) {
   const name = getDisplayFileName(material).toLowerCase();
-  if (material.mimeType?.includes('pdf') || name.endsWith('.pdf')) return 'PDF';
-  if (material.mimeType?.includes('png') || name.endsWith('.png')) return 'PNG';
-  if (material.mimeType?.includes('jpeg') || name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'JPG';
-  if (material.mimeType?.includes('text') || name.endsWith('.txt')) return 'TXT';
+  const mimeType = getMaterialMimeType(material);
+  if (mimeType.includes('pdf') || name.endsWith('.pdf')) return 'PDF';
+  if (mimeType.includes('png') || name.endsWith('.png')) return 'PNG';
+  if (mimeType.includes('jpeg') || name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'JPG';
+  if (mimeType.includes('text') || name.endsWith('.txt')) return 'TXT';
   if (material.sourceUrl) return 'LINK';
-  return (material.type || 'FILE').toUpperCase();
+  return String(material.type || 'FILE').toUpperCase();
 }
 
 function getMaterialStatusTone(material = {}) {
@@ -1180,11 +1218,30 @@ function formatStudyDate(value) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function getReadinessStatus(score) {
-  if (score >= 90) return { label: 'Exam ready', recommendation: 'Keep momentum with quick review sessions.' };
-  if (score >= 70) return { label: 'Almost ready', recommendation: 'Focus on weak topics first.' };
-  if (score >= 40) return { label: 'More practice needed', recommendation: 'Focus on weak topics first.' };
-  return { label: 'Getting started', recommendation: 'Upload material and generate your first quiz.' };
+function averagePercent(values = []) {
+  const valid = values.map(Number).filter((value) => Number.isFinite(value));
+  if (!valid.length) return null;
+  return Math.round(valid.reduce((sum, value) => sum + value, 0) / valid.length);
+}
+
+function summarizeQuizReadiness(runs = [], fallbackScores = []) {
+  const validRuns = (runs || []).filter((run) => Number(run.total) > 0);
+  if (validRuns.length) {
+    const totals = validRuns.reduce((acc, run) => ({
+      score: acc.score + Number(run.rawScore ?? run.score ?? 0),
+      total: acc.total + Number(run.total || 0),
+    }), { score: 0, total: 0 });
+    if (totals.total > 0) {
+      return { value: Math.round((totals.score / totals.total) * 100), count: validRuns.length };
+    }
+  }
+  const fallback = averagePercent(fallbackScores);
+  return fallback == null ? { value: null, count: 0 } : { value: fallback, count: fallbackScores.length };
+}
+
+function summarizeFlashReadiness(scores = []) {
+  const value = averagePercent(scores);
+  return value == null ? { value: null, count: 0 } : { value, count: scores.length };
 }
 
 function EmptyState({ icon: IconCmp = FileText, title, copy, actionLabel, onAction, secondary = false }) {
@@ -1293,68 +1350,6 @@ function ExamHeader({ exam, palette, stats, onBack, onStartStudy, onAddMaterial 
             <Plus size={16} /> Add material
           </button>
         </div>
-      </div>
-    </section>
-  );
-}
-
-function ReadinessCard({ score, bars, exam, chapters, readinessView, setReadinessView, chapterKey, palette }) {
-  const status = getReadinessStatus(score);
-  const circumference = 251.33;
-  const dashOffset = circumference - (score / 100) * circumference;
-
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="m-0 text-base font-bold text-slate-950">Readiness score</h2>
-          <p className="mt-1 text-sm text-slate-500">{status.label}</p>
-        </div>
-        <label className="relative">
-          <select
-            value={readinessView}
-            onChange={(e) => setReadinessView(e.target.value)}
-            className="w-32 appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 pr-8 text-sm font-semibold text-slate-700 outline-none"
-          >
-            <option value="exam">Exam</option>
-            {chapters.map((chapter) => (
-              <option key={chapterKey(chapter)} value={chapterKey(chapter)}>{chapter.name || chapter.title || 'Chapter'}</option>
-            ))}
-          </select>
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-            <ChevronDown size={14} />
-          </span>
-        </label>
-      </div>
-      <div className="flex items-center gap-5">
-        <div className="relative h-28 w-28 shrink-0">
-          <svg width="112" height="112" viewBox="0 0 96 96" className="-rotate-90">
-            <circle cx="48" cy="48" r="40" fill="none" stroke="#E2E8F0" strokeWidth="7" />
-            <circle cx="48" cy="48" r="40" fill="none" stroke={palette.dot} strokeWidth="7" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold text-slate-950">{score}%</span>
-            <span className="text-xs font-medium text-slate-500">ready</span>
-          </div>
-        </div>
-        <p className="text-sm leading-6 text-slate-600">{status.recommendation}</p>
-      </div>
-      <div className="mt-5 space-y-3">
-        {bars.map((bar) => (
-          <div key={bar.label}>
-            <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-600">
-              <span>{bar.label}</span>
-              <span>{bar.value}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-        <div className="text-sm font-semibold text-slate-950">{exam.targetGrade ? `Target ${exam.targetGrade}/30` : 'Keep building consistency'}</div>
-        <p className="mt-1 text-sm text-slate-500">Small sessions plus quick quizzes are best next step.</p>
       </div>
     </section>
   );
@@ -1756,56 +1751,32 @@ function CleanChapterGrid({ chapters, filtered, palette, practiceStatusByChapter
   );
 }
 
-function WideReadinessCard({ score, bars, chapters, readinessView, setReadinessView, chapterKey, palette }) {
-  const status = getReadinessStatus(score);
-  const circumference = 251.33;
-  const dashOffset = circumference - (score / 100) * circumference;
-
+function PracticeProgressCard({ bars }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h2 className="m-0 inline-flex items-center gap-2 text-xl font-black text-slate-950"><BarChart3 size={22} /> Readiness Score</h2>
-        <label className="flex items-center gap-3 text-sm font-extrabold text-slate-500">
-          View
-          <span className="relative">
-            <select value={readinessView} onChange={(e) => setReadinessView(e.target.value)} className="h-12 min-w-44 appearance-none rounded-full border border-slate-200 bg-white px-5 pr-10 text-base font-extrabold text-slate-700 outline-none">
-              <option value="exam">Exam</option>
-              {chapters.map((chapter) => (
-                <option key={chapterKey(chapter)} value={chapterKey(chapter)}>{chapter.name || chapter.title || 'Chapter'}</option>
-              ))}
-            </select>
-            <ChevronDown size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          </span>
-        </label>
+      <div className="mb-6">
+        <h2 className="m-0 inline-flex items-center gap-2 text-xl font-black text-slate-950"><BarChart3 size={22} /> Practice progress</h2>
+        <p className="mt-2 text-base font-semibold text-slate-500">Risultati reali dell'esame intero, da quiz e flashcard completati.</p>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[160px_minmax(0,1fr)] lg:items-center">
-        <div className="relative mx-auto h-36 w-36 lg:mx-0">
-          <svg width="144" height="144" viewBox="0 0 96 96" className="-rotate-90">
-            <circle cx="48" cy="48" r="40" fill="none" stroke="#E5E7EB" strokeWidth="7" />
-            <circle cx="48" cy="48" r="40" fill="none" stroke={palette.dot} strokeWidth="7" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-black text-indigo-600">{score}%</span>
-            <span className="text-sm font-semibold text-slate-500">ready</span>
-          </div>
-        </div>
-        <div className="min-w-0">
-          <div className="mb-5">
-            <div className="text-lg font-black text-slate-950">{score >= 40 ? '⚠ More practice needed' : status.label}</div>
-            <p className="mt-2 text-base font-semibold text-slate-500">{status.recommendation}</p>
-          </div>
-          <div className="space-y-4">
-            {bars.map((bar) => (
-              <div key={bar.label} className="grid grid-cols-[150px_minmax(0,1fr)_42px] items-center gap-4">
-                <span className="text-base font-semibold text-slate-500">{bar.label}</span>
-                <span className="h-1.5 overflow-hidden rounded-full bg-slate-200">
-                  <span className="block h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
-                </span>
-                <span className="text-right text-base font-extrabold" style={{ color: bar.color }}>{bar.value}%</span>
+      <div className="space-y-4">
+        {bars.length ? bars.map((bar) => (
+          <div key={bar.label} className="rounded-2xl border border-slate-100 bg-slate-50/70 px-5 py-4">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-base font-black text-slate-950">{bar.label}</div>
+                <div className="mt-1 text-sm font-semibold text-slate-500">{bar.countLabel}</div>
               </div>
-            ))}
+              <span className="text-2xl font-black" style={{ color: bar.color }}>{bar.value}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
+            </div>
           </div>
-        </div>
+        )) : (
+          <div className="rounded-2xl bg-slate-50 px-5 py-5 text-base font-semibold text-slate-500">
+            Nessun quiz o ripasso flashcard completato per questo esame.
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1889,12 +1860,11 @@ function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDec
   );
 }
 
-function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter, onDeleteChapterDocument, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
+function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, onDeleteChapter, onDeleteChapterDocument, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
   const [q, setQ] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [showUrlField, setShowUrlField] = useState(false);
-  const [readinessView, setReadinessView] = useState('exam');
   const [editingChapter, setEditingChapter] = useState(null);
   const [pdfChapter, setPdfChapter] = useState(null);
   const [notesLoading, setNotesLoading] = useState(true);
@@ -1938,33 +1908,26 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   });
   const filtered = chapters.filter((c) => (c.title || '').toLowerCase().includes(q.toLowerCase()));
   const chapterKey = (chapter) => String(chapter.id ?? chapter.name ?? chapter.title);
-  const selectedChapter = readinessView === 'exam' ? null : chapters.find((c) => chapterKey(c) === readinessView);
-  const selectedChapterKey = selectedChapter ? chapterKey(selectedChapter) : null;
+  const examQuizRuns = (quizRuns || []).filter((run) => String(run.examId || run.noteId) === String(exam.id));
   const allQuiz = quizHistory[exam.id] || [];
   const allFlash = [
     ...(flashHistory[exam.id] || []),
     ...chapters.flatMap((c) => flashHistory[c.id] || []),
   ];
-  const quizAvg = allQuiz.length ? Math.round(allQuiz.reduce((a, b) => a + b, 0) / allQuiz.length) : 50;
-  const flashAvg = allFlash.length ? Math.round(allFlash.reduce((a, b) => a + b, 0) / allFlash.length) : 50;
-  const chQuiz = selectedChapterKey != null ? (quizHistory[selectedChapterKey] || []) : [];
-  const chFlash = selectedChapterKey != null ? (flashHistory[selectedChapterKey] || []) : [];
-  const chQuizAvg = selectedChapter ? (chQuiz.length ? Math.round(chQuiz.reduce((a, b) => a + b, 0) / chQuiz.length) : (selectedChapter.mastery || 50)) : 50;
-  const chFlashAvg = selectedChapter ? (chFlash.length ? Math.round(chFlash.reduce((a, b) => a + b, 0) / chFlash.length) : (selectedChapter.mastery || 50)) : 50;
-  const readiness = Math.round(quizAvg * 0.4 + flashAvg * 0.3 + READINESS_FALLBACKS.studyTime * 0.2 + READINESS_FALLBACKS.planProgress * 0.1);
-  const chReadiness = Math.round(chQuizAvg * 0.5 + chFlashAvg * 0.5);
-  const currentReadiness = selectedChapter ? chReadiness : readiness;
-  const readinessBars = selectedChapter
-    ? [
-      { label: 'Quiz performance', value: chQuizAvg, color: '#4F46E5' },
-      { label: 'Flashcard mastery', value: chFlashAvg, color: '#7C3AED' },
-    ]
-    : [
-      { label: 'Quiz performance', value: quizAvg, color: '#4F46E5' },
-      { label: 'Flashcard mastery', value: flashAvg, color: '#7C3AED' },
-      { label: 'Study time', value: READINESS_FALLBACKS.studyTime, color: '#059669' },
-      { label: 'Plan progress', value: READINESS_FALLBACKS.planProgress, color: '#D97706' },
-    ];
+  const quizSummary = summarizeQuizReadiness(examQuizRuns, allQuiz);
+  const flashSummary = summarizeFlashReadiness(allFlash);
+  const examMetrics = [
+    { label: 'Quiz mastery', value: quizSummary.value, count: quizSummary.count, color: '#4F46E5' },
+    { label: 'Flashcard mastery', value: flashSummary.value, count: flashSummary.count, color: '#7C3AED' },
+  ];
+  const practiceProgressBars = examMetrics
+    .filter((metric) => metric.value != null)
+    .map((metric) => ({
+      label: metric.label,
+      countLabel: metric.count === 1 ? '1 sessione completata' : `${metric.count} sessioni completate`,
+      value: metric.value,
+      color: metric.color,
+    }));
   const stats = {
     chapters: chapters.length,
     materials: materials.length,
@@ -2381,27 +2344,30 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const handleDeleteMaterial = async (id) => {
     setMaterialsError(null);
     setSavingStudyAction(`delete-material-${id}`);
-    const material = materials.find((item) => String(item.id) === String(id));
-    await deletePracticeForMaterial(id);
-    if (material?.storagePath) {
-      const fileResult = await deleteStudyMaterialFile(material.storagePath);
-      if (fileResult.error) {
-        setMaterialsError(formatStudyServiceError(fileResult.error, 'Unable to delete material file.'));
-        setSavingStudyAction(null);
-        return;
+    try {
+      const material = materials.find((item) => String(item.id) === String(id));
+      await deletePracticeForMaterial(id);
+      if (material?.storagePath) {
+        const fileResult = await deleteStudyMaterialFile(material.storagePath);
+        if (fileResult.error) {
+          throw new Error(formatStudyServiceError(fileResult.error, 'Unable to delete material file.'));
+        }
       }
-    }
-    const { error } = await deleteMaterial(id);
-    if (error) {
-      setMaterialsError(formatStudyServiceError(error, 'Unable to delete material.'));
+      const { error } = await deleteMaterial(id);
+      if (error) {
+        throw new Error(formatStudyServiceError(error, 'Unable to delete material.'));
+      }
+      setMaterials((prev) => prev.filter((material) => String(material.id) !== String(id)));
+      if (material?.chapterId && onDeleteChapterDocument) {
+        await onDeleteChapterDocument({ chapterId: material.chapterId, pages: Number(material.pageCount || material.page_count) || 1 });
+      }
+    } catch (error) {
+      const message = error?.message || 'Unable to delete material.';
+      setMaterialsError(message);
+      throw new Error(message);
+    } finally {
       setSavingStudyAction(null);
-      return;
     }
-    setMaterials((prev) => prev.filter((material) => String(material.id) !== String(id)));
-    if (material?.chapterId && onDeleteChapterDocument) {
-      await onDeleteChapterDocument({ chapterId: material.chapterId, pages: Number(material.pageCount || material.page_count) || 1 });
-    }
-    setSavingStudyAction(null);
   };
   const handleOpenMaterial = async (id) => {
     setMaterialsError(null);
@@ -2439,28 +2405,46 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const handleAddChapterDocuments = async (chapter, files) => {
     const pickedFiles = Array.from(files || []);
     if (!pickedFiles.length) return;
-    const result = await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
-    const createdMaterials = result?.materials || [];
-    mergeCreatedMaterials(createdMaterials);
-    if (result?.chapter) {
-      setPdfChapter((current) => current && String(current.id) === String(chapter.id) ? { ...current, ...result.chapter } : current);
+    if (!chapter?.id) {
+      const message = 'Open the chapter again before adding a document.';
+      setMaterialsError(message);
+      throw new Error(message);
     }
-    await reloadMaterials();
+    setMaterialsError(null);
+    try {
+      const result = await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
+      const createdMaterials = result?.materials || [];
+      mergeCreatedMaterials(createdMaterials);
+      if (result?.chapter) {
+        setPdfChapter((current) => current && String(current.id) === String(chapter.id) ? { ...current, ...result.chapter } : current);
+      }
+      await reloadMaterials();
+    } catch (error) {
+      const message = error?.message || 'Unable to add document.';
+      setMaterialsError(message);
+      throw new Error(message);
+    }
   };
   const handleRenameChapterDocument = async (material, title) => {
     const cleanTitle = String(title || '').trim();
     if (!material?.id || !cleanTitle) return;
     setMaterialsError(null);
     setSavingStudyAction(`rename-material-${material.id}`);
-    const { data, error } = await updateMaterial(material.id, { title: cleanTitle });
-    setSavingStudyAction(null);
-    if (error) {
-      setMaterialsError(formatStudyServiceError(error, 'Unable to rename material.'));
-      return;
+    try {
+      const { data, error } = await updateMaterial(material.id, { title: cleanTitle });
+      if (error) {
+        throw new Error(formatStudyServiceError(error, 'Unable to rename material.'));
+      }
+      setMaterials((prev) => prev.map((item) => String(item.id) === String(material.id)
+        ? { ...item, ...data, ...(materialUiMeta[material.id] || {}) }
+        : item));
+    } catch (error) {
+      const message = error?.message || 'Unable to rename material.';
+      setMaterialsError(message);
+      throw new Error(message);
+    } finally {
+      setSavingStudyAction(null);
     }
-    setMaterials((prev) => prev.map((item) => String(item.id) === String(material.id)
-      ? { ...item, ...data, ...(materialUiMeta[material.id] || {}) }
-      : item));
   };
   const handleDeleteChapterDocument = async (chapter, material) => {
     if (material?.id) await handleDeleteMaterial(material.id);
@@ -2468,10 +2452,17 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const handleDeleteChapter = async (chapterId) => {
     setMaterialsError(null);
     setSavingStudyAction(`delete-chapter-${chapterId}`);
-    await deleteChapterStudyData(chapterId);
-    await onDeleteChapter(chapterId);
-    setMaterials((prev) => prev.filter((material) => String(material.chapterId) !== String(chapterId)));
-    setSavingStudyAction(null);
+    try {
+      await deleteChapterStudyData(chapterId);
+      await onDeleteChapter(chapterId);
+      setMaterials((prev) => prev.filter((material) => String(material.chapterId) !== String(chapterId)));
+    } catch (error) {
+      const message = error?.message || 'Unable to delete chapter.';
+      setMaterialsError(message);
+      throw new Error(message);
+    } finally {
+      setSavingStudyAction(null);
+    }
   };
 
   return (
@@ -2514,14 +2505,8 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           quizRuns={quizRuns}
         />
 
-        <WideReadinessCard
-          score={currentReadiness}
-          bars={readinessBars}
-          chapters={chapters}
-          readinessView={readinessView}
-          setReadinessView={setReadinessView}
-          chapterKey={chapterKey}
-          palette={palette}
+        <PracticeProgressCard
+          bars={practiceProgressBars}
         />
 
         <StudyHistoryPanel
@@ -2539,8 +2524,18 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
             lang={lang}
             chapter={editingChapter}
             onClose={() => setEditingChapter(null)}
-            onSave={async (newTitle) => { await onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
-            onDelete={async () => { await handleDeleteChapter(editingChapter.id); setEditingChapter(null); }}
+            onSave={async (newTitle) => {
+              const chapterId = editingChapter?.id;
+              if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
+              await onEditChapter({ chapterId, newTitle });
+              setEditingChapter(null);
+            }}
+            onDelete={async () => {
+              const chapterId = editingChapter?.id;
+              if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
+              await handleDeleteChapter(chapterId);
+              setEditingChapter(null);
+            }}
           />
         )}
         {pdfChapter && (
@@ -2567,10 +2562,12 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [addingDocument, setAddingDocument] = useState(false);
-  const title = chapter.title || chapter.name || 'Chapter';
-  const docs = materials;
+  const [documentError, setDocumentError] = useState('');
+  const safeChapter = chapter || {};
+  const title = safeChapter.title || safeChapter.name || 'Chapter';
+  const docs = Array.isArray(materials) ? materials.filter((doc) => doc && doc.id) : [];
   const docCount = docs.length;
-  const docsPreviewKey = docs.map((doc) => `${doc.id}:${doc.storagePath || doc.sourceUrl || ''}`).join('|');
+  const docsPreviewKey = docs.map((doc) => `${String(doc.id)}:${doc.storagePath || doc.sourceUrl || ''}`).join('|');
   const pagesFor = (doc) => {
     if (doc.pageCount) return doc.pageCount;
     if (doc.page_count) return doc.page_count;
@@ -2581,9 +2578,12 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
     const picked = Array.from(event.target.files || []);
     event.target.value = '';
     if (!picked.length) return;
+    setDocumentError('');
     setAddingDocument(true);
     try {
-      await onAddDocument(chapter, picked);
+      await onAddDocument?.(safeChapter, picked);
+    } catch (error) {
+      setDocumentError(error?.message || 'Unable to add document.');
     } finally {
       setAddingDocument(false);
     }
@@ -2593,19 +2593,22 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
     let cancelled = false;
     async function loadPreviews() {
       setPreviewLoading(true);
-      const entries = await Promise.all(docs.filter((doc) => !doc.mock).map(async (doc) => {
-        if (doc.sourceUrl) return [doc.id, doc.sourceUrl];
-        if (doc.storagePath) {
-          const result = await createStudyMaterialSignedUrl(doc.storagePath);
+      try {
+        const entries = await Promise.all(docs.filter((doc) => !doc.mock).map(async (doc) => {
+          if (doc.sourceUrl) return [doc.id, doc.sourceUrl];
+          if (doc.storagePath) {
+            const result = await createStudyMaterialSignedUrl(doc.storagePath);
+            return [doc.id, result.error ? null : result.data?.url || null];
+          }
+          const result = await getMaterialDownloadUrl(doc.id);
           return [doc.id, result.error ? null : result.data?.url || null];
-        }
-        if (!doc.id) return [doc.id, null];
-        const result = await getMaterialDownloadUrl(doc.id);
-        return [doc.id, result.error ? null : result.data?.url || null];
-      }));
-      if (!cancelled) {
-        setPreviewUrls(Object.fromEntries(entries));
-        setPreviewLoading(false);
+        }));
+        if (!cancelled) setPreviewUrls(Object.fromEntries(entries));
+      } catch (error) {
+        console.warn('Unable to load document previews', error);
+        if (!cancelled) setPreviewUrls({});
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
       }
     }
     loadPreviews();
@@ -2616,9 +2619,12 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
   const selectedName = selectedDoc ? getDisplayFileName(selectedDoc) : '';
   const selectedUrl = selectedDoc ? previewUrls[selectedDoc.id] : null;
   const selectedPreviewReady = selectedDoc ? Object.prototype.hasOwnProperty.call(previewUrls, selectedDoc.id) : false;
-  const selectedIsImage = selectedDoc ? (/\.(png|jpe?g|webp|gif)$/i.test(selectedName) || selectedDoc.mimeType?.startsWith('image/')) : false;
-  const selectedIsPdf = selectedDoc ? (/\.pdf$/i.test(selectedName) || selectedDoc.mimeType?.includes('pdf')) : false;
+  const selectedMimeType = selectedDoc ? getMaterialMimeType(selectedDoc) : '';
+  const selectedIsImage = selectedDoc ? (/\.(png|jpe?g|webp|gif)$/i.test(selectedName) || selectedMimeType.startsWith('image/')) : false;
+  const selectedIsPdf = selectedDoc ? (/\.pdf$/i.test(selectedName) || selectedMimeType.includes('pdf')) : false;
   const beginRename = (doc) => {
+    if (!doc?.id) return;
+    setDocumentError('');
     setEditingDocId(doc.id);
     setEditingTitle(getDisplayFileName(doc));
   };
@@ -2627,14 +2633,20 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
     setEditingTitle('');
   };
   const saveRename = async (doc) => {
-    await onRenameDocument?.(doc, editingTitle);
-    cancelRename();
+    if (!doc?.id) return;
+    setDocumentError('');
+    try {
+      await onRenameDocument?.(doc, editingTitle);
+      cancelRename();
+    } catch (error) {
+      setDocumentError(error?.message || 'Unable to rename document.');
+    }
   };
   const isRenaming = (doc) => saving === `rename-material-${doc.id}`;
 
   return (
     <div
-      onClick={(event) => { if (event.target === event.currentTarget && !addingDocument) onClose(); }}
+      onClick={(event) => { if (event.target === event.currentTarget && !addingDocument) onClose?.(); }}
       style={{
         position: 'fixed',
         inset: 0,
@@ -2695,7 +2707,7 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
             <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain" multiple onChange={handleFilePick} style={{ display: 'none' }} />
             <button
               type="button"
-              onClick={() => !addingDocument && onClose()}
+              onClick={() => !addingDocument && onClose?.()}
               disabled={addingDocument}
               style={{ width: 50, height: 50, borderRadius: 999, border: '1.5px solid #E5E7EB', background: '#fff', color: '#6B7280', cursor: addingDocument ? 'not-allowed' : 'pointer', display: 'grid', placeItems: 'center', fontSize: 30, fontWeight: 700, lineHeight: 1, opacity: addingDocument ? .65 : 1 }}
               aria-label="Close documents"
@@ -2713,6 +2725,11 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                 <div style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 900 }}>Uploading document. Practice continues in background...</div>
                 <div style={{ marginTop: 3, color: 'var(--gray)', fontSize: 13, fontWeight: 700 }}>This closes after upload. Quiz + flashcards appear when ready.</div>
               </div>
+            </div>
+          )}
+          {documentError && !selectedDoc && (
+            <div style={{ marginBottom: 18, padding: '12px 14px', borderRadius: 16, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#991B1B', fontSize: 13, fontWeight: 800, lineHeight: 1.4 }}>
+              {documentError}
             </div>
           )}
           {selectedDoc ? (
@@ -2771,8 +2788,8 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                     key={doc.id || name}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setSelectedDocId(doc.id)}
-                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelectedDocId(doc.id); }}
+                    onClick={() => doc.id && setSelectedDocId(doc.id)}
+                    onKeyDown={(event) => { if ((event.key === 'Enter' || event.key === ' ') && doc.id) setSelectedDocId(doc.id); }}
                     style={{ position: 'relative', minHeight: 210, border: '1px solid #DDE3EE', background: '#fff', borderRadius: 22, padding: '22px 88px 22px 22px', boxShadow: '0 18px 44px rgba(15,23,42,.08)', cursor: 'pointer' }}
                   >
                     <div style={{ width: 64, height: 76, borderRadius: 14, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 24 }}>
@@ -2816,7 +2833,15 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                         </button>
                         <button
                           type="button"
-                          onClick={(event) => { event.stopPropagation(); onDeleteDocument(chapter, doc); }}
+                          onClick={async (event) => {
+                            event.stopPropagation();
+                            setDocumentError('');
+                            try {
+                              await onDeleteDocument?.(safeChapter, doc);
+                            } catch (error) {
+                              setDocumentError(error?.message || 'Unable to delete document.');
+                            }
+                          }}
                           disabled={saving === `delete-material-${doc.id}`}
                           style={{ width: 44, height: 44, borderRadius: 14, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#EF4444', display: 'grid', placeItems: 'center', cursor: 'pointer', opacity: saving === `delete-material-${doc.id}` ? .6 : 1 }}
                           aria-label={`Delete ${name}`}

@@ -290,7 +290,7 @@ export function getMaterialProcessingLabel(material = {}) {
   if (status === 'processing') return 'Processing';
   if (status === 'failed') return 'Extraction failed';
   if (status === 'unsupported') {
-    const message = material.extractionError || '';
+    const message = String(material.extractionError || '');
     return message.toLowerCase().includes('ocr') ? 'OCR not ready' : 'Extraction not ready';
   }
   return 'Uploaded';

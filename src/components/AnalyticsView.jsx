@@ -402,7 +402,7 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
   const hasFlashData = Number(summary?.flashcardReviewsCount || 0) > 0 || localFlashScores.length > 0;
   const gradePredictions = trackedNotes
     .map((note) => estimateGradePrediction(note, quizHistory || {}, flashHistory || {}, lang).prediction)
-    .filter((prediction) => Number.isFinite(Number(prediction)));
+    .filter((prediction) => typeof prediction === 'number' && Number.isFinite(prediction));
   const averagePredictedGrade = getAverageDecimal(gradePredictions);
   const streakDays = getStudyStreak(visibleStudySessions);
   const examMastery = getExamMastery(trackedNotes, quizHistory, flashHistory);
