@@ -971,11 +971,8 @@ async function buildFlashcardBankCards({ title, sourceText, pageCount = null }) 
     const aiCards = (aiResult.data?.cards || [])
       .map((card) => normalizeGeneratedFlashcard(card, title))
       .filter(isPlayableFlashcard);
-    const fallbackCards = aiCards.length < Math.min(4, perChunk)
-      ? buildFlashcardsFromText(title, chunk.text || chunk, perChunk)
-      : [];
     return {
-      cards: [...aiCards, ...fallbackCards],
+      cards: aiCards,
       errors: chunkErrors,
     };
   }
@@ -2371,11 +2368,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       }
     }
     if (material.processingStatus === 'ready' && material.extractedText) {
-      createPracticeBanksForMaterial({
-        examId: exam.id,
-        material,
-        title: material.title || exam.name,
-      }).then(() => reloadMaterials()).catch(() => null);
+      runPracticeGeneration(material, { title: material.title || exam.name });
     }
     if (resolvedPageCount) rememberMaterialUiMeta([material]);
     setMaterials((prev) => [material, ...prev]);

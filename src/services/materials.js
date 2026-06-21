@@ -6,6 +6,7 @@ import { requireAuthenticatedUserId } from './auth';
 
 const mockMaterials = [];
 const MATERIAL_PROCESSING_STATUSES = new Set(['uploaded', 'processing', 'ready', 'failed', 'unsupported']);
+const MATERIAL_OCR_TIMEOUT_MS = 90000;
 
 function clone(data) {
   return structuredClone(data);
@@ -24,6 +25,12 @@ function normalizeError(error, fallback = 'Request failed.') {
     code: error?.code || error?.name || 'SUPABASE_ERROR',
     message: error?.message || fallback,
   };
+}
+
+function timeoutSignal(ms) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), ms);
+  return { controller, timeoutId };
 }
 
 function hasKnownMockParent(input = {}) {
@@ -458,14 +465,26 @@ export async function requestMaterialOcr(materialId) {
     return fail('OCR requires an authenticated Supabase session.', 'AUTH_REQUIRED');
   }
 
-  const response = await fetch('/api/material-ocr', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ materialId }),
-  });
+  let response;
+  const { controller, timeoutId } = timeoutSignal(MATERIAL_OCR_TIMEOUT_MS);
+  try {
+    response = await fetch('/api/material-ocr', {
+      signal: controller.signal,
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ materialId }),
+    });
+  } catch (error) {
+    return fail(
+      error?.name === 'AbortError' ? 'OCR extraction timed out.' : (error?.message || 'OCR extraction failed.'),
+      error?.name === 'AbortError' ? 'OCR_TIMEOUT' : (error?.code || 'OCR_FAILED'),
+    );
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   let payload = {};
   try {
