@@ -1,5 +1,9 @@
 # Week 3 Real-Mode Smoke
 
+For the P0 production real-mode end-to-end gate, use:
+
+- [P0 Production Real-Mode Smoke Runbook](./p0-production-real-mode-smoke.md)
+
 ## Setup
 
 Use real mode:
