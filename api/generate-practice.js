@@ -1,7 +1,10 @@
+import { createClient } from '@supabase/supabase-js';
+
 const DEFAULT_MODEL = 'gpt-4.1-mini';
 const MAX_SOURCE_CHARS = 28000;
 const MAX_OPTION_CHARS = 260;
 const MAX_QUESTION_CHARS = 260;
+let supabaseAuthClient = null;
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -24,6 +27,55 @@ function getJsonBody(req) {
 function getBearerToken(req) {
   const auth = req.headers.authorization || '';
   return auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+}
+
+function getSupabaseAuthClient() {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const publicKey =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !publicKey) return null;
+
+  if (!supabaseAuthClient) {
+    supabaseAuthClient = createClient(supabaseUrl, publicKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  }
+
+  return supabaseAuthClient;
+}
+
+async function requireAuthenticatedUser(req) {
+  const token = getBearerToken(req);
+  if (!token) {
+    return {
+      data: null,
+      error: { code: 'AUTH_REQUIRED', message: 'Practice generation requires an authenticated session.' },
+    };
+  }
+
+  const client = getSupabaseAuthClient();
+  if (!client) {
+    return {
+      data: null,
+      error: { code: 'SUPABASE_CONFIG_MISSING', message: 'Supabase server auth config is missing.' },
+    };
+  }
+
+  const { data, error } = await client.auth.getUser(token);
+  if (error || !data?.user?.id) {
+    return {
+      data: null,
+      error: { code: 'AUTH_REQUIRED', message: 'Practice generation requires a valid Supabase session.' },
+    };
+  }
+
+  return { data: { userId: data.user.id }, error: null };
 }
 
 function normalizeWhitespace(text = '') {
@@ -467,8 +519,10 @@ export default async function handler(req, res) {
     return json(res, 405, { error: { code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' } });
   }
 
-  if (!getBearerToken(req)) {
-    return json(res, 401, { error: { code: 'AUTH_REQUIRED', message: 'Practice generation requires an authenticated session.' } });
+  const authResult = await requireAuthenticatedUser(req);
+  if (authResult.error) {
+    const status = authResult.error.code === 'SUPABASE_CONFIG_MISSING' ? 503 : 401;
+    return json(res, status, { error: authResult.error });
   }
 
   const body = getJsonBody(req);
