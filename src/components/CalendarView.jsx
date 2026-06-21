@@ -10,6 +10,7 @@ import {
   updateCalendarActivity,
 } from '../services/calendar';
 import { autoRescheduleMissedStudyPlanItems, listStudyPlanItems, listStudyPlans, updateStudyPlanItem } from '../services/studyPlans';
+import { localeFor, tt } from '../lib/i18n';
 import { homeS } from '../styles/dashboardStyles';
 import { LIFE_CATS, applyExamPaletteToEvent, calendarKeyFromDate, dayKey, durToMins, initCalEvents, normalizeClockTime, resolveEventPalette, resolveStudyPalette, studyPlanItemToCalendarEvent } from './calendarData';
 export { LIFE_CATS, dayKey, durToMins, initCalEvents, resolveEventPalette };
@@ -264,7 +265,7 @@ function examCutoffKey(exam = null) {
   return date ? dayKey(calAddDays(date, -1)) : null;
 }
 
-export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams = [], onStudySessionsChanged }) {
+export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams = [], onStudySessionsChanged, lang = 'en' }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const [view, setView]           = useState('week');
   const [weekStart, setWeekStart] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
@@ -289,6 +290,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
   const [density, setDensity] = useState('compact');
   const dragMeta   = useRef({});
   const monthDragMeta = useRef({});
+  const moveCalendarEventRef = useRef(null);
   const [monthDrag, setMonthDrag] = useState(null);
   const gridBodyRef = useRef(null);
   const eventWithExamPalette = useMemo(() => (event) => applyExamPaletteToEvent(event, exams), [exams]);
@@ -432,7 +434,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     return dayEvents.findIndex((event) => String(event?.serviceId || '').trim() === targetServiceId);
   };
 
-  const moveCalendarEvent = (fromKey, fromRef, toKey, forcedTime) => {
+  const moveCalendarEvent = (fromKey, fromRef, toKey, forcedTime, options = {}) => {
     const sourceDay = events[fromKey] || [];
     const sourceIndex = resolveEventIndex(fromKey, fromRef);
     const resolvedSourceIndex = sourceIndex >= 0 ? sourceIndex : -1;
@@ -446,9 +448,12 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
 
     const desiredTime = normalizeClockTime(forcedTime || target.time || '09:00');
     const preview = { ...target, time: desiredTime };
-    const maybeTime = findFreeTimeForEvent(toKey, preview, fromKey, resolvedSourceIndex, target);
+    const manualExactTime = Boolean(options.manualExactTime && forcedTime);
+    const maybeTime = manualExactTime
+      ? desiredTime
+      : findFreeTimeForEvent(toKey, preview, fromKey, resolvedSourceIndex, target);
     if (!maybeTime) {
-      setRescheduleNotice(`No free slot found on ${fmtModalDate(toKey)} for ${target.name || 'that event'}.`);
+      setRescheduleNotice(tt(lang, 'noFreeCalendarSlot', { date: fmtModalDate(toKey), title: target.name || tt(lang, 'thatEvent') }));
       return;
     }
     const hasOverlapOnTarget = (candidateTime) => {
@@ -462,16 +467,16 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
         },
       );
     };
-    const resolvedTime = hasOverlapOnTarget(maybeTime)
+    const resolvedTime = !manualExactTime && hasOverlapOnTarget(maybeTime)
       ? findFreeTimeForEvent(toKey, { ...preview, time: normalizeClockTime(maybeTime) }, toKey, resolvedSourceIndex, target)
       : maybeTime;
     if (!resolvedTime || hasOverlapOnTarget(resolvedTime)) {
-      setRescheduleNotice(`No free slot found on ${fmtModalDate(toKey)} for ${target.name || 'that event'}.`);
+      setRescheduleNotice(tt(lang, 'noFreeCalendarSlot', { date: fmtModalDate(toKey), title: target.name || tt(lang, 'thatEvent') }));
       return;
     }
     const freeTime = resolvedTime;
 
-    if (target.source === 'study-plan-service' && target.serviceId) {
+    if (!manualExactTime && target.source === 'study-plan-service' && target.serviceId) {
       const exam = exams.find((entry) => String(entry.id) === String(target.examId));
       const cutoff = examCutoffKey(exam);
       if (cutoff && keyToPlannerDate(toKey) > keyToPlannerDate(cutoff)) {
@@ -490,7 +495,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
         skipIndex: fromKey === toKey ? resolvedSourceIndex : null,
       },
     )) {
-      setRescheduleNotice(`No free slot found on ${fmtModalDate(toKey)} for ${target.name || 'that event'}.`);
+      setRescheduleNotice(tt(lang, 'noFreeCalendarSlot', { date: fmtModalDate(toKey), title: target.name || tt(lang, 'thatEvent') }));
       return;
     }
 
@@ -546,6 +551,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       applyMove();
     })();
   };
+  moveCalendarEventRef.current = moveCalendarEvent;
 
   const startDrag = (e, ev, key, idx) => {
     if (!ev || ev.source === 'exam-service' || ev.type === 'exam') return;
@@ -596,13 +602,18 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       m.active = false;
       m.wasDrag = Boolean(m.moved);
       if (m.moved && m.toKey && m.toTime) {
-        moveCalendarEvent(m.fromKey, { ...m.ev, index: m.fromIdx }, m.toKey, m.toTime);
+        moveCalendarEventRef.current?.(m.fromKey, { ...m.ev, index: m.fromIdx }, m.toKey, m.toTime, { manualExactTime: true });
       }
       setDrag(null);
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup',   onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup',   onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
   }, []);
 
   const startMonthDrag = (e, ev, key, idx) => {
@@ -631,13 +642,18 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       const wasStarted = m.started;
       m.active = false; m.started = false;
       if (wasStarted && m.toKey && m.toKey !== m.fromKey) {
-        moveCalendarEvent(m.fromKey, { ...m.ev, index: m.fromIdx }, m.toKey, m.ev.time);
+        moveCalendarEventRef.current?.(m.fromKey, { ...m.ev, index: m.fromIdx }, m.toKey, m.ev.time);
       }
       setMonthDrag(null);
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
   }, [setEvents]);
 
   const navPrev = () => {
@@ -1000,12 +1016,15 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
 
   const weekLabel = () => {
     const end = calAddDays(weekStart, 6);
+    const formatter = new Intl.DateTimeFormat(localeFor(lang), { month: 'short', day: 'numeric' });
     if (weekStart.getMonth() === end.getMonth())
-      return `${CAL_MONTHS_S[weekStart.getMonth()]} ${weekStart.getDate()}–${end.getDate()}, ${weekStart.getFullYear()}`;
-    return `${CAL_MONTHS_S[weekStart.getMonth()]} ${weekStart.getDate()} – ${CAL_MONTHS_S[end.getMonth()]} ${end.getDate()}`;
+      return `${formatter.format(weekStart)}–${end.getDate()}, ${weekStart.getFullYear()}`;
+    return `${formatter.format(weekStart)} – ${formatter.format(end)}`;
   };
 
-  const rangeLabel = view === 'week' ? weekLabel() : `${CAL_MONTHS[viewMonth]} ${viewYear}`;
+  const rangeLabel = view === 'week'
+    ? weekLabel()
+    : new Intl.DateTimeFormat(localeFor(lang), { month: 'long', year: 'numeric' }).format(new Date(viewYear, viewMonth, 1));
   const weekDays = useMemo(() => Array.from({length:7}, (_, i) => calAddDays(weekStart, i)), [weekStart]);
   const todayDow = today.getDay(); // 0=Sun,1=Mon,...,6=Sat
   const monthGrid = useMemo(() => {
@@ -1049,7 +1068,11 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     return { label: 'Balanced', tone: 'good', text: 'Plan fits calendar without obvious overload.' };
   }, [events, exams, today]);
 
-  const fmtModalDate = (key) => { if (!key) return ''; const [y,m,d] = key.split('-').map(Number); return `${CAL_MONTHS_S[m-1]} ${d}, ${y}`; };
+  const fmtModalDate = (key) => {
+    if (!key) return '';
+    const [y, m, d] = key.split('-').map(Number);
+    return new Intl.DateTimeFormat(localeFor(lang), { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(y, m - 1, d));
+  };
   const DAY_NAMES_ALL = ['DOM','LUN','MAR','MER','GIO','VEN','SAB'];
   const _ALL_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const _rot = (today.getDay() + 6) % 7; // Mon=0..Sun=6
@@ -1151,7 +1174,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                     };
                     return (
                       <div key={idx}
-                        onMouseDown={e => startDrag(e, ev, key, eventIndex)}
+                        onPointerDown={e => startDrag(e, ev, key, eventIndex)}
                         onClick={e => {
                           const dragged = dragMeta.current?.wasDrag && dragMeta.current?.fromKey === key && dragMeta.current?.fromIdx === eventIndex;
                           if (dragged) {
@@ -1161,13 +1184,13 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                           e.stopPropagation();
                           handleEvClick(ev, key, eventIndex);
                         }}
-                        style={{ position:'absolute', top, left:`calc(${leftPct}% + 3px)`, width:`calc(${widthPct}% - 6px)`, height: h - 2, borderRadius:7, background:bg, borderLeft:`3px solid ${color}`, boxShadow:`inset 0 0 0 1px ${color}22`, padding: compact ? '3px 5px' : '4px 6px', cursor:'grab', overflow:'hidden', zIndex:1 + layout.col, boxSizing:'border-box', opacity: isDragging ? 0.25 : ev.completed ? 0.5 : 1, userSelect:'none' }}>
+                        style={{ position:'absolute', top, left:`calc(${leftPct}% + 3px)`, width:`calc(${widthPct}% - 6px)`, height: h - 2, borderRadius:7, background:bg, borderLeft:`3px solid ${color}`, boxShadow:`inset 0 0 0 1px ${color}22`, padding: compact ? '3px 5px' : '4px 6px', cursor:'grab', overflow:'hidden', zIndex:1 + layout.col, boxSizing:'border-box', opacity: isDragging ? 0.25 : ev.completed ? 0.5 : 1, userSelect:'none', touchAction:'none' }}>
                         <div style={{ fontSize: compact ? 10 : 11, fontWeight:800, color:text, lineHeight:1.15, overflow:'hidden', textDecoration: ev.completed ? 'line-through' : 'none', whiteSpace: compact ? 'nowrap' : 'normal', textOverflow:'ellipsis' }}>{ev.name}</div>
                         {!compact && h > 32 && <div style={{ fontSize:10, color:text, opacity:.75, marginTop:2 }}>{normalizeClockTime(ev.time)}{ev.dur ? ` · ${ev.dur}` : ''}</div>}
                         <div style={{ position:'absolute', right:2, bottom:2, maxWidth:'calc(100% - 4px)', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:2, overflow:'hidden' }}>
                           {isStudyAction && (
                             <button
-                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
                               onClick={e => { e.stopPropagation(); toggleEventDone(key, eventIndex); }}
                               title={ev.completed ? 'Mark planned' : 'Mark done'}
                               style={{ ...actionButtonStyle, background:ev.completed ? '#DCFCE7' : actionButtonStyle.background, color:ev.completed ? '#16A34A' : color }}>
@@ -1176,7 +1199,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                           )}
                           {isStudyAction && (
                             <button
-                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
                               onClick={e => { e.stopPropagation(); moveStudyEvent(key, { ...ev, index: eventIndex }, keyAddDays(key, 1)); }}
                               title="Move tomorrow"
                               style={actionButtonStyle}>
@@ -1184,7 +1207,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                             </button>
                           )}
                           <button
-                            onMouseDown={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={e => { e.stopPropagation(); deleteEvent(key, eventIndex); }}
                             title="Delete"
                             style={{ ...actionButtonStyle, minWidth:compact ? 16 : 18, width:compact ? 16 : 18, padding:0, background:'rgba(255,255,255,.58)', opacity:.72 }}>
@@ -1231,8 +1254,8 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                   const { color, bg, text } = paletteForEvent(ev);
                   const isDragging = monthDrag && monthDrag.fromKey === key && monthDrag.ev === ev;
                   return <div key={idx}
-                    onMouseDown={e => startMonthDrag(e, ev, key, eventIndex)}
-                    style={{ ...calS.monthPill, background:bg, color:text, border:`1px solid ${color}33`, opacity:isDragging?0.3:(ev.completed?0.5:1), textDecoration:ev.completed?'line-through':'none', cursor:'grab', userSelect:'none' }}>{ev.name}</div>;
+                    onPointerDown={e => startMonthDrag(e, ev, key, eventIndex)}
+                    style={{ ...calS.monthPill, background:bg, color:text, border:`1px solid ${color}33`, opacity:isDragging?0.3:(ev.completed?0.5:1), textDecoration:ev.completed?'line-through':'none', cursor:'grab', userSelect:'none', touchAction:'none' }}>{ev.name}</div>;
                 })}
                 {dayEvs.length > 2 && <div style={calS.monthMore}>+{dayEvs.length-2} more</div>}
               </div>
@@ -1254,15 +1277,15 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     return (
       <div style={calS.overlay} onClick={closeModal}>
         <div style={calS.modal} onClick={e => e.stopPropagation()}>
-          <h3 style={calS.modalTitle}>Add activity · {fmtModalDate(modalKey)}</h3>
+          <h3 style={calS.modalTitle}>{tt(lang, 'addActivity')} · {fmtModalDate(modalKey)}</h3>
           <div style={calS.modalField}>
-            <label style={calS.modalLabel}>What are you doing?</label>
+            <label style={calS.modalLabel}>{tt(lang, 'activityTitle')}</label>
             <input value={modalName} onChange={e => setModalName(e.target.value)} onKeyDown={e => e.key==='Enter' && addEvent()}
-              placeholder="e.g. Study session, Gym, Coffee…" style={calS.modalInput} autoFocus />
+              placeholder={tt(lang, 'activityPlaceholder')} style={calS.modalInput} autoFocus />
           </div>
           <div style={{ display:'flex', gap:12, marginBottom:16 }}>
-            <div style={{ flex:1 }}><label style={calS.modalLabel}>Start time</label><input type="time" value={modalTime} onChange={e => setModalTime(e.target.value)} style={calS.modalInput} /></div>
-            <div style={{ flex:1 }}><label style={calS.modalLabel}>Duration</label>
+            <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'startTime')}</label><input type="time" value={modalTime} onChange={e => setModalTime(e.target.value)} style={calS.modalInput} /></div>
+            <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'duration')}</label>
               <select value={modalDur} onChange={e => setModalDur(e.target.value)} style={calS.modalInput}>
                 {['15m','30m','45m','1h','1h30m','2h','3h','Custom'].map(d => <option key={d} value={d}>{d}</option>)}
               </select>
@@ -1283,19 +1306,19 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
             </div>
           </div>
           <div style={{ marginBottom:16 }}>
-            <label style={calS.modalLabel}>Category</label>
+            <label style={calS.modalLabel}>{tt(lang, 'category')}</label>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
               {LIFE_CATS.map(c => (
                 <button key={c.id} onClick={() => { setSelCat(c.id); if(c.id!=='study') setSelNoteId(null); }}
                   style={{ ...calS.catChip, background:selCat===c.id?c.color:c.bg, color:selCat===c.id?'#fff':c.text, border:`1.5px solid ${c.color}` }}>
-                  <span style={{ ...calS.catDot, background:selCat===c.id?'#fff':c.color }} />{c.label}
+                  <span style={{ ...calS.catDot, background:selCat===c.id?'#fff':c.color }} />{tt(lang, c.id)}
                 </button>
               ))}
             </div>
           </div>
           {selCat === 'study' && (
             <div style={{ marginBottom:16 }}>
-              <label style={calS.modalLabel}>Which subject?</label>
+              <label style={calS.modalLabel}>{tt(lang, 'whichSubject')}</label>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
                 {subjectOptions.length > 0
                   ? subjectOptions.map((info) => (
@@ -1304,13 +1327,13 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                       {info.subject}
                     </button>
                   ))
-                  : <div style={{ fontSize:12, color:'var(--gray)', paddingTop:6 }}>No subjects loaded yet. Add exams from Notes/Exams first, then they will appear here.</div>}
+                  : <div style={{ fontSize:12, color:'var(--gray)', paddingTop:6 }}>{tt(lang, 'noSubjectsLoaded')}</div>}
               </div>
             </div>
           )}
           <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20 }}>
-            <button onClick={closeModal} style={calS.cancelBtn}>Cancel</button>
-            <button onClick={addEvent} style={calS.saveBtn}>Add activity</button>
+            <button onClick={closeModal} style={calS.cancelBtn}>{tt(lang, 'cancel')}</button>
+            <button onClick={addEvent} style={calS.saveBtn}>{tt(lang, 'addActivity')}</button>
           </div>
         </div>
       </div>
@@ -1335,19 +1358,19 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       <div style={calS.overlay} onClick={closeEditEvent}>
         <div style={{ ...calS.modal, maxHeight:'88vh', overflowY:'auto' }} onClick={e => e.stopPropagation()}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
-            <h3 style={{ ...calS.modalTitle, margin:0 }}>Modifica attività · {fmtModalDate(editEv.key)}</h3>
+            <h3 style={{ ...calS.modalTitle, margin:0 }}>{tt(lang, 'editActivity')} · {fmtModalDate(editEv.key)}</h3>
             <label style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:12, color:'var(--gray)', cursor:'pointer', userSelect:'none' }}>
               <input type="checkbox" checked={f.completed} onChange={e => upd({ completed: e.target.checked })} />
-              Completata
+              {tt(lang, 'completed')}
             </label>
           </div>
           <div style={calS.modalField}>
-            <label style={calS.modalLabel}>Cosa stai facendo?</label>
+            <label style={calS.modalLabel}>{tt(lang, 'activityTitle')}</label>
             <input value={f.name} onChange={e => upd({ name: e.target.value })} readOnly={isPlannerEvent} style={{ ...calS.modalInput, ...(isPlannerEvent ? { background:'var(--sidebar-bg)', color:'var(--gray)' } : null) }} />
           </div>
           <div style={{ display:'flex', gap:12, marginBottom:16 }}>
-            <div style={{ flex:1 }}><label style={calS.modalLabel}>Orario</label><input type="time" value={f.time} onChange={e => upd({ time: e.target.value })} style={calS.modalInput} /></div>
-            <div style={{ flex:1 }}><label style={calS.modalLabel}>Durata</label>
+            <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'startTime')}</label><input type="time" value={f.time} onChange={e => upd({ time: e.target.value })} style={calS.modalInput} /></div>
+            <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'duration')}</label>
               <select value={f.dur} onChange={e => upd({ dur: e.target.value })} style={calS.modalInput}>
                 {['15m','30m','45m','1h','1h30m','2h','3h'].map(d => <option key={d} value={d}>{d}</option>)}
               </select>
@@ -1375,15 +1398,15 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
               <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:10 }}>
                 <button onClick={() => { toggleEventDone(editEv.key, editEv.idx); upd({ completed: !f.completed }); }}
                   style={{ ...calS.repairBtn, color:'#166534', borderColor:'#86EFAC', background:'#DCFCE7' }}>
-                  {f.completed ? 'Mark planned' : 'Mark done'}
+                  {f.completed ? tt(lang, 'markPlanned') : tt(lang, 'markDone')}
                 </button>
                 <button onClick={() => { moveStudyEvent(editEv.key, { ...(events[editEv.key] || [])[editEv.idx], index: editEv.idx }, keyAddDays(editEv.key, 1)); closeEditEvent(); }}
                   style={{ ...calS.repairBtn, color:'var(--indigo)', borderColor:'#C7D2FE', background:'#EEF2FF' }}>
-                  Move tomorrow
+                  {tt(lang, 'moveTomorrow')}
                 </button>
                 <button onClick={() => { markStudyEventMissed(editEv.key, editEv.idx); closeEditEvent(); }}
                   style={{ ...calS.repairBtn, color:'#92400E', borderColor:'#FDE68A', background:'#FFFBEB' }}>
-                  Mark missed
+                  {tt(lang, 'markMissed')}
                 </button>
               </div>
             </div>
@@ -1392,30 +1415,30 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
             <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:16 }}>
               <button onClick={() => { toggleEventDone(editEv.key, editEv.idx); upd({ completed: !f.completed }); }}
                 style={{ ...calS.repairBtn, color:'#166534', borderColor:'#86EFAC', background:'#DCFCE7' }}>
-                {f.completed ? 'Mark planned' : 'Mark done'}
+                {f.completed ? tt(lang, 'markPlanned') : tt(lang, 'markDone')}
               </button>
               <button onClick={() => { moveStudyEvent(editEv.key, { ...(events[editEv.key] || [])[editEv.idx], index: editEv.idx }, keyAddDays(editEv.key, 1)); closeEditEvent(); }}
                 style={{ ...calS.repairBtn, color:'var(--indigo)', borderColor:'#C7D2FE', background:'#EEF2FF' }}>
-                Move tomorrow
+                {tt(lang, 'moveTomorrow')}
               </button>
             </div>
           )}
           {!isPlannerEvent && (
             <>
               <div style={{ marginBottom:16 }}>
-                <label style={calS.modalLabel}>Categoria</label>
+                <label style={calS.modalLabel}>{tt(lang, 'category')}</label>
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
                   {LIFE_CATS.map(c => (
                     <button key={c.id} onClick={() => upd({ cat: c.id, noteId: c.id !== 'study' ? null : f.noteId })}
                       style={{ ...calS.catChip, background:f.cat===c.id?c.color:c.bg, color:f.cat===c.id?'#fff':c.text, border:`1.5px solid ${c.color}` }}>
-                      <span style={{ ...calS.catDot, background:f.cat===c.id?'#fff':c.color }} />{c.label}
+                      <span style={{ ...calS.catDot, background:f.cat===c.id?'#fff':c.color }} />{tt(lang, c.id)}
                     </button>
                   ))}
                 </div>
               </div>
               {f.cat === 'study' && (
                 <div style={{ marginBottom:16 }}>
-                  <label style={calS.modalLabel}>Quale materia?</label>
+                  <label style={calS.modalLabel}>{tt(lang, 'whichSubject')}</label>
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
                     {subjectOptions.length > 0
                       ? subjectOptions.map((subjectInfo) => (
@@ -1424,13 +1447,13 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                           {subjectInfo.subject}
                         </button>
                       ))
-                      : <span style={{ fontSize:12, color:'var(--gray)' }}>No linked subjects. Set a subject from Add activity.</span>
+                      : <span style={{ fontSize:12, color:'var(--gray)' }}>{tt(lang, 'noLinkedSubjects')}</span>
                     }
                   </div>
                   {f.noteId && (
                     <button onClick={() => { closeEditEvent(); setTab('notes'); }}
                       style={{ marginTop:10, padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                      Apri nota collegata
+                      {tt(lang, 'openLinkedNote')}
                     </button>
                   )}
                 </div>
@@ -1438,30 +1461,30 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
             </>
           )}
           <div style={calS.modalField}>
-            <label style={calS.modalLabel}>Note / Info</label>
+            <label style={calS.modalLabel}>{tt(lang, 'notesInfo')}</label>
             <textarea value={f.notes} onChange={e => upd({ notes: e.target.value })}
-              placeholder="Argomenti, obiettivi, capitoli da rivedere…"
+              placeholder={tt(lang, 'notesPlaceholder')}
               style={{ ...calS.modalInput, minHeight:70, resize:'vertical', fontFamily:'inherit' }} />
           </div>
           <div style={{ marginBottom:16 }}>
-            <label style={calS.modalLabel}>Materiali e link</label>
+            <label style={calS.modalLabel}>{tt(lang, 'materialsLinks')}</label>
             <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:8 }}>
               {f.materials.map((m, i) => (
                 <div key={i} style={{ display:'flex', gap:6 }}>
                   <input value={m} onChange={e => updateMaterial(i, e.target.value)}
-                    placeholder="https://… oppure nome file / link" style={{ ...calS.modalInput, flex:1 }} />
+                    placeholder={tt(lang, 'materialPlaceholder')} style={{ ...calS.modalInput, flex:1 }} />
                   <button onClick={() => removeMaterial(i)}
                     style={{ width:36, borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--gray)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}><Trash size={13} /></button>
                 </div>
               ))}
               <button onClick={addMaterial}
                 style={{ alignSelf:'flex-start', padding:'8px 12px', borderRadius:10, border:'1.5px dashed var(--border)', background:'transparent', color:'var(--gray)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                + Aggiungi materiale / link
+                + {tt(lang, 'addMaterialLink')}
               </button>
             </div>
           </div>
           <div style={{ marginBottom:16 }}>
-            <label style={calS.modalLabel}>File allegati</label>
+            <label style={calS.modalLabel}>{tt(lang, 'attachedFiles')}</label>
             <div
               onDragOver={e => { e.preventDefault(); setFileDragOver(true); }}
               onDragLeave={() => setFileDragOver(false)}
@@ -1469,8 +1492,8 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
               style={{ marginTop:8, padding:'16px', border:`1.5px dashed ${fileDragOver ? 'var(--indigo)' : 'var(--border)'}`, borderRadius:12, background: fileDragOver ? 'var(--lavender)' : 'transparent', textAlign:'center', cursor:'pointer', transition:'background .15s, border-color .15s' }}
               onClick={browseFiles}>
               <div style={{ fontSize:22, marginBottom:4 }}>📤</div>
-              <div style={{ fontSize:13, fontWeight:600, color:'var(--ink)', marginBottom:2 }}>Trascina i file qui</div>
-              <div style={{ fontSize:11, color:'var(--gray)' }}>oppure clicca per selezionare</div>
+              <div style={{ fontSize:13, fontWeight:600, color:'var(--ink)', marginBottom:2 }}>{tt(lang, 'dragFilesHere')}</div>
+              <div style={{ fontSize:11, color:'var(--gray)' }}>{tt(lang, 'clickSelectFiles')}</div>
               <input ref={fileInputRef} type="file" multiple onChange={onFilePick} style={{ display:'none' }} />
             </div>
             {f.files && f.files.length > 0 && (
@@ -1490,11 +1513,11 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
           <div style={{ display:'flex', gap:10, justifyContent:'space-between', marginTop:20 }}>
             <button onClick={deleteEditEvent}
               style={{ padding:'10px 16px', borderRadius:999, border:'1px solid #EF4444', background:'transparent', color:'#EF4444', fontWeight:600, fontSize:13, cursor:'pointer' }}>
-              Elimina
+              {tt(lang, 'delete')}
             </button>
             <div style={{ display:'flex', gap:10 }}>
-              <button onClick={closeEditEvent} style={calS.cancelBtn}>Annulla</button>
-              <button onClick={saveEditEvent} style={calS.saveBtn}>Salva</button>
+              <button onClick={closeEditEvent} style={calS.cancelBtn}>{tt(lang, 'cancel')}</button>
+              <button onClick={saveEditEvent} style={calS.saveBtn}>{tt(lang, 'save')}</button>
             </div>
           </div>
         </div>
@@ -1505,8 +1528,8 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
   return (
     <div style={calS.wrap}>
       <div style={{ marginBottom:22 }}>
-        <h2 style={homeS.h1}>Calendar</h2>
-        <p style={homeS.sub}>Plan your week, track your life balance</p>
+        <h2 style={homeS.h1}>{tt(lang, 'calendar')}</h2>
+        <p style={homeS.sub}>{tt(lang, 'calendarSub')}</p>
       </div>
       <div style={calS.header}>
         <div style={calS.navGroup}>
@@ -1517,7 +1540,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <button onClick={() => setDensity((current) => current === 'compact' ? 'detailed' : 'compact')}
             style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:999, fontSize:13, fontWeight:600, color:'var(--ink)', cursor:'pointer' }}>
-            {density === 'compact' ? 'Compact' : 'Detailed'}
+            {density === 'compact' ? tt(lang, 'compact') : tt(lang, 'detailed')}
           </button>
           {/* View dropdown pill */}
           <div style={{ position:'relative' }}>
@@ -1553,7 +1576,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
         ))}
       </div>
       {calendarLoading && (
-        <div style={calS.readModelNotice}>Loading calendar events...</div>
+        <div style={calS.readModelNotice}>{tt(lang, 'loadingCalendar')}</div>
       )}
       {!calendarLoading && calendarError && (
         <div style={{ ...calS.readModelNotice, background:'#FEF2F2', borderColor:'#FCA5A5', color:'#991B1B' }}>{calendarError}</div>

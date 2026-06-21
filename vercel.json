@@ -1,7 +1,30 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/((?!assets/|api/|Lockeen-2\\.png|Lockeen-icon-muted\\.png|Lockeen-icon\\.png|Lockeen\\.svg|logo-footer\\.png|logo-icon\\.png).*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/((?!assets/|api/|Lockeen-2\\.png|Lockeen-icon-muted\\.png|Lockeen-icon\\.png|Lockeen\\.svg|logo-footer\\.png|logo-icon\\.png).*)",
+      "destination": "/index.html"
+    }
   ]
 }

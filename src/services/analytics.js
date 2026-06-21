@@ -279,16 +279,17 @@ export async function createStudySession(input = {}) {
     source: input.source || 'timer',
   };
 
-  const localSessions = [session, ...readLocalStudySessions()];
-  writeLocalStudySessions(localSessions);
-
-  if (isMockMode()) return ok(session);
+  if (isMockMode()) {
+    const localSessions = [session, ...readLocalStudySessions()];
+    writeLocalStudySessions(localSessions);
+    return ok(session);
+  }
 
   const clientError = requireSupabaseClient();
-  if (clientError) return ok(session);
+  if (clientError) return clientError;
 
   const userResult = await requireAuthenticatedUserId();
-  if (userResult.error) return ok(session);
+  if (userResult.error) return userResult;
 
   const { data, error } = await supabase
     .from(STUDY_SESSIONS_TABLE)
@@ -302,7 +303,9 @@ export async function createStudySession(input = {}) {
     .single();
 
   if (error) {
-    if (isMissingStudySessionsTable(error)) return ok(session);
+    if (isMissingStudySessionsTable(error)) {
+      return fail('Study sessions table is missing. Apply the study_sessions migration.', 'STUDY_SESSIONS_SCHEMA_MISSING');
+    }
     const normalized = normalizeError(error);
     return fail(normalized.message, normalized.code);
   }

@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { Clock, Flame, Trend, Trophy } from '../lib/icons';
 import { formatExamDate, getSubjectPalette } from '../data/mockData';
+import { getExamPalette } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { homeS } from '../styles/dashboardStyles';
 import { getStudyStreak, getStudySummary, listStudySessions, sessionsToWeekData } from '../services/analytics';
 import { durToMins } from './calendarData';
+import { tt } from '../lib/i18n';
 
 function useCountUp(target, duration = 1000, delay = 0) {
   const [value, setValue] = useState(0);
@@ -61,11 +63,6 @@ function formatAnalyticsError(error) {
   return error.message || 'Unable to load analytics data.';
 }
 
-function getCurrentGradeFromScore(score) {
-  if (score == null || !Number.isFinite(Number(score)) || Number(score) <= 0) return null;
-  return Math.round((18 + (Number(score) / 100) * 12) * 10) / 10;
-}
-
 function getLocalQuizScores(quizHistory = {}) {
   return Object.values(quizHistory).flat().filter((score) => Number.isFinite(Number(score))).map(Number);
 }
@@ -73,6 +70,38 @@ function getLocalQuizScores(quizHistory = {}) {
 function getAverage(values = []) {
   if (!values.length) return null;
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function getAverageDecimal(values = [], digits = 1) {
+  const nums = values.filter((value) => Number.isFinite(Number(value))).map(Number);
+  if (!nums.length) return null;
+  const factor = 10 ** digits;
+  return Math.round((nums.reduce((sum, value) => sum + value, 0) / nums.length) * factor) / factor;
+}
+
+function getPerformanceScore(quizAvg, flashAvg) {
+  if (quizAvg != null && flashAvg != null) return (quizAvg * 0.7) + (flashAvg * 0.3);
+  return quizAvg ?? flashAvg ?? null;
+}
+
+function getTrendBonus(scores = []) {
+  const values = scores.filter((score) => Number.isFinite(Number(score))).map(Number);
+  if (values.length < 5) return 0;
+  const recent = values.slice(-3);
+  const previous = values.slice(0, -3);
+  const recentAvg = getAverage(recent);
+  const previousAvg = getAverage(previous);
+  if (recentAvg == null || previousAvg == null) return 0;
+  if (recentAvg >= previousAvg + 10) return 0.5;
+  if (recentAvg <= previousAvg - 10) return -0.5;
+  return 0;
+}
+
+function estimateCoverage(exam = {}, quizScores = [], flashScores = []) {
+  const chapters = exam.chapters || [];
+  if (!chapters.length) return quizScores.length || flashScores.length ? 0.5 : 0;
+  const signalCount = quizScores.length + flashScores.length;
+  return clamp(signalCount / Math.max(1, chapters.length * 2), 0, 1);
 }
 
 function getDaysUntilExam(exam, now = new Date()) {
@@ -90,30 +119,34 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function getSubjectMastery(notes = [], quizHistory = {}, flashHistory = {}) {
-  const colors = ['var(--indigo)', 'var(--purple)', '#06B6D4', '#F59E0B', '#EF4444'];
-  const groups = new Map();
-  (notes || []).forEach((exam) => {
-    const name = exam.subject || exam.name || 'General';
-    const current = groups.get(name) || { name, scores: [], mastery: [] };
-    const ids = [exam.id, ...(exam.chapters || []).map((chapter) => chapter.id)];
-    ids.forEach((id) => {
-      current.scores.push(...((quizHistory || {})[id] || []), ...((flashHistory || {})[id] || []));
-    });
-    (exam.chapters || []).forEach((chapter) => {
-      if (Number.isFinite(Number(chapter.mastery))) current.mastery.push(Number(chapter.mastery));
-    });
-    groups.set(name, current);
-  });
-
-  return Array.from(groups.values()).slice(0, 5).map((group, index) => ({
-    name: group.name,
-    progress: getAverage(group.scores) ?? getAverage(group.mastery) ?? 0,
-    color: colors[index % colors.length],
-  }));
+function getExamMastery(notes = [], quizHistory = {}, flashHistory = {}) {
+  return (notes || [])
+    .filter((exam) => !exam.status || exam.status === 'active')
+    .map((exam) => {
+      const name = String(exam.name || exam.subject || '').trim();
+      if (!name) return null;
+      const ids = [exam.id, ...(exam.chapters || []).map((chapter) => chapter.id)];
+      const scores = ids.flatMap((id) => [
+        ...((quizHistory || {})[id] || []),
+        ...((flashHistory || {})[id] || []),
+      ]).filter((score) => Number.isFinite(Number(score))).map(Number);
+      const quizScores = ids.flatMap((id) => (quizHistory || {})[id] || [])
+        .filter((score) => Number.isFinite(Number(score))).map(Number);
+      const flashScores = ids.flatMap((id) => (flashHistory || {})[id] || [])
+        .filter((score) => Number.isFinite(Number(score))).map(Number);
+      const performanceScore = getPerformanceScore(getAverage(quizScores), getAverage(flashScores));
+      const mastery = (exam.chapters || [])
+        .map((chapter) => Number(chapter.mastery ?? chapter.progress))
+        .filter((value) => Number.isFinite(value));
+      const progress = performanceScore != null ? Math.round(performanceScore) : getAverage(scores) ?? getAverage(mastery);
+      if (progress == null) return null;
+      return { name, progress, color: getExamPalette(exam).dot };
+    })
+    .filter(Boolean)
+    .slice(0, 5);
 }
 
-function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}) {
+function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}, lang = 'en') {
   const ids = [exam.id, ...(exam.chapters || []).map((chapter) => chapter.id)];
   const quizScores = ids.flatMap((id) => (quizHistory || {})[id] || [])
     .filter((score) => Number.isFinite(Number(score))).map(Number);
@@ -128,48 +161,55 @@ function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}) {
     return {
       prediction: null,
       confidence: 0,
-      confidenceLabel: 'No data',
+      confidenceLabel: tt(lang, 'noData'),
       delta: null,
       status: 'needs-practice',
-      statusLabel: 'Needs practice',
-      helper: 'Needs practice',
+      statusLabel: tt(lang, 'needsPractice'),
+      helper: tt(lang, 'needsPractice'),
     };
   }
 
   const quizAvg = getAverage(quizScores);
   const flashAvg = getAverage(flashScores);
-  const avgScore = quizAvg != null && flashAvg != null
-    ? Math.round((quizAvg * 0.7) + (flashAvg * 0.3))
-    : quizAvg ?? flashAvg ?? getAverage(scores);
+  const performanceScore = getPerformanceScore(quizAvg, flashAvg) ?? getAverage(scores);
+  const rawGrade = 18 + ((performanceScore || 0) / 100) * 12;
+  const attemptCount = scores.length;
+  const dataWeight = attemptCount / (attemptCount + 3);
+  const trendBonus = getTrendBonus(scores);
   const daysUntilExam = getDaysUntilExam(exam);
-  const timePressurePenalty = daysUntilExam == null || daysUntilExam >= 21 ? 0 : daysUntilExam >= 7 ? 1 : 2;
-  const dataPenalty = quizScores.length === 0 ? 1 : 0;
+  const coverageRatio = estimateCoverage(exam, quizScores, flashScores);
   const prediction = Number.isFinite(Number(backendPrediction))
     ? Math.round(Number(backendPrediction))
-    : clamp(Math.round(18 + (avgScore / 100) * 12) - timePressurePenalty - dataPenalty, 18, 30);
+    : clamp(Math.round(((24 * (1 - dataWeight)) + (rawGrade * dataWeight) + trendBonus) * 10) / 10, 18, 30);
   const target = exam.targetGrade || 27;
-  const delta = prediction - target;
-  const lastScore = scores[0];
-  const previousScores = scores.slice(1);
-  const previousAvg = getAverage(previousScores);
-  const improving = previousAvg == null || lastScore == null ? false : lastScore >= previousAvg;
-  const coverage = Math.min(60, (quizScores.length * 14) + (flashScores.length * 8));
-  const recencyBonus = daysUntilExam != null && daysUntilExam <= 14 && scores.length > 0 ? 10 : 0;
+  const delta = Math.round((prediction - target) * 10) / 10;
+  const attemptsConfidence = clamp(attemptCount * 9, 0, 55);
+  const sourceConfidence = quizScores.length && flashScores.length ? 15 : 6;
+  const coverageConfidence = Math.round(coverageRatio * 20);
   const confidence = Number.isFinite(Number(backendConfidence))
     ? Math.round(Number(backendConfidence))
-    : clamp(20 + coverage + recencyBonus, 0, 100);
-  const confidenceLabel = confidence >= 70 ? 'High confidence' : confidence >= 40 ? 'Medium confidence' : confidence > 0 ? 'Low confidence' : 'No data';
-  const status = backendStatus || (delta >= 0 && confidence >= 40 ? 'on-track' : delta >= -2 ? 'close' : delta >= -4 ? 'at-risk' : 'needs-practice');
+    : clamp(15 + attemptsConfidence + sourceConfidence + coverageConfidence, 0, 100);
+  const confidenceLabel = confidence >= 70 ? (lang === 'it' ? 'Alta confidenza' : 'High confidence') : confidence >= 40 ? (lang === 'it' ? 'Media confidenza' : 'Medium confidence') : confidence > 0 ? (lang === 'it' ? 'Bassa confidenza' : 'Low confidence') : tt(lang, 'noData');
+  const cramRisk = daysUntilExam != null && daysUntilExam <= 7 && coverageRatio < 0.5;
+  const lowCoverage = coverageRatio > 0 && coverageRatio < 0.35;
+  let status = backendStatus || (
+    delta >= 0 && confidence >= 40 ? 'on-track' :
+    delta >= -2 ? 'close' :
+    delta >= -5 ? 'at-risk' :
+    'needs-practice'
+  );
+  if (!backendStatus && status === 'on-track' && (cramRisk || lowCoverage)) status = 'close';
+  if (!backendStatus && status === 'close' && cramRisk) status = 'at-risk';
   const labels = {
-    'on-track': 'On track',
-    close: 'Close',
-    'at-risk': 'At risk',
-    'needs-practice': 'Needs practice',
+    'on-track': tt(lang, 'onTrack'),
+    close: lang === 'it' ? 'Vicino' : 'Close',
+    'at-risk': tt(lang, 'atRisk'),
+    'needs-practice': tt(lang, 'needsPractice'),
   };
   const helpers = {
-    'on-track': improving ? 'Keep momentum with mixed review' : 'Keep steady, repeat weak cards',
-    close: quizScores.length ? 'Close: one focused quiz can lift it' : 'Close: add quiz data',
-    'at-risk': flashScores.length ? 'At risk: practice weak quiz topics' : 'At risk: add flashcard review',
+    'on-track': trendBonus > 0 ? 'Improving: keep mixed review' : 'On track: maintain practice',
+    close: lowCoverage ? 'Close: improve coverage' : quizScores.length ? 'Close: one focused quiz can lift it' : 'Close: add quiz attempts',
+    'at-risk': cramRisk ? 'Cram risk: low coverage near exam' : lowCoverage ? 'At risk: low coverage' : 'At risk: practice weak quiz topics',
     'needs-practice': 'Needs practice: start with quiz + flashcards',
   };
   return {
@@ -317,7 +357,7 @@ function mergeStudySessionsWithCalendar(studySessions = [], calEvents = {}) {
   });
 }
 
-function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, quizHistory, flashHistory, setTab, openQuizForExam }) {
+function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, quizHistory, flashHistory, setTab, openQuizForExam, lang = 'en' }) {
   const isMobile = useIsMobile();
   const visibleStudySessions = mergeStudySessionsWithCalendar(studySessions, calEvents);
   const visibleWeekData = sessionsToWeekData(visibleStudySessions);
@@ -358,20 +398,18 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
   const localFlashScores = getLocalQuizScores(flashHistory);
   const averageQuizScore = summary?.averageQuizScore ?? getAverage(localQuizScores);
   const averageFlashcardScore = summary?.averageFlashcardScore ?? getAverage(localFlashScores);
-  const averagePracticeScore = summary?.averagePracticeScore ?? getAverage([
-    ...localQuizScores,
-    ...localFlashScores,
-  ]);
   const hasQuizData = Number(summary?.quizAttemptsCount || 0) > 0 || localQuizScores.length > 0;
   const hasFlashData = Number(summary?.flashcardReviewsCount || 0) > 0 || localFlashScores.length > 0;
-  const hasPracticeData = hasQuizData || hasFlashData;
-  const currentGrade = hasPracticeData ? getCurrentGradeFromScore(averagePracticeScore ?? averageQuizScore) : null;
+  const gradePredictions = trackedNotes
+    .map((note) => estimateGradePrediction(note, quizHistory || {}, flashHistory || {}, lang).prediction)
+    .filter((prediction) => typeof prediction === 'number' && Number.isFinite(prediction));
+  const averagePredictedGrade = getAverageDecimal(gradePredictions);
   const streakDays = getStudyStreak(visibleStudySessions);
-  const subjectMastery = getSubjectMastery(trackedNotes, quizHistory, flashHistory);
+  const examMastery = getExamMastery(trackedNotes, quizHistory, flashHistory);
   const missingSignals = [
-    totalMin === 0 ? 'No study time logged yet. Start timer or mark planner sessions done.' : null,
-    !hasQuizData ? 'No quiz attempts yet.' : null,
-    !hasFlashData ? 'No flashcard reviews yet.' : null,
+    totalMin === 0 ? (lang === 'it' ? 'Nessun tempo di studio registrato.' : 'No study time logged yet.') : null,
+    !hasQuizData ? (lang === 'it' ? 'Nessun tentativo quiz ancora.' : 'No quiz attempts yet.') : null,
+    !hasFlashData ? (lang === 'it' ? 'Nessuna review flashcard ancora.' : 'No flashcard reviews yet.') : null,
   ].filter(Boolean);
 
   // Count-up values
@@ -379,24 +417,24 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
   const studyM = totalMin % 60;
   const quizScoreDisplay = hasQuizData && averageQuizScore != null ? `${averageQuizScore}%` : 'n.a.';
   const flashScoreDisplay = averageFlashcardScore != null ? `${averageFlashcardScore}%` : 'n.a.';
-  const currentGradeDisplay = currentGrade != null ? currentGrade.toFixed(1) : 'n.a.';
+  const averagePredictedGradeDisplay = averagePredictedGrade != null ? averagePredictedGrade.toFixed(1) : 'n.a.';
   const kpiCards = [
-    { label: 'Study time this week', displayValue: `${studyH}h ${studyM}m`, Icon: Clock, tint: 'var(--lavender)', col: 'var(--indigo)' },
-    { label: 'Current streak', displayValue: `${streakDays} ${streakDays === 1 ? 'day' : 'days'}`, Icon: Flame, tint: '#FFF7ED', col: '#F97316' },
-    { label: 'Avg. quiz score', displayValue: quizScoreDisplay, Icon: Trend, tint: '#ECFDF5', col: '#10B981' },
-    { label: 'Flash mastery', displayValue: flashScoreDisplay, Icon: Trophy, tint: '#FEF9C3', col: '#CA8A04' },
-    { label: 'Voto medio attuale', displayValue: currentGradeDisplay, Icon: Trophy, tint: '#EEF2FF', col: 'var(--indigo)' },
+    { label: tt(lang, 'studyTimeWeek'), displayValue: `${studyH}h ${studyM}m`, Icon: Clock, tint: 'var(--lavender)', col: 'var(--indigo)' },
+    { label: tt(lang, 'currentStreak'), displayValue: `${streakDays} ${streakDays === 1 ? tt(lang, 'day') : tt(lang, 'days')}`, Icon: Flame, tint: '#FFF7ED', col: '#F97316' },
+    { label: tt(lang, 'avgQuizScore'), displayValue: quizScoreDisplay, Icon: Trend, tint: '#ECFDF5', col: '#10B981' },
+    { label: tt(lang, 'flashMastery'), displayValue: flashScoreDisplay, Icon: Trophy, tint: '#FEF9C3', col: '#CA8A04' },
+    { label: tt(lang, 'averagePredictionGrade'), displayValue: averagePredictedGradeDisplay, Icon: Trophy, tint: '#EEF2FF', col: 'var(--indigo)' },
   ];
 
   return (
     <div>
       <div style={{ marginBottom: 22 }}>
-        <h2 style={homeS.h1}>Analytics</h2>
-        <p style={homeS.sub}>Track your study habits and progress across subjects</p>
+        <h2 style={homeS.h1}>{tt(lang, 'analytics')}</h2>
+        <p style={homeS.sub}>{tt(lang, 'analyticsSub')}</p>
       </div>
 
       {analyticsLoading && (
-        <div style={{ ...analS.noticeCard, marginBottom:22 }}>Loading analytics...</div>
+        <div style={{ ...analS.noticeCard, marginBottom:22 }}>{tt(lang, 'loadingAnalytics')}</div>
       )}
       {!analyticsLoading && analyticsError && (
         <div style={{ ...analS.noticeCard, marginBottom:22, background:'#FEF2F2', borderColor:'#FCA5A5', color:'#991B1B', fontWeight:700 }}>{analyticsError}</div>
@@ -408,7 +446,7 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
       )}
       {!analyticsLoading && !analyticsError && missingSignals.length > 0 && (
         <div style={{ ...analS.noticeCard, marginBottom:22, background:'#F8FAFC' }}>
-          <b style={{ color:'var(--ink)' }}>Analytics need more data</b>
+          <b style={{ color:'var(--ink)' }}>{tt(lang, 'analyticsNeedMoreData')}</b>
           <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:10 }}>
             {missingSignals.map((signal) => <span key={signal} style={analS.dataPill}>{signal}</span>)}
           </div>
@@ -420,8 +458,8 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
         <div style={analS.chartCard}>
           <div style={analS.cardHeader}>
             <div>
-              <h3 style={analS.cardTitle}>Weekly study time</h3>
-              <p style={analS.cardSub}>Minutes spent studying per day</p>
+              <h3 style={analS.cardTitle}>{tt(lang, 'weeklyStudyTime')}</h3>
+              <p style={analS.cardSub}>{tt(lang, 'minutesPerDay')}</p>
             </div>
             <span style={analS.legend}><span style={{ ...analS.legendDot, background: 'var(--indigo)' }} /> mins</span>
           </div>
@@ -433,18 +471,18 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
         </div>
 
         <div style={analS.subjectCard}>
-          <h3 style={{ ...analS.cardTitle, marginBottom: 4 }}>Subject mastery</h3>
-          <p style={{ ...analS.cardSub, marginBottom: 24 }}>Your progress per subject</p>
+          <h3 style={{ ...analS.cardTitle, marginBottom: 4 }}>{tt(lang, 'examMastery')}</h3>
+          <p style={{ ...analS.cardSub, marginBottom: 24 }}>{tt(lang, 'progressByExam')}</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-            {subjectMastery.length === 0 ? (
-              <p style={{ margin:0, color:'var(--gray)', fontSize:13 }}>No subject data yet.</p>
-            ) : subjectMastery.map(subject => (
-              <div key={subject.name}>
+            {examMastery.length === 0 ? (
+              <p style={{ margin:0, color:'var(--gray)', fontSize:13 }}>{tt(lang, 'noExamMastery')}</p>
+            ) : examMastery.map(exam => (
+              <div key={exam.name}>
                 <div style={analS.subjRow}>
-                  <span style={analS.subjName}>{subject.name}</span>
-                  <span style={analS.subjPct}>{subject.progress}%</span>
+                  <span style={analS.subjName}>{exam.name}</span>
+                  <span style={analS.subjPct}>{exam.progress}%</span>
                 </div>
-                <AnimatedProgress progress={subject.progress} color={subject.color} />
+                <AnimatedProgress progress={exam.progress} color={exam.color} />
               </div>
             ))}
           </div>
@@ -456,19 +494,19 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
       <section style={analS.gradeSection}>
         <div style={analS.gradeHead}>
           <div style={analS.gradeTitleBlock}>
-            <h3 style={analS.gradeTitle}>Grade Predictor</h3>
-            <p style={analS.gradeSub}>Prediction based on quiz, flashcards, and target grade</p>
+            <h3 style={analS.gradeTitle}>{tt(lang, 'gradePredictor')}</h3>
+            <p style={analS.gradeSub}>{tt(lang, 'predictionBased')}</p>
           </div>
           <div style={analS.gradeLegend}>
             {GRADE_STATUS_LEGEND.map((item) => {
               const style = getGradeStatusStyle(item.key);
-              return <span key={item.key} style={{ ...analS.statusPill, background: style.bg, color: style.color }}>{item.label}</span>;
+              return <span key={item.key} style={{ ...analS.statusPill, background: style.bg, color: style.color }}>{tt(lang, item.key === 'on-track' ? 'onTrack' : item.key === 'at-risk' ? 'atRisk' : item.key === 'needs-practice' ? 'needsPractice' : 'closeStatus')}</span>;
             })}
           </div>
         </div>
         <div style={analS.gradeList}>
           {trackedNotes.length === 0 ? (
-            <div style={{ padding: 24, color: 'var(--gray)', fontWeight: 700 }}>Nessun esame ancora.</div>
+            <div style={{ padding: 24, color: 'var(--gray)', fontWeight: 700 }}>{tt(lang, 'noExamsYet')}</div>
           ) : trackedNotes.map(note => (
             <GradePredictorCard
               key={note.id}
@@ -478,6 +516,7 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
               setTab={setTab}
               openQuizForExam={openQuizForExam}
               isMobile={isMobile}
+              lang={lang}
             />
           ))}
         </div>
@@ -487,19 +526,19 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
   );
 }
 
-function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuizForExam, isMobile = false }) {
+function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuizForExam, isMobile = false, lang = 'en' }) {
   const palette = getSubjectPalette(note.subject, note, false);
   const targetGrade = note.targetGrade || 27;
-  const prediction = estimateGradePrediction(note, quizHistory, flashHistory);
+  const prediction = estimateGradePrediction(note, quizHistory, flashHistory, lang);
   const targetPct = Math.max(0, Math.min(100, ((targetGrade - 18) / 12) * 100));
   const predictionPct = prediction.prediction == null ? null : Math.max(0, Math.min(100, ((prediction.prediction - 18) / 12) * 100));
   const statusStyle = getGradeStatusStyle(prediction.status);
   const examDate = formatExamDate(note.date || note.examDate);
-  const subtitle = `${examDate || 'No date'} · ${prediction.prediction == null ? 'No data' : prediction.confidenceLabel}`;
+  const subtitle = `${examDate || (lang === 'it' ? 'Nessuna data' : 'No date')} · ${prediction.prediction == null ? tt(lang, 'noData') : prediction.confidenceLabel}`;
   const hasProgress = predictionPct != null;
   const progressPct = hasProgress ? predictionPct : targetPct;
-  const deltaDisplay = prediction.delta == null ? '—' : prediction.delta > 0 ? `+${prediction.delta}` : String(prediction.delta);
-  const practiceLabel = prediction.status === 'on-track' ? 'Keep going' : 'Start practice';
+  const deltaDisplay = prediction.delta == null ? '—' : prediction.delta > 0 ? `+${prediction.delta.toFixed(1)}` : prediction.delta.toFixed(1);
+  const practiceLabel = prediction.status === 'on-track' ? tt(lang, 'keepGoing') : tt(lang, 'startPractice');
   const openPractice = () => {
     if (openQuizForExam && note.id) {
       openQuizForExam(note.id);
@@ -519,11 +558,11 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuizF
       </div>
       <div style={analS.gradeNumberBox}>
         <div style={analS.gradeNumber}>{targetGrade}</div>
-        <div style={analS.gradeLabel}>TARGET</div>
+        <div style={analS.gradeLabel}>{tt(lang, 'target').toUpperCase()}</div>
       </div>
       <div style={analS.gradeNumberBox}>
         <div style={{ ...analS.gradeNumber, color: prediction.prediction == null ? 'var(--gray-2)' : 'var(--ink)' }}>{prediction.prediction ?? '—'}</div>
-        <div style={analS.gradeLabel}>PREDICTION</div>
+        <div style={analS.gradeLabel}>{tt(lang, 'prediction').toUpperCase()}</div>
       </div>
       <div style={analS.gradeTrackBlock}>
         <div style={{ ...analS.statusPill, background: statusStyle.bg, color: statusStyle.color, alignSelf: 'flex-start' }}>{prediction.statusLabel}</div>

@@ -2,8 +2,11 @@ import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 import { fail, ok } from './_shared';
 
-const PRACTICE_TIMEOUT_MS = 30000;
+const PRACTICE_TIMEOUT_MS = 90000;
+const FLASHCARD_PRACTICE_TIMEOUT_MS = 45000;
 const DIFFICULTIES = ['easy', 'medium', 'hard', 'extreme'];
+const CARD_TYPES = ['definition', 'comparison', 'formula', 'example', 'misconception'];
+const CARD_DIFFICULTIES = ['easy', 'medium', 'hard'];
 
 function normalizeQuestion(question = {}) {
   const options = Array.isArray(question.options)
@@ -17,13 +20,39 @@ function normalizeQuestion(question = {}) {
     explanation: String(question.explanation || '').trim(),
     difficulty: DIFFICULTIES.includes(String(question.difficulty || '').toLowerCase()) ? String(question.difficulty).toLowerCase() : 'medium',
     topic: String(question.topic || '').trim(),
+    conceptKey: String(question.conceptKey || question.concept_key || '').trim(),
+    sourceChunk: String(question.sourceChunk || question.sourceSnippet || '').trim(),
+    sourceSnippet: String(question.sourceSnippet || question.sourceChunk || '').trim(),
+    qualityScore: question.qualityScore ?? null,
+    validationStatus: question.validationStatus || 'valid',
+    validationNotes: Array.isArray(question.validationNotes) ? question.validationNotes : [],
+  };
+}
+
+function normalizeConcept(concept = {}) {
+  return {
+    conceptKey: String(concept.conceptKey || concept.concept_key || concept.title || '').trim(),
+    title: String(concept.title || concept.topic || '').trim(),
+    summary: String(concept.summary || concept.description || '').trim(),
+    importance: Math.max(1, Math.min(5, Number(concept.importance || 3))),
+    chunkIndex: Number(concept.chunkIndex || concept.chunk_index || 0),
   };
 }
 
 function normalizeCard(card = {}) {
+  const type = String(card.type || card.cardType || card.card_type || '').toLowerCase();
+  const difficulty = String(card.difficulty || '').toLowerCase();
   return {
     front: String(card.front || card.q || '').trim(),
     back: String(card.back || card.a || '').trim(),
+    type: CARD_TYPES.includes(type) ? type : null,
+    difficulty: CARD_DIFFICULTIES.includes(difficulty) ? difficulty : null,
+    topic: String(card.topic || '').trim(),
+    sourceSnippet: String(card.sourceSnippet || card.sourceChunk || '').trim(),
+    sourceChunk: String(card.sourceChunk || card.sourceSnippet || '').trim(),
+    qualityScore: card.qualityScore ?? null,
+    validationStatus: card.validationStatus || 'valid',
+    validationNotes: Array.isArray(card.validationNotes) ? card.validationNotes : [],
   };
 }
 
@@ -40,7 +69,8 @@ export async function generatePracticeFromText({ kind = 'quiz', title, sourceTex
   }
 
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), PRACTICE_TIMEOUT_MS);
+  const timeoutMs = kind === 'flashcards' ? FLASHCARD_PRACTICE_TIMEOUT_MS : PRACTICE_TIMEOUT_MS;
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   let response;
   try {
@@ -55,7 +85,9 @@ export async function generatePracticeFromText({ kind = 'quiz', title, sourceTex
     });
   } catch (error) {
     return fail(
-      error?.name === 'AbortError' ? 'AI practice generation timed out.' : 'AI practice generation failed.',
+      error?.name === 'AbortError'
+        ? 'AI practice generation timed out.'
+        : `AI practice generation failed${error?.message ? `: ${error.message}` : '.'}`,
       error?.name || 'AI_PRACTICE_FAILED',
     );
   } finally {
@@ -71,7 +103,10 @@ export async function generatePracticeFromText({ kind = 'quiz', title, sourceTex
 
   if (!response.ok || payload.error) {
     const error = payload.error || {};
-    return fail(error.message || 'AI practice generation failed.', error.code || 'AI_PRACTICE_FAILED');
+    return fail(
+      error.message || `AI practice generation failed with HTTP ${response.status}.`,
+      error.code || 'AI_PRACTICE_FAILED',
+    );
   }
 
   if (kind === 'flashcards') {
@@ -79,6 +114,9 @@ export async function generatePracticeFromText({ kind = 'quiz', title, sourceTex
     return cards.length ? ok({ cards, provider: payload.data?.provider || 'openai' }) : fail('AI returned no valid flashcards.', 'AI_PRACTICE_EMPTY');
   }
 
-  const questions = (payload.data?.questions || []).map(normalizeQuestion).filter((question) => question.q && question.options.length >= 2);
-  return questions.length ? ok({ questions, provider: payload.data?.provider || 'openai' }) : fail('AI returned no valid questions.', 'AI_PRACTICE_EMPTY');
+  const questions = (payload.data?.questions || []).map(normalizeQuestion).filter((question) => question.q && question.options.length >= 4);
+  const concepts = (payload.data?.concepts || []).map(normalizeConcept).filter((concept) => concept.conceptKey && concept.title && concept.summary);
+  return questions.length
+    ? ok({ questions, concepts, provider: payload.data?.provider || 'openai', model: payload.data?.model || null })
+    : fail('AI returned no valid questions.', 'AI_PRACTICE_EMPTY');
 }

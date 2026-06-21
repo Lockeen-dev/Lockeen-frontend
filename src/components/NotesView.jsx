@@ -11,6 +11,7 @@ import { createNote, deleteNote, listNotes, updateNote } from '../services/notes
 import { createQuiz, deleteQuiz, listQuizzes } from '../services/quiz';
 import { createFlashcard, deleteFlashcard, listFlashcards } from '../services/flashcards';
 import { generatePracticeFromText } from '../services/practiceGeneration';
+import { completeQuizGenerationRun, createQuizGenerationRun, insertMaterialConcepts, replaceMaterialChunks } from '../services/quizPipeline';
 import { createStudyMaterialSignedUrl, deleteStudyMaterialFile, uploadStudyMaterialFile, validateStudyMaterialFile } from '../services/storage';
 import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, UploadChapterModal } from './ExamModals';
 import { EmojiPickerButton, GradeValue, getPriorityMeta, gradeS } from './common/ExamControls';
@@ -79,13 +80,187 @@ function isFallbackPracticeQuestion(question) {
     'what should you do after missing a question on ',
     'which note is most useful for ',
     'when should ',
+    'quale affermazione descrive meglio un concetto chiave',
   ].some((pattern) => text.includes(pattern));
+}
+
+function normalizePracticeText(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function hasBadPracticeReference(value = '') {
+  const text = normalizePracticeText(value).toLowerCase();
+  return (
+    /\b(pdf|file|documento|materiale caricato|uploaded material|page|pagina|chapter|capitolo|indice|index|table of contents|sommario|study point|punto\s+studio)\b/.test(text) ||
+    /\btesi\s+matr\b|\bmatr\.\s*\d+/i.test(text) ||
+    /\b\d{1,2}\.\d{1,2}(?:\.\d{1,2})?\b/.test(text)
+  );
+}
+
+function hasBrokenPracticeText(value = '') {
+  const text = normalizePracticeText(value);
+  return (
+    !text ||
+    /\.{2,}|…/.test(text) ||
+    /^[,.;:)\]-]/.test(text) ||
+    (/[a-zà-ù]/.test(text[0]) && !/^(e-commerce|iOS|iPad|ln\(|log\()/i.test(text)) ||
+    /(?:\b(di|del|della|delle|che|per|con|tra|fra|a|in|il|la|lo|gli|le|un|una|the|of|to|and|with|for|come|da|al|ai)\b)[,;:]?$/i.test(text)
+  );
+}
+
+function hasCorrectPracticeLengthBias(options = [], correct = 0) {
+  const lengths = options.map((option) => normalizePracticeText(option).length);
+  if (lengths.length < 4 || !Number.isInteger(correct) || correct < 0 || correct >= lengths.length) return false;
+  const correctLen = lengths[correct];
+  const otherLengths = lengths.filter((_, index) => index !== correct).sort((a, b) => b - a);
+  const secondLongest = otherLengths[0] || 0;
+  const medianOther = otherLengths[1] || secondLongest || 1;
+  return correctLen > secondLongest + 12 && correctLen / Math.max(medianOther, 1) > 1.12;
+}
+
+function hasObviousPracticeDistractorBias(options = [], correct = 0) {
+  if (options.length < 4 || !Number.isInteger(correct) || correct < 0 || correct >= options.length) return false;
+  const cueRe = /(^|[\s,.;:])(?:sempre|mai|solo|soltanto|qualsiasi|automaticamente|elimina(?:re|no|te)?|garantisce|garantiscono|impedisce|impossibile|nessun[oa]?|tutt[ioe]|completamente|scomparir[aà]|scompare|prive? di|senza ulteriori)(?=$|[\s,.;:])/i;
+  const cueScores = options.map((option) => (cueRe.test(normalizePracticeText(option)) ? 1 : 0));
+  const correctScore = cueScores[correct] || 0;
+  const distractorCueCount = cueScores.filter((score, index) => index !== correct && score > 0).length;
+  return correctScore === 0 && distractorCueCount >= 2;
+}
+
+function isPlayablePracticeQuestion(question = {}) {
+  const prompt = normalizePracticeText(question.q || question.prompt);
+  const options = Array.isArray(question.options) ? question.options.map(normalizePracticeText).filter(Boolean) : [];
+  const uniqueOptions = new Set(options.map((option) => option.toLowerCase()));
+  const correct = Number(question.correct ?? question.correctAnswer ?? 0);
+  const texts = [prompt, question.explanation, question.topic, ...options];
+  return (
+    (question.validationStatus || question.validation_status || 'valid') !== 'rejected' &&
+    prompt &&
+    options.length >= 4 &&
+    uniqueOptions.size >= 4 &&
+    Number.isInteger(correct) &&
+    correct >= 0 &&
+    correct < options.length &&
+    !isFallbackPracticeQuestion(question) &&
+    !hasCorrectPracticeLengthBias(options, correct) &&
+    !hasObviousPracticeDistractorBias(options, correct) &&
+    !texts.some(hasBadPracticeReference) &&
+    !texts.some(hasBrokenPracticeText)
+  );
+}
+
+function hasBadFlashcardReference(value = '') {
+  const text = normalizePracticeText(value).toLowerCase();
+  return (
+    /\b(pdf|file|documento|materiale caricato|uploaded material|source text|page|pagina|chapter|capitolo|figure|figura|indice|index|table of contents|sommario|study point|punto\s+studio|appendix|appendice|section|sezione)\b/.test(text) ||
+    /\btesi\s+matr\b|\bmatr\.\s*\d+/i.test(text) ||
+    /\b\d{1,2}\.\d{1,2}(?:\.\d{1,2})?\b/.test(text)
+  );
+}
+
+function isGenericFlashcardFront(value = '') {
+  const text = normalizePracticeText(value).toLowerCase();
+  return [
+    'main point from uploaded material',
+    'key detail',
+    'core idea of',
+    'best review method',
+    'common weak point',
+    'example check',
+    'next step after a mistake',
+    'what is the main idea',
+    'qual è il concetto principale',
+    'spiega questo concetto',
+  ].some((pattern) => text.includes(pattern));
+}
+
+function hasBrokenFlashcardText(value = '') {
+  const text = normalizePracticeText(value);
+  return (
+    !text ||
+    /\.{2,}|…/.test(text) ||
+    /^[,.;:)\]-]/.test(text) ||
+    /(?:\b(di|del|della|delle|che|per|con|tra|fra|a|in|il|la|lo|gli|le|un|una|the|of|to|and|with|for|come|da|al|ai)\b)[,;:]?$/i.test(text)
+  );
+}
+
+function isPlayableFlashcard(card = {}) {
+  const front = normalizePracticeText(card.front || card.q);
+  const back = normalizePracticeText(card.back || card.a);
+  const visibleTexts = [front, back, card.topic];
+  return (
+    (card.validationStatus || card.validation_status || 'valid') !== 'rejected' &&
+    front.length >= 8 &&
+    front.length <= 150 &&
+    back.length >= 16 &&
+    back.length <= 560 &&
+    front.toLowerCase() !== back.toLowerCase() &&
+    !isGenericFlashcardFront(front) &&
+    !visibleTexts.some(hasBadFlashcardReference) &&
+    ![front, back].some(hasBrokenFlashcardText)
+  );
+}
+
+function normalizeGeneratedFlashcard(card = {}, title = '') {
+  return {
+    front: cleanStudyText(card.front || card.q || ''),
+    back: cleanStudyText(card.back || card.a || ''),
+    type: card.type || card.cardType || null,
+    difficulty: card.difficulty || null,
+    topic: cleanStudyText(card.topic || title || '').slice(0, 60),
+    sourceSnippet: cleanStudyText(card.sourceSnippet || card.sourceChunk || '').slice(0, 260),
+    validationStatus: card.validationStatus || 'valid',
+    validationNotes: Array.isArray(card.validationNotes) ? card.validationNotes : [],
+  };
+}
+
+function dedupeFlashcards(cards = []) {
+  const seen = new Set();
+  const frontSeen = new Set();
+  return cards.filter((card) => {
+    const frontKey = cleanStudyText(card.front || card.q || '').toLowerCase().replace(/[^a-z0-9à-ù]+/gi, ' ').trim();
+    const backKey = cleanStudyText(card.back || card.a || '').toLowerCase().replace(/[^a-z0-9à-ù]+/gi, ' ').trim();
+    const key = `${frontKey} ${backKey}`.slice(0, 220);
+    if (!frontKey || !backKey || seen.has(key) || frontSeen.has(frontKey)) return false;
+    seen.add(key);
+    frontSeen.add(frontKey);
+    return true;
+  });
 }
 
 function cleanStudyText(value = '') {
   return String(value || '')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
     .replace(/[#*_`>]+/g, ' ')
     .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanQuizSourceText(value = '') {
+  const lines = String(value || '')
+    .replace(/\r/g, '\n')
+    .replace(/-\s*\n\s*/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  const cleaned = [];
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    if (/^\d{1,4}$/.test(line)) continue;
+    if (/^(page|pagina)\s+\d+/i.test(line)) continue;
+    if (/^(indice|index|table of contents|sommario)\b/i.test(line)) continue;
+    if (/\.{4,}/.test(line)) continue;
+    if (/^\d+(\.\d+){1,4}\s+.{0,90}$/.test(line)) continue;
+    if (lower.includes('tesi matr') && line.length < 90) continue;
+    if (line.length < 18 && !/[.!?]$/.test(line)) continue;
+    cleaned.push(line);
+  }
+  return cleaned
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
@@ -105,7 +280,7 @@ function extractStudyFacts(seedText = '') {
     .map((item) => cleanStudyText(item))
     .filter((item) => item.length >= 35 && item.length <= 260)
     .filter((item, index, all) => all.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index)
-    .slice(0, 12);
+    .slice(0, 48);
 }
 
 function shortFact(value = '', maxLength = 150) {
@@ -114,37 +289,44 @@ function shortFact(value = '', maxLength = 150) {
   return `${text.slice(0, maxLength).replace(/\s+\S*$/, '')}...`;
 }
 
+function compactFact(value = '', maxLength = 150) {
+  const text = cleanStudyText(value);
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength).replace(/\s+\S*$/, '').replace(/[.,;:!?-]+$/, '').trim();
+}
+
 function buildQuestionsFromText(title, seedText = '') {
-  const facts = extractStudyFacts(seedText);
-  if (facts.length < 2) return [];
-  return facts.slice(0, 12).map((fact, index) => {
-    const distractors = facts
-      .filter((_, factIndex) => factIndex !== index)
-      .slice(0, 3)
-      .map((item) => shortFact(item, 140));
-    while (distractors.length < 3) {
-      distractors.push([
-        'This point is unrelated to the uploaded material.',
-        'The material says the opposite without evidence.',
-        'The document does not support this conclusion.',
-      ][distractors.length]);
-    }
-    return {
-      q: `Which statement best matches study point ${index + 1} from the uploaded material?`,
-      options: [shortFact(fact, 140), ...distractors],
-      correct: 0,
-      explanation: shortFact(fact, 220),
-    };
-  });
+  return [];
 }
 
 function buildFlashcardsFromText(title, seedText = '', limit = 12) {
   const facts = extractStudyFacts(seedText);
   if (!facts.length) return [];
-  return facts.slice(0, limit).map((fact, index) => ({
-    front: index === 0 ? 'Main point from uploaded material' : `Key detail ${index + 1} from uploaded material`,
-    back: shortFact(fact, 220),
-  }));
+  const topic = cleanPracticeTitle(title, 'Argomento').replace(/\.[a-z0-9]{2,5}$/i, '');
+  const cards = facts.map((fact) => {
+    const cleanFact = compactFact(fact, 260);
+    const match = cleanFact.match(/^(.{10,90}?)\s+(è|sono|misura|indica|rappresenta|descrive|serve|permette|consente|spiega|dipende)\s+(.+)$/i);
+    if (match) {
+      const subject = compactFact(match[1], 88);
+      const verb = match[2].toLowerCase();
+      return {
+        front: `Che cosa ${verb} ${subject}?`,
+        back: cleanFact,
+        type: 'definition',
+        difficulty: 'medium',
+        topic,
+      };
+    }
+    const concept = compactFact(cleanFact.split(/[:;.-]\s+/)[0] || cleanFact, 92);
+    return {
+      front: concept.length >= 16 ? `Qual è il punto chiave su ${concept}?` : `Che cosa va ricordato su ${topic}?`,
+      back: cleanFact,
+      type: 'definition',
+      difficulty: 'medium',
+      topic,
+    };
+  });
+  return dedupeFlashcards(cards.map((card) => normalizeGeneratedFlashcard(card, topic)).filter(isPlayableFlashcard)).slice(0, limit);
 }
 
 function buildGeneratedQuestions(title, seedQuestions = [], seedText = '') {
@@ -157,60 +339,18 @@ function buildGeneratedQuestions(title, seedQuestions = [], seedText = '') {
       explanation: question.explanation || '',
     }));
   if (normalizedSeeds.length) return normalizedSeeds.slice(0, 10);
-  const textQuestions = buildQuestionsFromText(title, seedText);
-  if (textQuestions.length) return textQuestions;
-
-  const topic = cleanPracticeTitle(title, 'this topic');
-  return [
-    {
-      q: `What is the best first step when reviewing ${topic}?`,
-      options: ['Define the core idea', 'Skip examples', 'Ignore weak points', 'Memorize random dates'],
-      correct: 0,
-      explanation: 'Start by naming the core idea before details.',
-    },
-    {
-      q: `Which action helps test understanding of ${topic}?`,
-      options: ['Explain it in your own words', 'Only reread headings', 'Avoid practice', 'Study without checking answers'],
-      correct: 0,
-      explanation: 'Self-explanation reveals gaps quickly.',
-    },
-    {
-      q: `What should you do after missing a question on ${topic}?`,
-      options: ['Review the reason and retry', 'Delete the topic', 'Move on forever', 'Lower the target'],
-      correct: 0,
-      explanation: 'Correction plus retry turns mistakes into usable feedback.',
-    },
-    {
-      q: `Which note is most useful for ${topic}?`,
-      options: ['A concise rule plus one example', 'A copied paragraph only', 'An unrelated summary', 'A blank note'],
-      correct: 0,
-      explanation: 'Rule plus example is easier to recall and apply.',
-    },
-    {
-      q: `When should ${topic} be reviewed again?`,
-      options: ['After a short delay with active recall', 'Only once before the exam', 'Never after success', 'Only while distracted'],
-      correct: 0,
-      explanation: 'Spaced active recall improves retention.',
-    },
-  ];
+  return buildQuestionsFromText(title, seedText);
 }
 
 function buildGeneratedFlashcards(title, seedCards = [], seedText = '') {
   const normalizedSeeds = (seedCards || [])
     .filter((card) => (card.front || card.q) && (card.back || card.a))
-    .map((card) => ({ front: card.front || card.q, back: card.back || card.a }));
+    .map((card) => normalizeGeneratedFlashcard({ ...card, front: card.front || card.q, back: card.back || card.a }, title))
+    .filter(isPlayableFlashcard);
   if (normalizedSeeds.length) return normalizedSeeds.slice(0, 12);
   const textCards = buildFlashcardsFromText(title, seedText, 20);
   if (textCards.length) return textCards;
-
-  const topic = cleanPracticeTitle(title, 'this topic');
-  return [
-    { front: `Core idea of ${topic}`, back: 'Write the main concept in one clear sentence, then connect one example.' },
-    { front: `Best review method for ${topic}`, back: 'Use active recall: answer first, then check and correct.' },
-    { front: `Common weak point in ${topic}`, back: 'The part you cannot explain without looking should become the next practice target.' },
-    { front: `Example check for ${topic}`, back: 'Create one concrete example and explain why it matches the rule.' },
-    { front: `Next step after a mistake in ${topic}`, back: 'Record why the answer was wrong, review the concept, and retry later.' },
-  ];
+  return [];
 }
 
 function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
@@ -295,57 +435,80 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
     if (created.date && onExamAdded) onExamAdded(created.date);
   };
 
-  const activeExam = exams.find((x) => x.id === activeId);
+  const activeExam = exams.find((x) => String(x.id) === String(activeId));
 
   if (activeExam) {
     const refreshExams = async () => {
       const result = await listExams();
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to reload exams.'));
-      setExams(result.data || []);
+      const nextExams = result.data || [];
+      setExams(nextExams);
+      return nextExams;
+    };
+    const refreshExamsQuietly = async () => {
+      try {
+        return await refreshExams();
+      } catch (error) {
+        console.warn('Unable to refresh exams after chapter action', error);
+        return null;
+      }
     };
     const onAddChapter = async ({ chapterId, chapterName, fileCount, files = [], onProgress = null }) => {
       const reportProgress = (step, label, progress) => {
         if (typeof onProgress === 'function') onProgress({ step, label, progress });
       };
-      let targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
+      if (!activeId) throw new Error('Open an exam before adding a chapter.');
+      const uploadFiles = Array.from(files || []).filter(Boolean);
+      const safeFileCount = Number.isFinite(Number(fileCount)) ? Number(fileCount) : uploadFiles.length;
+      const existingChapterId = chapterId == null || chapterId === '' ? null : chapterId;
+      let targetChapter = existingChapterId
+        ? (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(existingChapterId))
+        : null;
+      if (existingChapterId && !targetChapter) {
+        throw new Error('Chapter not found. Reload the exam and try again.');
+      }
       reportProgress(0, 'Lettura file...', 8);
-      const materialMetadataResults = await Promise.all((files || []).map(buildMaterialFileMetadata));
+      const materialMetadataResults = await Promise.all(uploadFiles.map(buildMaterialFileMetadata));
       const metadataError = materialMetadataResults.find((result) => result.error);
       if (metadataError) throw new Error(formatStudyServiceError(metadataError.error, 'Unable to inspect material file.'));
       const materialMetadata = materialMetadataResults.map((result) => result.data);
       const knownPageTotal = materialMetadata.reduce((sum, metadata) => sum + (Number(metadata?.pageCount) || 0), 0);
-      const pageCount = Math.max(1, knownPageTotal || fileCount);
+      const pageCount = Math.max(1, knownPageTotal || safeFileCount || 1);
 
-      if (chapterId) {
-        const result = await updateChapter(activeId, chapterId, {
-          files: (targetChapter?.files || 0) + fileCount,
+      if (existingChapterId) {
+        const result = await updateChapter(activeId, existingChapterId, {
+          files: (targetChapter?.files || 0) + safeFileCount,
           pages: (targetChapter?.pages || 0) + pageCount,
         });
         if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
         targetChapter = result.data;
       } else {
         const result = await createChapter(activeId, {
-          title: chapterName,
+          title: String(chapterName || '').trim() || 'New chapter',
           position: activeExam.chapters?.length || 0,
-          files: fileCount,
+          files: safeFileCount,
           pages: pageCount,
         });
         if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to create chapter.'));
         targetChapter = result.data;
       }
+      if (!targetChapter?.id) throw new Error('Unable to save chapter. Please try again.');
 
       const createdMaterials = [];
-      for (const [index, file] of files.entries()) {
-        reportProgress(0, `Upload file ${index + 1}/${files.length}...`, 18 + Math.round((index / Math.max(files.length, 1)) * 20));
+      for (const [index, file] of uploadFiles.entries()) {
+        const fileName = String(file.name || 'Document');
+        reportProgress(0, `Upload file ${index + 1}/${uploadFiles.length}...`, 18 + Math.round((index / Math.max(uploadFiles.length, 1)) * 20));
         const uploadResult = await uploadStudyMaterialFile({ file, materialId: crypto.randomUUID() });
         if (uploadResult.error) throw new Error(formatStudyServiceError(uploadResult.error, 'Unable to upload material file.'));
+        const uploadedFile = uploadResult.data || {};
+        if (!uploadedFile.path) throw new Error('Unable to upload material file.');
         const materialResult = await createMaterial({
           examId: activeId,
           chapterId: targetChapter.id,
-          title: file.name,
-          storagePath: uploadResult.data.path,
-          mimeType: uploadResult.data.mimeType,
-          sizeBytes: uploadResult.data.sizeBytes,
+          title: fileName,
+          storagePath: uploadedFile.path,
+          mimeType: uploadedFile.mimeType || file.type || null,
+          sizeBytes: uploadedFile.sizeBytes ?? file.size ?? null,
           pageCount: materialMetadata[index]?.pageCount ?? null,
           processingStatus: materialMetadata[index]?.processingStatus,
           extractedText: materialMetadata[index]?.extractedText,
@@ -359,9 +522,9 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
             ...materialResult.data,
             pageCount: materialResult.data.pageCount ?? materialMetadata[index]?.pageCount ?? null,
           };
-          reportProgress(1, `Estrazione testo ${file.name}...`, 42);
+          reportProgress(1, `Estrazione testo ${fileName}...`, 42);
           if (shouldRunImageOcr(nextMaterial)) {
-            reportProgress(1, `OCR ${file.name}...`, 42);
+            reportProgress(1, `OCR ${fileName}...`, 42);
             const ocrResult = await requestMaterialOcr(nextMaterial.id);
             if (ocrResult.data) {
               nextMaterial = ocrResult.data;
@@ -379,20 +542,22 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       }
 
       reportProgress(2, 'Pronto. Quiz e flashcards continuano in background.', 100);
-      await refreshExams();
+      await refreshExamsQuietly();
       return { chapter: targetChapter, materials: createdMaterials };
     };
     const onEditChapter = async ({ chapterId, newTitle }) => {
       const cleanTitle = (newTitle || '').trim();
       if (!cleanTitle) return;
+      if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
       const result = await updateChapter(activeId, chapterId, { title: cleanTitle });
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
-      await refreshExams();
+      await refreshExamsQuietly();
     };
     const onDeleteChapter = async (chapterId) => {
+      if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
       const result = await deleteChapter(activeId, chapterId);
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to delete chapter.'));
-      await refreshExams();
+      await refreshExamsQuietly();
     };
     const onDeleteChapterDocument = async ({ chapterId, pages = 6 }) => {
       const targetChapter = (activeExam.chapters || []).find((chapter) => String(chapter.id) === String(chapterId));
@@ -402,9 +567,9 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         pages: Math.max(0, (targetChapter.pages || 0) - pages),
       });
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
-      await refreshExams();
+      await refreshExamsQuietly();
     };
-    return <ExamDetail exam={activeExam} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onDeleteChapterDocument={onDeleteChapterDocument} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
+    return <ExamDetail exam={activeExam} lang={lang} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onDeleteChapterDocument={onDeleteChapterDocument} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
   }
 
   const filtered = exams.filter((x) => (x.name + ' ' + (x.subject || '')).toLowerCase().includes(q.toLowerCase()));
@@ -429,6 +594,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
 
       {deletingExam && (
         <DeleteExamModal
+          lang={lang}
           exam={deletingExam}
           onClose={() => { setDeletingExam(null); setActionError(null); }}
           onConfirm={() => handleDeleteExam(deletingExam.id)}
@@ -438,6 +604,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       )}
       {editingExam && (
         <EditExamModal
+          lang={lang}
           exam={editingExam}
           onClose={() => { setEditingExam(null); setActionError(null); }}
           onSave={(changes) => handleEditExam(editingExam.id, changes)}
@@ -448,6 +615,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
 
       {showCreate && (
         <CreateExamModal
+          lang={lang}
           onClose={() => { setShowCreate(false); setActionError(null); }}
           onCreate={handleCreateExam}
           saving={savingAction === 'create'}
@@ -459,15 +627,15 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       {loading && (
         <div style={examsS.empty}>
           <div style={examsS.emptyIcon}><FileText size={22} /></div>
-          <div style={examsS.emptyTitle}>Loading exams...</div>
-          <div style={examsS.emptySub}>Fetching your mock exam list.</div>
+          <div style={examsS.emptyTitle}>{tt(lang, 'loadingExams')}</div>
+          <div style={examsS.emptySub}>{tt(lang, 'fetchingExamList')}</div>
         </div>
       )}
 
       {!loading && loadError && (
         <div style={examsS.empty}>
           <div style={examsS.emptyIcon}><FileText size={22} /></div>
-          <div style={examsS.emptyTitle}>Unable to load exams</div>
+          <div style={examsS.emptyTitle}>{tt(lang, 'unableLoadExams')}</div>
           <div style={examsS.emptySub}>{loadError}</div>
         </div>
       )}
@@ -475,8 +643,8 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       {!loading && !loadError && filtered.length === 0 && (
         <div style={examsS.empty}>
           <div style={examsS.emptyIcon}><FileText size={22} /></div>
-          <div style={examsS.emptyTitle}>{exams.length === 0 ? 'No exams yet' : 'No exams found'}</div>
-          <div style={examsS.emptySub}>{exams.length === 0 ? 'Create your first exam to start organizing chapters.' : 'Try a different search term.'}</div>
+          <div style={examsS.emptyTitle}>{exams.length === 0 ? tt(lang, 'noExamsYet') : tt(lang, 'noExamsFound')}</div>
+          <div style={examsS.emptySub}>{exams.length === 0 ? tt(lang, 'createFirstExam') : tt(lang, 'tryDifferentSearch')}</div>
         </div>
       )}
 
@@ -504,7 +672,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                       </span>
                       {dl >= 0 && (
                         <span style={{ position:'absolute', top:12, right:12, fontSize:11, fontWeight:700, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--indigo)', lineHeight:1.3 }}>
-                          {dl === 0 ? 'Oggi!' : `${dl} giorni`}
+                          {dl === 0 ? `${tt(lang, 'today')}!` : tt(lang, 'daysLeft', { count: dl })}
                         </span>
                       )}
                     </>
@@ -524,30 +692,30 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
                 <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, marginBottom:4 }}>
                   <h3 style={{ ...notesS.title, margin:0, flex:1 }}>{x.name}</h3>
                   <div style={{ display:'flex', gap:4, flexShrink:0 }}>
-                    <button title="Modifica" onClick={() => setEditingExam(x)}
+                    <button title={tt(lang, 'edit')} onClick={() => setEditingExam(x)}
                       style={{ width:28, height:28, borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--gray)', cursor:'pointer', display:'grid', placeItems:'center' }}>
                       <Pencil size={13} />
                     </button>
-                    <button title="Elimina" onClick={() => setDeletingExam(x)}
+                    <button title={tt(lang, 'delete')} onClick={() => setDeletingExam(x)}
                       style={{ width:28, height:28, borderRadius:8, border:'1.5px solid #FCA5A5', background:'#FEF2F2', color:'#EF4444', cursor:'pointer', display:'grid', placeItems:'center' }}>
                       <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
                 <p style={notesS.meta}>
-                  {x.chapters.length} {x.chapters.length === 1 ? 'chapter' : 'chapters'}
+                  {tt(lang, x.chapters.length === 1 ? 'chapterCount' : 'chaptersCount', { count: x.chapters.length })}
                 </p>
                 <div style={gradeS.cardTarget}>
                   <span style={{ width: 7, height: 7, borderRadius: 999, background: palette.dot }} />
-                  <span style={gradeS.cardTargetLabel}>Target</span>
+                  <span style={gradeS.cardTargetLabel}>{tt(lang, 'target')}</span>
                   <GradeValue value={x.targetGrade || 27} color={palette.dot} size={18} />
                 </div>
                 <div style={notesS.actions}>
                   <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
-                    <LockeenLogo size={16} /> Open Exam
+                    <LockeenLogo size={16} /> {tt(lang, 'openExam')}
                   </button>
                   <button style={notesS.ghostSmall} onClick={() => onOpenQuizForExam && onOpenQuizForExam(x.id)}>
-                    <Sparkles size={14} /> Quick Quiz
+                    <Sparkles size={14} /> {tt(lang, 'quickQuiz')}
                   </button>
                 </div>
               </div>
@@ -559,7 +727,6 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
   );
 }
 
-const READINESS_FALLBACKS = { studyTime: 70, planProgress: 55 };
 const MATERIAL_UI_META_KEY = 'lockeen.materialUiMeta.v1';
 
 function readMaterialUiMeta() {
@@ -648,15 +815,15 @@ function splitTextIntoBalancedChunks(text = '', count = 1) {
 }
 
 function getQuestionBankChunks(sourceText = '', pageCount = null) {
-  const text = String(sourceText || '').trim();
+  const text = cleanQuizSourceText(sourceText);
   if (!text) return [];
   const words = cleanStudyText(text).split(/\s+/).filter(Boolean).length;
   const pages = Number(pageCount) || Math.max(1, Math.ceil(words / 450));
-  const maxChunks = pages >= 120 ? 12 : pages >= 40 ? 8 : pages >= 16 ? 5 : 3;
-  const desiredChunks = Math.max(1, Math.min(maxChunks, Math.ceil(pages / 8)));
-  const maxChars = 18000;
+  const maxChunks = pages >= 100 ? 18 : pages >= 60 ? 14 : pages >= 40 ? 10 : pages >= 16 ? 6 : 3;
+  const desiredChunks = Math.max(1, Math.min(maxChunks, Math.ceil(pages / 6)));
+  const maxChars = 12000;
   const parts = text
-    .split(/\n{2,}|(?=Page\s+\d+\b)/i)
+    .split(/\n{2,}|(?=Page\s+\d+\b)|(?=Pagina\s+\d+\b)/i)
     .map((part) => part.trim())
     .filter(Boolean);
   const chunks = [];
@@ -676,32 +843,41 @@ function getQuestionBankChunks(sourceText = '', pageCount = null) {
   });
   if (current) chunks.push(current);
   const limitedChunks = chunks.slice(0, maxChunks);
-  if (limitedChunks.length < desiredChunks && text.length > desiredChunks * 700) {
-    return splitTextIntoBalancedChunks(text, desiredChunks);
-  }
-  return limitedChunks;
+  const finalChunks = limitedChunks.length < desiredChunks && text.length > desiredChunks * 700
+    ? splitTextIntoBalancedChunks(text, desiredChunks)
+    : limitedChunks;
+  return finalChunks
+    .map((chunk, index) => ({
+      chunkIndex: index,
+      title: `Material section ${index + 1}`,
+      text: chunk,
+      tokenEstimate: Math.ceil(chunk.length / 4),
+    }))
+    .filter((chunk) => chunk.text.length >= 400);
 }
 
 function estimateQuestionBankPlan({ sourceText = '', pageCount = null } = {}) {
-  const facts = extractStudyFacts(sourceText);
-  const words = cleanStudyText(sourceText).split(/\s+/).filter(Boolean).length;
+  const cleaned = cleanQuizSourceText(sourceText);
+  const facts = extractStudyFacts(cleaned);
+  const words = cleanStudyText(cleaned).split(/\s+/).filter(Boolean).length;
   const pages = Number(pageCount) || Math.max(1, Math.ceil(words / 450));
-  const chunks = getQuestionBankChunks(sourceText, pageCount);
+  const chunks = getQuestionBankChunks(cleaned, pageCount);
   const plannedSections = Math.max(chunks.length || 1, Math.min(12, Math.ceil(pages / 8)));
-  const byPages = pages <= 2 ? 6 + (pages * 2) : pages <= 10 ? 10 + (pages * 2) : pages <= 40 ? 24 + Math.round(pages * 1.1) : 68 + Math.round((pages - 40) / 2.5);
-  const byDensity = Math.ceil(words / 140);
-  const byTopics = facts.length ? facts.length * 3 : 8;
-  const coverageFloor = plannedSections * 6;
+  const byPages = pages <= 2 ? 6 + (pages * 2) : pages <= 10 ? 12 + (pages * 2) : pages <= 40 ? 28 + Math.round(pages * 1.15) : 72 + Math.round((pages - 40) / 2);
+  const byDensity = Math.ceil(words / 115);
+  const byTopics = facts.length ? Math.ceil(facts.length * 2.4) : 8;
+  const coverageFloor = plannedSections * 7;
   const questionCount = clampQuestionCount(Math.max(5, Math.min(byPages, Math.max(byDensity, byTopics, coverageFloor))));
   const hasReasoningDepth = words > 900 || pages >= 4 || facts.length >= 6;
-  const difficulties = hasReasoningDepth ? ['easy', 'medium', 'hard', 'extreme'] : ['easy', 'medium'];
+  const difficulties = hasReasoningDepth ? ['easy', 'medium', 'hard'] : ['easy', 'medium'];
   const coverageHint = [
     `Estimated pages: ${pages}.`,
     `Estimated words: ${words}.`,
-    `Detected study points: ${facts.length}.`,
+    `Detected concepts candidates: ${facts.length}.`,
     `Planned source sections: ${chunks.length || 1}.`,
-    'Create only enough questions to cover meaningful concepts; do not force all difficulties if content is shallow.',
-    hasReasoningDepth ? 'Use hard/extreme only for supported reasoning and comparison questions.' : 'Prefer easy/medium because source looks short or sparse.',
+    'Create questions across meaningful concepts; never mention file names, PDF, layout, index, page, chapter, heading, or study point.',
+    'Use about 40% easy, 40% medium, 20% hard when content supports it.',
+    hasReasoningDepth ? 'Use hard only for supported reasoning and comparison questions.' : 'Prefer easy/medium because source looks short or sparse.',
   ].join(' ');
   return { questionCount, difficulties, coverageHint, chunks };
 }
@@ -720,9 +896,11 @@ function estimateFlashcardPlan({ sourceText = '', pageCount = null } = {}) {
   const coverageHint = [
     `Estimated pages: ${pages}.`,
     `Estimated words: ${words}.`,
-    `Detected study points: ${facts.length}.`,
+    `Detected concept candidates: ${facts.length}.`,
     `Planned source sections: ${chunks.length || 1}.`,
-    'Create atomic flashcards across meaningful concepts; do not duplicate.',
+    'Create atomic flashcards across definitions, key concepts, comparisons, formulas, examples, applications, and common mistakes.',
+    'Do not mention PDF, file names, page, chapter, index, headings, layout, source section, or study points.',
+    'Every flashcard front must be a useful active-recall prompt. Avoid generic fronts and copied headings.',
   ].join(' ');
   return { cardCount, coverageHint, chunks };
 }
@@ -741,64 +919,106 @@ function dedupeQuestions(questions = []) {
 
 async function buildQuestionBankQuestions({ title, sourceText, pageCount = null }) {
   const plan = estimateQuestionBankPlan({ sourceText, pageCount });
-  const chunks = plan.chunks.length ? plan.chunks : [sourceText];
+  const cleanedSource = cleanQuizSourceText(sourceText);
+  const chunks = plan.chunks.length ? plan.chunks : [{ chunkIndex: 0, title: 'Material section 1', text: cleanedSource, tokenEstimate: Math.ceil(cleanedSource.length / 4) }];
   const perChunk = Math.max(5, Math.ceil(plan.questionCount / chunks.length));
   const generated = [];
+  const concepts = [];
+  const errors = [];
 
-  for (const [index, chunk] of chunks.entries()) {
-    const chunkPlan = estimateQuestionBankPlan({ sourceText: chunk, pageCount: Math.max(1, Math.round((Number(pageCount) || chunks.length) / chunks.length)) });
+  async function generateChunk(chunk, index) {
+    const chunkPlan = estimateQuestionBankPlan({ sourceText: chunk.text, pageCount: Math.max(1, Math.round((Number(pageCount) || chunks.length) / chunks.length)) });
     const aiResult = await generatePracticeFromText({
       kind: 'quiz',
       title,
-      sourceText: chunk,
+      sourceText: chunk.text,
       questionCount: Math.min(60, perChunk),
       difficulties: chunkPlan.difficulties,
-      coverageHint: `${plan.coverageHint} Section ${index + 1} of ${chunks.length}: cover only concepts visible in this section.`,
+      coverageHint: `${plan.coverageHint} Source section ${index + 1} of ${chunks.length}: cover only concepts visible in this section. Do not refer to the section number.`,
     });
-    const fallbackQuestions = buildGeneratedQuestions(title, [], chunk).map((question, qIndex) => ({
-        ...question,
-        difficulty: chunkPlan.difficulties[qIndex % chunkPlan.difficulties.length] || 'medium',
-    }));
-    const aiQuestions = aiResult.data?.questions || [];
-    generated.push(...aiQuestions);
-    if (aiQuestions.length < perChunk) {
-      generated.push(...fallbackQuestions.slice(0, perChunk - aiQuestions.length));
+    if (aiResult.error) {
+      return { questions: [], concepts: [], error: aiResult.error };
     }
+    return {
+      questions: (aiResult.data?.questions || []).map((question) => ({
+        ...question,
+        sourceSnippet: question.sourceSnippet || question.sourceChunk || compactFact(chunk.text, 260),
+        sourceChunk: question.sourceChunk || question.sourceSnippet || compactFact(chunk.text, 260),
+        conceptKey: question.conceptKey || `${title}-${index}-${question.topic || question.q}`,
+        chunkIndex: index,
+        model: aiResult.data?.model || null,
+      })),
+      concepts: (aiResult.data?.concepts || []).map((concept, conceptIndex) => ({
+        ...concept,
+        conceptKey: concept.conceptKey || `${index}-${conceptIndex}-${concept.title}`,
+        chunkIndex: index,
+      })),
+    };
   }
 
-  return dedupeQuestions(generated).slice(0, plan.questionCount);
+  const concurrency = chunks.length > 8 ? 3 : 2;
+  for (let start = 0; start < chunks.length; start += concurrency) {
+    const batch = chunks.slice(start, start + concurrency);
+    const batchResults = await Promise.all(batch.map((chunk, offset) => generateChunk(chunk, start + offset)));
+    batchResults.forEach((result) => {
+      generated.push(...result.questions);
+      concepts.push(...result.concepts);
+      if (result.error) errors.push(result.error);
+    });
+  }
+
+  return {
+    questions: dedupeQuestions(generated).slice(0, plan.questionCount),
+    concepts,
+    chunks,
+    plan,
+    errors,
+  };
 }
 
 async function buildFlashcardBankCards({ title, sourceText, pageCount = null }) {
   const plan = estimateFlashcardPlan({ sourceText, pageCount });
-  const chunks = plan.chunks.length ? plan.chunks : [sourceText];
+  const chunks = plan.chunks.length ? plan.chunks : [{ text: sourceText }];
   const perChunk = Math.max(5, Math.ceil(plan.cardCount / chunks.length));
   const generated = [];
+  const errors = [];
 
-  for (const [index, chunk] of chunks.entries()) {
+  async function generateChunk(chunk, index) {
     const aiResult = await generatePracticeFromText({
       kind: 'flashcards',
       title,
-      sourceText: chunk,
+      sourceText: chunk.text || chunk,
       cardCount: Math.min(60, perChunk),
-      coverageHint: `${plan.coverageHint} Section ${index + 1} of ${chunks.length}: cover only concepts visible in this section.`,
+      coverageHint: `${plan.coverageHint} Source part ${index + 1} of ${chunks.length}: cover only concepts visible in this source part, but never refer to the source part number.`,
     });
-    const aiCards = aiResult.data?.cards || [];
-    generated.push(...aiCards);
-    if (aiCards.length < Math.min(5, perChunk)) {
-      generated.push(...buildFlashcardsFromText(title, chunk, perChunk));
-    }
+    const chunkErrors = aiResult.error ? [aiResult.error] : [];
+    const aiCards = (aiResult.data?.cards || [])
+      .map((card) => normalizeGeneratedFlashcard(card, title))
+      .filter(isPlayableFlashcard);
+    const fallbackCards = aiCards.length < Math.min(4, perChunk)
+      ? buildFlashcardsFromText(title, chunk.text || chunk, perChunk)
+      : [];
+    return {
+      cards: [...aiCards, ...fallbackCards],
+      errors: chunkErrors,
+    };
   }
 
-  const seen = new Set();
-  return generated
-    .filter((card) => {
-      const key = cleanStudyText(`${card.front || card.q || ''} ${card.back || card.a || ''}`).toLowerCase().slice(0, 180);
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, plan.cardCount);
+  const concurrency = chunks.length > 8 ? 3 : 2;
+  for (let start = 0; start < chunks.length; start += concurrency) {
+    const batch = chunks.slice(start, start + concurrency);
+    const batchResults = await Promise.all(batch.map((chunk, offset) => generateChunk(chunk, start + offset)));
+    batchResults.forEach((result) => {
+      generated.push(...result.cards);
+      errors.push(...result.errors);
+    });
+  }
+
+  const cards = dedupeFlashcards(generated.map((card) => normalizeGeneratedFlashcard(card, title)).filter(isPlayableFlashcard));
+  if (!cards.length && errors.length) {
+    console.warn('Flashcard generation failed quality validation', errors);
+  }
+  return cards.slice(0, plan.cardCount);
 }
 
 async function createQuestionBankForMaterial({ examId, chapterId = null, noteId = null, material, title }) {
@@ -807,16 +1027,54 @@ async function createQuestionBankForMaterial({ examId, chapterId = null, noteId 
     const existing = await listQuizzes({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
     const desiredQuestionCount = estimateQuestionBankPlan({ sourceText: material.extractedText, pageCount: material.pageCount }).questionCount;
     const reuseThreshold = Math.max(5, Math.floor(desiredQuestionCount * 0.85));
-    const reusableQuiz = (existing.data || []).find((quiz) => (quiz.questions || []).length >= reuseThreshold && !(quiz.questions || []).some((question) => isFallbackPracticeQuestion(question)));
+    const reusableQuiz = (existing.data || []).find((quiz) => {
+      const playableQuestions = (quiz.questions || []).filter(isPlayablePracticeQuestion);
+      return playableQuestions.length >= reuseThreshold &&
+        playableQuestions.every((question) => question.generationRunId && question.conceptKey && question.sourceSnippet && question.validationStatus !== 'rejected') &&
+        !(quiz.questions || []).some((question) => isFallbackPracticeQuestion(question));
+    });
     if (!existing.error && reusableQuiz) return reusableQuiz;
 
     const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
-    const questions = await buildQuestionBankQuestions({
+    const runResult = await createQuizGenerationRun({
+      examId,
+      chapterId,
+      noteId,
+      sourceMaterialId: material.id,
+      requestedCount: desiredQuestionCount,
+      metadata: { title: bankTitle, pageCount: material.pageCount || null },
+    });
+    const runId = runResult.data?.id || null;
+    const bank = await buildQuestionBankQuestions({
       title: bankTitle,
       sourceText: material.extractedText,
       pageCount: material.pageCount,
     });
-    if (!questions.length) return null;
+    if (!bank.questions.length) {
+      if (runId) {
+        await completeQuizGenerationRun(runId, {
+          status: 'failed',
+          generatedCount: 0,
+          validCount: 0,
+          errorMessage: bank.errors?.[0]?.message || 'No valid quiz questions generated.',
+          metadata: { title: bankTitle, errors: bank.errors || [] },
+        });
+      }
+      return null;
+    }
+    const storedChunks = material.id ? await replaceMaterialChunks(material.id, bank.chunks) : { data: [] };
+    if (material.id && bank.concepts.length) {
+      await insertMaterialConcepts(material.id, bank.concepts, storedChunks.data || []);
+    }
+    const questions = bank.questions.map((question) => ({
+      ...question,
+      generationRunId: runId,
+      validationStatus: 'valid',
+      validationNotes: question.validationNotes || [],
+    }));
+    if (!existing.error) {
+      await Promise.all((existing.data || []).map((quiz) => deleteQuiz(quiz.id)));
+    }
     const result = await createQuiz({
       examId,
       chapterId,
@@ -825,6 +1083,20 @@ async function createQuestionBankForMaterial({ examId, chapterId = null, noteId 
       title: bankTitle,
       questions,
     });
+    if (runId) {
+      await completeQuizGenerationRun(runId, {
+        status: result.error ? 'failed' : 'completed',
+        generatedCount: bank.questions.length,
+        validCount: result.error ? 0 : questions.length,
+        errorMessage: result.error?.message || null,
+        metadata: {
+          title: bankTitle,
+          chunks: bank.chunks.length,
+          concepts: bank.concepts.length,
+          requestedCount: desiredQuestionCount,
+        },
+      });
+    }
     return result.error ? null : result.data;
   });
 }
@@ -835,7 +1107,7 @@ async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId
     const desiredCardCount = estimateFlashcardPlan({ sourceText: material.extractedText, pageCount: material.pageCount }).cardCount;
     const reuseThreshold = Math.max(5, Math.floor(desiredCardCount * 0.85));
     const existing = await listFlashcards({ examId, ...(chapterId ? { chapterId } : {}), ...(noteId ? { noteId } : {}), sourceMaterialId: material.id });
-    const existingCards = existing.error ? [] : (existing.data || []);
+    const existingCards = existing.error ? [] : (existing.data || []).filter(isPlayableFlashcard);
     if (existingCards.length >= reuseThreshold) return existingCards;
 
     const bankTitle = cleanPracticeTitle(title || material.title, material.title || 'Uploaded material');
@@ -844,7 +1116,9 @@ async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId
       sourceText: material.extractedText,
       pageCount: material.pageCount,
     });
-    const missingCards = cards.slice(0, Math.max(0, desiredCardCount - existingCards.length));
+    const missingCards = cards.filter(isPlayableFlashcard).slice(0, Math.max(0, desiredCardCount - existingCards.length));
+    if (!missingCards.length && !existingCards.length) return null;
+
     const created = [];
     for (const card of missingCards) {
       const result = await createFlashcard({
@@ -858,7 +1132,8 @@ async function createFlashcardBankForMaterial({ examId, chapterId = null, noteId
       if (result.error) return created.length ? created : null;
       created.push(result.data);
     }
-    return [...existingCards, ...created];
+    const mergedCards = [...existingCards, ...created].filter(isPlayableFlashcard);
+    return mergedCards.length ? mergedCards : null;
   });
 }
 
@@ -878,9 +1153,17 @@ function isUuidLike(value = '') {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
+function safeDecodeFileName(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function getDisplayFileName(material = {}) {
   const rawName = material.title || material.storagePath || material.sourceUrl || 'Study material';
-  const lastPart = decodeURIComponent(String(rawName).split('?')[0].split('/').filter(Boolean).pop() || rawName);
+  const lastPart = safeDecodeFileName(String(rawName).split('?')[0].split('/').filter(Boolean).pop() || rawName);
   const clean = lastPart
     .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_]/i, '')
     .split(/[-_]/g)
@@ -891,20 +1174,26 @@ function getDisplayFileName(material = {}) {
   return clean || 'Study material';
 }
 
+function getMaterialMimeType(material = {}) {
+  return String(material.mimeType || material.mime_type || material.type || '').toLowerCase();
+}
+
 function formatFileSize(sizeBytes) {
-  if (!sizeBytes) return null;
-  if (sizeBytes < 1024 * 1024) return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
-  return `${(sizeBytes / (1024 * 1024)).toFixed(sizeBytes > 10 * 1024 * 1024 ? 0 : 1)} MB`;
+  const bytes = Number(sizeBytes);
+  if (!Number.isFinite(bytes) || bytes <= 0) return null;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(bytes > 10 * 1024 * 1024 ? 0 : 1)} MB`;
 }
 
 function getFileTypeLabel(material = {}) {
   const name = getDisplayFileName(material).toLowerCase();
-  if (material.mimeType?.includes('pdf') || name.endsWith('.pdf')) return 'PDF';
-  if (material.mimeType?.includes('png') || name.endsWith('.png')) return 'PNG';
-  if (material.mimeType?.includes('jpeg') || name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'JPG';
-  if (material.mimeType?.includes('text') || name.endsWith('.txt')) return 'TXT';
+  const mimeType = getMaterialMimeType(material);
+  if (mimeType.includes('pdf') || name.endsWith('.pdf')) return 'PDF';
+  if (mimeType.includes('png') || name.endsWith('.png')) return 'PNG';
+  if (mimeType.includes('jpeg') || name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'JPG';
+  if (mimeType.includes('text') || name.endsWith('.txt')) return 'TXT';
   if (material.sourceUrl) return 'LINK';
-  return (material.type || 'FILE').toUpperCase();
+  return String(material.type || 'FILE').toUpperCase();
 }
 
 function getMaterialStatusTone(material = {}) {
@@ -932,11 +1221,30 @@ function formatStudyDate(value) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function getReadinessStatus(score) {
-  if (score >= 90) return { label: 'Exam ready', recommendation: 'Keep momentum with quick review sessions.' };
-  if (score >= 70) return { label: 'Almost ready', recommendation: 'Focus on weak topics first.' };
-  if (score >= 40) return { label: 'More practice needed', recommendation: 'Focus on weak topics first.' };
-  return { label: 'Getting started', recommendation: 'Upload material and generate your first quiz.' };
+function averagePercent(values = []) {
+  const valid = values.map(Number).filter((value) => Number.isFinite(value));
+  if (!valid.length) return null;
+  return Math.round(valid.reduce((sum, value) => sum + value, 0) / valid.length);
+}
+
+function summarizeQuizReadiness(runs = [], fallbackScores = []) {
+  const validRuns = (runs || []).filter((run) => Number(run.total) > 0);
+  if (validRuns.length) {
+    const totals = validRuns.reduce((acc, run) => ({
+      score: acc.score + Number(run.rawScore ?? run.score ?? 0),
+      total: acc.total + Number(run.total || 0),
+    }), { score: 0, total: 0 });
+    if (totals.total > 0) {
+      return { value: Math.round((totals.score / totals.total) * 100), count: validRuns.length };
+    }
+  }
+  const fallback = averagePercent(fallbackScores);
+  return fallback == null ? { value: null, count: 0 } : { value: fallback, count: fallbackScores.length };
+}
+
+function summarizeFlashReadiness(scores = []) {
+  const value = averagePercent(scores);
+  return value == null ? { value: null, count: 0 } : { value, count: scores.length };
 }
 
 function EmptyState({ icon: IconCmp = FileText, title, copy, actionLabel, onAction, secondary = false }) {
@@ -960,11 +1268,17 @@ function EmptyState({ icon: IconCmp = FileText, title, copy, actionLabel, onActi
   );
 }
 
-function makePracticeScope(items = [], fallbackItems = [], predicate = () => true, countItems = (value) => value.length) {
+function makePracticeScope(
+  items = [],
+  fallbackItems = [],
+  predicate = () => true,
+  countItems = (value) => value.length,
+  countFallbackItems = countItems,
+) {
   const matchedItems = (items || []).filter(predicate);
   const serviceCount = countItems(matchedItems);
   if (serviceCount > 0) return serviceCount;
-  return (fallbackItems || []).length;
+  return countFallbackItems(fallbackItems || []);
 }
 
 function getPracticeStatus({ quizCount = 0, flashcardCount = 0, hasReadyMaterial = false, hasPendingMaterial = false, hasFailedPractice = false }) {
@@ -975,7 +1289,10 @@ function getPracticeStatus({ quizCount = 0, flashcardCount = 0, hasReadyMaterial
   const canOpen = quizReady || flashcardsReady || preparing;
 
   if (quizReady && flashcardsReady) return { tone: 'ready', label: 'Quiz e flashcard pronti', quizReady, flashcardsReady, canOpen };
-  if (failed) return { tone: 'failed', label: 'Generazione fallita', quizReady, flashcardsReady, canOpen: false };
+  if (failed) {
+    const label = quizReady ? 'Flashcard non generate' : flashcardsReady ? 'Quiz non generato' : 'Generazione fallita';
+    return { tone: 'failed', label, quizReady, flashcardsReady, canOpen: quizReady || flashcardsReady };
+  }
   if (preparing) return { tone: 'preparing', label: 'Preparazione in corso...', quizReady, flashcardsReady, canOpen };
   return { tone: 'empty', label: 'Carica materiale per preparare quiz e flashcard', quizReady, flashcardsReady, canOpen };
 }
@@ -1036,68 +1353,6 @@ function ExamHeader({ exam, palette, stats, onBack, onStartStudy, onAddMaterial 
             <Plus size={16} /> Add material
           </button>
         </div>
-      </div>
-    </section>
-  );
-}
-
-function ReadinessCard({ score, bars, exam, chapters, readinessView, setReadinessView, chapterKey, palette }) {
-  const status = getReadinessStatus(score);
-  const circumference = 251.33;
-  const dashOffset = circumference - (score / 100) * circumference;
-
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="m-0 text-base font-bold text-slate-950">Readiness score</h2>
-          <p className="mt-1 text-sm text-slate-500">{status.label}</p>
-        </div>
-        <label className="relative">
-          <select
-            value={readinessView}
-            onChange={(e) => setReadinessView(e.target.value)}
-            className="w-32 appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 pr-8 text-sm font-semibold text-slate-700 outline-none"
-          >
-            <option value="exam">Exam</option>
-            {chapters.map((chapter) => (
-              <option key={chapterKey(chapter)} value={chapterKey(chapter)}>{chapter.name || chapter.title || 'Chapter'}</option>
-            ))}
-          </select>
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-            <ChevronDown size={14} />
-          </span>
-        </label>
-      </div>
-      <div className="flex items-center gap-5">
-        <div className="relative h-28 w-28 shrink-0">
-          <svg width="112" height="112" viewBox="0 0 96 96" className="-rotate-90">
-            <circle cx="48" cy="48" r="40" fill="none" stroke="#E2E8F0" strokeWidth="7" />
-            <circle cx="48" cy="48" r="40" fill="none" stroke={palette.dot} strokeWidth="7" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold text-slate-950">{score}%</span>
-            <span className="text-xs font-medium text-slate-500">ready</span>
-          </div>
-        </div>
-        <p className="text-sm leading-6 text-slate-600">{status.recommendation}</p>
-      </div>
-      <div className="mt-5 space-y-3">
-        {bars.map((bar) => (
-          <div key={bar.label}>
-            <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-600">
-              <span>{bar.label}</span>
-              <span>{bar.value}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-        <div className="text-sm font-semibold text-slate-950">{exam.targetGrade ? `Target ${exam.targetGrade}/30` : 'Keep building consistency'}</div>
-        <p className="mt-1 text-sm text-slate-500">Small sessions plus quick quizzes are best next step.</p>
       </div>
     </section>
   );
@@ -1499,56 +1754,32 @@ function CleanChapterGrid({ chapters, filtered, palette, practiceStatusByChapter
   );
 }
 
-function WideReadinessCard({ score, bars, chapters, readinessView, setReadinessView, chapterKey, palette }) {
-  const status = getReadinessStatus(score);
-  const circumference = 251.33;
-  const dashOffset = circumference - (score / 100) * circumference;
-
+function PracticeProgressCard({ bars }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h2 className="m-0 inline-flex items-center gap-2 text-xl font-black text-slate-950"><BarChart3 size={22} /> Readiness Score</h2>
-        <label className="flex items-center gap-3 text-sm font-extrabold text-slate-500">
-          View
-          <span className="relative">
-            <select value={readinessView} onChange={(e) => setReadinessView(e.target.value)} className="h-12 min-w-44 appearance-none rounded-full border border-slate-200 bg-white px-5 pr-10 text-base font-extrabold text-slate-700 outline-none">
-              <option value="exam">Exam</option>
-              {chapters.map((chapter) => (
-                <option key={chapterKey(chapter)} value={chapterKey(chapter)}>{chapter.name || chapter.title || 'Chapter'}</option>
-              ))}
-            </select>
-            <ChevronDown size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          </span>
-        </label>
+      <div className="mb-6">
+        <h2 className="m-0 inline-flex items-center gap-2 text-xl font-black text-slate-950"><BarChart3 size={22} /> Practice progress</h2>
+        <p className="mt-2 text-base font-semibold text-slate-500">Risultati reali dell'esame intero, da quiz e flashcard completati.</p>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[160px_minmax(0,1fr)] lg:items-center">
-        <div className="relative mx-auto h-36 w-36 lg:mx-0">
-          <svg width="144" height="144" viewBox="0 0 96 96" className="-rotate-90">
-            <circle cx="48" cy="48" r="40" fill="none" stroke="#E5E7EB" strokeWidth="7" />
-            <circle cx="48" cy="48" r="40" fill="none" stroke={palette.dot} strokeWidth="7" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-black text-indigo-600">{score}%</span>
-            <span className="text-sm font-semibold text-slate-500">ready</span>
-          </div>
-        </div>
-        <div className="min-w-0">
-          <div className="mb-5">
-            <div className="text-lg font-black text-slate-950">{score >= 40 ? '⚠ More practice needed' : status.label}</div>
-            <p className="mt-2 text-base font-semibold text-slate-500">{status.recommendation}</p>
-          </div>
-          <div className="space-y-4">
-            {bars.map((bar) => (
-              <div key={bar.label} className="grid grid-cols-[150px_minmax(0,1fr)_42px] items-center gap-4">
-                <span className="text-base font-semibold text-slate-500">{bar.label}</span>
-                <span className="h-1.5 overflow-hidden rounded-full bg-slate-200">
-                  <span className="block h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
-                </span>
-                <span className="text-right text-base font-extrabold" style={{ color: bar.color }}>{bar.value}%</span>
+      <div className="space-y-4">
+        {bars.length ? bars.map((bar) => (
+          <div key={bar.label} className="rounded-2xl border border-slate-100 bg-slate-50/70 px-5 py-4">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-base font-black text-slate-950">{bar.label}</div>
+                <div className="mt-1 text-sm font-semibold text-slate-500">{bar.countLabel}</div>
               </div>
-            ))}
+              <span className="text-2xl font-black" style={{ color: bar.color }}>{bar.value}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full" style={{ width: `${bar.value}%`, background: bar.color }} />
+            </div>
           </div>
-        </div>
+        )) : (
+          <div className="rounded-2xl bg-slate-50 px-5 py-5 text-base font-semibold text-slate-500">
+            Nessun quiz o ripasso flashcard completato per questo esame.
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1632,12 +1863,11 @@ function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDec
   );
 }
 
-function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter, onDeleteChapterDocument, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
+function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, onDeleteChapter, onDeleteChapterDocument, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
   const [q, setQ] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [showUrlField, setShowUrlField] = useState(false);
-  const [readinessView, setReadinessView] = useState('exam');
   const [editingChapter, setEditingChapter] = useState(null);
   const [pdfChapter, setPdfChapter] = useState(null);
   const [notesLoading, setNotesLoading] = useState(true);
@@ -1681,39 +1911,32 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   });
   const filtered = chapters.filter((c) => (c.title || '').toLowerCase().includes(q.toLowerCase()));
   const chapterKey = (chapter) => String(chapter.id ?? chapter.name ?? chapter.title);
-  const selectedChapter = readinessView === 'exam' ? null : chapters.find((c) => chapterKey(c) === readinessView);
-  const selectedChapterKey = selectedChapter ? chapterKey(selectedChapter) : null;
+  const examQuizRuns = (quizRuns || []).filter((run) => String(run.examId || run.noteId) === String(exam.id));
   const allQuiz = quizHistory[exam.id] || [];
   const allFlash = [
     ...(flashHistory[exam.id] || []),
     ...chapters.flatMap((c) => flashHistory[c.id] || []),
   ];
-  const quizAvg = allQuiz.length ? Math.round(allQuiz.reduce((a, b) => a + b, 0) / allQuiz.length) : 50;
-  const flashAvg = allFlash.length ? Math.round(allFlash.reduce((a, b) => a + b, 0) / allFlash.length) : 50;
-  const chQuiz = selectedChapterKey != null ? (quizHistory[selectedChapterKey] || []) : [];
-  const chFlash = selectedChapterKey != null ? (flashHistory[selectedChapterKey] || []) : [];
-  const chQuizAvg = selectedChapter ? (chQuiz.length ? Math.round(chQuiz.reduce((a, b) => a + b, 0) / chQuiz.length) : (selectedChapter.mastery || 50)) : 50;
-  const chFlashAvg = selectedChapter ? (chFlash.length ? Math.round(chFlash.reduce((a, b) => a + b, 0) / chFlash.length) : (selectedChapter.mastery || 50)) : 50;
-  const readiness = Math.round(quizAvg * 0.4 + flashAvg * 0.3 + READINESS_FALLBACKS.studyTime * 0.2 + READINESS_FALLBACKS.planProgress * 0.1);
-  const chReadiness = Math.round(chQuizAvg * 0.5 + chFlashAvg * 0.5);
-  const currentReadiness = selectedChapter ? chReadiness : readiness;
-  const readinessBars = selectedChapter
-    ? [
-      { label: 'Quiz performance', value: chQuizAvg, color: '#4F46E5' },
-      { label: 'Flashcard mastery', value: chFlashAvg, color: '#7C3AED' },
-    ]
-    : [
-      { label: 'Quiz performance', value: quizAvg, color: '#4F46E5' },
-      { label: 'Flashcard mastery', value: flashAvg, color: '#7C3AED' },
-      { label: 'Study time', value: READINESS_FALLBACKS.studyTime, color: '#059669' },
-      { label: 'Plan progress', value: READINESS_FALLBACKS.planProgress, color: '#D97706' },
-    ];
+  const quizSummary = summarizeQuizReadiness(examQuizRuns, allQuiz);
+  const flashSummary = summarizeFlashReadiness(allFlash);
+  const examMetrics = [
+    { label: 'Quiz mastery', value: quizSummary.value, count: quizSummary.count, color: '#4F46E5' },
+    { label: 'Flashcard mastery', value: flashSummary.value, count: flashSummary.count, color: '#7C3AED' },
+  ];
+  const practiceProgressBars = examMetrics
+    .filter((metric) => metric.value != null)
+    .map((metric) => ({
+      label: metric.label,
+      countLabel: metric.count === 1 ? '1 sessione completata' : `${metric.count} sessioni completate`,
+      value: metric.value,
+      color: metric.color,
+    }));
   const stats = {
     chapters: chapters.length,
     materials: materials.length,
     notes: notes.length,
     quizzes: practiceItems.quizzes.length || allQuiz.length,
-    flashcards: practiceItems.flashcards.length || allFlash.length,
+    flashcards: practiceItems.flashcards.filter(isPlayableFlashcard).length || allFlash.filter(isPlayableFlashcard).length,
   };
   const practiceStatusByMaterial = materials.reduce((acc, material) => {
     const materialId = String(material.id);
@@ -1721,9 +1944,15 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       practiceItems.quizzes,
       [],
       (quiz) => String(quiz.sourceMaterialId) === materialId,
-      (quizzes) => quizzes.reduce((sum, quiz) => sum + ((quiz.questions || []).length || 0), 0),
+      (quizzes) => quizzes.reduce((sum, quiz) => sum + ((quiz.questions || []).filter(isPlayablePracticeQuestion).length || 0), 0),
+      (questions) => questions.filter(isPlayablePracticeQuestion).length,
     );
-    const flashcardCount = makePracticeScope(practiceItems.flashcards, [], (card) => String(card.sourceMaterialId) === materialId);
+    const flashcardCount = makePracticeScope(
+      practiceItems.flashcards,
+      [],
+      (card) => String(card.sourceMaterialId) === materialId,
+      (cards) => cards.filter(isPlayableFlashcard).length,
+    );
     acc[materialId] = getPracticeStatus({
       quizCount,
       flashcardCount,
@@ -1740,9 +1969,16 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       practiceItems.quizzes,
       chapter.questions || [],
       (quiz) => String(quiz.chapterId) === chapterId,
-      (quizzes) => quizzes.reduce((sum, quiz) => sum + ((quiz.questions || []).length || 0), 0),
+      (quizzes) => quizzes.reduce((sum, quiz) => sum + ((quiz.questions || []).filter(isPlayablePracticeQuestion).length || 0), 0),
+      (questions) => questions.filter(isPlayablePracticeQuestion).length,
     );
-    const flashcardCount = makePracticeScope(practiceItems.flashcards, chapter.cards || [], (card) => String(card.chapterId) === chapterId);
+    const flashcardCount = makePracticeScope(
+      practiceItems.flashcards,
+      chapter.cards || [],
+      (card) => String(card.chapterId) === chapterId,
+      (cards) => cards.filter(isPlayableFlashcard).length,
+      (cards) => cards.filter(isPlayableFlashcard).length,
+    );
     acc[chapterId] = getPracticeStatus({
       quizCount,
       flashcardCount,
@@ -1831,7 +2067,16 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
       material,
       title: title || material.title || exam.name,
     })
-      .then(() => reloadPracticeItems())
+      .then((result) => {
+        const flashcardBank = result?.flashcardBank;
+        const hasFlashcards = Array.isArray(flashcardBank)
+          ? flashcardBank.filter(isPlayableFlashcard).length > 0
+          : Boolean(flashcardBank);
+        if (!result?.quizBank || !hasFlashcards) {
+          setFailedPracticeMaterialIds((current) => new Set(current).add(materialId));
+        }
+        return reloadPracticeItems();
+      })
       .catch(() => {
         setFailedPracticeMaterialIds((current) => new Set(current).add(materialId));
       });
@@ -1915,7 +2160,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
         examName: exam.name,
         chapterId: chapterId || 'all',
         chapterName: title || exam.name,
-        difficulties: ['easy', 'medium', 'hard', 'extreme'],
+        difficulties: ['easy', 'medium', 'hard'],
         count,
         timerOn: false,
         timerSecs: 30,
@@ -2106,27 +2351,30 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const handleDeleteMaterial = async (id) => {
     setMaterialsError(null);
     setSavingStudyAction(`delete-material-${id}`);
-    const material = materials.find((item) => String(item.id) === String(id));
-    await deletePracticeForMaterial(id);
-    if (material?.storagePath) {
-      const fileResult = await deleteStudyMaterialFile(material.storagePath);
-      if (fileResult.error) {
-        setMaterialsError(formatStudyServiceError(fileResult.error, 'Unable to delete material file.'));
-        setSavingStudyAction(null);
-        return;
+    try {
+      const material = materials.find((item) => String(item.id) === String(id));
+      await deletePracticeForMaterial(id);
+      if (material?.storagePath) {
+        const fileResult = await deleteStudyMaterialFile(material.storagePath);
+        if (fileResult.error) {
+          throw new Error(formatStudyServiceError(fileResult.error, 'Unable to delete material file.'));
+        }
       }
-    }
-    const { error } = await deleteMaterial(id);
-    if (error) {
-      setMaterialsError(formatStudyServiceError(error, 'Unable to delete material.'));
+      const { error } = await deleteMaterial(id);
+      if (error) {
+        throw new Error(formatStudyServiceError(error, 'Unable to delete material.'));
+      }
+      setMaterials((prev) => prev.filter((material) => String(material.id) !== String(id)));
+      if (material?.chapterId && onDeleteChapterDocument) {
+        await onDeleteChapterDocument({ chapterId: material.chapterId, pages: Number(material.pageCount || material.page_count) || 1 });
+      }
+    } catch (error) {
+      const message = error?.message || 'Unable to delete material.';
+      setMaterialsError(message);
+      throw new Error(message);
+    } finally {
       setSavingStudyAction(null);
-      return;
     }
-    setMaterials((prev) => prev.filter((material) => String(material.id) !== String(id)));
-    if (material?.chapterId && onDeleteChapterDocument) {
-      await onDeleteChapterDocument({ chapterId: material.chapterId, pages: Number(material.pageCount || material.page_count) || 1 });
-    }
-    setSavingStudyAction(null);
   };
   const handleOpenMaterial = async (id) => {
     setMaterialsError(null);
@@ -2164,28 +2412,46 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const handleAddChapterDocuments = async (chapter, files) => {
     const pickedFiles = Array.from(files || []);
     if (!pickedFiles.length) return;
-    const result = await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
-    const createdMaterials = result?.materials || [];
-    mergeCreatedMaterials(createdMaterials);
-    if (result?.chapter) {
-      setPdfChapter((current) => current && String(current.id) === String(chapter.id) ? { ...current, ...result.chapter } : current);
+    if (!chapter?.id) {
+      const message = 'Open the chapter again before adding a document.';
+      setMaterialsError(message);
+      throw new Error(message);
     }
-    await reloadMaterials();
+    setMaterialsError(null);
+    try {
+      const result = await onAddChapter({ chapterId: chapter.id, fileCount: pickedFiles.length, files: pickedFiles });
+      const createdMaterials = result?.materials || [];
+      mergeCreatedMaterials(createdMaterials);
+      if (result?.chapter) {
+        setPdfChapter((current) => current && String(current.id) === String(chapter.id) ? { ...current, ...result.chapter } : current);
+      }
+      await reloadMaterials();
+    } catch (error) {
+      const message = error?.message || 'Unable to add document.';
+      setMaterialsError(message);
+      throw new Error(message);
+    }
   };
   const handleRenameChapterDocument = async (material, title) => {
     const cleanTitle = String(title || '').trim();
     if (!material?.id || !cleanTitle) return;
     setMaterialsError(null);
     setSavingStudyAction(`rename-material-${material.id}`);
-    const { data, error } = await updateMaterial(material.id, { title: cleanTitle });
-    setSavingStudyAction(null);
-    if (error) {
-      setMaterialsError(formatStudyServiceError(error, 'Unable to rename material.'));
-      return;
+    try {
+      const { data, error } = await updateMaterial(material.id, { title: cleanTitle });
+      if (error) {
+        throw new Error(formatStudyServiceError(error, 'Unable to rename material.'));
+      }
+      setMaterials((prev) => prev.map((item) => String(item.id) === String(material.id)
+        ? { ...item, ...data, ...(materialUiMeta[material.id] || {}) }
+        : item));
+    } catch (error) {
+      const message = error?.message || 'Unable to rename material.';
+      setMaterialsError(message);
+      throw new Error(message);
+    } finally {
+      setSavingStudyAction(null);
     }
-    setMaterials((prev) => prev.map((item) => String(item.id) === String(material.id)
-      ? { ...item, ...data, ...(materialUiMeta[material.id] || {}) }
-      : item));
   };
   const handleDeleteChapterDocument = async (chapter, material) => {
     if (material?.id) await handleDeleteMaterial(material.id);
@@ -2193,10 +2459,17 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
   const handleDeleteChapter = async (chapterId) => {
     setMaterialsError(null);
     setSavingStudyAction(`delete-chapter-${chapterId}`);
-    await deleteChapterStudyData(chapterId);
-    await onDeleteChapter(chapterId);
-    setMaterials((prev) => prev.filter((material) => String(material.chapterId) !== String(chapterId)));
-    setSavingStudyAction(null);
+    try {
+      await deleteChapterStudyData(chapterId);
+      await onDeleteChapter(chapterId);
+      setMaterials((prev) => prev.filter((material) => String(material.chapterId) !== String(chapterId)));
+    } catch (error) {
+      const message = error?.message || 'Unable to delete chapter.';
+      setMaterialsError(message);
+      throw new Error(message);
+    } finally {
+      setSavingStudyAction(null);
+    }
   };
 
   return (
@@ -2214,6 +2487,7 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
 
         {showUpload && (
           <UploadChapterModal
+            lang={lang}
             existingChapters={chapters}
             onClose={() => setShowUpload(false)}
             onUpload={async (payload) => {
@@ -2238,14 +2512,8 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
           quizRuns={quizRuns}
         />
 
-        <WideReadinessCard
-          score={currentReadiness}
-          bars={readinessBars}
-          chapters={chapters}
-          readinessView={readinessView}
-          setReadinessView={setReadinessView}
-          chapterKey={chapterKey}
-          palette={palette}
+        <PracticeProgressCard
+          bars={practiceProgressBars}
         />
 
         <StudyHistoryPanel
@@ -2260,10 +2528,21 @@ function ExamDetail({ exam, onBack, onAddChapter, onEditChapter, onDeleteChapter
 
         {editingChapter && (
           <EditChapterModal
+            lang={lang}
             chapter={editingChapter}
             onClose={() => setEditingChapter(null)}
-            onSave={async (newTitle) => { await onEditChapter({ chapterId: editingChapter.id, newTitle }); setEditingChapter(null); }}
-            onDelete={async () => { await handleDeleteChapter(editingChapter.id); setEditingChapter(null); }}
+            onSave={async (newTitle) => {
+              const chapterId = editingChapter?.id;
+              if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
+              await onEditChapter({ chapterId, newTitle });
+              setEditingChapter(null);
+            }}
+            onDelete={async () => {
+              const chapterId = editingChapter?.id;
+              if (!chapterId) throw new Error('Chapter not found. Reload the exam and try again.');
+              await handleDeleteChapter(chapterId);
+              setEditingChapter(null);
+            }}
           />
         )}
         {pdfChapter && (
@@ -2290,10 +2569,12 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [addingDocument, setAddingDocument] = useState(false);
-  const title = chapter.title || chapter.name || 'Chapter';
-  const docs = materials;
+  const [documentError, setDocumentError] = useState('');
+  const safeChapter = chapter || {};
+  const title = safeChapter.title || safeChapter.name || 'Chapter';
+  const docs = Array.isArray(materials) ? materials.filter((doc) => doc && doc.id) : [];
   const docCount = docs.length;
-  const docsPreviewKey = docs.map((doc) => `${doc.id}:${doc.storagePath || doc.sourceUrl || ''}`).join('|');
+  const docsPreviewKey = docs.map((doc) => `${String(doc.id)}:${doc.storagePath || doc.sourceUrl || ''}`).join('|');
   const pagesFor = (doc) => {
     if (doc.pageCount) return doc.pageCount;
     if (doc.page_count) return doc.page_count;
@@ -2304,9 +2585,12 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
     const picked = Array.from(event.target.files || []);
     event.target.value = '';
     if (!picked.length) return;
+    setDocumentError('');
     setAddingDocument(true);
     try {
-      await onAddDocument(chapter, picked);
+      await onAddDocument?.(safeChapter, picked);
+    } catch (error) {
+      setDocumentError(error?.message || 'Unable to add document.');
     } finally {
       setAddingDocument(false);
     }
@@ -2316,19 +2600,22 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
     let cancelled = false;
     async function loadPreviews() {
       setPreviewLoading(true);
-      const entries = await Promise.all(docs.filter((doc) => !doc.mock).map(async (doc) => {
-        if (doc.sourceUrl) return [doc.id, doc.sourceUrl];
-        if (doc.storagePath) {
-          const result = await createStudyMaterialSignedUrl(doc.storagePath);
+      try {
+        const entries = await Promise.all(docs.filter((doc) => !doc.mock).map(async (doc) => {
+          if (doc.sourceUrl) return [doc.id, doc.sourceUrl];
+          if (doc.storagePath) {
+            const result = await createStudyMaterialSignedUrl(doc.storagePath);
+            return [doc.id, result.error ? null : result.data?.url || null];
+          }
+          const result = await getMaterialDownloadUrl(doc.id);
           return [doc.id, result.error ? null : result.data?.url || null];
-        }
-        if (!doc.id) return [doc.id, null];
-        const result = await getMaterialDownloadUrl(doc.id);
-        return [doc.id, result.error ? null : result.data?.url || null];
-      }));
-      if (!cancelled) {
-        setPreviewUrls(Object.fromEntries(entries));
-        setPreviewLoading(false);
+        }));
+        if (!cancelled) setPreviewUrls(Object.fromEntries(entries));
+      } catch (error) {
+        console.warn('Unable to load document previews', error);
+        if (!cancelled) setPreviewUrls({});
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
       }
     }
     loadPreviews();
@@ -2339,9 +2626,12 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
   const selectedName = selectedDoc ? getDisplayFileName(selectedDoc) : '';
   const selectedUrl = selectedDoc ? previewUrls[selectedDoc.id] : null;
   const selectedPreviewReady = selectedDoc ? Object.prototype.hasOwnProperty.call(previewUrls, selectedDoc.id) : false;
-  const selectedIsImage = selectedDoc ? (/\.(png|jpe?g|webp|gif)$/i.test(selectedName) || selectedDoc.mimeType?.startsWith('image/')) : false;
-  const selectedIsPdf = selectedDoc ? (/\.pdf$/i.test(selectedName) || selectedDoc.mimeType?.includes('pdf')) : false;
+  const selectedMimeType = selectedDoc ? getMaterialMimeType(selectedDoc) : '';
+  const selectedIsImage = selectedDoc ? (/\.(png|jpe?g|webp|gif)$/i.test(selectedName) || selectedMimeType.startsWith('image/')) : false;
+  const selectedIsPdf = selectedDoc ? (/\.pdf$/i.test(selectedName) || selectedMimeType.includes('pdf')) : false;
   const beginRename = (doc) => {
+    if (!doc?.id) return;
+    setDocumentError('');
     setEditingDocId(doc.id);
     setEditingTitle(getDisplayFileName(doc));
   };
@@ -2350,14 +2640,20 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
     setEditingTitle('');
   };
   const saveRename = async (doc) => {
-    await onRenameDocument?.(doc, editingTitle);
-    cancelRename();
+    if (!doc?.id) return;
+    setDocumentError('');
+    try {
+      await onRenameDocument?.(doc, editingTitle);
+      cancelRename();
+    } catch (error) {
+      setDocumentError(error?.message || 'Unable to rename document.');
+    }
   };
   const isRenaming = (doc) => saving === `rename-material-${doc.id}`;
 
   return (
     <div
-      onClick={(event) => { if (event.target === event.currentTarget && !addingDocument) onClose(); }}
+      onClick={(event) => { if (event.target === event.currentTarget && !addingDocument) onClose?.(); }}
       style={{
         position: 'fixed',
         inset: 0,
@@ -2418,7 +2714,7 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
             <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain" multiple onChange={handleFilePick} style={{ display: 'none' }} />
             <button
               type="button"
-              onClick={() => !addingDocument && onClose()}
+              onClick={() => !addingDocument && onClose?.()}
               disabled={addingDocument}
               style={{ width: 50, height: 50, borderRadius: 999, border: '1.5px solid #E5E7EB', background: '#fff', color: '#6B7280', cursor: addingDocument ? 'not-allowed' : 'pointer', display: 'grid', placeItems: 'center', fontSize: 30, fontWeight: 700, lineHeight: 1, opacity: addingDocument ? .65 : 1 }}
               aria-label="Close documents"
@@ -2436,6 +2732,11 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                 <div style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 900 }}>Uploading document. Practice continues in background...</div>
                 <div style={{ marginTop: 3, color: 'var(--gray)', fontSize: 13, fontWeight: 700 }}>This closes after upload. Quiz + flashcards appear when ready.</div>
               </div>
+            </div>
+          )}
+          {documentError && !selectedDoc && (
+            <div style={{ marginBottom: 18, padding: '12px 14px', borderRadius: 16, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#991B1B', fontSize: 13, fontWeight: 800, lineHeight: 1.4 }}>
+              {documentError}
             </div>
           )}
           {selectedDoc ? (
@@ -2494,8 +2795,8 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                     key={doc.id || name}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setSelectedDocId(doc.id)}
-                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelectedDocId(doc.id); }}
+                    onClick={() => doc.id && setSelectedDocId(doc.id)}
+                    onKeyDown={(event) => { if ((event.key === 'Enter' || event.key === ' ') && doc.id) setSelectedDocId(doc.id); }}
                     style={{ position: 'relative', minHeight: 210, border: '1px solid #DDE3EE', background: '#fff', borderRadius: 22, padding: '22px 88px 22px 22px', boxShadow: '0 18px 44px rgba(15,23,42,.08)', cursor: 'pointer' }}
                   >
                     <div style={{ width: 64, height: 76, borderRadius: 14, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 24 }}>
@@ -2539,7 +2840,15 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
                         </button>
                         <button
                           type="button"
-                          onClick={(event) => { event.stopPropagation(); onDeleteDocument(chapter, doc); }}
+                          onClick={async (event) => {
+                            event.stopPropagation();
+                            setDocumentError('');
+                            try {
+                              await onDeleteDocument?.(safeChapter, doc);
+                            } catch (error) {
+                              setDocumentError(error?.message || 'Unable to delete document.');
+                            }
+                          }}
                           disabled={saving === `delete-material-${doc.id}`}
                           style={{ width: 44, height: 44, borderRadius: 14, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#EF4444', display: 'grid', placeItems: 'center', cursor: 'pointer', opacity: saving === `delete-material-${doc.id}` ? .6 : 1 }}
                           aria-label={`Delete ${name}`}

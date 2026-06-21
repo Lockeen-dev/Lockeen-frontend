@@ -1,49 +1,63 @@
 import React from 'react';
 
 import { Layers, Sparkles, XMark } from '../lib/icons';
+import { tt } from '../lib/i18n';
 
 function SectionLabel({ children, compact = false }) {
   return <div style={{ ...practiceS.sectionLabel, ...(compact ? { marginBottom: 0 } : null) }}>{children}</div>;
 }
 
-function PracticeConfigModal({ config, onChange, onClose, onStart }) {
+function PracticeConfigModal({ config, onChange, onClose, onStart, lang = 'en' }) {
   const { exam, mode, scopeId, difficulty, count, timerOn = true, timerSecs = 30 } = config;
   const chapters = exam.chapters || [];
   const setField = (key, value) => onChange({ ...config, [key]: value });
+  const difficultySelection = Array.isArray(config.difficulties) && config.difficulties.length
+    ? config.difficulties
+    : [difficulty || 'medium'];
+  const toggleDifficulty = (id) => {
+    const set = new Set(difficultySelection);
+    if (set.has(id) && set.size > 1) set.delete(id);
+    else set.add(id);
+    const next = difficulties.map((item) => item.id).filter((item) => set.has(item));
+    onChange({ ...config, difficulty: next[0] || 'medium', difficulties: next });
+  };
   const scopeOptions = [
-    { id: 'all', label: 'Whole exam', count: Math.max(12, chapters.reduce((sum, chapter) => sum + (chapter.questions?.length || chapter.cards?.length || 0), 0) || 12) },
+    { id: 'all', label: tt(lang, 'wholeExam') },
     ...chapters.map((chapter) => ({
       id: chapter.id,
-      label: chapter.title || chapter.name || 'Chapter',
-      count: Math.max(1, chapter.questions?.length || chapter.cards?.length || 6),
+      label: chapter.title || chapter.name || tt(lang, 'chapter'),
     })),
   ];
   const modes = [
-    { id: 'quiz', title: 'Quiz', sub: 'Questions + Timer', Icon: Sparkles },
-    { id: 'flashcards', title: 'Flashcards', sub: 'Review practice', Icon: Layers },
+    { id: 'quiz', title: tt(lang, 'quiz'), sub: tt(lang, 'questionsTimer'), Icon: Sparkles },
+    { id: 'flashcards', title: tt(lang, 'flashcards'), sub: tt(lang, 'reviewPractice'), Icon: Layers },
   ];
   const difficulties = [
-    { id: 'easy', title: 'Easy', sub: 'Warm-up' },
-    { id: 'medium', title: 'Medium', sub: 'Balanced' },
-    { id: 'hard', title: 'Hard', sub: 'Exam mode' },
-    { id: 'extreme', title: 'Extreme', sub: 'Deep reasoning' },
+    { id: 'easy', title: tt(lang, 'easy'), sub: tt(lang, 'warmUp') },
+    { id: 'medium', title: tt(lang, 'medium'), sub: tt(lang, 'balanced') },
+    { id: 'hard', title: tt(lang, 'hard'), sub: tt(lang, 'examMode') },
   ];
-  const counts = [10, 20, 30, 50];
+  const counts = mode === 'quiz' ? [5, 10, 15, 20] : [10, 20, 30, 50];
   const timerOptions = [15, 30, 60, 90];
 
   return (
-    <div style={practiceS.overlay} role="dialog" aria-modal="true" aria-label="Configure practice">
+    <div style={practiceS.overlay} role="dialog" aria-modal="true" aria-label={tt(lang, 'configurePractice')}>
       <div style={practiceS.modal}>
-        <button type="button" onClick={onClose} style={practiceS.close} aria-label="Close"><XMark size={24} /></button>
-        <div style={practiceS.kicker}>CONFIGURE PRACTICE</div>
+        <button type="button" onClick={onClose} style={practiceS.close} aria-label={tt(lang, 'close')}><XMark size={24} /></button>
+        <div style={practiceS.kicker}>{tt(lang, 'configurePractice')}</div>
         <h2 style={practiceS.title}>{exam.name}</h2>
-        <p style={practiceS.subtitle}>Prediction based on quiz, flashcards, and target grade</p>
+        <p style={practiceS.subtitle}>{tt(lang, 'predictionBased')}</p>
 
         <div style={practiceS.modeGrid}>
           {modes.map(({ id, title, sub, Icon: ModeIcon }) => {
             const active = mode === id;
             return (
-              <button key={id} type="button" onClick={() => setField('mode', id)} style={{ ...practiceS.modeCard, ...(active ? practiceS.modeCardActive : null) }}>
+              <button
+                key={id}
+                type="button"
+                onClick={() => onChange({ ...config, mode: id, count: id === 'quiz' ? Math.min(count || 10, 20) : Math.max(count || 10, 10) })}
+                style={{ ...practiceS.modeCard, ...(active ? practiceS.modeCardActive : null) }}
+              >
                 <span style={{ ...practiceS.modeIcon, color: 'var(--indigo)', background: '#EEF2FF' }}><ModeIcon size={26} /></span>
                 <span style={practiceS.modeTitle}>{title}</span>
                 <span style={practiceS.modeSub}>{sub}</span>
@@ -53,26 +67,25 @@ function PracticeConfigModal({ config, onChange, onClose, onStart }) {
         </div>
 
         <div style={practiceS.divider} />
-        <SectionLabel>Scope</SectionLabel>
+        <SectionLabel>{tt(lang, 'scope')}</SectionLabel>
         <div style={practiceS.scopeRow}>
           {scopeOptions.map((option) => {
             const active = String(scopeId) === String(option.id);
             return (
               <button key={option.id} type="button" onClick={() => setField('scopeId', option.id)} style={{ ...practiceS.scopePill, ...(active ? practiceS.scopePillActive : null) }}>
                 <span>{option.label}</span>
-                <span style={{ ...practiceS.countBadge, ...(active ? practiceS.countBadgeActive : null) }}>{option.count}</span>
               </button>
             );
           })}
         </div>
 
         <div style={practiceS.divider} />
-        <SectionLabel>Difficulty</SectionLabel>
+        <SectionLabel>{tt(lang, 'difficulty')}</SectionLabel>
         <div style={practiceS.difficultyGrid}>
           {difficulties.map((option) => {
-            const active = difficulty === option.id;
+            const active = difficultySelection.includes(option.id);
             return (
-              <button key={option.id} type="button" onClick={() => setField('difficulty', option.id)} style={{ ...practiceS.difficultyCard, ...(active ? practiceS.difficultyCardActive : null) }}>
+              <button key={option.id} type="button" onClick={() => toggleDifficulty(option.id)} style={{ ...practiceS.difficultyCard, ...(active ? practiceS.difficultyCardActive : null) }}>
                 <span style={practiceS.diffTitle}>{option.title}</span>
                 <span style={practiceS.diffSub}>{option.sub}</span>
               </button>
@@ -81,7 +94,7 @@ function PracticeConfigModal({ config, onChange, onClose, onStart }) {
         </div>
 
         <div style={practiceS.divider} />
-        <SectionLabel>{mode === 'flashcards' ? 'Cards' : 'Questions'}</SectionLabel>
+        <SectionLabel>{mode === 'flashcards' ? tt(lang, 'cards') : tt(lang, 'questions')}</SectionLabel>
         <div style={practiceS.countGrid}>
           {counts.map((value) => {
             const active = count === value;
@@ -98,8 +111,8 @@ function PracticeConfigModal({ config, onChange, onClose, onStart }) {
             <div style={practiceS.divider} />
             <div style={practiceS.timerHead}>
               <div>
-                <SectionLabel compact>Timer</SectionLabel>
-                <div style={practiceS.timerSub}>Seconds per question</div>
+                <SectionLabel compact>{tt(lang, 'timer')}</SectionLabel>
+                <div style={practiceS.timerSub}>{tt(lang, 'secondsPerQuestion')}</div>
               </div>
               <button type="button" onClick={() => setField('timerOn', !timerOn)} style={{ ...practiceS.timerSwitch, ...(timerOn ? practiceS.timerSwitchOn : null) }} aria-pressed={timerOn}>
                 <span style={{ ...practiceS.timerKnob, transform: timerOn ? 'translateX(34px)' : 'translateX(0)' }} />
@@ -121,8 +134,8 @@ function PracticeConfigModal({ config, onChange, onClose, onStart }) {
         )}
 
         <div style={practiceS.actions}>
-          <button type="button" onClick={onClose} style={practiceS.cancelBtn}>Cancel</button>
-          <button type="button" onClick={() => onStart(config)} style={practiceS.startBtn}>Start practice</button>
+          <button type="button" onClick={onClose} style={practiceS.cancelBtn}>{tt(lang, 'cancel')}</button>
+          <button type="button" onClick={() => onStart(config)} style={practiceS.startBtn}>{tt(lang, 'startPractice')}</button>
         </div>
       </div>
     </div>
@@ -149,7 +162,7 @@ const practiceS = {
   scopePillActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)' },
   countBadge: { minWidth: 24, height: 24, borderRadius: 999, background: '#F1F5F9', color: '#6B7280', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 900, padding: '0 7px' },
   countBadgeActive: { background: 'var(--indigo)', color: '#fff' },
-  difficultyGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 9 },
+  difficultyGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 },
   difficultyCard: { minHeight: 68, borderRadius: 16, border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', gap: 5, padding: 12 },
   difficultyCardActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)' },
   diffTitle: { color: 'inherit', fontSize: 17, fontWeight: 900, lineHeight: 1 },

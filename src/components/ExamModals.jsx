@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 
-import { FileText, Icon, Trash, Trash2 } from '../lib/icons';
+import { Check, FileText, Icon, Trash, Trash2 } from '../lib/icons';
 import { EXTRA_SUBJECT_COLORS, getSubjectPalette, inferSubjectFromName } from '../data/mockData';
 import { EXAM_COLOR_PALETTE, SUBJECT_EMOJI, getExamEmoji, getExamPalette, getNextExamPalette } from '../lib/examUi';
+import { tt } from '../lib/i18n';
 import { EmojiPickerButton, GradeValue, PrioritySelector, gradeS } from './common/ExamControls';
 
 const EXAM_TIME_OPTIONS = Array.from({ length: 34 }, (_, index) => {
@@ -20,24 +21,24 @@ const EXAM_DURATION_OPTIONS = [
   { value: 240, label: '4h' },
 ];
 
-function DeleteExamModal({ exam, onClose, onConfirm, saving = false, error = null }) {
+function DeleteExamModal({ exam, onClose, onConfirm, saving = false, error = null, lang = 'en' }) {
   return (
     <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}>
       <div style={{ ...uploadS.card, maxWidth:400, textAlign:'center' }}>
         <div style={{ width:52, height:52, borderRadius:999, background:'#FEE2E2', display:'grid', placeItems:'center', margin:'0 auto 16px' }}>
           <Trash2 size={22} color="#EF4444" />
         </div>
-        <h3 style={{ margin:'0 0 8px', fontSize:18, fontWeight:700, color:'var(--ink)' }}>Elimina esame</h3>
-        <p style={{ margin:'0 0 6px', color:'var(--gray)', fontSize:14 }}>Stai per eliminare:</p>
+        <h3 style={{ margin:'0 0 8px', fontSize:18, fontWeight:700, color:'var(--ink)' }}>{tt(lang, 'deleteExam')}</h3>
+        <p style={{ margin:'0 0 6px', color:'var(--gray)', fontSize:14 }}>{tt(lang, 'deleteExamIntro')}</p>
         <p style={{ margin:'0 0 20px', fontWeight:700, fontSize:15, color:'var(--ink)' }}>"{exam.name}"</p>
-        <p style={{ margin:'0 0 24px', color:'var(--gray)', fontSize:13 }}>Questa azione è irreversibile. Tutti i capitoli e i dati dell'esame saranno persi.</p>
+        <p style={{ margin:'0 0 24px', color:'var(--gray)', fontSize:13 }}>{tt(lang, 'deleteExamWarning')}</p>
         {error && <div style={uploadS.errorText}>{error}</div>}
         <div style={{ display:'flex', gap:10 }}>
           <button onClick={onClose} disabled={saving} style={{ flex:1, padding:'11px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .65 : 1 }}>
-            Annulla
+            {tt(lang, 'cancel')}
           </button>
           <button onClick={onConfirm} disabled={saving} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:'#EF4444', color:'#fff', fontWeight:700, fontSize:14, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1 }}>
-            {saving ? 'Eliminazione...' : 'Elimina'}
+            {saving ? tt(lang, 'deleting') : tt(lang, 'delete')}
           </button>
         </div>
       </div>
@@ -45,7 +46,7 @@ function DeleteExamModal({ exam, onClose, onConfirm, saving = false, error = nul
   );
 }
 
-function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) {
+function EditExamModal({ exam, onClose, onSave, saving = false, error = null, lang = 'en' }) {
   const [name, setName] = useState(exam.name || '');
   const [nameTouched, setNameTouched] = useState(false);
   const [targetGrade, setTargetGrade] = useState(exam.targetGrade || 27);
@@ -80,10 +81,10 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
     <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}>
       <form onSubmit={submit} style={{ ...uploadS.card, maxWidth:520 }}>
         <button type="button" onClick={onClose} disabled={saving} style={uploadS.closeBtn}><XIcon size={16} /></button>
-        <h3 style={uploadS.title}>Modifica esame</h3>
+        <h3 style={uploadS.title}>{tt(lang, 'editExam')}</h3>
 
         <div style={uploadS.field}>
-          <label style={uploadS.label}>Nome esame</label>
+          <label style={uploadS.label}>{tt(lang, 'examName')}</label>
           <div style={{ display:'flex', gap:10, alignItems:'center' }}>
             <EmojiPickerButton
               emoji={emoji}
@@ -94,23 +95,23 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
             />
             <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setNameTouched(true)} disabled={saving} style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
           </div>
-          {nameTouched && !name.trim() && <div style={uploadS.validationText}>Nome esame richiesto.</div>}
+          {nameTouched && !name.trim() && <div style={uploadS.validationText}>{tt(lang, 'examNameRequired')}</div>}
         </div>
 
         <div style={uploadS.field}>
-          <label style={uploadS.label}>Priorità</label>
+          <label style={uploadS.label}>{tt(lang, 'priority')}</label>
           <PrioritySelector value={priority} onChange={setPriority} />
         </div>
 
         <ColorPicker
-          label="Colore esame"
+          label={tt(lang, 'colorExam')}
           value={selectedPalette.dot}
           onChange={setSelectedPalette}
           disabled={saving}
         />
 
         <div style={uploadS.field}>
-          <label style={dateS.label}>Data esame</label>
+          <label style={dateS.label}>{tt(lang, 'examDate')}</label>
           <div style={dateS.row}>
             <select value={day} onChange={(e) => setDay(Number(e.target.value))} disabled={saving} style={dateS.select}>
               {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d}</option>)}
@@ -125,7 +126,7 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
         </div>
 
         <div style={uploadS.field}>
-          <label style={dateS.label}>Ora esame</label>
+          <label style={dateS.label}>{tt(lang, 'examTime')}</label>
           <div style={dateS.row}>
             <select value={examTime} onChange={(e) => setExamTime(e.target.value)} disabled={saving} style={dateS.select}>
               {EXAM_TIME_OPTIONS.map((time) => <option key={time} value={time}>{time}</option>)}
@@ -137,7 +138,7 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
         </div>
 
         <div style={uploadS.field}>
-          <label style={dateS.label}>Voto target 🎯</label>
+          <label style={dateS.label}>{tt(lang, 'targetGrade')} 🎯</label>
           <div style={gradeS.sliderRow}>
             <div style={gradeS.sliderValue}>
               <GradeValue value={targetGrade} color={palette.dot} size={26} />
@@ -159,10 +160,10 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
         {error && <div style={uploadS.errorText}>{error}</div>}
         <div style={{ display:'flex', gap:10, marginTop:8 }}>
           <button type="button" onClick={onClose} disabled={saving} style={{ flex:1, padding:'11px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .65 : 1 }}>
-            Annulla
+            {tt(lang, 'cancel')}
           </button>
           <button type="submit" disabled={!name.trim() || saving} style={{ flex:2, padding:'11px', borderRadius:12, border:'none', background: name.trim() && !saving ? 'var(--indigo)' : '#CBD5E1', color:'#fff', fontWeight:700, fontSize:14, cursor: name.trim() && !saving ? 'pointer' : 'not-allowed' }}>
-            {saving ? 'Salvataggio...' : 'Salva modifiche'}
+            {saving ? tt(lang, 'saving') : tt(lang, 'saveChanges')}
           </button>
         </div>
       </form>
@@ -170,7 +171,7 @@ function EditExamModal({ exam, onClose, onSave, saving = false, error = null }) 
   );
 }
 
-function CreateExamModal({ onClose, onCreate, saving = false, error = null, existingExamCount = 0 }) {
+function CreateExamModal({ onClose, onCreate, saving = false, error = null, existingExamCount = 0, lang = 'en' }) {
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
   const [targetGrade, setTargetGrade] = useState(27);
@@ -184,11 +185,11 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
   const [selectedPalette, setSelectedPalette] = useState(() => getNextExamPalette(existingExamCount));
   const [priority, setPriority] = useState(3);
   const PRIORITIES = [
-    { val:1, label:'Bassa',     color:'#10B981' },
-    { val:2, label:'Media',     color:'#3B82F6' },
-    { val:3, label:'Alta',      color:'#F59E0B' },
-    { val:4, label:'Molto Alta',color:'#F97316' },
-    { val:5, label:'Critica',   color:'#EF4444' },
+    { val:1, label:tt(lang, 'low'),     color:'#10B981' },
+    { val:2, label:tt(lang, 'medium'),     color:'#3B82F6' },
+    { val:3, label:tt(lang, 'high'),      color:'#F59E0B' },
+    { val:4, label:tt(lang, 'veryHigh'),color:'#F97316' },
+    { val:5, label:tt(lang, 'critical'),   color:'#EF4444' },
   ];
 
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -232,12 +233,12 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
   return (
     <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose && onClose(); }}>
       <form onSubmit={submit} style={{ ...uploadS.card, maxWidth: 520 }}>
-        <button type="button" onClick={onClose} disabled={saving} aria-label="Close" style={uploadS.closeBtn}><XIcon size={16} /></button>
-        <h3 style={uploadS.title}>Create New Exam</h3>
-        <p style={uploadS.subtitle}>Give your exam a name to get started</p>
+        <button type="button" onClick={onClose} disabled={saving} aria-label={tt(lang, 'close')} style={uploadS.closeBtn}><XIcon size={16} /></button>
+        <h3 style={uploadS.title}>{tt(lang, 'createNewExam')}</h3>
+        <p style={uploadS.subtitle}>{tt(lang, 'createExamSubtitle')}</p>
 
         <div style={uploadS.field}>
-          <label style={uploadS.label}>Exam name</label>
+          <label style={uploadS.label}>{tt(lang, 'examName')}</label>
           <div style={{ display:'flex', gap:10, alignItems:'center' }}>
             <EmojiPickerButton
               emoji={displayEmoji}
@@ -248,14 +249,14 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
             />
             <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setNameTouched(true)} disabled={saving} placeholder="es. Biologia 2024" style={{ ...uploadS.input, flex:1, margin:0 }} autoFocus />
           </div>
-          {nameTouched && !name.trim() && <div style={uploadS.validationText}>Exam name is required.</div>}
+          {nameTouched && !name.trim() && <div style={uploadS.validationText}>{tt(lang, 'examNameRequired')}</div>}
           {!emojiOverride && name.trim() && (
-            <div style={{ fontSize:11, color:'var(--gray)', marginTop:4 }}>Emoji rilevata automaticamente · clicca per cambiare</div>
+            <div style={{ fontSize:11, color:'var(--gray)', marginTop:4 }}>{tt(lang, 'emojiAutoDetected')}</div>
           )}
         </div>
 
         <div style={uploadS.field}>
-          <label style={dateS.label}>Exam date</label>
+          <label style={dateS.label}>{tt(lang, 'examDate')}</label>
           <div style={dateS.row}>
             <select value={day} onChange={(e) => setDay(Number(e.target.value))} disabled={saving} style={dateS.select} aria-label="Day">
               {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
@@ -276,7 +277,7 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
         </div>
 
         <div style={uploadS.field}>
-          <label style={dateS.label}>Exam time</label>
+          <label style={dateS.label}>{tt(lang, 'examTime')}</label>
           <div style={dateS.row}>
             <select value={examTime} onChange={(e) => setExamTime(e.target.value)} disabled={saving} style={dateS.select}>
               {EXAM_TIME_OPTIONS.map((time) => <option key={time} value={time}>{time}</option>)}
@@ -288,14 +289,14 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
         </div>
 
         <ColorPicker
-          label="Colore esame"
+          label={tt(lang, 'colorExam')}
           value={selectedPalette.dot}
           onChange={setSelectedPalette}
           disabled={saving}
         />
 
         <div style={uploadS.field}>
-          <label style={dateS.label}>Voto target 🎯</label>
+          <label style={dateS.label}>{tt(lang, 'targetGrade')} 🎯</label>
           <div style={gradeS.sliderRow}>
             <div style={gradeS.sliderValue}>
               <GradeValue value={targetGrade} color={subjectPalette.dot} size={26} />
@@ -316,7 +317,7 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
                   accentColor: subjectPalette.dot,
                   background: `linear-gradient(90deg, ${subjectPalette.dot} 0%, ${subjectPalette.dot} ${targetPct}%, var(--border) ${targetPct}%, var(--border) 100%)`
                 }}
-                aria-label="Voto target"
+                aria-label={tt(lang, 'targetGrade')}
               />
               <div style={gradeS.ticks}>
                 {[18, 21, 24, 27, 30].map((t) => (
@@ -330,7 +331,7 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
         </div>
 
         <div style={uploadS.field}>
-          <label style={dateS.label}>Priorità esame</label>
+          <label style={dateS.label}>{tt(lang, 'priority')}</label>
           <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
             {PRIORITIES.map(p => (
               <button key={p.val} type="button" onClick={() => setPriority(p.val)} disabled={saving}
@@ -344,10 +345,10 @@ function CreateExamModal({ onClose, onCreate, saving = false, error = null, exis
 
         {error && <div style={uploadS.errorText}>{error}</div>}
         <div style={uploadS.actions}>
-          <button type="button" onClick={onClose} disabled={saving} style={{ ...uploadS.cancelBtn, ...(saving ? uploadS.submitBtnDisabled : null) }}>Cancel</button>
+          <button type="button" onClick={onClose} disabled={saving} style={{ ...uploadS.cancelBtn, ...(saving ? uploadS.submitBtnDisabled : null) }}>{tt(lang, 'cancel')}</button>
           <button type="submit" disabled={!canSubmit || saving}
             style={{ ...uploadS.submitBtn, ...((!canSubmit || saving) ? uploadS.submitBtnDisabled : null) }}>
-            {saving ? 'Creating...' : 'Create Exam'}
+            {saving ? tt(lang, 'creating') : tt(lang, 'createExam')}
           </button>
         </div>
       </form>
@@ -371,14 +372,21 @@ function ColorPicker({ label, value, onChange, disabled = false }) {
               disabled={disabled}
               onClick={() => onChange(palette)}
               style={{
-                ...colorS.swatch,
+                ...colorS.card,
                 background: palette.bg,
                 borderColor: active ? palette.dot : palette.border,
-                boxShadow: active ? `0 0 0 3px ${palette.dot}22` : 'none',
+                boxShadow: active ? `0 12px 26px -18px ${palette.dot}` : 'none',
+                color: palette.text,
                 opacity: disabled ? .55 : 1,
               }}
             >
-              <span style={{ ...colorS.dot, background: palette.dot }} />
+              <span style={colorS.swatchRow}>
+                <span style={{ ...colorS.dot, background: palette.dot }}>
+                  {active && <Check size={12} color="#fff" />}
+                </span>
+                <span style={colorS.name}>{palette.name}</span>
+              </span>
+              <span style={{ ...colorS.line, background: `linear-gradient(90deg, ${palette.dot}, ${palette.border})` }} />
             </button>
           );
         })}
@@ -414,9 +422,26 @@ const dateS = {
 };
 
 const colorS = {
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(9, minmax(0, 1fr))', gap: 8 },
-  swatch: { height: 34, borderRadius: 10, border: '2px solid transparent', display: 'grid', placeItems: 'center', cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s, transform .15s' },
-  dot: { width: 16, height: 16, borderRadius: 999, boxShadow: '0 1px 4px rgba(15,23,42,.2)' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 },
+  card: {
+    minHeight: 52,
+    borderRadius: 14,
+    border: '1.5px solid transparent',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    alignItems: 'stretch',
+    gap: 8,
+    padding: '9px 10px 8px',
+    cursor: 'pointer',
+    transition: 'border-color .15s, box-shadow .15s, transform .15s',
+    fontFamily: 'inherit',
+    minWidth: 0,
+  },
+  swatchRow: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 },
+  dot: { width: 20, height: 20, borderRadius: 999, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.55), 0 5px 12px rgba(15,23,42,.16)', display: 'grid', placeItems: 'center', flexShrink: 0 },
+  name: { fontSize: 11, fontWeight: 850, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  line: { height: 3, borderRadius: 999, opacity: .72 },
 };
 
 
@@ -424,11 +449,12 @@ const colorS = {
 const CloudUpload = (p) => <Icon {...p}><path d="M20 16.5a4 4 0 0 0-1.6-7.66A6 6 0 0 0 6.5 8.5 4.5 4.5 0 0 0 7 17.5h11a3 3 0 0 0 2-1z"/><polyline points="12 12 12 19"/><polyline points="9 15 12 12 15 15"/></Icon>;
 const XIcon      = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
 
-function UploadChapterModal({ existingChapters, onClose, onUpload }) {
+function UploadChapterModal({ existingChapters, onClose, onUpload, lang = 'en' }) {
   const progressSteps = ['Upload', 'OCR', 'Pronto'];
+  const safeExistingChapters = Array.isArray(existingChapters) ? existingChapters.filter(Boolean) : [];
   const [files, setFiles] = useState([]);
   // selection: chapter id (number) for existing, or '__new' for a new chapter
-  const initialSelection = existingChapters && existingChapters.length ? existingChapters[0].id : '__new';
+  const initialSelection = safeExistingChapters.length ? safeExistingChapters[0].id : '__new';
   const [selection, setSelection] = useState(initialSelection);
   const [newName, setNewName] = useState('');
   const [dragOver, setDragOver] = useState(false);
@@ -440,17 +466,20 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   const inputRef = useRef(null);
   const idRef = useRef(1);
 
-  const stripExt = (name) => name.replace(/\.[^.]+$/, '');
+  const stripExt = (name = '') => String(name || '').replace(/\.[^.]+$/, '');
 
   const addFiles = (list) => {
-    const arr = Array.from(list || []);
+    const arr = Array.from(list || []).filter(Boolean);
     if (!arr.length) return;
     setFiles((prev) => {
       const next = [...prev];
-      arr.forEach((f) => { next.push({ id: idRef.current++, name: f.name, size: f.size, file: f }); });
+      arr.forEach((f) => {
+        const name = String(f.name || 'Document');
+        next.push({ id: idRef.current++, name, size: Number(f.size) || 0, file: f });
+      });
       return next;
     });
-    setNewName((cur) => (selection === '__new' ? (cur || stripExt(arr[0].name)) : cur));
+    setNewName((cur) => (selection === '__new' ? (cur || stripExt(arr[0]?.name || 'Document')) : cur));
   };
 
   const removeFile = (id) => setFiles((prev) => prev.filter((f) => f.id !== id));
@@ -465,7 +494,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   const browse = () => inputRef.current && inputRef.current.click();
 
   const isNew = selection === '__new';
-  const canSubmit = files.length > 0 && (!isNew || newName.trim().length > 0);
+  const canSubmit = files.length > 0 && files.every((entry) => entry.file) && (!isNew || newName.trim().length > 0);
 
   const submit = async () => {
     if (!canSubmit || uploading) return;
@@ -485,17 +514,19 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
         if (nextProgress != null) setProgress(nextProgress);
       },
     };
-    Promise.resolve(onUpload(payload)).then(() => {
+    try {
+      await onUpload?.(payload);
       setActiveProgressStep(progressSteps.length - 1);
       setUploadStep('Pronto.');
       setProgress(100);
-    }).catch((err) => {
+      setUploading(false);
+    } catch (err) {
       setError(err?.message || 'Unable to save chapter.');
       setUploading(false);
       setUploadStep('');
       setProgress(0);
       setActiveProgressStep(0);
-    });
+    }
   };
 
   return (
@@ -537,13 +568,13 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
             value={selection}
             onChange={(e) => {
               const v = e.target.value;
-              setSelection(v === '__new' ? '__new' : Number(v));
+              setSelection(v === '__new' ? '__new' : v);
             }}
             style={{ ...uploadS.input, appearance: 'none', WebkitAppearance: 'none', backgroundImage: 'linear-gradient(45deg, transparent 50%, #6B7280 50%), linear-gradient(135deg, #6B7280 50%, transparent 50%)', backgroundPosition: 'calc(100% - 18px) 50%, calc(100% - 13px) 50%', backgroundSize: '5px 5px, 5px 5px', backgroundRepeat: 'no-repeat', paddingRight: 36, cursor: 'pointer' }}
             disabled={uploading}
           >
-            {(existingChapters || []).map((c) => (
-              <option key={c.id} value={c.id}>{c.title}</option>
+            {safeExistingChapters.map((c) => (
+              <option key={c.id} value={c.id}>{c.title || c.name || 'Chapter'}</option>
             ))}
             <option value="__new">+ New chapter</option>
           </select>
@@ -601,8 +632,9 @@ function UploadChapterModal({ existingChapters, onClose, onUpload }) {
   );
 }
 
-function EditChapterModal({ chapter, onClose, onSave, onDelete }) {
-  const [title, setTitle] = useState(chapter.title || '');
+function EditChapterModal({ chapter, onClose, onSave, onDelete, lang = 'en' }) {
+  const safeChapter = chapter || {};
+  const [title, setTitle] = useState(safeChapter.title || safeChapter.name || '');
   const [confirmDel, setConfirmDel] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');

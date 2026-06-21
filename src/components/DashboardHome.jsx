@@ -194,6 +194,7 @@ function DashboardHome({
         onOpenExam={onOpenExam}
         heroProgress={heroProgress}
         heroProgressText={heroProgressText}
+        lang={lang}
       />
 
       {error && <div style={s.error}>{error}</div>}
@@ -207,6 +208,7 @@ function DashboardHome({
             totalToday={totalToday}
             isEventDone={isEventDone}
             toggleEventDone={toggleEventDone}
+            lang={lang}
           />
           <RecentActivity
             s={s}
@@ -216,11 +218,12 @@ function DashboardHome({
             scoreFromActivity={scoreFromActivity}
             activityCopy={activityCopy}
             relativeTime={relativeTime}
+            lang={lang}
           />
         </div>
 
         <aside style={s.stack}>
-          <QuickActionsPanel s={s} nextExam={nextExam} startExamQuiz={startExamQuiz} setTab={setTab} onStartTimer={onStartTimer} />
+          <QuickActionsPanel s={s} nextExam={nextExam} startExamQuiz={startExamQuiz} setTab={setTab} onStartTimer={onStartTimer} lang={lang} />
           <RecommendationsPanel
             s={s}
             recommendations={recommendations}
@@ -232,7 +235,7 @@ function DashboardHome({
             onOpenExam={onOpenExam}
             setTab={setTab}
           />
-          <AssistantPanel s={s} setTab={setTab} />
+          <AssistantPanel s={s} setTab={setTab} lang={lang} />
         </aside>
       </div>
     </div>

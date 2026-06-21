@@ -325,7 +325,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       setWeekData(sessionsToWeekData(next));
       return next;
     });
-    addNotification(`Study session logged: ${mins} min`, 'timer');
+    addNotification(`Logging study session: ${mins} min`, 'timer');
     const result = await createStudySession({ minutes: mins, studiedAt, source: 'timer' });
     if (!result.error && result.data) {
       setStudySessions(prev => {
@@ -333,7 +333,16 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         setWeekData(sessionsToWeekData(next));
         return next;
       });
+      addNotification(`Study session logged: ${mins} min`, 'timer');
+      return;
     }
+
+    setStudySessions(prev => {
+      const next = prev.filter((session) => session.id !== localSession.id);
+      setWeekData(sessionsToWeekData(next));
+      return next;
+    });
+    addNotification(result.error?.message || 'Could not save study session.', 'error');
   }
 
   const [plannerOpen, setPlannerOpen]       = useState(false);
@@ -564,6 +573,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       mode: 'quiz',
       scopeId: 'all',
       difficulty: 'medium',
+      difficulties: ['easy', 'medium', 'hard'],
       count: 10,
       timerOn: true,
       timerSecs: 30,
@@ -613,6 +623,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       chapterId,
       chapterName: scopeTitle,
       difficulty: config.difficulty,
+      difficulties: config.difficulties || [config.difficulty || 'medium'],
       count: config.count,
       timerOn: config.timerOn !== false,
       timerSecs: config.timerSecs,
@@ -742,10 +753,11 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         />
       </DashboardCard>
       {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
-      <PlannerOverlay plannerOpen={plannerOpen} setPlannerOpen={setPlannerOpen} setPlannerNoteId={setPlannerNoteId} handlePlanAdded={handlePlanAdded} handlePlanCleared={handlePlanCleared} calEvents={calEvents} exams={exams} quizRuns={quizRuns} />
+      <PlannerOverlay plannerOpen={plannerOpen} setPlannerOpen={setPlannerOpen} setPlannerNoteId={setPlannerNoteId} handlePlanAdded={handlePlanAdded} handlePlanCleared={handlePlanCleared} calEvents={calEvents} exams={exams} quizRuns={quizRuns} lang={lang} />
       {practiceConfig && (
         <PracticeConfigModal
           config={practiceConfig}
+          lang={lang}
           onChange={setPracticeConfig}
           onClose={() => setPracticeConfig(null)}
           onStart={startConfiguredPractice}
