@@ -286,6 +286,236 @@ export function initMarketingDom() {
       'app.dashboard':'Dashboard', 'app.myExams':'Meus exames', 'app.flashcards':'Flashcards', 'app.quiz':'Quiz', 'app.aiTutor':'Tutor IA', 'app.analytics':'Analytics', 'app.calendar':'Calendário', 'app.weeklyGoal':'Meta semanal',
     },
   };
+
+  function ensureHeroDemoStyles() {
+    if (document.getElementById('hero-demo-interactions-style')) return;
+    const style = document.createElement('style');
+    style.id = 'hero-demo-interactions-style';
+    style.textContent = `
+      .hero-demo-card {
+        cursor: default;
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+      }
+      .hero-demo-card:hover,
+      .hero-demo-card:focus-within {
+        transform: translateY(-3px);
+        box-shadow: 0 18px 45px rgba(15, 23, 42, .09);
+        border-color: rgba(55, 48, 232, .24);
+      }
+      .hero-demo-option,
+      .hero-demo-flashcard-panel,
+      .hero-demo-action,
+      .hero-demo-ask {
+        cursor: pointer;
+        transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease, color .18s ease, opacity .18s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .hero-demo-option:hover,
+      .hero-demo-option:focus-visible,
+      .hero-demo-action:hover,
+      .hero-demo-action:focus-visible,
+      .hero-demo-ask:hover,
+      .hero-demo-ask:focus-visible {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(15, 23, 42, .08);
+      }
+      .hero-demo-option:focus-visible,
+      .hero-demo-flashcard-panel:focus-visible,
+      .hero-demo-action:focus-visible,
+      .hero-demo-ask:focus-visible {
+        outline: 2px solid rgba(55, 48, 232, .55);
+        outline-offset: 3px;
+      }
+      .hero-demo-option.is-neutral {
+        background: rgba(255, 255, 255, .62) !important;
+        border-color: rgba(15, 23, 42, .09) !important;
+        color: rgba(15, 23, 42, .5) !important;
+      }
+      .hero-demo-option.is-correct {
+        background: rgba(16, 185, 129, .13) !important;
+        border-color: rgba(16, 185, 129, .3) !important;
+        color: #065F46 !important;
+      }
+      .hero-demo-option.is-wrong {
+        background: rgba(239, 68, 68, .11) !important;
+        border-color: rgba(239, 68, 68, .28) !important;
+        color: #B91C1C !important;
+      }
+      .hero-demo-option-marker {
+        background: transparent !important;
+        border: 1px solid rgba(15, 23, 42, .12) !important;
+        color: rgba(15, 23, 42, .48) !important;
+      }
+      .hero-demo-option.is-correct .hero-demo-option-marker {
+        background: #10B981 !important;
+        border-color: #10B981 !important;
+        color: #fff !important;
+      }
+      .hero-demo-option.is-wrong .hero-demo-option-marker {
+        background: #EF4444 !important;
+        border-color: #EF4444 !important;
+        color: #fff !important;
+      }
+      .hero-demo-flashcard-answer {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition: max-height .22s ease, opacity .18s ease;
+      }
+      .hero-demo-flashcard-panel.is-revealed .hero-demo-flashcard-answer {
+        max-height: 90px;
+        opacity: 1;
+      }
+      .hero-demo-flashcard-panel:not(.is-revealed) .hero-demo-flashcard-divider {
+        opacity: .18;
+      }
+      .hero-demo-action.is-active {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(15, 23, 42, .08);
+      }
+      .hero-demo-ask.is-thinking {
+        border-color: rgba(6, 182, 212, .45) !important;
+        background: rgba(255, 255, 255, .82) !important;
+      }
+      .hero-demo-tutor-answer.is-thinking {
+        opacity: .72;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .hero-demo-card,
+        .hero-demo-option,
+        .hero-demo-flashcard-panel,
+        .hero-demo-action,
+        .hero-demo-ask,
+        .hero-demo-flashcard-answer {
+          transition: none;
+        }
+        .hero-demo-card:hover,
+        .hero-demo-card:focus-within,
+        .hero-demo-option:hover,
+        .hero-demo-action:hover,
+        .hero-demo-ask:hover {
+          transform: none;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function makeKeyboardClickable(el, handler) {
+    el.addEventListener('click', handler);
+    el.addEventListener('keydown', function(event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      handler(event);
+    });
+  }
+
+  function setupHeroDemoCards() {
+    ensureHeroDemoStyles();
+
+    const quizCard = document.querySelector('[data-i18n="demo.quiz"]')?.closest('.rounded-2xl');
+    if (quizCard && quizCard.dataset.heroDemoReady !== 'true') {
+      quizCard.dataset.heroDemoReady = 'true';
+      quizCard.classList.add('hero-demo-card');
+      const options = Array.from(quizCard.querySelectorAll('.px-3.py-1\\.5'));
+      options.forEach(function(option, index) {
+        const marker = option.querySelector('span');
+        option.classList.add('hero-demo-option', 'is-neutral');
+        option.removeAttribute('style');
+        option.setAttribute('role', 'button');
+        option.setAttribute('tabindex', '0');
+        option.setAttribute('aria-pressed', 'false');
+        if (marker) {
+          marker.removeAttribute('style');
+          marker.classList.add('hero-demo-option-marker');
+          marker.textContent = ['A', 'B', 'C'][index] || String(index + 1);
+        }
+
+        makeKeyboardClickable(option, function() {
+          options.forEach(function(row, rowIndex) {
+            row.classList.remove('is-correct', 'is-wrong');
+            row.classList.add('is-neutral');
+            row.setAttribute('aria-pressed', 'false');
+            const rowMarker = row.querySelector('span');
+            if (rowMarker) rowMarker.textContent = ['A', 'B', 'C'][rowIndex] || String(rowIndex + 1);
+          });
+
+          option.classList.remove('is-neutral');
+          option.classList.add(index === 0 ? 'is-correct' : 'is-wrong');
+          option.setAttribute('aria-pressed', 'true');
+          if (marker) marker.textContent = index === 0 ? '✓' : '×';
+
+          if (index !== 0 && options[0]) {
+            const correctMarker = options[0].querySelector('span');
+            options[0].classList.remove('is-neutral');
+            options[0].classList.add('is-correct');
+            if (correctMarker) correctMarker.textContent = '✓';
+          }
+        });
+      });
+    }
+
+    const flashcard = document.querySelector('[data-i18n="demo.flashcards"]')?.closest('.rounded-2xl');
+    if (flashcard && flashcard.dataset.heroDemoReady !== 'true') {
+      flashcard.dataset.heroDemoReady = 'true';
+      flashcard.classList.add('hero-demo-card');
+      const panel = flashcard.querySelector('.rounded-xl.p-4');
+      const divider = panel?.querySelector('.h-px');
+      const answer = flashcard.querySelector('[data-i18n="demo.cardA"]');
+      const actions = Array.from(flashcard.querySelectorAll('.flex-1.py-1\\.5'));
+      if (panel) {
+        panel.classList.add('hero-demo-flashcard-panel');
+        panel.setAttribute('role', 'button');
+        panel.setAttribute('tabindex', '0');
+        panel.setAttribute('aria-pressed', 'false');
+        divider?.classList.add('hero-demo-flashcard-divider');
+        answer?.classList.add('hero-demo-flashcard-answer');
+        makeKeyboardClickable(panel, function() {
+          const revealed = panel.classList.toggle('is-revealed');
+          panel.setAttribute('aria-pressed', String(revealed));
+        });
+      }
+      actions.forEach(function(action) {
+        action.classList.add('hero-demo-action');
+        action.setAttribute('role', 'button');
+        action.setAttribute('tabindex', '0');
+        makeKeyboardClickable(action, function(event) {
+          event.stopPropagation();
+          actions.forEach(function(item) { item.classList.remove('is-active'); });
+          action.classList.add('is-active');
+          panel?.classList.add('is-revealed');
+          panel?.setAttribute('aria-pressed', 'true');
+        });
+      });
+    }
+
+    const tutor = document.querySelector('[data-i18n="demo.tutor"]')?.closest('.rounded-2xl');
+    if (tutor && tutor.dataset.heroDemoReady !== 'true') {
+      tutor.dataset.heroDemoReady = 'true';
+      tutor.classList.add('hero-demo-card');
+      const ask = tutor.querySelector('[data-i18n="demo.ask"]')?.parentElement;
+      const answer = tutor.querySelector('[data-i18n-html="demo.tutorA"]');
+      answer?.classList.add('hero-demo-tutor-answer');
+      if (ask && answer) {
+        ask.classList.add('hero-demo-ask');
+        ask.setAttribute('role', 'button');
+        ask.setAttribute('tabindex', '0');
+        makeKeyboardClickable(ask, function() {
+          if (ask.classList.contains('is-thinking')) return;
+          const currentAnswer = answer.innerHTML;
+          ask.classList.add('is-thinking');
+          answer.classList.add('is-thinking');
+          answer.textContent = '...';
+          window.setTimeout(function() {
+            answer.innerHTML = currentAnswer;
+            answer.classList.remove('is-thinking');
+            ask.classList.remove('is-thinking');
+          }, 520);
+        });
+      }
+    }
+  }
+
   function applyLockeenLanguage(lang) {
     const safeLang = normalizeLockeenLang(lang);
     const dict = LOCKEEN_I18N[safeLang];
@@ -302,7 +532,36 @@ export function initMarketingDom() {
     });
     renderFeatures(safeLang);
     renderPricing(safeLang);
+    setupHeroDemoCards();
   }
+
+  function handleProductPreviewLink(event) {
+    const link = event.target.closest('a[href*="preview="]');
+    if (!link) return;
+    const url = new URL(link.href, window.location.href);
+    const previewView = url.searchParams.get('preview');
+    if (!previewView || !url.hash.includes('product-tablet')) return;
+
+    event.preventDefault();
+    window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    window.dispatchEvent(new CustomEvent('lockeen-product-preview', { detail: { view: previewView } }));
+    window.setTimeout(function() {
+      const target = document.getElementById('product-tablet') || document.getElementById('product');
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 40);
+  }
+
+  function handlePricingLink(event) {
+    const link = event.target.closest('a[href$="#pricing"], a[href="/#pricing"]');
+    if (!link) return;
+
+    event.preventDefault();
+    window.history.pushState({}, '', '/#pricing');
+    window.setTimeout(function() {
+      document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 40);
+  }
+
   window.setLockeenLanguage = function(lang) {
     const safeLang = normalizeLockeenLang(lang);
     applyLockeenLanguage(safeLang);
@@ -312,6 +571,8 @@ export function initMarketingDom() {
   };
   const initialLockeenLang = normalizeLockeenLang(localStorage.getItem('lockeen-lang') || 'en');
   applyLockeenLanguage(initialLockeenLang);
+  document.addEventListener('click', handleProductPreviewLink);
+  document.addEventListener('click', handlePricingLink);
   const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
   const mobileMenuPanel = document.getElementById('mobile-menu-panel');
   function closeMobileMenu() {
