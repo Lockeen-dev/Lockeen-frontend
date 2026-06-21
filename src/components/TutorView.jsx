@@ -406,8 +406,8 @@ export default function TutorView({ lang = 'en' }) {
   const send = async () => {
     const text = input.trim();
     if (!text && files.length === 0) return;
-    const fileNote = files.length > 0 ? ` [Attached: ${files.map(f => f.name).join(', ')}]` : '';
-    const fullText = text + fileNote;
+    const visibleText = text || tt(lang, 'reviewAttachedFile');
+    const promptText = text || tt(lang, 'reviewAttachedFile');
     const sessionId = activeId;
     const activeSession = sessions.find(s => String(s.id) === String(sessionId));
     const nextTitle = isUntitledSessionTitle(activeSession?.title) && text
@@ -423,7 +423,7 @@ export default function TutorView({ lang = 'en' }) {
 
     let userMsgs = [];
     setMsgs(m => {
-      const next = [...m, { who: 'user', text: fullText }];
+      const next = [...m, { who: 'user', text: visibleText }];
       userMsgs = next;
       setSessions(prev => prev.map(s => s.id === activeId ? { ...s, msgs: next } : s));
       return next;
@@ -435,7 +435,7 @@ export default function TutorView({ lang = 'en' }) {
     await persistSession(sessionId, userMsgs, nextTitle);
     try {
       const result = await askTutor({
-        prompt: fullText,
+        prompt: promptText,
         context: {
           currentSubject: !isUntitledSessionTitle(activeSession?.title) ? activeSession.title : null,
           preferredDepth: /quick|brief|short/i.test(text) ? 'quick' : /deep|detail|well/i.test(text) ? 'deep' : 'standard',
