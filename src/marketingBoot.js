@@ -548,6 +548,9 @@ export function initMarketingDom() {
     window.setTimeout(function() {
       const target = document.getElementById('product-tablet') || document.getElementById('product');
       target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (link.dataset.cleanDemoUrl === 'true') {
+        window.history.replaceState({}, '', '/');
+      }
     }, 40);
   }
 
