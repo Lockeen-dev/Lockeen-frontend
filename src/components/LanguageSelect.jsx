@@ -4,6 +4,7 @@ import { LANG_OPTIONS } from '../lib/i18n';
 
 function LanguageSelect({ lang, onChange, compact = false }) {
   const [open, setOpen] = React.useState(false);
+  const [menuPlacement, setMenuPlacement] = React.useState('bottom');
   const ref = React.useRef(null);
   const current = LANG_OPTIONS.find(l => l.value === lang) || LANG_OPTIONS[0];
 
@@ -12,6 +13,26 @@ function LanguageSelect({ lang, onChange, compact = false }) {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!open || !ref.current) return;
+
+    const updatePlacement = () => {
+      const rect = ref.current.getBoundingClientRect();
+      const menuHeight = LANG_OPTIONS.length * 42 + 12;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setMenuPlacement(spaceBelow < menuHeight && spaceAbove > spaceBelow ? 'top' : 'bottom');
+    };
+
+    updatePlacement();
+    window.addEventListener('resize', updatePlacement);
+    window.addEventListener('scroll', updatePlacement, true);
+    return () => {
+      window.removeEventListener('resize', updatePlacement);
+      window.removeEventListener('scroll', updatePlacement, true);
+    };
   }, [open]);
 
   return (
@@ -26,7 +47,7 @@ function LanguageSelect({ lang, onChange, compact = false }) {
         <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </button>
       {open && (
-        <div translate="no" style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,.12)', zIndex:9999, minWidth:80, overflow:'hidden' }}>
+        <div translate="no" style={{ position:'absolute', ...(menuPlacement === 'top' ? { bottom:'calc(100% + 6px)' } : { top:'calc(100% + 6px)' }), right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,.12)', zIndex:9999, minWidth:80, overflow:'hidden' }}>
           {LANG_OPTIONS.map(l => (
             <button key={l.value} type="button" translate="no"
               onClick={() => { onChange(l.value); setOpen(false); }}
