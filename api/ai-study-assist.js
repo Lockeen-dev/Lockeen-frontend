@@ -7,6 +7,7 @@ const DEFAULT_MODEL = 'gpt-4.1-mini';
 
 const usageByUser = new Map();
 let supabaseAdmin = null;
+let supabaseAuthClient = null;
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -14,11 +15,9 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function getUserKey(req) {
-  const headerUser = req.headers['x-lockeen-user-id'];
+function getBearerToken(req) {
   const auth = req.headers.authorization || '';
-  const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  return String(headerUser || bearer || '').trim();
+  return auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
 }
 
 function getJsonBody(req) {
@@ -31,12 +30,6 @@ function getJsonBody(req) {
     }
   }
   return req.body;
-}
-
-function parseUserId(userKey) {
-  const normalized = String(userKey || '').trim();
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidPattern.test(normalized) ? normalized : null;
 }
 
 function getQuotaLimit() {
@@ -52,6 +45,27 @@ function quotaUnavailable(message) {
   const error = new Error(message);
   error.code = 'AI_QUOTA_UNAVAILABLE';
   return error;
+}
+
+function getSupabaseAuthClient() {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const publicKey =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !publicKey) return null;
+
+  if (!supabaseAuthClient) {
+    supabaseAuthClient = createClient(supabaseUrl, publicKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  }
+
+  return supabaseAuthClient;
 }
 
 function getSupabaseAdmin() {
@@ -70,6 +84,34 @@ function getSupabaseAdmin() {
   }
 
   return supabaseAdmin;
+}
+
+async function requireAuthenticatedUser(req) {
+  const token = getBearerToken(req);
+  if (!token) {
+    return {
+      data: null,
+      error: { code: 'AUTH_REQUIRED', message: 'AI requests require an authenticated Supabase session.' },
+    };
+  }
+
+  const client = getSupabaseAuthClient();
+  if (!client) {
+    return {
+      data: null,
+      error: { code: 'SUPABASE_CONFIG_MISSING', message: 'Supabase server auth config is missing.' },
+    };
+  }
+
+  const { data, error } = await client.auth.getUser(token);
+  if (error || !data?.user?.id) {
+    return {
+      data: null,
+      error: { code: 'AUTH_REQUIRED', message: 'AI requests require a valid Supabase session.' },
+    };
+  }
+
+  return { data: { userId: data.user.id }, error: null };
 }
 
 function checkMemoryQuota(userKey) {
@@ -102,22 +144,14 @@ function checkMemoryQuota(userKey) {
   };
 }
 
-async function checkPersistentQuota(userKey) {
-  const userId = parseUserId(userKey);
+async function checkPersistentQuota(userId) {
   const client = getSupabaseAdmin();
 
   if (!client) {
     if (requiresPersistentQuota()) {
       throw quotaUnavailable('Persistent AI quota requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
     }
-    return checkMemoryQuota(userKey);
-  }
-
-  if (!userId) {
-    if (requiresPersistentQuota()) {
-      throw quotaUnavailable('Persistent AI quota requires a Supabase user id.');
-    }
-    return checkMemoryQuota(userKey);
+    return checkMemoryQuota(userId);
   }
 
   const quota = getQuotaLimit();
@@ -323,10 +357,12 @@ export default async function handler(req, res) {
     return json(res, 405, { error: { code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' } });
   }
 
-  const userKey = getUserKey(req);
-  if (!userKey) {
-    return json(res, 401, { error: { code: 'AUTH_REQUIRED', message: 'AI requests require a user id or bearer token.' } });
+  const authResult = await requireAuthenticatedUser(req);
+  if (authResult.error) {
+    const status = authResult.error.code === 'SUPABASE_CONFIG_MISSING' ? 503 : 401;
+    return json(res, status, { error: authResult.error });
   }
+  const userId = authResult.data.userId;
 
   const body = getJsonBody(req);
   const prompt = String(body.prompt || '').trim();
@@ -342,7 +378,7 @@ export default async function handler(req, res) {
 
   let quota;
   try {
-    quota = await checkPersistentQuota(userKey);
+    quota = await checkPersistentQuota(userId);
   } catch (error) {
     return json(res, 503, {
       error: {
