@@ -10,6 +10,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
   const email = user.email || 'alex@lockeen.com';
   const initial = user.name?.[0]?.toUpperCase() || 'A';
   const accountLang = LANG_OPTIONS.find(l => l.value === lang) || LANG_OPTIONS[0];
+  const copy = accountCopy[lang] || accountCopy.en;
 
   const Row = ({ icon, title, sub, action, danger }) => (
     <div style={accountS.row}>
@@ -27,60 +28,60 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
       <div style={{ ...accountS.hero, flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center' }}>
         <div style={accountS.bigAvatar}>{initial}</div>
         <div style={{ flex:1 }}>
-          <h2 style={accountS.title}>Account</h2>
-          <p style={accountS.sub}>Gestisci piano, profilo, dispositivi e preferenze.</p>
+          <h2 style={accountS.title}>{copy.account}</h2>
+          <p style={accountS.sub}>{copy.accountSub}</p>
         </div>
-        <button onClick={onLogout} style={accountS.logoutTop}><LogOut size={15} /> Logout</button>
+        <button onClick={onLogout} style={accountS.logoutTop}><LogOut size={15} /> {copy.logout}</button>
       </div>
 
       <section style={accountS.section}>
-        <h3 style={accountS.sectionTitle}>Plan</h3>
+        <h3 style={accountS.sectionTitle}>{copy.plan}</h3>
         <div style={accountS.planCard}>
           <div>
-            <div style={accountS.planBadge}>Free mode</div>
+            <div style={accountS.planBadge}>{copy.freeMode}</div>
             <h4 style={accountS.planTitle}>Lockeen Free</h4>
-            <p style={accountS.planText}>1 documento attivo, quiz limitati, flashcard base.</p>
+            <p style={accountS.planText}>{copy.freePlanText}</p>
           </div>
-          <button style={accountS.primaryBtn}>Upgrade to Pro</button>
+          <button style={accountS.primaryBtn}>{copy.upgradeToPro}</button>
         </div>
         <div style={accountS.card}>
-          <Row icon={<Trophy size={18} />} title="Last plan" sub="Pro Monthly · ended 6 Sep 2025" action={<button style={accountS.softBtn}>Reactivate</button>} />
+          <Row icon={<Trophy size={18} />} title={copy.lastPlan} sub={copy.lastPlanSub} action={<button style={accountS.softBtn}>{copy.reactivate}</button>} />
         </div>
       </section>
 
       <section style={accountS.section}>
-        <h3 style={accountS.sectionTitle}>Bills</h3>
+        <h3 style={accountS.sectionTitle}>{copy.bills}</h3>
         <div style={accountS.card}>
-          <Row icon={<FileText size={18} />} title="Payments" sub="See payments and receipts" action={<ChevronDown size={18} color="var(--gray)" />} />
+          <Row icon={<FileText size={18} />} title={copy.payments} sub={copy.paymentsSub} action={<ChevronDown size={18} color="var(--gray)" />} />
           <div style={accountS.divider} />
-          <Row icon={<Coins size={18} />} title="Billing method" sub="No active payment method on Free plan" action={<button style={accountS.ghostBtn}>Manage</button>} />
+          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={copy.billingMethodSub} action={<button style={accountS.ghostBtn}>{copy.manage}</button>} />
         </div>
       </section>
 
       <section style={accountS.section}>
-        <h3 style={accountS.sectionTitle}>Profile</h3>
+        <h3 style={accountS.sectionTitle}>{copy.profile}</h3>
         <div style={accountS.card}>
-          <Row icon={<MsgCircle size={18} />} title="Email" sub={email} />
+          <Row icon={<MsgCircle size={18} />} title={copy.email} sub={email} />
           <div style={accountS.divider} />
-          <Row icon={<EyeOff size={18} />} title="Password" sub="Signed up with Google. Password edit disabled." action={<button style={accountS.disabledBtn}>Edit</button>} />
+          <Row icon={<EyeOff size={18} />} title={copy.password} sub={copy.passwordSub} action={<button style={accountS.disabledBtn}>{copy.edit}</button>} />
         </div>
       </section>
 
       <section style={accountS.section}>
-        <h3 style={accountS.sectionTitle}>Active devices</h3>
+        <h3 style={accountS.sectionTitle}>{copy.activeDevices}</h3>
         <div style={accountS.card}>
           <div style={{ marginBottom:12 }}>
-            <div style={accountS.rowTitle}>Active devices: 2/2</div>
-            <div style={accountS.rowSub}>Puoi usare Lockeen su massimo 2 dispositivi insieme.</div>
+            <div style={accountS.rowTitle}>{copy.activeDevicesCount}</div>
+            <div style={accountS.rowSub}>{copy.activeDevicesSub}</div>
           </div>
-          {['Mac, macOS, Safari', 'iPhone, iOS, Safari'].map((device, i) => (
+          {copy.devices.map((device, i) => (
             <React.Fragment key={device}>
               {i > 0 && <div style={accountS.divider} />}
               <Row
                 icon={<span style={{ width:10, height:10, borderRadius:999, background:i === 0 ? '#10B981' : '#CBD5E1', display:'block' }} />}
                 title={device}
-                sub={i === 0 ? 'Last access: today · current device' : 'Last access: 17 May 2026'}
-                action={<button style={i === 0 ? accountS.currentBtn : accountS.dangerBtn}>{i === 0 ? 'Current' : 'Log out'}</button>}
+                sub={i === 0 ? copy.currentDeviceSub : copy.otherDeviceSub}
+                action={<button style={i === 0 ? accountS.currentBtn : accountS.dangerBtn}>{i === 0 ? copy.current : copy.logout}</button>}
               />
             </React.Fragment>
           ))}
@@ -88,12 +89,12 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
       </section>
 
       <section style={accountS.section}>
-        <h3 style={accountS.sectionTitle}>Language</h3>
-        <div style={accountS.card}>
+        <h3 style={accountS.sectionTitle}>{copy.language}</h3>
+        <div style={{ ...accountS.card, overflow:'visible' }}>
           <Row
             icon={<span style={{ fontSize:20 }}>{accountLang.flag}</span>}
             title={`${accountLang.flag} ${accountLang.label}`}
-            sub="Questa impostazione cambia la lingua dell’interfaccia Lockeen."
+            sub={copy.languageSub}
             action={<LanguageSelect lang={lang} onChange={onLangChange} compact />}
           />
         </div>
@@ -101,6 +102,73 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
     </div>
   );
 }
+
+const accountCopy = {
+  en: {
+    account: 'Account',
+    accountSub: 'Manage plan, profile, devices, and preferences.',
+    logout: 'Log out',
+    plan: 'Plan',
+    freeMode: 'Free mode',
+    freePlanText: '1 active document, limited quizzes, basic flashcards.',
+    upgradeToPro: 'Upgrade to Pro',
+    lastPlan: 'Last plan',
+    lastPlanSub: 'Pro Monthly · ended 6 Sep 2025',
+    reactivate: 'Reactivate',
+    bills: 'Bills',
+    payments: 'Payments',
+    paymentsSub: 'See payments and receipts',
+    billingMethod: 'Billing method',
+    billingMethodSub: 'No active payment method on Free plan',
+    manage: 'Manage',
+    profile: 'Profile',
+    email: 'Email',
+    password: 'Password',
+    passwordSub: 'Signed up with Google. Password edit disabled.',
+    edit: 'Edit',
+    activeDevices: 'Active devices',
+    activeDevicesCount: 'Active devices: 2/2',
+    activeDevicesSub: 'You can use Lockeen on up to 2 devices at the same time.',
+    devices: ['Mac, macOS, Safari', 'iPhone, iOS, Safari'],
+    currentDeviceSub: 'Last access: today · current device',
+    otherDeviceSub: 'Last access: 17 May 2026',
+    current: 'Current',
+    language: 'Language',
+    languageSub: 'This setting changes the Lockeen interface language.',
+  },
+  it: {
+    account: 'Account',
+    accountSub: 'Gestisci piano, profilo, dispositivi e preferenze.',
+    logout: 'Esci',
+    plan: 'Piano',
+    freeMode: 'Modalità free',
+    freePlanText: '1 documento attivo, quiz limitati, flashcard base.',
+    upgradeToPro: 'Passa a Pro',
+    lastPlan: 'Ultimo piano',
+    lastPlanSub: 'Pro Monthly · terminato il 6 set 2025',
+    reactivate: 'Riattiva',
+    bills: 'Fatture',
+    payments: 'Pagamenti',
+    paymentsSub: 'Vedi pagamenti e ricevute',
+    billingMethod: 'Metodo di pagamento',
+    billingMethodSub: 'Nessun metodo di pagamento attivo sul piano Free',
+    manage: 'Gestisci',
+    profile: 'Profilo',
+    email: 'Email',
+    password: 'Password',
+    passwordSub: 'Accesso con Google. Modifica password disabilitata.',
+    edit: 'Modifica',
+    activeDevices: 'Dispositivi attivi',
+    activeDevicesCount: 'Dispositivi attivi: 2/2',
+    activeDevicesSub: 'Puoi usare Lockeen su massimo 2 dispositivi insieme.',
+    devices: ['Mac, macOS, Safari', 'iPhone, iOS, Safari'],
+    currentDeviceSub: 'Ultimo accesso: oggi · dispositivo corrente',
+    otherDeviceSub: 'Ultimo accesso: 17 mag 2026',
+    current: 'Corrente',
+    language: 'Lingua',
+    languageSub: 'Questa impostazione cambia la lingua dell’interfaccia Lockeen.',
+  },
+};
 
 const accountS = {
   wrap: { display:'flex', flexDirection:'column', gap:22, maxWidth:980, margin:'0 auto' },
