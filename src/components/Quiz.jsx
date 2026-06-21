@@ -4,6 +4,7 @@ import { getExamEmoji, getExamPalette } from '../lib/examUi';
 import { getSubjectPalette } from '../data/mockData';
 import { getQuiz, listQuizzes, submitQuizAttempt } from '../services/quiz';
 import { tt } from '../lib/i18n';
+import { PracticeBackgroundFrame, usePracticeBackground } from './common/PracticeBackground';
 
 function QuizStyles() {
   return (
@@ -241,6 +242,7 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
   const [qKey, setQKey] = useState(0);
   const [shake, setShake] = useState(false);
   const [cardEntered, setCardEntered] = useState(false);
+  const [practiceBackground, setPracticeBackground] = usePracticeBackground();
 
   const stopTimer = () => {
     if (timerID.current) {
@@ -389,12 +391,14 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
 
   if (!total) {
     return (
-      <div style={quizS.resultWrap}>
-        <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
-        <h2 style={quizS.resultTitle}>{tt(lang, 'noQuizYet')}</h2>
-        <p style={quizS.resultSub}>{title}</p>
-        <button onClick={() => setTab(backTo)} style={quizS.backBtn}>{tt(lang, 'backToStudy')}</button>
-      </div>
+      <PracticeBackgroundFrame background={practiceBackground} onBackgroundChange={setPracticeBackground}>
+        <div style={quizS.resultWrap}>
+          <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
+          <h2 style={quizS.resultTitle}>{tt(lang, 'noQuizYet')}</h2>
+          <p style={quizS.resultSub}>{title}</p>
+          <button onClick={() => setTab(backTo)} style={quizS.backBtn}>{tt(lang, 'backToStudy')}</button>
+        </div>
+      </PracticeBackgroundFrame>
     );
   }
 
@@ -402,16 +406,18 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
     const percent = Math.round((correct / total) * 100);
     const resultTitle = percent >= 80 ? tt(lang, 'excellentWork') : percent >= 60 ? tt(lang, 'goodEffort') : tt(lang, 'keepStudying');
     return (
-      <QuizResultScreen
-        percent={percent} correct={correct} total={total}
-        palette={palette} resultTitle={resultTitle} subject={subject}
-        subjectStyle={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border, alignSelf: 'center' }}
-        attemptError={attemptError}
-        attemptSaved={attemptSaved}
-        onRestart={restartQuiz}
-        onBack={() => setTab(backTo)}
-        lang={lang}
-      />
+      <PracticeBackgroundFrame background={practiceBackground} onBackgroundChange={setPracticeBackground}>
+        <QuizResultScreen
+          percent={percent} correct={correct} total={total}
+          palette={palette} resultTitle={resultTitle} subject={subject}
+          subjectStyle={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border, alignSelf: 'center' }}
+          attemptError={attemptError}
+          attemptSaved={attemptSaved}
+          onRestart={restartQuiz}
+          onBack={() => setTab(backTo)}
+          lang={lang}
+        />
+      </PracticeBackgroundFrame>
     );
   }
 
@@ -436,64 +442,66 @@ export function QuizView({ noteId, quizId, subject, title, questions, setTab, da
   return (
     <>
       <QuizStyles />
-      <div style={quizS.wrap}>
-        <div style={quizS.headerRow}>
-          <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
-          {timerOn && (
-            <span style={{ ...quizS.timerLive, color: timerVal <= 5 ? '#DC2626' : 'var(--gray)' }}>
-              <Clock size={15} /> {timerVal}s
-            </span>
-          )}
-        </div>
-
-        <div style={quizS.progressMeta}>
-          <span>{tt(lang, 'questionOfTotal', { current: idx + 1, total })}</span>
-          <span>{tt(lang, 'correctCount', { count: correct })}</span>
-        </div>
-        <div style={quizS.progressTrack}>
-          <div style={{ ...quizS.progressFill, width: `${progress}%`, background: palette.dot }} />
-        </div>
-
-        <div
-          key={qKey}
-          onAnimationEnd={() => {
-            if (!shake) setCardEntered(true);
-          }}
-          style={{
-            ...quizS.card,
-            animation: shake
-              ? 'qShake .42s ease'
-              : cardEntered
-                ? 'none'
-                : 'qSlideIn .28s cubic-bezier(.22,1,.36,1)',
-          }}
-        >
-          <div style={quizS.questionMetaRow}>
-            <span style={quizS.questionLabel}>{tt(lang, 'question')} {idx + 1}</span>
-            <span style={{ ...quizS.difficultyBadge, color: qDifficultyColor, borderColor: `${qDifficultyColor}55`, background: `${qDifficultyColor}14` }}>
-              {tt(lang, DIFFICULTY_LABELS[qDifficulty])}
-            </span>
+      <PracticeBackgroundFrame background={practiceBackground} onBackgroundChange={setPracticeBackground}>
+        <div style={quizS.wrap}>
+          <div style={quizS.headerRow}>
+            <span style={{ ...quizS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
+            {timerOn && (
+              <span style={{ ...quizS.timerLive, color: timerVal <= 5 ? '#DC2626' : 'var(--gray)' }}>
+                <Clock size={15} /> {timerVal}s
+              </span>
+            )}
           </div>
-          <div style={quizS.questionText}>{q.q}</div>
-          <div style={quizS.options}>
-            {q.options.map((option, i) => (
-              <button key={`${q.id || idx}-${i}`} className={!answered && pendingIdx === null ? 'quiz-option-ready' : ''} disabled={answered} onClick={() => handleSelect(i)} style={{ ...quizS.optionBase, ...optionStyle(i) }}>
-                <span style={quizS.optionLetter}>{String.fromCharCode(65 + i)}</span>
-                <span style={quizS.optionText}>{option}</span>
-              </button>
-            ))}
+
+          <div style={quizS.progressMeta}>
+            <span>{tt(lang, 'questionOfTotal', { current: idx + 1, total })}</span>
+            <span>{tt(lang, 'correctCount', { count: correct })}</span>
           </div>
-          {answered && (
-            <div style={ok ? quizS.feedbackOk : quizS.feedbackKo}>
-              {ok ? <Check size={15} /> : <XMark size={15} />} {feedbackText}
+          <div style={quizS.progressTrack}>
+            <div style={{ ...quizS.progressFill, width: `${progress}%`, background: palette.dot }} />
+          </div>
+
+          <div
+            key={qKey}
+            onAnimationEnd={() => {
+              if (!shake) setCardEntered(true);
+            }}
+            style={{
+              ...quizS.card,
+              animation: shake
+                ? 'qShake .42s ease'
+                : cardEntered
+                  ? 'none'
+                  : 'qSlideIn .28s cubic-bezier(.22,1,.36,1)',
+            }}
+          >
+            <div style={quizS.questionMetaRow}>
+              <span style={quizS.questionLabel}>{tt(lang, 'question')} {idx + 1}</span>
+              <span style={{ ...quizS.difficultyBadge, color: qDifficultyColor, borderColor: `${qDifficultyColor}55`, background: `${qDifficultyColor}14` }}>
+                {tt(lang, DIFFICULTY_LABELS[qDifficulty])}
+              </span>
             </div>
-          )}
-        </div>
+            <div style={quizS.questionText}>{q.q}</div>
+            <div style={quizS.options}>
+              {q.options.map((option, i) => (
+                <button key={`${q.id || idx}-${i}`} className={!answered && pendingIdx === null ? 'quiz-option-ready' : ''} disabled={answered} onClick={() => handleSelect(i)} style={{ ...quizS.optionBase, ...optionStyle(i) }}>
+                  <span style={quizS.optionLetter}>{String.fromCharCode(65 + i)}</span>
+                  <span style={quizS.optionText}>{option}</span>
+                </button>
+              ))}
+            </div>
+            {answered && (
+              <div style={ok ? quizS.feedbackOk : quizS.feedbackKo}>
+                {ok ? <Check size={15} /> : <XMark size={15} />} {feedbackText}
+              </div>
+            )}
+          </div>
 
-        <button onClick={nextQuestion} style={{ ...quizS.nextBtn, background: palette.dot, display: answered ? 'flex' : 'none' }}>
-          {idx === total - 1 ? tt(lang, 'seeResults') : tt(lang, 'nextQuestion')}
-        </button>
-      </div>
+          <button onClick={nextQuestion} style={{ ...quizS.nextBtn, background: palette.dot, display: answered ? 'flex' : 'none' }}>
+            {idx === total - 1 ? tt(lang, 'seeResults') : tt(lang, 'nextQuestion')}
+          </button>
+        </div>
+      </PracticeBackgroundFrame>
     </>
   );
 }
