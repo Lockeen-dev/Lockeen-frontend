@@ -1,6 +1,7 @@
-import { requireAuthenticatedUserId } from './auth';
+import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 
 const AI_MODE = import.meta.env.VITE_AI_MODE || (import.meta.env.PROD ? 'real' : 'mock');
+const AI_REQUEST_TIMEOUT_MS = 45000;
 
 function ok(data) {
   return { data: structuredClone(data), error: null };
@@ -8,6 +9,12 @@ function ok(data) {
 
 function fail(message, code = 'AI_ERROR') {
   return { data: null, error: { code, message } };
+}
+
+function timeoutSignal(ms) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), ms);
+  return { controller, timeoutId };
 }
 
 function fallbackText(kind, prompt) {
@@ -56,21 +63,34 @@ async function requestAi({ kind = 'tutor', prompt, context = {} }) {
     });
   }
 
-  const userResult = await requireAuthenticatedUserId();
-  if (userResult.error) return userResult;
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (sessionError || !token) {
+    return fail('AI requests require an authenticated Supabase session.', 'AUTH_REQUIRED');
+  }
 
   let response;
+  const { controller, timeoutId } = timeoutSignal(AI_REQUEST_TIMEOUT_MS);
   try {
     response = await fetch('/api/ai-study-assist', {
+      signal: controller.signal,
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'x-lockeen-user-id': userResult.data,
       },
       body: JSON.stringify({ kind, prompt, context }),
     });
   } catch (error) {
-    return fail(error?.message || 'AI API route unavailable.', 'AI_PROVIDER_UNAVAILABLE');
+    return fail(
+      error?.name === 'AbortError' ? 'AI request timed out.' : (error?.message || 'AI API route unavailable.'),
+      error?.name === 'AbortError' ? 'AI_PROVIDER_TIMEOUT' : 'AI_PROVIDER_UNAVAILABLE',
+    );
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 
   const isJson = response.headers.get('content-type')?.includes('application/json');

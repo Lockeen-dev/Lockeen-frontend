@@ -328,7 +328,8 @@ export default function TutorView({ lang = 'en' }) {
 	      error.code === 'AI_PROVIDER_UNAVAILABLE' ||
 	      error.code === 'AI_PROVIDER_ERROR' ||
 	      error.code === 'AI_PROVIDER_EMPTY_RESPONSE' ||
-	      error.code === 'AI_PROVIDER_QUOTA_EXCEEDED'
+	      error.code === 'AI_PROVIDER_QUOTA_EXCEEDED' ||
+	      error.code === 'AI_PROVIDER_TIMEOUT'
 	    ) return tt(lang, 'aiProviderUnavailable');
 	    return error.message || tt(lang, 'aiRequestFailed');
 	  };
