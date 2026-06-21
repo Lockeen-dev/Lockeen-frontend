@@ -4,12 +4,13 @@ import { createPortal } from 'react-dom';
 import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { normalizeLang, tt } from './lib/i18n';
 
 /* ===================== ROOT APP ===================== */
 function AuthShell() {
   const { user, status, error: authError, authEvent, isAuthenticated, isLoading, refreshSession } = useAuth();
   const [modal, setModal] = useState(null);
-  const [lang, setLang] = useState(() => localStorage.getItem('lockeen-lang') || 'en');
+  const [lang, setLang] = useState(() => normalizeLang(localStorage.getItem('lockeen-lang') || 'en'));
   const [pageAppEl, setPageAppEl] = useState(null);
 
   useEffect(() => {
@@ -51,7 +52,7 @@ function AuthShell() {
 
   useEffect(() => {
     function onLang(e) {
-      const next = e.detail?.lang || localStorage.getItem('lockeen-lang') || 'en';
+      const next = normalizeLang(e.detail?.lang || localStorage.getItem('lockeen-lang') || 'en');
       setLang(next);
     }
     window.addEventListener('lockeen-language', onLang);
@@ -59,9 +60,10 @@ function AuthShell() {
   }, []);
 
   function changeLang(next) {
-    setLang(next);
-    if (window.setLockeenLanguage) window.setLockeenLanguage(next);
-    else localStorage.setItem('lockeen-lang', next);
+    const safe = normalizeLang(next);
+    setLang(safe);
+    if (window.setLockeenLanguage) window.setLockeenLanguage(safe);
+    else localStorage.setItem('lockeen-lang', safe);
   }
 
   const handleAuth = () => {
@@ -76,13 +78,13 @@ function AuthShell() {
 
   return (
     <React.Fragment>
-      {isLoading && <div style={runtimeS.state}>Loading session...</div>}
+      {isLoading && <div style={runtimeS.state}>{tt(lang, 'loadingSession')}</div>}
       {status === 'error' && (
         <div style={runtimeS.state}>
-          <strong>Authentication unavailable</strong>
-          <span>{authError?.message || 'Unable to restore your session.'}</span>
-          <button onClick={refreshSession} style={runtimeS.button}>Retry</button>
-          <button onClick={() => setModal('signin')} style={runtimeS.button}>Login</button>
+          <strong>{tt(lang, 'authenticationUnavailable')}</strong>
+          <span>{authError?.message || tt(lang, 'unableRestoreSession')}</span>
+          <button onClick={refreshSession} style={runtimeS.button}>{tt(lang, 'retry')}</button>
+          <button onClick={() => setModal('signin')} style={runtimeS.button}>{tt(lang, 'login')}</button>
         </div>
       )}
       {modal && (

@@ -9,6 +9,7 @@ import {
   MsgCircle,
   Sparkles,
 } from '../lib/icons';
+import { tt } from '../lib/i18n';
 import { LIFE_CATS, resolveEventPalette } from './calendarData';
 
 export function IconTile({ children, tone = 'indigo', s }) {
@@ -47,50 +48,52 @@ export function DashboardHero({
   onOpenExam,
   heroProgress,
   heroProgressText,
+  lang = 'en',
 }) {
+  const remainingToday = Math.max(0, totalToday - completedToday);
   return (
     <section style={{ ...s.hero, padding: isMobile ? 22 : 32 }}>
       <div style={s.heroText}>
         <div style={s.kicker}>{heroDate}</div>
-        <h1 style={s.heroTitle}>Buongiorno, {user.name || 'Alex'}</h1>
+        <h1 style={s.heroTitle}>{tt(lang, 'goodMorning')}, {user.name || 'Alex'}</h1>
         <p style={s.heroSub}>
           {totalToday > 0
-            ? `Hai ${Math.max(0, totalToday - completedToday)} attivita rimaste oggi${nextEvent?.time ? `, prossima alle ${nextEvent.time}` : ''}.`
+            ? tt(lang, nextEvent?.time ? 'activitiesLeftWithNext' : 'activitiesLeftToday', { count: remainingToday, time: nextEvent?.time })
             : nextExam
-              ? `Prossimo esame: ${nextExam.name}${nextExamDays !== null ? ` tra ${nextExamDays} giorni` : ''}.`
-              : 'Crea esami e materiali per costruire il piano studio.'}
+              ? tt(lang, nextExamDays !== null ? 'nextExamInDays' : 'nextExamLabel', { name: nextExam.name, days: nextExamDays })
+              : tt(lang, 'createExamsMaterials')}
         </p>
         <div style={s.heroActions}>
           <button style={s.heroButton} onClick={() => nextExam ? startExamQuiz(nextExam) : setTab('notes')}>
-            {nextExam ? 'Inizia pratica' : 'Crea esame'}
+            {nextExam ? tt(lang, 'startPractice') : tt(lang, 'createExam')}
           </button>
           {nextExam && (
             <button style={s.heroPill} onClick={() => onOpenExam ? onOpenExam(nextExam.id) : setTab('notes')}>
-              <Clock size={15} /> {nextExam.name}{nextExamDays !== null ? ` tra ${nextExamDays}g` : ''}
+              <Clock size={15} /> {nextExam.name}{nextExamDays !== null ? ` · ${tt(lang, 'daysShort', { count: nextExamDays })}` : ''}
             </button>
           )}
         </div>
       </div>
-      <div style={s.progressRing} aria-label={`${heroProgressText} today completed`}>
+      <div style={s.progressRing} aria-label={tt(lang, 'todayProgressAria', { progress: heroProgressText })}>
         <div style={{ ...s.progressArc, background: `conic-gradient(#fff ${heroProgress * 3.6}deg, rgba(255,255,255,.25) 0deg)` }} />
         <div style={s.progressInner}>
           <strong style={s.progressValue}>{heroProgressText}</strong>
-          <span style={s.progressLabel}>OGGI</span>
+          <span style={s.progressLabel}>{tt(lang, 'today').toUpperCase()}</span>
         </div>
       </div>
     </section>
   );
 }
 
-export function TodaySchedule({ s, todayEvents, completedToday, totalToday, isEventDone, toggleEventDone }) {
+export function TodaySchedule({ s, todayEvents, completedToday, totalToday, isEventDone, toggleEventDone, lang = 'en' }) {
   return (
     <section style={s.panel}>
       <div style={s.panelHead}>
-        <h2 style={s.panelTitle}>Programma di oggi</h2>
-        <span style={s.countBadge}>{completedToday}/{totalToday || 0} completate</span>
+        <h2 style={s.panelTitle}>{tt(lang, 'todaySchedule')}</h2>
+        <span style={s.countBadge}>{tt(lang, 'completedCounter', { completed: completedToday, total: totalToday || 0 })}</span>
       </div>
       {todayEvents.length === 0 ? (
-        <EmptyState s={s} title="Nessun evento oggi" text="Apri calendario o planner per programmare studio." />
+        <EmptyState s={s} title={tt(lang, 'noEventsToday')} text={tt(lang, 'scheduleStudyHint')} />
       ) : (
         <div style={s.scheduleList}>
           {todayEvents.map((ev, idx) => {
@@ -110,7 +113,7 @@ export function TodaySchedule({ s, todayEvents, completedToday, totalToday, isEv
                 <span style={s.itemTime}>{ev.time || '--:--'}</span>
                 <span style={s.itemMain}>
                   <strong style={{ ...s.itemTitle, textDecoration: done ? 'line-through' : 'none' }}>{ev.name}</strong>
-                  <small style={{ ...s.itemMeta, textDecoration: done ? 'line-through' : 'none' }}>{ev.noteSubject || cat?.label || 'Study'}{ev.dur ? ` - ${ev.dur}` : ''}</small>
+                  <small style={{ ...s.itemMeta, textDecoration: done ? 'line-through' : 'none' }}>{ev.noteSubject || (cat ? tt(lang, cat.id) : tt(lang, 'study'))}{ev.dur ? ` - ${ev.dur}` : ''}</small>
                 </span>
                 <span style={{ ...s.checkBox, background: done ? '#3730E8' : '#fff', borderColor: done ? '#3730E8' : '#DDE1EF' }}>
                   {done && <Check size={13} color="#fff" />}
@@ -124,17 +127,17 @@ export function TodaySchedule({ s, todayEvents, completedToday, totalToday, isEv
   );
 }
 
-export function RecentActivity({ s, loading, latestActivity, setTab, scoreFromActivity, activityCopy, relativeTime }) {
+export function RecentActivity({ s, loading, latestActivity, setTab, scoreFromActivity, activityCopy, relativeTime, lang = 'en' }) {
   return (
     <section style={s.panel}>
       <div style={s.panelHead}>
-        <h2 style={s.panelTitle}>Attivita recenti</h2>
-        <button style={s.linkButton} onClick={() => setTab('analytics')}>Analytics <ArrowRight size={14} /></button>
+        <h2 style={s.panelTitle}>{tt(lang, 'recentActivity')}</h2>
+        <button style={s.linkButton} onClick={() => setTab('analytics')}>{tt(lang, 'analytics')} <ArrowRight size={14} /></button>
       </div>
       {loading ? (
-        <EmptyState s={s} title="Caricamento..." text="Leggo i dati della dashboard." />
+        <EmptyState s={s} title={tt(lang, 'loading')} text={tt(lang, 'readingDashboardData')} />
       ) : latestActivity.length === 0 ? (
-        <EmptyState s={s} title="Nessuna pratica recente" text="Quiz completati e flashcard ripassate appariranno qui." />
+        <EmptyState s={s} title={tt(lang, 'noRecentPractice')} text={tt(lang, 'recentPracticeHint')} />
       ) : (
         <div style={s.activityList}>
           {latestActivity.map((activity) => {
@@ -168,15 +171,15 @@ function QuickAction({ s, icon, label, onClick }) {
   );
 }
 
-export function QuickActionsPanel({ s, nextExam, startExamQuiz, setTab, onStartTimer }) {
+export function QuickActionsPanel({ s, nextExam, startExamQuiz, setTab, onStartTimer, lang = 'en' }) {
   return (
     <section style={s.panel}>
-      <h2 style={s.panelTitle}>Azioni rapide</h2>
+      <h2 style={s.panelTitle}>{tt(lang, 'quickActions')}</h2>
       <div style={s.quickGrid}>
-        <QuickAction s={s} icon={<Sparkles size={20} />} label="Nuovo quiz" onClick={() => nextExam ? startExamQuiz(nextExam) : setTab('quiz')} />
-        <QuickAction s={s} icon={<FileText size={20} />} label="Carica note" onClick={() => setTab('notes')} />
-        <QuickAction s={s} icon={<Layers size={20} />} label="Flashcards" onClick={() => setTab('flashcards')} />
-        <QuickAction s={s} icon={<Clock size={20} />} label="Avvia timer" onClick={() => onStartTimer && onStartTimer(25)} />
+        <QuickAction s={s} icon={<Sparkles size={20} />} label={tt(lang, 'newQuiz')} onClick={() => nextExam ? startExamQuiz(nextExam) : setTab('quiz')} />
+        <QuickAction s={s} icon={<FileText size={20} />} label={tt(lang, 'uploadNotes')} onClick={() => setTab('notes')} />
+        <QuickAction s={s} icon={<Layers size={20} />} label={tt(lang, 'flashcards')} onClick={() => setTab('flashcards')} />
+        <QuickAction s={s} icon={<Clock size={20} />} label={tt(lang, 'startTimer')} onClick={() => onStartTimer && onStartTimer(25)} />
       </div>
     </section>
   );
@@ -186,35 +189,42 @@ export function RecommendationsPanel({ s, recommendations, totalExams, daysUntil
   return (
     <section style={s.panel}>
       <div style={s.panelHead}>
-        <h2 style={s.panelTitle}>Consigliati oggi</h2>
-        <span style={s.countBadge}>{recommendations.length || totalExams} utili</span>
+        <h2 style={s.panelTitle}>{tt(lang, 'recommended')}</h2>
+        <span style={s.countBadge}>{tt(lang, 'usefulCount', { count: recommendations.length || totalExams })}</span>
       </div>
       {recommendations.length === 0 ? (
         <div style={s.recoEmpty}>
-          <strong>Nessun quiz consigliato</strong>
-          <span>Aggiungi un'attivita studio oggi o una data futura a un esame.</span>
-          <button style={s.outlineButton} onClick={() => setTab('notes')}>Vai ai miei esami</button>
+          <strong>{tt(lang, 'noRecommendedQuiz')}</strong>
+          <span>{tt(lang, 'recommendedHint')}</span>
+          <button style={s.outlineButton} onClick={() => setTab('notes')}>{tt(lang, 'goToMyExams')}</button>
         </div>
       ) : (
         <div style={s.recoList}>
           {recommendations.map(({ exam, source, event }, index) => {
             const days = daysUntil(exam.date);
             const isPrimary = index === 0;
+            const recommendationKey = [
+              source || 'recommendation',
+              exam.id || exam.name || index,
+              event?.serviceId || event?.id || '',
+              event?.time || '',
+              event?.name || '',
+            ].map((part) => String(part).trim()).join(':');
             return (
-              <article key={exam.id || exam.name} style={{ ...s.recoCard, background: isPrimary ? '#F4F6FF' : '#FFF7FC' }}>
+              <article key={recommendationKey} style={{ ...s.recoCard, background: isPrimary ? '#F4F6FF' : '#FFF7FC' }}>
                 <div style={s.recoTop}>
                   <IconTile s={s} tone={isPrimary ? 'indigo' : 'purple'}>{isPrimary ? <Sparkles size={18} /> : <Layers size={18} />}</IconTile>
-                  <span style={s.recoTag}>{days <= 7 ? 'Priorita' : `${days} giorni`}</span>
+                  <span style={s.recoTag}>{days <= 7 ? tt(lang, 'priority') : tt(lang, 'daysLeft', { count: days })}</span>
                 </div>
-                <p style={s.recoEyebrow}>{isPrimary ? 'Quiz consigliato' : 'Ripasso consigliato'}</p>
+                <p style={s.recoEyebrow}>{tt(lang, isPrimary ? 'recommendedQuiz' : 'recommendedReview')}</p>
                 <h3 style={s.recoTitle}>{exam.subject || exam.name}</h3>
                 <p style={s.recoMeta}>
                   {source === 'today'
-                    ? `${event?.name || exam.name} - oggi${event?.time ? ` alle ${event.time}` : ''}`
-                    : `${exam.name} - ${formatDate(exam.date, lang)}${days !== null ? ` - tra ${days} giorni` : ''}`}
+                    ? tt(lang, event?.time ? 'todayEventAt' : 'todayEvent', { title: event?.name || exam.name, time: event?.time })
+                    : `${exam.name} - ${formatDate(exam.date, lang)}${days !== null ? ` - ${tt(lang, 'daysLeft', { count: days })}` : ''}`}
                 </p>
                 <button style={isPrimary ? s.primaryButton : s.outlineButton} onClick={() => isPrimary ? startExamQuiz(exam) : (onOpenExam ? onOpenExam(exam.id) : setTab('notes'))}>
-                  {isPrimary ? 'Inizia quiz' : 'Apri esame'}
+                  {isPrimary ? tt(lang, 'startQuiz') : tt(lang, 'openExam')}
                 </button>
               </article>
             );
@@ -225,15 +235,15 @@ export function RecommendationsPanel({ s, recommendations, totalExams, daysUntil
   );
 }
 
-export function AssistantPanel({ s, setTab }) {
+export function AssistantPanel({ s, setTab, lang = 'en' }) {
   return (
     <section style={s.assistant}>
       <IconTile s={s} tone="green"><MsgCircle size={18} /></IconTile>
       <div>
-        <h2 style={s.panelTitle}>AI Study Assistant</h2>
-        <p style={s.assistantText}>Chiedi aiuto su esami, materiali e piano studio.</p>
+        <h2 style={s.panelTitle}>{tt(lang, 'aiStudyAssistant')}</h2>
+        <p style={s.assistantText}>{tt(lang, 'aiStudyAssistantHint')}</p>
       </div>
-      <button style={s.outlineButton} onClick={() => setTab('tutor')}>Open AI Tutor</button>
+      <button style={s.outlineButton} onClick={() => setTab('tutor')}>{tt(lang, 'openAiTutor')}</button>
     </section>
   );
 }

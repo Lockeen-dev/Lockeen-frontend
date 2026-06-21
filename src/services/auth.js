@@ -133,7 +133,23 @@ export async function requireAuthenticatedUserId() {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error, timedOut } = await withTimeout(
+    supabase.auth.getUser(),
+    4500,
+    { data: null, error: null, timedOut: true },
+  );
+
+  if (timedOut) {
+    const sessionResult = await withTimeout(
+      supabase.auth.getSession(),
+      2500,
+      { data: { session: null }, error: null, timedOut: true },
+    );
+    const sessionUserId = sessionResult?.data?.session?.user?.id;
+    if (sessionUserId) return ok(sessionUserId);
+
+    return fail('Authentication check timed out. Please refresh and try again.', 'AUTH_TIMEOUT');
+  }
 
   if (error || !data?.user?.id) {
     return fail('Real mode requires an authenticated Supabase session.', 'AUTH_REQUIRED');

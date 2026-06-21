@@ -86,8 +86,9 @@ if (aiMode === 'real') {
   if (!fileEnv.OPENAI_API_KEY) {
     warnings.push('OPENAI_API_KEY missing: AI requests will fall back to static text.');
   }
-  if (!fileEnv.SUPABASE_URL || !fileEnv.SUPABASE_SERVICE_ROLE_KEY) {
-    const message = 'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing: persistent AI quota is required on Vercel preview/production.';
+  const serverSupabaseUrl = fileEnv.SUPABASE_URL || fileEnv.VITE_SUPABASE_URL;
+  if (!serverSupabaseUrl || !fileEnv.SUPABASE_SERVICE_ROLE_KEY) {
+    const message = 'SUPABASE_URL or VITE_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY missing: persistent AI quota is required on Vercel preview/production.';
     if (requiresPersistentAiQuota) {
       errors.push(message);
     } else {

@@ -9,12 +9,115 @@ const STUDY_PLAN_STATUSES = new Set(['active', 'completed', 'archived']);
 const STUDY_PLAN_ITEM_TYPES = new Set(['review', 'quiz', 'flashcards', 'mock_exam', 'buffer']);
 const STUDY_PLAN_ITEM_STATUSES = new Set(['planned', 'done', 'missed', 'rescheduled', 'skipped']);
 const STUDY_PLAN_ITEM_SOURCES = new Set(['generated', 'manual']);
+const RESCHEDULE_SLOT_START_MIN = 6 * 60;
+const RESCHEDULE_SLOT_END_MIN = 24 * 60;
+const RESCHEDULE_SLOT_STEP_MIN = 15;
+const MIN_RESCHEDULE_DURATION_MIN = 15;
 
 const mockStudyPlans = [];
 const mockStudyPlanItems = [];
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function normalizeClockTime(value) {
+  if (!value) return null;
+  const [hour, minute] = String(value).split(':').map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function padDatePart(value) {
+  return String(value).padStart(2, '0');
+}
+
+function todayDateString() {
+  const date = new Date();
+  return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
+}
+
+function addDaysToDateString(value, days = 1) {
+  const [year, month, day] = String(value || '').slice(0, 10).split('-').map(Number);
+  if (!year || !month || !day) return todayDateString();
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
+}
+
+function studyCutoffDateString(examDateValue) {
+  return examDateValue ? addDaysToDateString(examDateValue, -1) : null;
+}
+
+function itemEndMinutes(item = {}) {
+  const [hour, minute] = normalizeClockTime(item.plannedTime || '09:00').split(':').map(Number);
+  return hour * 60 + minute + Math.max(1, Number(item.durationMin || 30));
+}
+
+function itemStartMinutes(item = {}) {
+  const [hour, minute] = normalizeClockTime(item.plannedTime || '09:00').split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+function minutesFromClock(time) {
+  const value = normalizeClockTime(time || '09:00');
+  const [hour, minute] = String(value).split(':').map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
+  return hour * 60 + minute;
+}
+
+function examBlockingWindow(exam = {}) {
+  const examStart = minutesFromClock(exam.time || exam.examTime || '09:00');
+  const examDuration = Number(exam.durationMin || exam.examDurationMin || 120);
+  const safeDuration = Number.isFinite(examDuration) && examDuration > 0 ? examDuration : 120;
+  const start = Math.max(0, examStart - 120);
+  const end = Math.min(RESCHEDULE_SLOT_END_MIN - 1, examStart + safeDuration + 120);
+  return { start, end };
+}
+
+function conflictsWithExamWindow(candidateDate, candidateStart, candidateEnd, exams = []) {
+  if (!candidateDate || !exams.length) return false;
+  const candidateDateKey = String(candidateDate).slice(0, 10);
+  return exams.some((exam) => {
+    if (!exam?.date || String(exam.date).slice(0, 10) !== candidateDateKey) return false;
+    const { start, end } = examBlockingWindow(exam);
+    return candidateStart < end && candidateEnd > start;
+  });
+}
+
+function hasTimeConflict(items = [], candidate = {}) {
+  const start = itemStartMinutes(candidate);
+  const end = itemEndMinutes(candidate);
+  return items.some((item) => {
+    if (item.status === 'done' || item.status === 'skipped' || item.status === 'rescheduled') return false;
+    if (String(item.plannedDate) !== String(candidate.plannedDate)) return false;
+    const otherStart = itemStartMinutes(item);
+    const otherEnd = itemEndMinutes(item);
+    return start < otherEnd && end > otherStart;
+  });
+}
+
+function findRescheduleSlot(item = {}, allItems = [], exams = []) {
+  const today = todayDateString();
+  const exam = exams.find((entry) => String(entry.id) === String(item.examId));
+  const lastDate = studyCutoffDateString(exam?.date);
+  const durationMin = Math.max(MIN_RESCHEDULE_DURATION_MIN, Number(item.durationMin) || 15);
+  let date = String(item.plannedDate) < today ? today : addDaysToDateString(item.plannedDate || today, 1);
+
+  for (let attempts = 0; attempts < 45; attempts += 1) {
+    if (lastDate && date > lastDate) return null;
+
+    for (let minute = RESCHEDULE_SLOT_START_MIN; minute + durationMin <= RESCHEDULE_SLOT_END_MIN; minute += RESCHEDULE_SLOT_STEP_MIN) {
+      const plannedTime = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+      const candidate = { ...item, plannedDate: date, plannedTime, durationMin };
+
+      if (conflictsWithExamWindow(date, minute, minute + durationMin, exams)) continue;
+      if (!hasTimeConflict(allItems, candidate)) return candidate;
+    }
+
+    date = addDaysToDateString(date, 1);
+  }
+  return null;
 }
 
 function toStudyPlan(row) {
@@ -40,7 +143,7 @@ function toStudyPlanItem(row) {
     materialId: row.material_id,
     type: row.type,
     plannedDate: row.planned_date,
-    plannedTime: row.planned_time,
+    plannedTime: normalizeClockTime(row.planned_time),
     durationMin: row.duration_min,
     status: row.status,
     source: row.source,
@@ -551,4 +654,51 @@ export async function deleteStudyPlanItem(id) {
 
   const [deleted] = mockStudyPlanItems.splice(index, 1);
   return ok(deleted);
+}
+
+export async function autoRescheduleMissedStudyPlanItems({ planId, exams = [] } = {}) {
+  if (!planId) return ok({ rescheduled: 0, missed: 0 });
+
+  const itemsResult = await listStudyPlanItems({ planId });
+  if (itemsResult.error) return itemsResult;
+
+  const today = todayDateString();
+  const allItems = itemsResult.data || [];
+  const pastPlanned = allItems.filter((item) =>
+    item.status === 'planned' &&
+    String(item.plannedDate || '') < today &&
+    !allItems.some((other) => String(other.rescheduledFrom || '') === String(item.id)),
+  );
+
+  let rescheduled = 0;
+  let missed = 0;
+
+  for (const item of pastPlanned) {
+    const nextSlot = findRescheduleSlot(item, allItems, exams);
+    if (!nextSlot) {
+      const updateResult = await updateStudyPlanItem(item.id, { status: 'missed' });
+      if (updateResult.error) return updateResult;
+      missed += 1;
+      continue;
+    }
+
+    const createResult = await createStudyPlanItem({
+      ...item,
+      id: undefined,
+      plannedDate: nextSlot.plannedDate,
+      plannedTime: nextSlot.plannedTime,
+      status: 'planned',
+      source: 'generated',
+      rescheduledFrom: item.id,
+      reason: item.reason ? `${item.reason} · rescheduled` : 'rescheduled',
+    });
+    if (createResult.error) return createResult;
+    allItems.push(createResult.data);
+
+    const updateResult = await updateStudyPlanItem(item.id, { status: 'rescheduled' });
+    if (updateResult.error) return updateResult;
+    rescheduled += 1;
+  }
+
+  return ok({ rescheduled, missed });
 }

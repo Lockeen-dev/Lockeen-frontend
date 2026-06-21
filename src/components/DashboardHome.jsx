@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 import useIsMobile from '../lib/useIsMobile';
 import { getDashboardSummary } from '../services/dashboard';
-import { dayKey } from './calendarData';
+import { applyExamPaletteToEvent, dayKey } from './calendarData';
 import {
   AssistantPanel,
   DashboardHero,
@@ -88,11 +88,13 @@ function DashboardHome({
 }) {
   const isMobile = useIsMobile();
   const todayKey = dayKey(new Date());
-  const todayEvents = (calEvents && calEvents[todayKey]) || [];
+  const todayEvents = useMemo(
+    () => ((calEvents && calEvents[todayKey]) || []).map((event) => applyExamPaletteToEvent(event, exams)),
+    [calEvents, exams, todayKey]
+  );
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [localDone, setLocalDone] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -134,11 +136,7 @@ function DashboardHome({
   }, [allExams]);
 
   const nextExam = summary?.nextExam || upcoming[0] || null;
-  const eventDoneKey = (event, index) => `${todayKey}:${index}:${event.time || ''}:${event.name || ''}`;
-  const isEventDone = (event, index) => {
-    const key = eventDoneKey(event, index);
-    return Object.prototype.hasOwnProperty.call(localDone, key) ? localDone[key] : !!event.completed;
-  };
+  const isEventDone = (event) => !!event.completed;
   const completedToday = todayEvents.filter((event, index) => isEventDone(event, index)).length;
   const totalToday = todayEvents.length || 0;
   const nextEvent = todayEvents.find((event, index) => !isEventDone(event, index));
@@ -168,10 +166,8 @@ function DashboardHome({
   const heroDate = new Date().toLocaleDateString(lang === 'it' ? 'it-IT' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
 
   function toggleEventDone(event, index) {
-    const key = eventDoneKey(event, index);
     const nextDone = !isEventDone(event, index);
-    setLocalDone((prev) => ({ ...prev, [key]: nextDone }));
-    onMarkEventDone && onMarkEventDone(todayKey, index, event.name, nextDone);
+    onMarkEventDone && onMarkEventDone(todayKey, index, event.name, nextDone, event);
   }
 
   function startExamQuiz(exam) {
@@ -198,6 +194,7 @@ function DashboardHome({
         onOpenExam={onOpenExam}
         heroProgress={heroProgress}
         heroProgressText={heroProgressText}
+        lang={lang}
       />
 
       {error && <div style={s.error}>{error}</div>}
@@ -211,6 +208,7 @@ function DashboardHome({
             totalToday={totalToday}
             isEventDone={isEventDone}
             toggleEventDone={toggleEventDone}
+            lang={lang}
           />
           <RecentActivity
             s={s}
@@ -220,11 +218,12 @@ function DashboardHome({
             scoreFromActivity={scoreFromActivity}
             activityCopy={activityCopy}
             relativeTime={relativeTime}
+            lang={lang}
           />
         </div>
 
         <aside style={s.stack}>
-          <QuickActionsPanel s={s} nextExam={nextExam} startExamQuiz={startExamQuiz} setTab={setTab} onStartTimer={onStartTimer} />
+          <QuickActionsPanel s={s} nextExam={nextExam} startExamQuiz={startExamQuiz} setTab={setTab} onStartTimer={onStartTimer} lang={lang} />
           <RecommendationsPanel
             s={s}
             recommendations={recommendations}
@@ -236,7 +235,7 @@ function DashboardHome({
             onOpenExam={onOpenExam}
             setTab={setTab}
           />
-          <AssistantPanel s={s} setTab={setTab} />
+          <AssistantPanel s={s} setTab={setTab} lang={lang} />
         </aside>
       </div>
     </div>

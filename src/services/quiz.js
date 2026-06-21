@@ -79,6 +79,14 @@ function toQuestion(row) {
     explanation: row.explanation || '',
     difficulty: row.difficulty || 'medium',
     topic: row.topic || '',
+    questionType: row.question_type || 'multiple_choice',
+    conceptKey: row.concept_key || '',
+    sourceSnippet: row.source_snippet || '',
+    sourceChunk: row.source_snippet || '',
+    qualityScore: row.quality_score == null ? null : Number(row.quality_score),
+    generationRunId: row.generation_run_id || null,
+    validationStatus: row.validation_status || 'valid',
+    validationNotes: row.validation_notes || [],
     position: row.position,
   };
 }
@@ -113,12 +121,29 @@ function toAttempt(row) {
 function toAttemptRun(row) {
   const quiz = row.quizzes || row.quiz || {};
   const questions = (quiz.quiz_questions || []).map(toQuestion).sort((a, b) => a.position - b.position);
+  const rawAnswers = Array.isArray(row.answers) ? row.answers : [];
+  const answerObjects = rawAnswers.map((answer, index) => {
+    if (answer && typeof answer === 'object' && !Array.isArray(answer)) return answer;
+    return {
+      questionId: questions[index]?.id || null,
+      selected: answer,
+    };
+  });
+  const playedQuestionIds = new Set(answerObjects.map((answer) => answer.questionId).filter(Boolean).map(String));
+  const playedQuestions = playedQuestionIds.size
+    ? questions.filter((question) => playedQuestionIds.has(String(question.id)))
+    : questions.slice(0, Number(row.total || questions.length || 0));
+  const answerByQuestionId = new Map(answerObjects.map((answer) => [String(answer.questionId || ''), answer]));
+  const answers = playedQuestions.map((question, index) => {
+    const answer = answerByQuestionId.get(String(question.id)) || answerObjects[index] || {};
+    return Number(answer.selected ?? answer.answer ?? answer);
+  });
   const percent = Number(row.total) > 0 ? Math.round((Number(row.score) / Number(row.total)) * 100) : 0;
   const difficultyWeights = { easy: 0.75, medium: 1, hard: 1.25, extreme: 1.5 };
-  const weighted = questions.reduce((acc, question, index) => {
+  const weighted = playedQuestions.reduce((acc, question, index) => {
     const difficulty = ['easy', 'medium', 'hard', 'extreme'].includes(question.difficulty) ? question.difficulty : 'medium';
     const weight = difficultyWeights[difficulty] || 1;
-    const answer = Array.isArray(row.answers) ? row.answers[index] : null;
+    const answer = answers[index];
     const correct = Number(answer) === Number(question.correct);
     return {
       score: acc.score + (correct ? weight : 0),
@@ -135,7 +160,8 @@ function toAttemptRun(row) {
     weightedScore,
     rawScore: Number(row.score || 0),
     total: Number(row.total || 0),
-    answers: row.answers || [],
+    answers,
+    answerDetails: answerObjects,
     completedAt: row.completed_at,
     createdAt: row.created_at,
     date: row.completed_at ? new Date(row.completed_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : 'Recent',
@@ -145,8 +171,8 @@ function toAttemptRun(row) {
     sourceMaterialId: quiz.source_material_id || null,
     chapterName: quiz.title || 'Quiz',
     title: quiz.title || 'Quiz',
-    numQ: Number(row.total || questions.length || 0),
-    questions,
+    numQ: Number(row.total || playedQuestions.length || 0),
+    questions: playedQuestions,
   };
 }
 
@@ -175,6 +201,13 @@ function toQuestionInsert(question, quizId, userId, position) {
     explanation: question.explanation || '',
     difficulty,
     topic: question.topic || null,
+    question_type: 'multiple_choice',
+    concept_key: question.conceptKey || question.concept_key || null,
+    source_snippet: question.sourceSnippet || question.sourceChunk || question.source_snippet || null,
+    quality_score: question.qualityScore ?? question.quality_score ?? null,
+    generation_run_id: question.generationRunId || question.generation_run_id || null,
+    validation_status: question.validationStatus || question.validation_status || 'valid',
+    validation_notes: question.validationNotes || question.validation_notes || [],
     position,
   };
 }
@@ -446,6 +479,15 @@ export async function listQuizAttempts(filters = {}) {
           options: question.options || [],
           correct_answer: String(question.correctAnswer ?? question.correct ?? 0),
           explanation: question.explanation || '',
+          difficulty: question.difficulty || 'medium',
+          topic: question.topic || '',
+          question_type: question.questionType || 'multiple_choice',
+          concept_key: question.conceptKey || '',
+          source_snippet: question.sourceSnippet || question.sourceChunk || '',
+          quality_score: question.qualityScore ?? null,
+          generation_run_id: question.generationRunId || null,
+          validation_status: question.validationStatus || 'valid',
+          validation_notes: question.validationNotes || [],
           position: index,
         })),
       },
@@ -502,6 +544,14 @@ export async function createQuiz(input = {}) {
       difficulty: ['easy', 'medium', 'hard', 'extreme'].includes(question.difficulty) ? question.difficulty : 'medium',
       topic: question.topic || '',
       sourceMaterialId: input.sourceMaterialId || question.sourceMaterialId || null,
+      questionType: question.questionType || 'multiple_choice',
+      conceptKey: question.conceptKey || '',
+      sourceSnippet: question.sourceSnippet || question.sourceChunk || '',
+      sourceChunk: question.sourceSnippet || question.sourceChunk || '',
+      qualityScore: question.qualityScore ?? null,
+      generationRunId: question.generationRunId || null,
+      validationStatus: question.validationStatus || 'valid',
+      validationNotes: question.validationNotes || [],
       position: index,
     })),
     createdAt: now,

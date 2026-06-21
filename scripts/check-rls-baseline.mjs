@@ -109,6 +109,11 @@ const expectedTables = [
     operations: ['select', 'insert', 'update', 'delete'],
   },
   {
+    table: 'tutor_sessions',
+    ownerColumn: 'user_id',
+    operations: ['select', 'insert', 'update', 'delete'],
+  },
+  {
     table: 'ai_usage',
     ownerColumn: 'user_id',
     operations: ['select'],
@@ -149,6 +154,11 @@ const storageChecks = [
 const functionChecks = [
   'function public.increment_ai_usage',
   'on conflict (user_id, usage_date) do update',
+  'auth.uid() <> p_user_id',
+  'revoke all on function public.increment_ai_usage(uuid, date, integer) from public',
+  'revoke all on function public.increment_ai_usage(uuid, date, integer) from anon',
+  'revoke all on function public.increment_ai_usage(uuid, date, integer) from authenticated',
+  'grant execute on function public.increment_ai_usage(uuid, date, integer)',
 ];
 
 function readMigrations() {

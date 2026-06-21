@@ -4,6 +4,7 @@ import { getExamEmoji, getExamPalette, SubjectIcon } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { getSubjectPalette } from '../data/mockData';
 import { createFlashcard, deleteFlashcard, listFlashcards, submitFlashcardReview, updateFlashcard } from '../services/flashcards';
+import { localeFor, tt } from '../lib/i18n';
 
 function FlashStyles() {
   return (
@@ -25,11 +26,124 @@ function normalizeFlashcard(card) {
   };
 }
 
+function cleanFlashcardText(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function hasBadFlashcardReference(value = '') {
+  const text = cleanFlashcardText(value).toLowerCase();
+  return (
+    /\b(pdf|file|documento|materiale caricato|uploaded material|source text|page|pagina|chapter|capitolo|figure|figura|indice|index|table of contents|sommario|study point|punto\s+studio|appendix|appendice|section|sezione)\b/.test(text) ||
+    /\btesi\s+matr\b|\bmatr\.\s*\d+/i.test(text) ||
+    /\b\d{1,2}\.\d{1,2}(?:\.\d{1,2})?\b/.test(text)
+  );
+}
+
+function hasBrokenFlashcardText(value = '') {
+  const text = cleanFlashcardText(value);
+  return (
+    !text ||
+    /\.{2,}|…/.test(text) ||
+    /^[,.;:)\]-]/.test(text) ||
+    /(?:\b(di|del|della|delle|che|per|con|tra|fra|a|in|il|la|lo|gli|le|un|una|the|of|to|and|with|for|come|da|al|ai)\b)[,;:]?$/i.test(text)
+  );
+}
+
+function isGenericFlashcardFront(value = '') {
+  const text = cleanFlashcardText(value).toLowerCase();
+  return [
+    'main point from uploaded material',
+    'key detail',
+    'core idea of',
+    'best review method',
+    'common weak point',
+    'example check',
+    'next step after a mistake',
+    'what is the main idea',
+    'qual è il concetto principale',
+    'spiega questo concetto',
+  ].some((pattern) => text.includes(pattern));
+}
+
+function isPlayableFlashcard(card = {}) {
+  const front = cleanFlashcardText(card.front || card.q);
+  const back = cleanFlashcardText(card.back || card.a);
+  const visibleTexts = [front, back, card.topic];
+  return (
+    front.length >= 8 &&
+    front.length <= 150 &&
+    back.length >= 16 &&
+    back.length <= 560 &&
+    front.toLowerCase() !== back.toLowerCase() &&
+    !isGenericFlashcardFront(front) &&
+    !visibleTexts.some(hasBadFlashcardReference) &&
+    ![front, back].some(hasBrokenFlashcardText)
+  );
+}
+
 function realId(value) {
   return value && value !== 'all' ? value : null;
 }
 
-function FlashResultScreen({ percent, correct, total, palette, title, subject, subjectStyle, saveError, saved, onReset, onBack }) {
+const FLASHCARD_ROTATION_PREFIX = 'lockeen.flashcardRotation.v1';
+
+function getFlashcardRotationId(card = {}, index = 0) {
+  if (card.id || card.flashcardId) return String(card.id || card.flashcardId);
+  const front = cleanFlashcardText(card.front || card.q).slice(0, 90);
+  const back = cleanFlashcardText(card.back || card.a).slice(0, 90);
+  return `${index}:${front}:${back}`;
+}
+
+function shuffleFlashcards(items = []) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
+function readFlashcardRotation(key) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(`${FLASHCARD_ROTATION_PREFIX}:${key}`) || '[]');
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeFlashcardRotation(key, ids) {
+  try {
+    localStorage.setItem(`${FLASHCARD_ROTATION_PREFIX}:${key}`, JSON.stringify([...ids].slice(-500)));
+  } catch {
+    // Rotation is a UX helper only; studying still works if storage is unavailable.
+  }
+}
+
+function selectRotatingFlashcards(cards = [], count = 10, rotationKey = 'default') {
+  const indexedCards = cards.map((card, index) => ({
+    card,
+    id: getFlashcardRotationId(card, index),
+  }));
+  const availableIds = new Set(indexedCards.map((item) => item.id));
+  const activeSeenIds = new Set([...readFlashcardRotation(rotationKey)].filter((id) => availableIds.has(id)));
+  const unseen = indexedCards.filter((item) => !activeSeenIds.has(item.id));
+  const seen = indexedCards.filter((item) => activeSeenIds.has(item.id));
+  const shouldRecycle = unseen.length === 0;
+  const selected = shuffleFlashcards(shouldRecycle ? indexedCards : unseen).slice(0, count);
+
+  if (selected.length < count && !shouldRecycle) {
+    selected.push(...shuffleFlashcards(seen).slice(0, count - selected.length));
+  }
+
+  const nextSeenIds = shouldRecycle ? new Set() : activeSeenIds;
+  selected.forEach((item) => nextSeenIds.add(item.id));
+  writeFlashcardRotation(rotationKey, nextSeenIds);
+
+  return selected.map((item) => item.card);
+}
+
+function FlashResultScreen({ percent, correct, total, palette, title, subject, subjectStyle, saveError, saved, onReset, onBack, lang = 'en' }) {
   const [p, setP] = useState(0);
   useEffect(() => {
     let raf;
@@ -45,7 +159,7 @@ function FlashResultScreen({ percent, correct, total, palette, title, subject, s
   const r = 44, circ = 2 * Math.PI * r;
   const offset = circ * (1 - p / 100);
   const emoji = percent >= 80 ? '🎉' : percent >= 60 ? '👍' : '💪';
-  const titleText = percent >= 80 ? 'Excellent work!' : percent >= 60 ? 'Good effort!' : 'Keep studying!';
+  const titleText = percent >= 80 ? tt(lang, 'excellentWork') : percent >= 60 ? tt(lang, 'goodEffort') : tt(lang, 'keepStudying');
   return (
     <>
       <FlashStyles />
@@ -65,18 +179,18 @@ function FlashResultScreen({ percent, correct, total, palette, title, subject, s
         <div style={{ fontSize: 32 }}>{emoji}</div>
         <h2 style={flashS.resultTitle}>{titleText}</h2>
         <p style={flashS.resultSub}>{title}</p>
-        {saved && <p style={{ ...flashS.resultSub, color:'#10B981' }}>Progress saved</p>}
+        {saved && <p style={{ ...flashS.resultSub, color:'#10B981' }}>{tt(lang, 'progressSaved')}</p>}
         {saveError && <p style={{ ...flashS.resultSub, color:'#DC2626' }}>{saveError}</p>}
         <div style={flashS.resultActions}>
-          <button onClick={onReset} style={{ ...flashS.tryAgainBtn, background: palette.dot }}>Try again</button>
-          <button onClick={onBack} style={flashS.backBtn}>Torna ai mazzi</button>
+          <button onClick={onReset} style={{ ...flashS.tryAgainBtn, background: palette.dot }}>{tt(lang, 'tryAgain')}</button>
+          <button onClick={onBack} style={flashS.backBtn}>{tt(lang, 'backToDecks')}</button>
         </div>
       </div>
     </>
   );
 }
 
-export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMode, exams = [] }) {
+export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMode, exams = [], lang = 'en' }) {
   const isMobile = useIsMobile();
   const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? deck?._practiceConfig?.examId ?? exams[0]?.id ?? null);
   const [selectedChapterId, setSelectedChapterId] = useState(deck?._practiceConfig?.chapterId ?? 'all');
@@ -90,7 +204,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
   const selectedExam = exams.find(e => e.id === selectedExamId);
   const selectedPalette = selectedExam ? getExamPalette(selectedExam, darkMode) : getSubjectPalette('', {}, darkMode);
 
-  const fmtDate = (ts) => new Date(ts).toLocaleDateString('it-IT', { day:'numeric', month:'short' });
+  const fmtDate = (ts) => new Date(ts).toLocaleDateString(localeFor(lang), { day:'numeric', month:'short' });
   const fmtScore = (s) => s >= 80 ? { label: s + '%', color: '#10B981', bg:'#ECFDF5' } : s >= 60 ? { label: s + '%', color: '#F59E0B', bg:'#FFFBEB' } : { label: s + '%', color: '#EF4444', bg:'#FEF2F2' };
 
   const sL = { fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.08em', color:'var(--gray)', marginBottom:12 };
@@ -102,7 +216,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
     setCardsError('');
     const result = await listFlashcards({ examId });
     if (result.error) {
-      setCardsError(result.error.message || 'Could not load flashcards.');
+      setCardsError(result.error.message || tt(lang, 'couldNotLoadFlashcards'));
       setCards([]);
     } else {
       setCards((result.data || []).map(normalizeFlashcard));
@@ -130,14 +244,16 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
     if (!deck?._practiceConfig) setSelectedChapterId('all');
   }, [selectedExamId, selectedExam]);
 
+  const playableCards = cards.filter(isPlayableFlashcard);
   const getCardsForChapter = (chapter) => {
-    const serviceCards = cards.filter((card) => String(card.chapterId) === String(chapter.id));
+    const serviceCards = playableCards.filter((card) => String(card.chapterId) === String(chapter.id));
     if (cardsLoaded && !cardsError) return serviceCards;
-    return serviceCards.length ? serviceCards : (chapter.cards || []).map(normalizeFlashcard);
+    const fallbackCards = (chapter.cards || []).map(normalizeFlashcard).filter(isPlayableFlashcard);
+    return serviceCards.length ? serviceCards : fallbackCards;
   };
   const availableCards = selectedChapterId === 'all'
-    ? cards
-    : cards.filter((card) => String(card.chapterId) === String(selectedChapterId));
+    ? playableCards
+    : playableCards.filter((card) => String(card.chapterId) === String(selectedChapterId));
   const maxCards = availableCards.length;
   const effectiveCards = Math.min(numCards, maxCards || 1);
   const focusedFromNotes = deck?._practiceConfig?.source === 'study-material';
@@ -165,20 +281,26 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
     ? null
     : selectedExam?.chapters?.find((chapter) => String(chapter.id) === String(selectedChapterId));
   const focusTitle = selectedChapter?.title || deck?._practiceConfig?.chapterName || selectedExam?.name || 'Flashcards';
-  const focusScopeLabel = selectedChapterId === 'all' ? 'Intero esame' : 'Capitolo';
+  const focusScopeLabel = selectedChapterId === 'all' ? tt(lang, 'wholeExam') : tt(lang, 'chapter');
   const countCardsForChapter = (chapterId) => {
     if (!selectedExam) return 0;
-    if (chapterId === 'all') return cards.length;
-    return cards.filter((card) => String(card.chapterId) === String(chapterId)).length;
+    if (chapterId === 'all') return playableCards.length;
+    return playableCards.filter((card) => String(card.chapterId) === String(chapterId)).length;
   };
   const startConfiguredDeck = () => {
     if (!selectedExam || !maxCards) return;
     const chapter = selectedChapterId === 'all' ? null : selectedExam.chapters.find((item) => String(item.id) === String(selectedChapterId));
+    const rotationKey = [
+      selectedExam.id,
+      chapter?.id || 'all',
+      deck?._practiceConfig?.sourceMaterialId || deck?._practiceConfig?.noteId || 'all-materials',
+    ].map(String).join(':');
+    const sessionCards = selectRotatingFlashcards(availableCards, effectiveCards, rotationKey);
     onOpenDeck({
       noteId: chapter?.id || selectedExam.id,
       subject: selectedExam.subject,
       title: chapter?.title || selectedExam.name,
-      cards: availableCards.slice(0, effectiveCards),
+      cards: sessionCards,
       _examColor: selectedExam.color || null,
       _examDot: selectedExam.dot || null,
       _meta: {
@@ -188,7 +310,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
         examColor: selectedExam.color || null,
         examDot: selectedExam.dot || null,
         chapterId: chapter?.id || 'all',
-        chapterName: chapter?.title || 'Intero esame',
+        chapterName: chapter?.title || tt(lang, 'wholeExam'),
         numCards: effectiveCards,
       },
     });
@@ -208,7 +330,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
       ? await updateFlashcard(editingId, input)
       : await createFlashcard(input);
     if (result.error) {
-      setCardsError(result.error.message || 'Could not save flashcard.');
+      setCardsError(result.error.message || tt(lang, 'couldNotSaveFlashcard'));
       return;
     }
     setForm({ chapterId: form.chapterId, front: '', back: '' });
@@ -229,7 +351,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
     setCardsError('');
     const result = await deleteFlashcard(id);
     if (result.error) {
-      setCardsError(result.error.message || 'Could not delete flashcard.');
+      setCardsError(result.error.message || tt(lang, 'couldNotDeleteFlashcard'));
       return;
     }
     await loadCards(selectedExamId);
@@ -242,19 +364,19 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
         <div>
           <h2 style={{ margin:'0 0 4px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>
-            {focusedFromNotes ? `Flashcards · ${focusTitle}` : 'Flashcards'}
+            {focusedFromNotes ? `${tt(lang, 'flashcards')} · ${focusTitle}` : tt(lang, 'flashcards')}
           </h2>
           <p style={{ margin:0, color:'var(--gray)', fontSize:14 }}>
-            {selectedExam ? `${selectedExam.name} · ${focusScopeLabel}` : 'Rivedi i tuoi mazzi o studia per capitolo'}
+            {selectedExam ? `${selectedExam.name} · ${focusScopeLabel}` : tt(lang, 'flashSub')}
           </p>
         </div>
       </div>
       {focusedFromNotes && (
         <div style={{ padding:'14px 16px', borderRadius:16, border:`1.5px solid ${selectedPalette.dot}33`, background:selectedPalette.bg, color:selectedPalette.text }}>
-          <div style={{ fontSize:12, fontWeight:900, textTransform:'uppercase', letterSpacing:'.08em', opacity:.75 }}>{focusScopeLabel} selezionato</div>
+          <div style={{ fontSize:12, fontWeight:900, textTransform:'uppercase', letterSpacing:'.08em', opacity:.75 }}>{tt(lang, 'selectedScope', { scope: focusScopeLabel })}</div>
           <div style={{ marginTop:4, fontSize:16, fontWeight:900 }}>{focusTitle}</div>
           <div style={{ marginTop:3, fontSize:12, fontWeight:700, opacity:.75 }}>
-            {loadingCards ? 'Carico flashcards...' : maxCards > 0 ? `${maxCards} carte pronte. Puoi studiare direttamente.` : 'Sto generando le flashcards in background. Puoi lasciare questa pagina aperta: si aggiorna da sola.'}
+            {loadingCards ? tt(lang, 'loadingFlashcards') : maxCards > 0 ? tt(lang, 'flashcardsReady', { count: maxCards }) : tt(lang, 'generatingFlashcardsBackground')}
           </div>
         </div>
       )}
@@ -262,7 +384,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
       {/* Exam selector */}
       {exams.length > 0 && (
         <div>
-          <div style={sL}>Scegli esame</div>
+          <div style={sL}>{tt(lang, 'chooseExam')}</div>
           <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
@@ -286,9 +408,9 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
           <div style={sL}>Setup — {selectedExam.name}</div>
           <div style={{ border:'1px solid var(--border)', borderRadius:18, background:'var(--surface)', overflow:'hidden', marginBottom:18 }}>
             <div style={{ padding:18 }}>
-              <div style={sL}>Capitolo</div>
+              <div style={sL}>{tt(lang, 'chapter')}</div>
               <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-                {[{ id:'all', title:'Intero esame' }, ...(selectedExam.chapters || []).map(ch => ({ id: ch.id, title: ch.title }))].map(ch => {
+                {[{ id:'all', title:tt(lang, 'wholeExam') }, ...(selectedExam.chapters || []).map(ch => ({ id: ch.id, title: ch.title }))].map(ch => {
                   const active = selectedChapterId === ch.id;
                   const count = countCardsForChapter(ch.id);
                   return (
@@ -306,8 +428,8 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
                 <div style={{ height:1, background:'var(--border)' }} />
                 <div style={{ padding:18 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                    <div style={sL}>Carte</div>
-                    <span style={{ fontSize:12, color:'var(--gray)', fontWeight:700 }}>Disponibili: {maxCards}</span>
+                    <div style={sL}>{tt(lang, 'cards')}</div>
+                    <span style={{ fontSize:12, color:'var(--gray)', fontWeight:700 }}>{tt(lang, 'availableCount', { count: maxCards })}</span>
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
                     {[5,10,15,20].map(n => {
@@ -317,7 +439,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
                         <button key={n} type="button" onClick={() => !disabled && setNumCards(n)} disabled={disabled}
                           style={{ padding:'12px 4px', borderRadius:12, border:`1.5px solid ${active ? selectedPalette.dot : 'var(--border)'}`, background: active ? selectedPalette.bg : 'var(--surface)', fontWeight:900, fontSize:18, color: active ? selectedPalette.text : disabled ? 'var(--border)' : 'var(--gray)', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                           {n}
-                          <span style={{ fontSize:9, fontWeight:700, color: active ? selectedPalette.text : 'var(--gray-2)', opacity: disabled ? 0 : 0.7 }}>carte</span>
+                          <span style={{ fontSize:9, fontWeight:700, color: active ? selectedPalette.text : 'var(--gray-2)', opacity: disabled ? 0 : 0.7 }}>{tt(lang, 'cardsShort')}</span>
                         </button>
                       );
                     })}
@@ -328,10 +450,10 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
           </div>
           <button type="button" onClick={startConfiguredDeck} disabled={!maxCards || loadingCards}
             style={{ width:'100%', borderRadius:16, padding:'16px', background: maxCards && !loadingCards ? `linear-gradient(135deg, ${selectedPalette.dot} 0%, ${selectedPalette.dot}cc 100%)` : '#CBD5E1', color:'#fff', fontWeight:900, fontSize:16, cursor: maxCards && !loadingCards ? 'pointer' : 'not-allowed', border:'none', marginBottom:24 }}>
-            {loadingCards ? 'Loading...' : maxCards ? `Studia ${effectiveCards} carte · ${focusTitle}` : waitingForPractice ? 'Generazione flashcards in corso...' : 'Flashcards in preparazione'}
+            {loadingCards ? tt(lang, 'loading') : maxCards ? tt(lang, 'studyCardsCta', { count: effectiveCards, title: focusTitle }) : waitingForPractice ? tt(lang, 'generatingFlashcards') : tt(lang, 'flashPreparing')}
           </button>
 
-          <div style={sL}>Capitoli — {selectedExam.name}</div>
+          <div style={sL}>{tt(lang, 'chapters')} — {selectedExam.name}</div>
           <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap:12 }}>
             {selectedExam.chapters.map(ch => {
               const pal = selectedPalette;
@@ -358,7 +480,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ch.title}</div>
                         <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>
-                          {hasCards ? `${cardCount} carte` : 'Nessuna flashcard'}
+                          {hasCards ? tt(lang, 'cardsCount', { count: cardCount }) : tt(lang, 'noFlashcardsYet')}
                         </div>
                       </div>
                       {scoreStyle && (
@@ -377,50 +499,50 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
                       disabled={!hasCards}
                       onClick={e => { e.stopPropagation(); if(hasCards) onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: chapterCards, _examColor: selectedExam.color || null, _examDot: selectedExam.dot || null, _meta: { examId: selectedExam.id, examColor: selectedExam.color || null, examDot: selectedExam.dot || null, chapterId: ch.id } }); }}
                       style={{ width:'100%', padding:'10px', borderRadius:12, background: hasCards ? pal.dot : 'var(--border)', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor: hasCards ? 'pointer' : 'not-allowed', letterSpacing:'.01em' }}>
-                      {studied ? '🔄 Rivedi' : '▶ Studia'}
+                      {studied ? `↻ ${tt(lang, 'review')}` : `▶ ${tt(lang, 'study')}`}
                     </button>
                   </div>
                 </div>
               );
             })}
           </div>
-          {loadingCards && <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>Loading flashcards...</p>}
+          {loadingCards && <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>{tt(lang, 'loadingFlashcards')}</p>}
           {cardsError && <p style={{ margin:'12px 0 0', color:'#DC2626', fontSize:13 }}>{cardsError}</p>}
-          {!loadingCards && !cardsError && cards.length === 0 && (
-            <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>No flashcards yet.</p>
+          {!loadingCards && !cardsError && playableCards.length === 0 && (
+            <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>{tt(lang, 'noFlashcardsYet')}</p>
           )}
           <form onSubmit={submitCardForm} style={{ marginTop:16, padding:16, border:'1px solid var(--border)', borderRadius:16, background:'var(--surface)', display:'grid', gap:10 }}>
-            <div style={sL}>{editingId ? 'Modifica flashcard' : 'Nuova flashcard'}</div>
+            <div style={sL}>{editingId ? tt(lang, 'editFlashcard') : tt(lang, 'newFlashcard')}</div>
             <select value={form.chapterId} onChange={e => setForm(f => ({ ...f, chapterId: e.target.value }))}
               style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)' }}>
               {(selectedExam.chapters || []).map(ch => <option key={ch.id} value={ch.id}>{ch.title}</option>)}
             </select>
-            <input value={form.front} onChange={e => setForm(f => ({ ...f, front: e.target.value }))} placeholder="Front"
+            <input value={form.front} onChange={e => setForm(f => ({ ...f, front: e.target.value }))} placeholder={tt(lang, 'front')}
               style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)' }} />
-            <textarea value={form.back} onChange={e => setForm(f => ({ ...f, back: e.target.value }))} placeholder="Back" rows={3}
+            <textarea value={form.back} onChange={e => setForm(f => ({ ...f, back: e.target.value }))} placeholder={tt(lang, 'back')} rows={3}
               style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)', resize:'vertical' }} />
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               <button type="submit" style={{ padding:'10px 14px', borderRadius:10, border:'none', background:'var(--indigo)', color:'#fff', fontWeight:700 }}>
-                {editingId ? 'Salva' : 'Crea'}
+                {editingId ? tt(lang, 'save') : tt(lang, 'create')}
               </button>
               {editingId && (
                 <button type="button" onClick={() => { setEditingId(null); setForm(f => ({ ...f, front:'', back:'' })); }}
                   style={{ padding:'10px 14px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700 }}>
-                  Annulla
+                  {tt(lang, 'cancel')}
                 </button>
               )}
             </div>
           </form>
-          {cards.length > 0 && (
+          {playableCards.length > 0 && (
             <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:8 }}>
-              {cards.slice(0, 8).map(card => (
+              {playableCards.slice(0, 8).map(card => (
                 <div key={card.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', border:'1px solid var(--border)', borderRadius:12, background:'var(--surface)' }}>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{card.front}</div>
                     <div style={{ fontSize:12, color:'var(--gray)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{card.back}</div>
                   </div>
-                  <button type="button" onClick={() => startEditCard(card)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:12 }}>Edit</button>
-                  <button type="button" onClick={() => removeCard(card.id)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid #fca5a5', background:'#FEE2E2', color:'#991B1B', fontWeight:700, fontSize:12 }}>Delete</button>
+                  <button type="button" onClick={() => startEditCard(card)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:12 }}>{tt(lang, 'edit')}</button>
+                  <button type="button" onClick={() => removeCard(card.id)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid #fca5a5', background:'#FEE2E2', color:'#991B1B', fontWeight:700, fontSize:12 }}>{tt(lang, 'delete')}</button>
                 </div>
               ))}
             </div>
@@ -432,11 +554,12 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
       {recentDecks.length > 0 && (
         <div>
           <div style={{ height:1, background:'var(--border)', marginBottom:20 }} />
-          <div style={sL}>Sessioni recenti</div>
+          <div style={sL}>{tt(lang, 'recentSessions')}</div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {recentDecks.map((deck, i) => {
               const sc = deck.lastScore != null ? fmtScore(deck.lastScore) : null;
-              const pal = getExamPalette({ subject: deck.subject, color: deck._examColor || deck._meta?.examColor, dot: deck._examDot || deck._meta?.examDot }, darkMode);
+              const deckExam = exams.find((exam) => String(exam.id) === String(deck._meta?.examId || deck._examId));
+              const pal = getExamPalette(deckExam || { subject: deck.subject, color: deck._examColor || deck._meta?.examColor, dot: deck._examDot || deck._meta?.examDot }, darkMode);
               return (
                 <div key={i}
                   style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, cursor:'pointer', transition:'border-color .15s' }}
@@ -446,12 +569,12 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
                   <SubjectIcon subject={deck.subject} size={40} radius={10} dot={pal.dot} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deck.title}</div>
-                    <div style={{ fontSize:12, color:'var(--gray)', marginTop:1 }}>{deck.subject} · {(deck.cards||[]).length} carte{deck.ts ? ' · ' + fmtDate(deck.ts) : ''}</div>
+                    <div style={{ fontSize:12, color:'var(--gray)', marginTop:1 }}>{deck.subject} · {tt(lang, 'cardsCount', { count: (deck.cards||[]).length })}{deck.ts ? ' · ' + fmtDate(deck.ts) : ''}</div>
                   </div>
                   {sc && <span style={{ fontSize:12, fontWeight:700, color:sc.color, background:sc.bg, padding:'3px 9px', borderRadius:999, flexShrink:0 }}>{sc.label}</span>}
                   <button onClick={e => { e.stopPropagation(); onOpenDeck(deck); }}
                     style={{ padding:'7px 16px', borderRadius:10, background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:12, border:'none', cursor:'pointer', flexShrink:0 }}>
-                    Rivedi
+                    {tt(lang, 'review')}
                   </button>
                 </div>
               );
@@ -463,9 +586,10 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
   );
 }
 
-export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examColor, _examDot, setTab, darkMode, onFlashComplete, onBackToLanding }) {
-  const palette = getExamPalette({ subject, color: _meta?.examColor || _examColor, dot: _meta?.examDot || _examDot }, darkMode);
-  const normalizedCards = (cards || []).map(normalizeFlashcard);
+export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examColor, _examDot, setTab, darkMode, exams = [], onFlashComplete, onBackToLanding, lang = 'en' }) {
+  const currentExam = exams.find((exam) => String(exam.id) === String(_meta?.examId || noteId));
+  const palette = getExamPalette(currentExam || { subject, color: _meta?.examColor || _examColor, dot: _meta?.examDot || _examDot }, darkMode);
+  const normalizedCards = (cards || []).map(normalizeFlashcard).filter(isPlayableFlashcard);
   const total = normalizedCards.length;
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -520,7 +644,7 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
         completedAt,
       });
       if (result.error) {
-        setSaveError(result.error.message || 'Could not save flashcard progress.');
+        setSaveError(result.error.message || tt(lang, 'couldNotSaveFlashcardProgress'));
       } else {
         setSaved(true);
       }
@@ -540,9 +664,9 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
     return (
       <div style={flashS.emptyWrap}>
         <div style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</div>
-        <h2 style={flashS.resultTitle}>No flashcards yet</h2>
+        <h2 style={flashS.resultTitle}>{tt(lang, 'noFlashcardsYet')}</h2>
         <p style={flashS.resultSub}>{title}</p>
-        <button onClick={() => setTab('notes')} style={flashS.backBtn}>Back to Study</button>
+        <button onClick={() => setTab('notes')} style={flashS.backBtn}>{tt(lang, 'backToStudy')}</button>
       </div>
     );
   }
@@ -590,6 +714,7 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
         saved={saved}
         onReset={reset}
         onBack={() => onBackToLanding ? onBackToLanding() : setTab('notes')}
+        lang={lang}
       />
     );
   }
@@ -603,7 +728,7 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
             <span style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
             <span style={flashS.deckTitle}>{title}</span>
           </div>
-          <span style={flashS.correctCount}>{correct} / {total} correct</span>
+          <span style={flashS.correctCount}>{tt(lang, 'flashKnownCount', { correct, total })}</span>
         </div>
 
         <div style={flashS.progressTrack}>
@@ -618,12 +743,12 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
           >
             <div style={{ ...flashS.cardInner, transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
               <div style={flashS.cardFront}>
-                <span style={flashS.faceLabel}>Question</span>
+                <span style={flashS.faceLabel}>{tt(lang, 'question')}</span>
                 <div style={flashS.questionText}>{current.q}</div>
-                <span style={flashS.cardHint}>Tap to reveal answer</span>
+                <span style={flashS.cardHint}>{tt(lang, 'tapRevealAnswer')}</span>
               </div>
               <div style={{ ...flashS.cardBack, background: palette.bg, borderColor: palette.border }}>
-                <span style={{ ...flashS.faceLabel, color: palette.text }}>Answer</span>
+                <span style={{ ...flashS.faceLabel, color: palette.text }}>{tt(lang, 'answer')}</span>
                 <div style={{ ...flashS.answerText, color: palette.text }}>{current.a}</div>
               </div>
             </div>
@@ -632,10 +757,10 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
 
       <div style={{ ...flashS.answerRow, opacity: flipped && !isAnswered ? 1 : 0, pointerEvents: flipped && !isAnswered ? 'auto' : 'none' }}>
         <button onClick={() => handleAnswer(false)} style={flashS.dontKnowBtn}>
-          <XMark size={16} /> Non lo sapevo
+          <XMark size={16} /> {tt(lang, 'stillLearning')}
         </button>
         <button onClick={() => handleAnswer(true)} style={flashS.knewBtn}>
-          <Check size={16} /> Lo sapevo
+          <Check size={16} /> {tt(lang, 'known')}
         </button>
       </div>
 
@@ -651,7 +776,7 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
 
       {!allAnswered && (
         <p style={{ textAlign:'center', fontSize:12, color:'var(--gray)', margin:0 }}>
-          Seleziona “Lo sapevo” o “Non lo sapevo” per ogni carta · {answeredCount}/{total}
+          {tt(lang, 'answerEveryCard', { answered: answeredCount, total })}
         </p>
       )}
 
@@ -659,7 +784,7 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
         onClick={() => setDone(true)}
         disabled={!allAnswered}
         style={{ width:'100%', borderRadius:14, padding:'14px 16px', fontWeight:700, fontSize:15, border:'none', cursor: allAnswered ? 'pointer' : 'not-allowed', background: allAnswered ? `linear-gradient(135deg, ${palette.dot} 0%, ${palette.dot}cc 100%)` : 'var(--border)', color: allAnswered ? '#fff' : 'var(--gray)', opacity: allAnswered ? 1 : 0.5, transition:'all .2s', boxShadow: allAnswered ? `0 4px 14px ${palette.dot}44` : 'none' }}>
-        {allAnswered ? '✓ Completa' : `Completa (${answeredCount}/${total} risposte)`}
+        {allAnswered ? `✓ ${tt(lang, 'complete')}` : tt(lang, 'completeAnswers', { answered: answeredCount, total })}
       </button>
     </div>
     </>

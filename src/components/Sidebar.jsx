@@ -20,8 +20,8 @@ export default function Sidebar({ tab, setTab, lang = 'en', collapsed = false, o
           <button
             type="button"
             onClick={onToggleCollapsed}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? tt(lang, 'expandSidebar') : tt(lang, 'collapseSidebar')}
+            aria-label={collapsed ? tt(lang, 'expandSidebar') : tt(lang, 'collapseSidebar')}
             style={sideS.collapseBtn}
           >
             <SidebarPanel size={16} sw={2} />
@@ -56,7 +56,7 @@ export default function Sidebar({ tab, setTab, lang = 'en', collapsed = false, o
       </div>
 
       {!collapsed && <div style={sideS.goalCard}>
-        <div style={sideS.goalLabel}>Weekly Goal</div>
+        <div style={sideS.goalLabel}>{tt(lang, 'weeklyGoal')}</div>
         <div style={sideS.goalValue}>78%</div>
         <div style={sideS.goalBarTrack}>
           <div style={sideS.goalBarFill} />
