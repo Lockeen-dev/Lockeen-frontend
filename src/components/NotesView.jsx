@@ -14,7 +14,7 @@ import { generatePracticeFromText } from '../services/practiceGeneration';
 import { completeQuizGenerationRun, createQuizGenerationRun, insertMaterialConcepts, replaceMaterialChunks } from '../services/quizPipeline';
 import { createStudyMaterialSignedUrl, deleteStudyMaterialFile, uploadStudyMaterialFile, validateStudyMaterialFile } from '../services/storage';
 import { CreateExamModal, DeleteExamModal, EditChapterModal, EditExamModal, UploadChapterModal } from './ExamModals';
-import { EmojiPickerButton, GradeValue, getPriorityMeta, gradeS } from './common/ExamControls';
+import { GradeValue, getPriorityMeta, gradeS } from './common/ExamControls';
 import { homeS } from '../styles/dashboardStyles';
 
 function formatExamServiceError(error, fallback) {
@@ -412,6 +412,43 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
     setSavingAction(null);
   };
 
+  const getExamCountdown = (date) => {
+    const dl = daysLeft(date);
+    if (!Number.isFinite(dl)) return null;
+    if (dl < 0) {
+      const count = Math.abs(dl);
+      return {
+        label: lang === 'it'
+          ? `${count} ${count === 1 ? 'giorno' : 'giorni'} fa`
+          : `${count} ${count === 1 ? 'day' : 'days'} ago`,
+        tone: 'past',
+      };
+    }
+    return {
+      label: dl === 0 ? `${tt(lang, 'today')}!` : tt(lang, 'daysLeft', { count: dl }),
+      tone: 'future',
+    };
+  };
+
+  const countdownStyle = (tone) => ({
+    position:'absolute',
+    top:12,
+    right:12,
+    maxWidth:96,
+    overflow:'hidden',
+    textOverflow:'ellipsis',
+    whiteSpace:'nowrap',
+    fontSize:11,
+    fontWeight:700,
+    padding:'6px 10px',
+    background: tone === 'past' ? '#FEF2F2' : 'var(--surface)',
+    border: tone === 'past' ? '1px solid #FECACA' : '1px solid var(--border)',
+    borderRadius:10,
+    color: tone === 'past' ? '#EF4444' : 'var(--indigo)',
+    lineHeight:1.3,
+    zIndex:3,
+  });
+
   const handleCreateExam = async (exam) => {
     setActionError(null);
     if (!exam?.name?.trim()) {
@@ -648,38 +685,38 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
         </div>
       )}
 
-      <div style={examsS.grid}>
+      <div style={{ ...examsS.grid, gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))' }}>
         {!loading && !loadError && filtered.map((x) => {
           const palette = getExamPalette(x, darkMode);
+          const countdown = x.date ? getExamCountdown(x.date) : null;
           return (
             <div key={x.id} style={notesS.card}>
               <div style={{ ...notesS.cover, background: palette.bg }}>
                 <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-58%)', zIndex:2 }}>
-                  <EmojiPickerButton
-                    emoji={getExamEmoji(x)}
-                    dot={palette.dot}
-                    bg={palette.bg}
-                    size={64}
-                    onPick={(emoji) => setExams(prev => prev.map(e => e.id === x.id ? { ...e, emoji } : e))}
-                  />
+                  <button
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); setEditingExam(x); }}
+                    title={lang === 'it' ? 'Modifica esame e icona' : 'Edit exam and icon'}
+                    aria-label={lang === 'it' ? 'Modifica esame e icona' : 'Edit exam and icon'}
+                    style={{ width:64, height:64, borderRadius:17, background: palette.bg, border:`2px solid ${palette.dot}40`, display:'grid', placeItems:'center', cursor:'pointer', transition:'transform .15s', fontSize:31, lineHeight:1 }}
+                    onMouseEnter={e => e.currentTarget.style.transform='scale(1.08)'}
+                    onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
+                  >
+                    {getExamEmoji(x)}
+                  </button>
                 </div>
-                {x.date && (() => {
-                  const dl = daysLeft(x.date);
-                  return (
-                    <>
-                      <span style={{ position:'absolute', top:12, left:12, fontSize:11, fontWeight:700, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--ink)', lineHeight:1.3 }}>
-                        {formatExamDate(x.date)}{x.time ? ` · ${x.time}` : ''}
-                      </span>
-                      {dl >= 0 && (
-                        <span style={{ position:'absolute', top:12, right:12, fontSize:11, fontWeight:700, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, color:'var(--indigo)', lineHeight:1.3 }}>
-                          {dl === 0 ? `${tt(lang, 'today')}!` : tt(lang, 'daysLeft', { count: dl })}
-                        </span>
-                      )}
-                    </>
-                  );
-                })()}
+                {countdown && (
+                  <span style={countdownStyle(countdown.tone)}>
+                    {countdown.label}
+                  </span>
+                )}
               </div>
               <div style={{ padding: 18 }}>
+                {x.date && (
+                  <div style={{ display:'inline-flex', maxWidth:'100%', alignItems:'center', gap:6, marginBottom:10, padding:'6px 10px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:11, fontWeight:800, lineHeight:1.3 }}>
+                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{formatExamDate(x.date)}{x.time ? ` · ${x.time}` : ''}</span>
+                  </div>
+                )}
                 {(() => {
                   const p = getPriorityMeta(x.priority || 3);
                   return (

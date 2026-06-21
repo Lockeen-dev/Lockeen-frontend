@@ -58,7 +58,7 @@ const EMOJI_PICKER = [
 
 
 
-function EmojiPickerButton({ emoji, dot, bg, size = 60, onPick }) {
+function EmojiPickerButton({ emoji, dot, bg, size = 60, onPick, title = 'Cambia emoji' }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   React.useEffect(() => {
@@ -69,9 +69,10 @@ function EmojiPickerButton({ emoji, dot, bg, size = 60, onPick }) {
   }, [open]);
   return (
     <div ref={ref} style={{ position:'relative', display:'inline-block' }}>
-      <button type="button" onClick={() => setOpen(v => !v)}
-        title="Cambia emoji"
-        style={{ width:size, height:size, borderRadius:size*0.27, background: bg || (dot+'22'), border:`2px solid ${dot}40`, display:'grid', placeItems:'center', cursor:'pointer', transition:'transform .15s', fontSize:size*0.48, lineHeight:1 }}
+      <button type="button" onClick={(event) => { event.stopPropagation(); setOpen(v => !v); }}
+        title={title}
+        aria-label={title}
+        style={{ position:'relative', width:size, height:size, borderRadius:size*0.27, background: bg || (dot+'22'), border:`2px solid ${dot}40`, display:'grid', placeItems:'center', cursor:'pointer', transition:'transform .15s', fontSize:size*0.48, lineHeight:1 }}
         onMouseEnter={e => e.currentTarget.style.transform='scale(1.08)'}
         onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
         {emoji}
@@ -84,7 +85,7 @@ function EmojiPickerButton({ emoji, dot, bg, size = 60, onPick }) {
           <div style={{ fontSize:10, fontWeight:700, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:8 }}>Scegli emoji</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(10,1fr)', gap:2 }}>
             {EMOJI_PICKER.map(e => (
-              <button key={e} type="button" onClick={() => { onPick(e); setOpen(false); }}
+              <button key={e} type="button" onClick={(event) => { event.stopPropagation(); onPick(e); setOpen(false); }}
                 style={{ fontSize:17, padding:'5px 2px', borderRadius:6, border:'none', background: e===emoji ? dot+'22' : 'transparent', cursor:'pointer', transition:'background .1s' }}
                 onMouseEnter={ev => ev.currentTarget.style.background=dot+'22'}
                 onMouseLeave={ev => ev.currentTarget.style.background= e===emoji ? dot+'22' : 'transparent'}>
