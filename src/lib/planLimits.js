@@ -6,15 +6,15 @@ export const PLAN_TIERS = {
 export const PLAN_LIMITS = {
   free: {
     activeDocuments: 1,
-    quizGenerationsPerMonth: 5,
-    flashcardGenerationsPerMonth: 5,
-    aiTutorMessagesPerDay: 20,
+    quizGenerationsPerMonth: 1,
+    flashcardGenerationsPerMonth: 1,
+    aiTutorMessagesPerMonth: 20,
   },
   pro: {
     activeDocuments: Infinity,
     quizGenerationsPerMonth: Infinity,
     flashcardGenerationsPerMonth: Infinity,
-    aiTutorMessagesPerDay: Infinity,
+    aiTutorMessagesPerMonth: Infinity,
   },
 };
 
