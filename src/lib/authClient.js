@@ -29,12 +29,15 @@ export function clearMockSession() {
 export function createMockUser(input = {}) {
   const email = input.email || 'demo@lockeen.app';
   const name = input.name || email.split('@')[0] || 'Demo User';
+  const authProvider = input.provider === 'google' ? 'google' : 'email';
 
   return {
     id: `mock-user-${btoa(email).replace(/=+$/g, '')}`,
     email,
     name,
     provider: 'mock',
+    authProvider,
+    authProviders: [authProvider],
     createdAt: new Date().toISOString(),
   };
 }

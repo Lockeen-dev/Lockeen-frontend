@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-import { ChevronDown, Coins, EyeOff, FileText, LogOut, MsgCircle, Pencil, Trophy } from '../lib/icons';
+import { ChevronDown, Coins, EyeOff, FileText, Google, LogOut, MsgCircle, Pencil, Trophy } from '../lib/icons';
 import { LANG_OPTIONS } from '../lib/i18n';
 import { formatLimit, getPlanLimits, getUserPlanTier, isFreePlan } from '../lib/planLimits';
 import useIsMobile from '../lib/useIsMobile';
@@ -35,6 +35,10 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
   const planLimits = getPlanLimits(user);
   const freePlan = isFreePlan(user);
   const usageCopy = freePlan ? copy.freeUsage : copy.proUsage;
+  const authProviders = Array.isArray(user?.authProviders) ? user.authProviders : [];
+  const authProvider = String(user?.authProvider || authProviders[0] || 'email').toLowerCase();
+  const isGoogleOnly = authProvider === 'google' && !authProviders.includes('email');
+  const authMethodLabel = isGoogleOnly ? copy.googleSignIn : copy.emailPasswordSignIn;
   const [name, setName] = useState(user?.name || '');
   const [timezone, setTimezone] = useState(user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome');
   const [saving, setSaving] = useState(null);
@@ -110,6 +114,10 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
   };
 
   const handlePasswordReset = async () => {
+    if (isGoogleOnly) {
+      showNotice('success', copy.googlePasswordManaged);
+      return;
+    }
     setSaving('password');
     const result = await requestPasswordReset({ email });
     setSaving(null);
@@ -259,21 +267,29 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
                 <div style={accountS.readOnlyPill}>{formatTimezoneLabel(timezone)}</div>
               </label>
             </div>
-            <button onClick={handleProfileSave} disabled={saving === 'profile'} style={accountS.primaryBtn}>
-              {saving === 'profile' ? copy.saving : copy.save}
-            </button>
+            <div style={accountS.profileActions}>
+              <button type="button" onClick={() => setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone || timezone)} style={accountS.ghostBtn}>{copy.useBrowserTimezone}</button>
+              <button onClick={handleProfileSave} disabled={saving === 'profile'} style={accountS.primaryBtn}>
+                {saving === 'profile' ? copy.saving : copy.save}
+              </button>
+            </div>
           </div>
           <div style={accountS.divider} />
           <div style={accountS.editBlock}>
-            <div style={accountS.rowIcon}><MsgCircle size={18} /></div>
+            <div style={accountS.rowIcon}>{isGoogleOnly ? <Google size={18} /> : <MsgCircle size={18} />}</div>
             <div style={{ flex:1, minWidth:220 }}>
               <div style={accountS.rowTitle}>{copy.email}</div>
-              <div style={accountS.rowSub}>{email || copy.emailUnavailable}</div>
+              <div style={accountS.rowSub}>{email || copy.emailUnavailable} · {authMethodLabel}</div>
             </div>
-            <button onClick={() => showNotice('success', copy.emailChangeLater)} style={accountS.ghostBtn}>{copy.changeLater}</button>
+            <button onClick={() => showNotice('success', isGoogleOnly ? copy.googleEmailManaged : copy.emailChangeLater)} style={accountS.ghostBtn}>{copy.changeLater}</button>
           </div>
           <div style={accountS.divider} />
-          <Row icon={<EyeOff size={18} />} title={copy.password} sub={copy.passwordSub} action={<button onClick={handlePasswordReset} disabled={saving === 'password' || !email} style={saving === 'password' || !email ? accountS.disabledBtn : accountS.ghostBtn}>{saving === 'password' ? copy.sending : copy.sendReset}</button>} />
+          <Row
+            icon={<EyeOff size={18} />}
+            title={copy.password}
+            sub={isGoogleOnly ? copy.passwordSubGoogle : copy.passwordSub}
+            action={<button onClick={handlePasswordReset} disabled={saving === 'password' || !email || isGoogleOnly} style={saving === 'password' || !email || isGoogleOnly ? accountS.disabledBtn : accountS.ghostBtn}>{saving === 'password' ? copy.sending : isGoogleOnly ? copy.managedByGoogle : copy.sendReset}</button>}
+          />
         </div>
       </section>
 
@@ -414,10 +430,14 @@ const accountCopy = {
     name: 'Name',
     timezone: 'Timezone',
     detectedTimezone: 'Detected timezone',
+    useBrowserTimezone: 'Use browser timezone',
     email: 'Email',
     emailUnavailable: 'No email available',
+    googleSignIn: 'Google sign-in',
+    emailPasswordSignIn: 'Email sign-in',
     password: 'Password',
     passwordSub: 'Send a secure reset link to change your password.',
+    passwordSubGoogle: 'Password is managed by your Google account.',
     edit: 'Edit',
     save: 'Save',
     saving: 'Saving...',
@@ -432,6 +452,9 @@ const accountCopy = {
     sendReset: 'Send reset',
     changeLater: 'Change later',
     emailChangeLater: 'Email changes will be enabled after the confirmation flow is fully verified.',
+    googleEmailManaged: 'This email is managed by Google. Change it from your Google account.',
+    googlePasswordManaged: 'This password is managed by Google.',
+    managedByGoogle: 'Google',
     activeDevices: 'Active devices',
     activeDevicesTitle: 'Current session',
     activeDevicesSub: 'Device management will be connected after account security settings are expanded.',
@@ -494,10 +517,14 @@ const accountCopy = {
     name: 'Nome',
     timezone: 'Fuso orario',
     detectedTimezone: 'Fuso rilevato',
+    useBrowserTimezone: 'Usa fuso browser',
     email: 'Email',
     emailUnavailable: 'Email non disponibile',
+    googleSignIn: 'Accesso Google',
+    emailPasswordSignIn: 'Accesso email',
     password: 'Password',
     passwordSub: 'Invia un link sicuro per cambiare la password.',
+    passwordSubGoogle: 'La password è gestita dal tuo account Google.',
     edit: 'Modifica',
     save: 'Salva',
     saving: 'Salvataggio...',
@@ -512,6 +539,9 @@ const accountCopy = {
     sendReset: 'Invia reset',
     changeLater: 'Più avanti',
     emailChangeLater: 'Il cambio email verrà attivato quando il flusso di conferma sarà verificato completamente.',
+    googleEmailManaged: 'Questa email è gestita da Google. Modificala dal tuo account Google.',
+    googlePasswordManaged: 'Questa password è gestita da Google.',
+    managedByGoogle: 'Google',
     activeDevices: 'Dispositivi attivi',
     activeDevicesTitle: 'Sessione corrente',
     activeDevicesSub: 'La gestione dispositivi verrà collegata quando espandiamo la sicurezza account.',
@@ -564,6 +594,7 @@ const accountS = {
   rowSub: { fontSize:12, color:'var(--gray)', marginTop:2, lineHeight:1.45 },
   editBlock: { display:'flex', alignItems:'flex-end', gap:12, padding:'15px 18px', flexWrap:'wrap' },
   formGrid: { flex:1, minWidth:240, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px, 1fr))', gap:12 },
+  profileActions: { display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', justifyContent:'flex-end' },
   label: { display:'flex', flexDirection:'column', gap:7, fontSize:12, fontWeight:800, color:'var(--gray)' },
   input: { width:'100%', minHeight:42, border:'1px solid var(--border)', borderRadius:12, padding:'0 12px', background:'var(--surface)', color:'var(--ink)', fontSize:14, fontWeight:800, outline:'none' },
   readOnlyPill: { minHeight:42, border:'1px solid var(--border)', borderRadius:12, padding:'0 12px', background:'var(--sidebar-bg)', color:'var(--ink)', fontSize:14, fontWeight:800, display:'flex', alignItems:'center' },
