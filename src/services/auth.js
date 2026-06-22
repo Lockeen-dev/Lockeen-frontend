@@ -107,6 +107,23 @@ export async function restoreSession() {
       });
     }
 
+    if (!data.session?.user) {
+      return ok(createSupabaseSession(data.session));
+    }
+
+    const freshUserResult = await withTimeout(
+      supabase.auth.getUser(),
+      3500,
+      { data: null, error: null, timedOut: true },
+    );
+
+    if (!freshUserResult?.error && freshUserResult?.data?.user) {
+      return ok(createSupabaseSession({
+        ...data.session,
+        user: freshUserResult.data.user,
+      }));
+    }
+
     return ok(createSupabaseSession(data.session));
   }
 
