@@ -22,6 +22,12 @@ function fail(message, code = 'UNKNOWN_ERROR') {
 }
 
 function normalizeError(error, fallback = 'Request failed.') {
+  if (String(error?.message || '').toLowerCase().includes('free trial document already used')) {
+    return {
+      code: 'PLAN_LIMIT_REACHED',
+      message: 'Free trial document already used. Upgrade to Pro to upload more materials.',
+    };
+  }
   return {
     code: error?.code || error?.name || 'SUPABASE_ERROR',
     message: error?.message || fallback,
@@ -340,19 +346,11 @@ async function createRealMaterial(input = {}) {
 
   const planLimits = getPlanLimits(user);
   if (isFreePlan(user) && Number.isFinite(planLimits.activeDocuments)) {
-    const { count, error: countError } = await supabase
-      .from('study_materials')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('status', 'active');
+    const usageResult = await getFreeTrialDocumentUsageForUser(userId);
+    if (usageResult.error) return usageResult;
 
-    if (countError) {
-      const normalized = normalizeError(countError, 'Unable to check plan limits.');
-      return fail(normalized.message, normalized.code);
-    }
-
-    if ((count || 0) >= planLimits.activeDocuments) {
-      return fail('Free includes 1 active document. Upgrade to Pro to upload more materials.', 'PLAN_LIMIT_REACHED');
+    if ((usageResult.data.documentsUploadedTotal || 0) >= planLimits.activeDocuments) {
+      return fail('Free trial document already used. Upgrade to Pro to upload more materials.', 'PLAN_LIMIT_REACHED');
     }
   }
 
@@ -368,6 +366,51 @@ async function createRealMaterial(input = {}) {
   }
 
   return ok(toMaterial(data));
+}
+
+async function getFreeTrialDocumentUsageForUser(userId) {
+  const { data, error } = await supabase
+    .from('user_plan_usage')
+    .select('documents_uploaded_total')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!error) {
+    return ok({ documentsUploadedTotal: Number(data?.documents_uploaded_total || 0), source: 'ledger' });
+  }
+
+  if (error.code !== '42P01' && error.code !== 'PGRST205') {
+    const normalized = normalizeError(error, 'Unable to check plan limits.');
+    return fail(normalized.message, normalized.code);
+  }
+
+  const { count, error: countError } = await supabase
+    .from('study_materials')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'active');
+
+  if (countError) {
+    const normalized = normalizeError(countError, 'Unable to check plan limits.');
+    return fail(normalized.message, normalized.code);
+  }
+
+  return ok({ documentsUploadedTotal: count || 0, source: 'active_fallback' });
+}
+
+export async function getMaterialTrialUsage() {
+  if (isMockMode()) {
+    return ok({ documentsUploadedTotal: mockMaterials.length, source: 'mock' });
+  }
+
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+
+  const currentUserResult = await getCurrentUser();
+  if (currentUserResult.error) return currentUserResult;
+  if (!currentUserResult.data?.id) return fail('Real mode requires an authenticated Supabase session.', 'AUTH_REQUIRED');
+
+  return getFreeTrialDocumentUsageForUser(currentUserResult.data.id);
 }
 
 async function deleteRealMaterial(id) {
