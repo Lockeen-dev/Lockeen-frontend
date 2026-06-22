@@ -389,6 +389,9 @@ export default function TutorView({ user, lang = 'en' }) {
   const tutorUsageProgress = Number.isFinite(tutorUsageQuota) && tutorUsageUsed != null
     ? Math.min(100, Math.max(0, (tutorUsageUsed / tutorUsageQuota) * 100))
     : 0;
+  const tutorUsagePillLabel = tutorUsageRemaining == null
+    ? tt(lang, 'freeAiTutorPillLimit', { count: monthlyTutorLimit })
+    : tt(lang, 'freeAiTutorPillKnown', { remaining: tutorUsageRemaining, count: tutorUsageQuota });
 
   const formatAiError = (error) => {
 	    if (!error) return tt(lang, 'aiRequestFailed');
@@ -715,9 +718,17 @@ export default function TutorView({ user, lang = 'en' }) {
             <div style={tutorS.avatar}><Brain size={18} /></div>
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>AI Tutor</h2>
-              <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--gray)' }}>
-                <span style={tutorS.onlineDot} /> {tt(lang, 'tutorOnline')}
-              </p>
+              <div style={tutorS.statusLine}>
+                <span><span style={tutorS.onlineDot} /> {tt(lang, 'tutorOnline')}</span>
+                {freePlan && (
+                  <span style={tutorS.usagePill} title={tt(lang, 'freeAiTutorRemainingCopy')}>
+                    <span>{tutorUsagePillLabel}</span>
+                    <span style={tutorS.usagePillTrack}>
+                      <span style={{ ...tutorS.usagePillFill, width: `${tutorUsageProgress}%` }} />
+                    </span>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           {isMobile && (
@@ -726,21 +737,6 @@ export default function TutorView({ user, lang = 'en' }) {
             </button>
           )}
         </div>
-
-        {freePlan && (
-          <div style={tutorS.planNotice}>
-            <div>
-              <strong style={tutorS.planNoticeTitle}>
-                {tutorUsageRemaining == null
-                  ? tt(lang, 'freeAiTutorLimitTitle', { count: monthlyTutorLimit })
-                  : tt(lang, 'freeAiTutorRemainingTitle', { remaining: tutorUsageRemaining, count: tutorUsageQuota })}
-              </strong>
-              <div style={tutorS.planNoticeMeter}><span style={{ ...tutorS.planNoticeMeterFill, width: `${tutorUsageProgress}%` }} /></div>
-              <p style={tutorS.planNoticeCopy}>{tt(lang, 'freeAiTutorRemainingCopy')}</p>
-            </div>
-            <span style={tutorS.planNoticeBadge}>{tt(lang, 'freeModeShort')}</span>
-          </div>
-        )}
 
         <div ref={endRef} style={tutorS.thread}>
           {msgs.map((m, i) => {
@@ -872,6 +868,10 @@ const tutorS = {
   head: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' },
   avatar: { width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center' },
   onlineDot: { display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: '#10B981', marginRight: 6, verticalAlign: 'middle' },
+  statusLine: { marginTop: 2, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 13, color: 'var(--gray)' },
+  usagePill: { display: 'inline-flex', alignItems: 'center', gap: 7, minHeight: 22, padding: '3px 8px', borderRadius: 999, background: '#F8FAFF', border: '1px solid #E7E9F4', color: 'var(--gray)', fontSize: 11, fontWeight: 800, lineHeight: 1 },
+  usagePillTrack: { width: 34, height: 4, borderRadius: 999, background: '#E5E7FF', overflow: 'hidden' },
+  usagePillFill: { display: 'block', height: '100%', borderRadius: 999, background: 'var(--indigo)', transition: 'width .2s ease' },
   historyLabel: { margin: '10px 0 8px', fontSize: 10, fontWeight: 800, color: 'var(--gray-2)', textTransform: 'uppercase', letterSpacing: '.06em' },
   historyItem: { position: 'relative', borderRadius: 10, border: '1px solid var(--border)', background: '#fff', padding: 0, boxShadow: '0 6px 18px rgba(15,23,42,.035)' },
   historyItemActive: { background: 'var(--lavender)', borderColor: 'rgba(55,48,232,.22)', boxShadow: '0 8px 24px rgba(55,48,232,.08)' },
@@ -902,12 +902,6 @@ const tutorS = {
   suggestRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' },
   suggestChip: { padding: '8px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12 },
   errorBox: { marginBottom: 8, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600 },
-  planNotice: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, padding: '11px 12px', borderRadius: 14, background: '#F8FAFF', border: '1px solid #E0E7FF' },
-  planNoticeTitle: { display: 'block', color: 'var(--ink)', fontSize: 12, fontWeight: 900, lineHeight: 1.35 },
-  planNoticeCopy: { margin: '5px 0 0', color: 'var(--gray)', fontSize: 11, fontWeight: 700, lineHeight: 1.4 },
-  planNoticeMeter: { marginTop: 8, height: 6, width: 'min(240px, 100%)', borderRadius: 999, background: '#E5E7FF', overflow: 'hidden' },
-  planNoticeMeterFill: { display: 'block', height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--indigo), var(--purple))', transition: 'width .2s ease' },
-  planNoticeBadge: { flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 28, padding: '0 10px', borderRadius: 999, background: '#EEF2FF', color: 'var(--indigo)', fontSize: 11, fontWeight: 900 },
   composer: { display: 'flex', flexDirection: 'column', gap: 10, padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
   composerRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%' },
   composerInput: { flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: 'var(--ink)' },
