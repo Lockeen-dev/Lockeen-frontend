@@ -1,4 +1,24 @@
-import { getOrigin, getStripe, json, requireAuthenticatedUser } from './_billing-utils.js';
+import { getOrigin, getStripe, getSupabaseAdmin, json, requireAuthenticatedUser } from './_billing-utils.js';
+
+async function getFreshBillingMetadata(userId) {
+  const admin = getSupabaseAdmin();
+  if (!admin) {
+    return {
+      data: null,
+      error: { code: 'SUPABASE_ADMIN_CONFIG_MISSING', message: 'Supabase admin config is required for billing portal access.' },
+    };
+  }
+
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  if (error || !data?.user?.id) {
+    return {
+      data: null,
+      error: { code: 'USER_LOOKUP_FAILED', message: error?.message || 'Unable to load billing profile.' },
+    };
+  }
+
+  return { data: data.user.app_metadata || {}, error: null };
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -19,7 +39,12 @@ export default async function handler(req, res) {
   }
 
   const user = authResult.data.user;
-  const customerId = user.app_metadata?.stripe_customer_id;
+  const metadataResult = await getFreshBillingMetadata(user.id);
+  if (metadataResult.error) {
+    return json(res, 503, { error: metadataResult.error });
+  }
+
+  const customerId = metadataResult.data.stripe_customer_id || user.app_metadata?.stripe_customer_id;
 
   if (!customerId) {
     return json(res, 409, {
@@ -30,7 +55,7 @@ export default async function handler(req, res) {
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${getOrigin(req)}/?billing=return`,
+      return_url: `${getOrigin(req)}/app?view=account`,
     });
 
     return json(res, 200, { url: session.url });

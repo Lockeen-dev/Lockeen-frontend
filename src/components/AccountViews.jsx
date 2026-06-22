@@ -208,7 +208,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
           <div style={accountS.usageHint}>{usageCopy.hint}</div>
         </div>
         <div style={accountS.card}>
-          <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={freePlan ? copy.planHistorySubFree : copy.planHistorySubPro} action={<button onClick={handleManageBilling} disabled={saving === 'portal'} style={saving === 'portal' ? accountS.disabledBtn : accountS.softBtn}>{saving === 'portal' ? copy.openingPortal : copy.manage}</button>} />
+          <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={freePlan ? copy.planHistorySubFree : copy.planHistorySubPro} action={<button onClick={freePlan ? handleUpgrade : handleManageBilling} disabled={saving === 'checkout' || saving === 'portal'} style={saving === 'checkout' || saving === 'portal' ? accountS.disabledBtn : accountS.softBtn}>{saving === 'checkout' ? copy.openingCheckout : saving === 'portal' ? copy.openingPortal : (freePlan ? copy.upgradeToPro : copy.manage)}</button>} />
         </div>
       </section>
 
@@ -217,7 +217,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         <div style={accountS.card}>
           <Row icon={<FileText size={18} />} title={copy.payments} sub={copy.paymentsSub} action={<ChevronDown size={18} color="var(--gray)" />} />
           <div style={accountS.divider} />
-          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={freePlan ? copy.billingMethodSubFree : copy.billingMethodSubPro} action={<button onClick={handleManageBilling} disabled={saving === 'portal'} style={saving === 'portal' ? accountS.disabledBtn : accountS.ghostBtn}>{saving === 'portal' ? copy.openingPortal : copy.manage}</button>} />
+          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={freePlan ? copy.billingMethodSubFree : copy.billingMethodSubPro} action={<button onClick={freePlan ? handleUpgrade : handleManageBilling} disabled={saving === 'checkout' || saving === 'portal'} style={saving === 'checkout' || saving === 'portal' ? accountS.disabledBtn : accountS.ghostBtn}>{saving === 'checkout' ? copy.openingCheckout : saving === 'portal' ? copy.openingPortal : (freePlan ? copy.upgradeToPro : copy.manage)}</button>} />
         </div>
       </section>
 
