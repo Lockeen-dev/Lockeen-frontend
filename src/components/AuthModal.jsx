@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowRight, Eye, EyeOff, Google } from '../lib/icons';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,6 +22,15 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
   const [notice, setNotice] = useState(null);
   const [focusedField, setFocusedField] = useState(null);
   const [modeKey, setModeKey] = useState(0);
+
+  useEffect(() => {
+    setMode(initialMode);
+    setError(null);
+    setNotice(null);
+    setPassword('');
+    setConfirmPassword('');
+    setModeKey(k => k + 1);
+  }, [initialMode]);
 
   const submit = async (e) => {
     e.preventDefault();

@@ -1,16 +1,67 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
-import { ChevronDown, Coins, EyeOff, FileText, LogOut, MsgCircle, Trophy } from '../lib/icons';
+import { ChevronDown, Coins, EyeOff, FileText, LogOut, MsgCircle, Pencil, Trash2, Trophy } from '../lib/icons';
 import { LANG_OPTIONS } from '../lib/i18n';
 import useIsMobile from '../lib/useIsMobile';
+import { useAuth } from '../context/AuthContext';
 import LanguageSelect from './LanguageSelect';
 
 function AccountView({ user, lang, onLangChange, onLogout }) {
   const isMobile = useIsMobile();
-  const email = user.email || 'alex@lockeen.com';
-  const initial = user.name?.[0]?.toUpperCase() || 'A';
+  const { requestPasswordReset, updateProfile } = useAuth();
+  const email = user?.email || '';
+  const initial = user?.name?.[0]?.toUpperCase() || 'A';
   const accountLang = LANG_OPTIONS.find(l => l.value === lang) || LANG_OPTIONS[0];
   const copy = accountCopy[lang] || accountCopy.en;
+  const [name, setName] = useState(user?.name || '');
+  const [timezone, setTimezone] = useState(user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome');
+  const [saving, setSaving] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const deviceLabel = getCurrentDeviceLabel();
+
+  useEffect(() => {
+    setName(user?.name || '');
+    setTimezone(user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome');
+  }, [user?.email, user?.name, user?.timezone]);
+
+  const showNotice = (type, text) => {
+    setNotice({ type, text });
+    window.setTimeout(() => setNotice((current) => current?.text === text ? null : current), 4500);
+  };
+
+  const handleProfileSave = async () => {
+    setSaving('profile');
+    const result = await updateProfile({ name, language: lang, timezone });
+    setSaving(null);
+    if (result.error) {
+      showNotice('error', formatAccountError(result.error, copy));
+      return;
+    }
+    showNotice('success', copy.profileSaved);
+  };
+
+  const handleLanguageChange = async (nextLang) => {
+    onLangChange(nextLang);
+    setSaving('language');
+    const result = await updateProfile({ name, language: nextLang, timezone });
+    setSaving(null);
+    if (result.error) {
+      showNotice('error', formatAccountError(result.error, copy));
+      return;
+    }
+    showNotice('success', (accountCopy[nextLang] || accountCopy.en).languageSaved);
+  };
+
+  const handlePasswordReset = async () => {
+    setSaving('password');
+    const result = await requestPasswordReset({ email });
+    setSaving(null);
+    if (result.error) {
+      showNotice('error', formatAccountError(result.error, copy));
+      return;
+    }
+    showNotice('success', copy.passwordResetSent);
+  };
 
   const Row = ({ icon, title, sub, action, danger }) => (
     <div style={accountS.row}>
@@ -34,6 +85,12 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         <button onClick={onLogout} style={accountS.logoutTop}><LogOut size={15} /> {copy.logout}</button>
       </div>
 
+      {notice && (
+        <div style={{ ...accountS.notice, ...(notice.type === 'error' ? accountS.noticeError : accountS.noticeSuccess) }}>
+          {notice.text}
+        </div>
+      )}
+
       <section style={accountS.section}>
         <h3 style={accountS.sectionTitle}>{copy.plan}</h3>
         <div style={accountS.planCard}>
@@ -42,10 +99,10 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
             <h4 style={accountS.planTitle}>Lockeen Free</h4>
             <p style={accountS.planText}>{copy.freePlanText}</p>
           </div>
-          <button style={accountS.primaryBtn}>{copy.upgradeToPro}</button>
+          <button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.primaryBtn}>{copy.upgradeToPro}</button>
         </div>
         <div style={accountS.card}>
-          <Row icon={<Trophy size={18} />} title={copy.lastPlan} sub={copy.lastPlanSub} action={<button style={accountS.softBtn}>{copy.reactivate}</button>} />
+          <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={copy.planHistorySub} action={<button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.softBtn}>{copy.manage}</button>} />
         </div>
       </section>
 
@@ -54,16 +111,40 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         <div style={accountS.card}>
           <Row icon={<FileText size={18} />} title={copy.payments} sub={copy.paymentsSub} action={<ChevronDown size={18} color="var(--gray)" />} />
           <div style={accountS.divider} />
-          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={copy.billingMethodSub} action={<button style={accountS.ghostBtn}>{copy.manage}</button>} />
+          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={copy.billingMethodSub} action={<button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.ghostBtn}>{copy.manage}</button>} />
         </div>
       </section>
 
       <section style={accountS.section}>
         <h3 style={accountS.sectionTitle}>{copy.profile}</h3>
         <div style={accountS.card}>
-          <Row icon={<MsgCircle size={18} />} title={copy.email} sub={email} />
+          <div style={accountS.editBlock}>
+            <div style={accountS.rowIcon}><Pencil size={18} /></div>
+            <div style={accountS.formGrid}>
+              <label style={accountS.label}>
+                {copy.name}
+                <input value={name} onChange={(event) => setName(event.target.value)} style={accountS.input} />
+              </label>
+              <label style={accountS.label}>
+                {copy.detectedTimezone}
+                <div style={accountS.readOnlyPill}>{formatTimezoneLabel(timezone)}</div>
+              </label>
+            </div>
+            <button onClick={handleProfileSave} disabled={saving === 'profile'} style={accountS.primaryBtn}>
+              {saving === 'profile' ? copy.saving : copy.save}
+            </button>
+          </div>
           <div style={accountS.divider} />
-          <Row icon={<EyeOff size={18} />} title={copy.password} sub={copy.passwordSub} action={<button style={accountS.disabledBtn}>{copy.edit}</button>} />
+          <div style={accountS.editBlock}>
+            <div style={accountS.rowIcon}><MsgCircle size={18} /></div>
+            <div style={{ flex:1, minWidth:220 }}>
+              <div style={accountS.rowTitle}>{copy.email}</div>
+              <div style={accountS.rowSub}>{email || copy.emailUnavailable}</div>
+            </div>
+            <button onClick={() => showNotice('success', copy.emailChangeLater)} style={accountS.ghostBtn}>{copy.changeLater}</button>
+          </div>
+          <div style={accountS.divider} />
+          <Row icon={<EyeOff size={18} />} title={copy.password} sub={copy.passwordSub} action={<button onClick={handlePasswordReset} disabled={saving === 'password' || !email} style={saving === 'password' || !email ? accountS.disabledBtn : accountS.ghostBtn}>{saving === 'password' ? copy.sending : copy.sendReset}</button>} />
         </div>
       </section>
 
@@ -71,20 +152,15 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         <h3 style={accountS.sectionTitle}>{copy.activeDevices}</h3>
         <div style={accountS.card}>
           <div style={{ marginBottom:12 }}>
-            <div style={accountS.rowTitle}>{copy.activeDevicesCount}</div>
+            <div style={accountS.rowTitle}>{copy.activeDevicesTitle}</div>
             <div style={accountS.rowSub}>{copy.activeDevicesSub}</div>
           </div>
-          {copy.devices.map((device, i) => (
-            <React.Fragment key={device}>
-              {i > 0 && <div style={accountS.divider} />}
-              <Row
-                icon={<span style={{ width:10, height:10, borderRadius:999, background:i === 0 ? '#10B981' : '#CBD5E1', display:'block' }} />}
-                title={device}
-                sub={i === 0 ? copy.currentDeviceSub : copy.otherDeviceSub}
-                action={<button style={i === 0 ? accountS.currentBtn : accountS.dangerBtn}>{i === 0 ? copy.current : copy.logout}</button>}
-              />
-            </React.Fragment>
-          ))}
+          <Row
+            icon={<span style={{ width:10, height:10, borderRadius:999, background:'#10B981', display:'block' }} />}
+            title={deviceLabel}
+            sub={copy.currentDeviceSub}
+            action={<button style={accountS.currentBtn}>{copy.current}</button>}
+          />
         </div>
       </section>
 
@@ -95,12 +171,55 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
             icon={<span style={{ fontSize:20 }}>{accountLang.flag}</span>}
             title={`${accountLang.flag} ${accountLang.label}`}
             sub={copy.languageSub}
-            action={<LanguageSelect lang={lang} onChange={onLangChange} compact />}
+            action={<LanguageSelect lang={lang} onChange={handleLanguageChange} compact />}
+          />
+        </div>
+      </section>
+
+      <section style={accountS.section}>
+        <h3 style={accountS.sectionTitle}>{copy.dangerZone}</h3>
+        <div style={accountS.card}>
+          <Row
+            icon={<Trash2 size={18} />}
+            title={copy.deleteAccount}
+            sub={copy.deleteAccountSub}
+            action={<button onClick={() => showNotice('error', copy.deleteAccountSoon)} style={accountS.dangerBtn}>{copy.requestDeletion}</button>}
           />
         </div>
       </section>
     </div>
   );
+}
+
+function getCurrentDeviceLabel() {
+  if (typeof navigator === 'undefined') return 'Current browser';
+  const platform = navigator.platform || 'Browser';
+  const userAgent = navigator.userAgent || '';
+  const browser = userAgent.includes('Chrome') ? 'Chrome' : userAgent.includes('Safari') ? 'Safari' : userAgent.includes('Firefox') ? 'Firefox' : 'Browser';
+  return `${platform}, ${browser}`;
+}
+
+function formatTimezoneLabel(timezone) {
+  const now = new Date();
+  const label = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local timezone';
+  try {
+    const offset = new Intl.DateTimeFormat('en', {
+      timeZone: label,
+      timeZoneName: 'shortOffset',
+    }).formatToParts(now).find((part) => part.type === 'timeZoneName')?.value;
+    return offset ? `${label} (${offset})` : label;
+  } catch {
+    return label;
+  }
+}
+
+function formatAccountError(error, copy) {
+  const code = String(error?.code || '').toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+  if (code.includes('rate') || message.includes('rate limit')) {
+    return copy.emailRateLimit;
+  }
+  return error?.message || copy.saveError;
 }
 
 const accountCopy = {
@@ -112,8 +231,8 @@ const accountCopy = {
     freeMode: 'Free mode',
     freePlanText: '1 active document, limited quizzes, basic flashcards.',
     upgradeToPro: 'Upgrade to Pro',
-    lastPlan: 'Last plan',
-    lastPlanSub: 'Pro Monthly · ended 6 Sep 2025',
+    planHistory: 'Plan history',
+    planHistorySub: 'Billing history will appear here after Stripe is connected.',
     reactivate: 'Reactivate',
     bills: 'Bills',
     payments: 'Payments',
@@ -122,19 +241,38 @@ const accountCopy = {
     billingMethodSub: 'No active payment method on Free plan',
     manage: 'Manage',
     profile: 'Profile',
+    name: 'Name',
+    timezone: 'Timezone',
+    detectedTimezone: 'Detected timezone',
     email: 'Email',
+    emailUnavailable: 'No email available',
     password: 'Password',
-    passwordSub: 'Signed up with Google. Password edit disabled.',
+    passwordSub: 'Send a secure reset link to change your password.',
     edit: 'Edit',
+    save: 'Save',
+    saving: 'Saving...',
+    sending: 'Sending...',
+    profileSaved: 'Profile updated.',
+    languageSaved: 'Language updated.',
+    passwordResetSent: 'Password reset email sent.',
+    saveError: 'Could not save this setting. Please try again.',
+    emailRateLimit: 'A reset email was already sent. Please wait a few minutes before requesting another one.',
+    sendReset: 'Send reset',
+    changeLater: 'Change later',
+    emailChangeLater: 'Email changes will be enabled after the confirmation flow is fully verified.',
     activeDevices: 'Active devices',
-    activeDevicesCount: 'Active devices: 2/2',
-    activeDevicesSub: 'You can use Lockeen on up to 2 devices at the same time.',
-    devices: ['Mac, macOS, Safari', 'iPhone, iOS, Safari'],
-    currentDeviceSub: 'Last access: today · current device',
-    otherDeviceSub: 'Last access: 17 May 2026',
+    activeDevicesTitle: 'Current session',
+    activeDevicesSub: 'Device management will be connected after account security settings are expanded.',
+    currentDeviceSub: 'Current browser session',
     current: 'Current',
     language: 'Language',
     languageSub: 'This setting changes the Lockeen interface language.',
+    billingSoon: 'Billing is coming with Stripe. Nothing was charged.',
+    dangerZone: 'Danger zone',
+    deleteAccount: 'Delete account',
+    deleteAccountSub: 'Account deletion will be enabled after the data deletion workflow is connected.',
+    deleteAccountSoon: 'Delete account is not enabled yet. No data was changed.',
+    requestDeletion: 'Request deletion',
   },
   it: {
     account: 'Account',
@@ -144,8 +282,8 @@ const accountCopy = {
     freeMode: 'Modalità free',
     freePlanText: '1 documento attivo, quiz limitati, flashcard base.',
     upgradeToPro: 'Passa a Pro',
-    lastPlan: 'Ultimo piano',
-    lastPlanSub: 'Pro Monthly · terminato il 6 set 2025',
+    planHistory: 'Storico piano',
+    planHistorySub: 'Lo storico billing apparirà qui quando Stripe sarà collegato.',
     reactivate: 'Riattiva',
     bills: 'Fatture',
     payments: 'Pagamenti',
@@ -154,19 +292,38 @@ const accountCopy = {
     billingMethodSub: 'Nessun metodo di pagamento attivo sul piano Free',
     manage: 'Gestisci',
     profile: 'Profilo',
+    name: 'Nome',
+    timezone: 'Fuso orario',
+    detectedTimezone: 'Fuso rilevato',
     email: 'Email',
+    emailUnavailable: 'Email non disponibile',
     password: 'Password',
-    passwordSub: 'Accesso con Google. Modifica password disabilitata.',
+    passwordSub: 'Invia un link sicuro per cambiare la password.',
     edit: 'Modifica',
+    save: 'Salva',
+    saving: 'Salvataggio...',
+    sending: 'Invio...',
+    profileSaved: 'Profilo aggiornato.',
+    languageSaved: 'Lingua aggiornata.',
+    passwordResetSent: 'Email per reimpostare la password inviata.',
+    saveError: 'Impossibile salvare questa impostazione. Riprova.',
+    emailRateLimit: 'Hai già richiesto una mail di reset. Aspetta qualche minuto prima di richiederne un’altra.',
+    sendReset: 'Invia reset',
+    changeLater: 'Più avanti',
+    emailChangeLater: 'Il cambio email verrà attivato quando il flusso di conferma sarà verificato completamente.',
     activeDevices: 'Dispositivi attivi',
-    activeDevicesCount: 'Dispositivi attivi: 2/2',
-    activeDevicesSub: 'Puoi usare Lockeen su massimo 2 dispositivi insieme.',
-    devices: ['Mac, macOS, Safari', 'iPhone, iOS, Safari'],
-    currentDeviceSub: 'Ultimo accesso: oggi · dispositivo corrente',
-    otherDeviceSub: 'Ultimo accesso: 17 mag 2026',
+    activeDevicesTitle: 'Sessione corrente',
+    activeDevicesSub: 'La gestione dispositivi verrà collegata quando espandiamo la sicurezza account.',
+    currentDeviceSub: 'Sessione browser corrente',
     current: 'Corrente',
     language: 'Lingua',
     languageSub: 'Questa impostazione cambia la lingua dell’interfaccia Lockeen.',
+    billingSoon: 'Il billing arriva con Stripe. Non è stato addebitato nulla.',
+    dangerZone: 'Zona pericolosa',
+    deleteAccount: 'Elimina account',
+    deleteAccountSub: 'La cancellazione account verrà attivata quando il workflow di eliminazione dati sarà collegato.',
+    deleteAccountSoon: 'Elimina account non è ancora attivo. Nessun dato è stato modificato.',
+    requestDeletion: 'Richiedi eliminazione',
   },
 };
 
@@ -177,6 +334,9 @@ const accountS = {
   title: { margin:0, fontSize:26, fontWeight:800, color:'var(--ink)', letterSpacing:'-.03em' },
   sub: { margin:'4px 0 0', fontSize:14, color:'var(--gray)', lineHeight:1.5 },
   logoutTop: { display:'inline-flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:12, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:13, cursor:'pointer' },
+  notice: { padding:'12px 14px', borderRadius:14, fontSize:13, fontWeight:800, border:'1px solid transparent' },
+  noticeSuccess: { background:'#ECFDF5', color:'#047857', borderColor:'#A7F3D0' },
+  noticeError: { background:'#FEF2F2', color:'#B91C1C', borderColor:'#FECACA' },
   section: { display:'flex', flexDirection:'column', gap:10 },
   sectionTitle: { margin:0, fontSize:18, fontWeight:800, color:'var(--ink)', letterSpacing:'-.02em' },
   card: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, overflow:'hidden', boxShadow:'0 12px 30px -26px rgba(15,16,53,.35)' },
@@ -188,6 +348,11 @@ const accountS = {
   rowIcon: { width:34, height:34, borderRadius:12, background:'var(--sidebar-bg)', color:'var(--indigo)', display:'grid', placeItems:'center', flexShrink:0 },
   rowTitle: { fontSize:14, fontWeight:800, color:'var(--ink)' },
   rowSub: { fontSize:12, color:'var(--gray)', marginTop:2, lineHeight:1.45 },
+  editBlock: { display:'flex', alignItems:'flex-end', gap:12, padding:'15px 18px', flexWrap:'wrap' },
+  formGrid: { flex:1, minWidth:240, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px, 1fr))', gap:12 },
+  label: { display:'flex', flexDirection:'column', gap:7, fontSize:12, fontWeight:800, color:'var(--gray)' },
+  input: { width:'100%', minHeight:42, border:'1px solid var(--border)', borderRadius:12, padding:'0 12px', background:'var(--surface)', color:'var(--ink)', fontSize:14, fontWeight:800, outline:'none' },
+  readOnlyPill: { minHeight:42, border:'1px solid var(--border)', borderRadius:12, padding:'0 12px', background:'var(--sidebar-bg)', color:'var(--ink)', fontSize:14, fontWeight:800, display:'flex', alignItems:'center' },
   divider: { height:1, background:'var(--border)' },
   primaryBtn: { padding:'11px 16px', borderRadius:12, border:'none', background:'var(--indigo)', color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer' },
   softBtn: { padding:'9px 13px', borderRadius:10, border:'none', background:'#FEF3C7', color:'#92400E', fontWeight:800, fontSize:12, cursor:'pointer' },

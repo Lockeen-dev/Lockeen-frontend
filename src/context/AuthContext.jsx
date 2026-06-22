@@ -7,7 +7,9 @@ import {
   signInWithGoogle as signInWithGoogleService,
   signOut as signOutService,
   signUp as signUpService,
+  updateEmail as updateEmailService,
   updatePassword as updatePasswordService,
+  updateProfile as updateProfileService,
 } from '../services/auth';
 
 const AuthContext = createContext(null);
@@ -155,6 +157,52 @@ export function AuthProvider({ children }) {
 
   const requestPasswordReset = useCallback(async (input) => requestPasswordResetService(input), []);
 
+  const updateProfile = useCallback(async (input) => {
+    const result = await updateProfileService(input);
+
+    if (result.error) {
+      setState((current) => ({
+        ...current,
+        status: current.user ? 'authenticated' : 'anonymous',
+        error: result.error,
+        authEvent: null,
+      }));
+      return result;
+    }
+
+    setState({
+      user: result.data.user,
+      status: result.data.status,
+      error: null,
+      authEvent: null,
+    });
+
+    return result;
+  }, []);
+
+  const updateEmail = useCallback(async (input) => {
+    const result = await updateEmailService(input);
+
+    if (result.error) {
+      setState((current) => ({
+        ...current,
+        status: current.user ? 'authenticated' : 'anonymous',
+        error: result.error,
+        authEvent: null,
+      }));
+      return result;
+    }
+
+    setState({
+      user: result.data.user,
+      status: result.data.status,
+      error: null,
+      authEvent: null,
+    });
+
+    return result;
+  }, []);
+
   const updatePassword = useCallback(async (input) => {
     setState((current) => ({
       ...current,
@@ -220,10 +268,12 @@ export function AuthProvider({ children }) {
       signInWithGoogle,
       signUp,
       signOut,
+      updateEmail,
       updatePassword,
+      updateProfile,
       refreshSession,
     }),
-    [refreshSession, requestPasswordReset, signIn, signInWithGoogle, signOut, signUp, state.authEvent, state.error, state.status, state.user, updatePassword],
+    [refreshSession, requestPasswordReset, signIn, signInWithGoogle, signOut, signUp, state.authEvent, state.error, state.status, state.user, updateEmail, updatePassword, updateProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
