@@ -381,12 +381,20 @@ export async function updatePassword(input = {}) {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
 
-    const recoverySession = await ensurePasswordRecoverySession();
+    const recoverySession = await withTimeout(
+      ensurePasswordRecoverySession(),
+      7000,
+      fail('Password reset session timed out. Request a new reset email and try again.', 'RECOVERY_SESSION_TIMEOUT'),
+    );
     if (recoverySession.error) return recoverySession;
 
-    const { data, error } = await supabase.auth.updateUser({
-      password: input.password,
-    });
+    const { data, error } = await withTimeout(
+      supabase.auth.updateUser({
+        password: input.password,
+      }),
+      7000,
+      { data: null, error: { message: 'Password update timed out. Please try again.', code: 'PASSWORD_UPDATE_TIMEOUT' } },
+    );
 
     if (error) return fail(error.message, error.code || 'PASSWORD_UPDATE_FAILED');
 
