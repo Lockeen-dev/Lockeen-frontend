@@ -120,10 +120,6 @@ function AuthShell() {
 
     if (isRecoveryLink) {
       setModal('reset');
-      searchParams.delete('auth');
-      const nextSearch = searchParams.toString();
-      const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`;
-      window.history.replaceState({}, '', nextUrl);
     }
   }, []);
 

@@ -74,6 +74,9 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
         setError(formatAuthError(result.error, 'reset-update'));
         return;
       }
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', window.location.pathname || '/');
+      }
       setNotice('Password updated. Signing you in...');
       onAuth && onAuth(result.data.user);
       return;

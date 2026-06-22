@@ -88,6 +88,43 @@ function requireSupabaseAuthMode() {
   return null;
 }
 
+async function ensurePasswordRecoverySession() {
+  const { data: currentSession } = await supabase.auth.getSession();
+  if (currentSession?.session?.access_token) {
+    return ok(currentSession.session);
+  }
+
+  if (typeof window === 'undefined') {
+    return fail('Auth session missing. Request a new password reset email and open the latest link.', 'RECOVERY_SESSION_MISSING');
+  }
+
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get('code');
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      return fail(error.message, error.code || 'RECOVERY_SESSION_FAILED');
+    }
+    if (data?.session?.access_token) return ok(data.session);
+  }
+
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+  if (accessToken && refreshToken) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error) {
+      return fail(error.message, error.code || 'RECOVERY_SESSION_FAILED');
+    }
+    if (data?.session?.access_token) return ok(data.session);
+  }
+
+  return fail('Auth session missing. Request a new password reset email and open the latest link.', 'RECOVERY_SESSION_MISSING');
+}
+
 export async function restoreSession() {
   if (!isMockAuthMode()) {
     const modeError = requireSupabaseAuthMode();
@@ -343,6 +380,9 @@ export async function updatePassword(input = {}) {
   if (!isMockAuthMode()) {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
+
+    const recoverySession = await ensurePasswordRecoverySession();
+    if (recoverySession.error) return recoverySession;
 
     const { data, error } = await supabase.auth.updateUser({
       password: input.password,
