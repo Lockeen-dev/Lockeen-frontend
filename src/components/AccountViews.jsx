@@ -200,7 +200,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
             <div style={accountS.usageBadge}>{freePlan ? copy.freeMode : copy.proMode}</div>
           </div>
           <div style={accountS.usageGrid}>
-            <PlanLimitItem label={copy.limitDocuments} value={`${formatLimit(planLimits.activeDocuments, copy.unlimited)} ${copy.limitDocumentsUnit}`} />
+            <PlanLimitItem label={copy.limitDocuments} value={`${formatLimit(planLimits.activeDocuments, copy.unlimited)} ${freePlan ? copy.limitDocumentsUnitFree : copy.limitDocumentsUnit}`} />
             <PlanLimitItem label={copy.limitQuiz} value={`${formatLimit(planLimits.quizGenerationsPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
             <PlanLimitItem label={copy.limitFlashcards} value={`${formatLimit(planLimits.flashcardGenerationsPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
             <PlanLimitItem label={copy.limitTutor} value={aiTutorLimitValue} />
@@ -385,6 +385,7 @@ const accountCopy = {
     limitTutor: 'AI Tutor messages',
     limitTutorRemaining: '{remaining} / {count} left',
     limitDocumentsUnit: 'active',
+    limitDocumentsUnitFree: 'trial',
     limitMonthlyUnit: '/ month',
     planHistory: 'Plan history',
     planHistorySubFree: 'Billing history appears after your first Pro subscription.',
@@ -469,6 +470,7 @@ const accountCopy = {
     limitTutor: 'Messaggi AI Tutor',
     limitTutorRemaining: '{remaining} / {count} rimasti',
     limitDocumentsUnit: 'attivo',
+    limitDocumentsUnitFree: 'di prova',
     limitMonthlyUnit: '/ mese',
     planHistory: 'Storico piano',
     planHistorySubFree: 'Lo storico billing appare dopo il primo abbonamento Pro.',

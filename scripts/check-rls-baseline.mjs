@@ -119,6 +119,11 @@ const expectedTables = [
     operations: ['select'],
   },
   {
+    table: 'user_plan_usage',
+    ownerColumn: 'user_id',
+    operations: ['select'],
+  },
+  {
     table: 'study_plans',
     ownerColumn: 'user_id',
     operations: ['select', 'insert', 'update', 'delete'],
@@ -159,6 +164,10 @@ const functionChecks = [
   'revoke all on function public.increment_ai_usage(uuid, date, integer) from anon',
   'revoke all on function public.increment_ai_usage(uuid, date, integer) from authenticated',
   'grant execute on function public.increment_ai_usage(uuid, date, integer)',
+  'function private.enforce_free_document_trial',
+  'trigger enforce_free_document_trial',
+  'documents_uploaded_total',
+  'free trial document already used',
 ];
 
 function readMigrations() {

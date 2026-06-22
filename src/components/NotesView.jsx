@@ -7,7 +7,7 @@ import { getExamEmoji, getExamPalette, getNextExamPalette } from '../lib/examUi'
 import { getPlanLimits, isFreePlan } from '../lib/planLimits';
 import useIsMobile from '../lib/useIsMobile';
 import { createChapter, createExam, deleteChapter, deleteExam, listExams, updateChapter, updateExam } from '../services/exams';
-import { createMaterial, deleteMaterial, extractTextFromFile, getMaterialDownloadUrl, getMaterialProcessingLabel, listMaterials, requestMaterialOcr, updateMaterial } from '../services/materials';
+import { createMaterial, deleteMaterial, extractTextFromFile, getMaterialDownloadUrl, getMaterialProcessingLabel, getMaterialTrialUsage, listMaterials, requestMaterialOcr, updateMaterial } from '../services/materials';
 import { createNote, deleteNote, listNotes, updateNote } from '../services/notes';
 import { createQuiz, deleteQuiz, listQuizzes } from '../services/quiz';
 import { createFlashcard, deleteFlashcard, listFlashcards } from '../services/flashcards';
@@ -499,14 +499,13 @@ function NotesView({ user, exams, lang = 'en', setExams, activeId, setActiveId, 
       const uploadFiles = Array.from(files || []).filter(Boolean);
       const activePlanLimits = getPlanLimits(user);
       if (isFreePlan(user) && Number.isFinite(activePlanLimits.activeDocuments) && uploadFiles.length) {
-        const materialsResult = await listMaterials();
-        if (materialsResult.error) throw new Error(formatStudyServiceError(materialsResult.error, 'Unable to check plan limits.'));
-        const activeMaterialCount = (materialsResult.data || []).length;
-        const remainingSlots = Math.max(0, activePlanLimits.activeDocuments - activeMaterialCount);
+        const usageResult = await getMaterialTrialUsage();
+        if (usageResult.error) throw new Error(formatStudyServiceError(usageResult.error, 'Unable to check plan limits.'));
+        const remainingSlots = Math.max(0, activePlanLimits.activeDocuments - (usageResult.data?.documentsUploadedTotal || 0));
         if (uploadFiles.length > remainingSlots) {
           throw new Error(lang === 'it'
-            ? `Il piano Free include ${activePlanLimits.activeDocuments} documento attivo. Passa a Pro per caricare altri materiali.`
-            : `Free includes ${activePlanLimits.activeDocuments} active document. Upgrade to Pro to upload more materials.`);
+            ? 'Hai già usato il documento gratuito. Passa a Pro per caricare altri materiali.'
+            : 'You already used your free document. Upgrade to Pro to upload more materials.');
         }
       }
       const safeFileCount = Number.isFinite(Number(fileCount)) ? Number(fileCount) : uploadFiles.length;
@@ -1923,6 +1922,7 @@ function ExamDetail({ user, exam, lang = 'en', onBack, onAddChapter, onEditChapt
   const [materialsLoading, setMaterialsLoading] = useState(true);
   const [materialsError, setMaterialsError] = useState(null);
   const [materials, setMaterials] = useState([]);
+  const [materialTrialUsage, setMaterialTrialUsage] = useState({ documentsUploadedTotal: 0, source: 'unknown' });
   const [practiceItems, setPracticeItems] = useState({ quizzes: [], flashcards: [], loading: true });
   const [failedPracticeMaterialIds, setFailedPracticeMaterialIds] = useState(() => new Set());
   const [materialUiMeta, setMaterialUiMeta] = useState(() => readMaterialUiMeta());
@@ -1941,11 +1941,12 @@ function ExamDetail({ user, exam, lang = 'en', onBack, onAddChapter, onEditChapt
   const freePlan = isFreePlan(user);
   const materialLimit = planLimits.activeDocuments;
   const hasMaterialLimit = Number.isFinite(materialLimit);
-  const materialLimitReached = freePlan && hasMaterialLimit && materials.length >= materialLimit;
-  const remainingMaterialSlots = hasMaterialLimit ? Math.max(0, materialLimit - materials.length) : Infinity;
+  const usedMaterialTrialCount = Math.max(Number(materialTrialUsage.documentsUploadedTotal || 0), materials.length);
+  const materialLimitReached = freePlan && hasMaterialLimit && usedMaterialTrialCount >= materialLimit;
+  const remainingMaterialSlots = hasMaterialLimit ? Math.max(0, materialLimit - usedMaterialTrialCount) : Infinity;
   const materialLimitMessage = lang === 'it'
-    ? `Il piano Free include ${materialLimit} documento attivo. Passa a Pro per caricare altri materiali.`
-    : `Free includes ${materialLimit} active document. Upgrade to Pro to upload more materials.`;
+    ? 'Hai già usato il documento gratuito. Passa a Pro per caricare altri materiali.'
+    : 'You already used your free document. Upgrade to Pro to upload more materials.';
   const materialStatsByChapter = materials.reduce((acc, material) => {
     if (!material.chapterId) return acc;
     const key = String(material.chapterId);
@@ -2053,11 +2054,12 @@ function ExamDetail({ user, exam, lang = 'en', onBack, onAddChapter, onEditChapt
       setNotesError(null);
       setMaterialsError(null);
       setPracticeItems((current) => ({ ...current, loading: true }));
-      const [notesResult, materialsResult, quizzesResult, flashcardsResult] = await Promise.all([
+      const [notesResult, materialsResult, quizzesResult, flashcardsResult, usageResult] = await Promise.all([
         listNotes({ examId: exam.id }),
         listMaterials({ examId: exam.id }),
         listQuizzes({ examId: exam.id }),
         listFlashcards({ examId: exam.id }),
+        getMaterialTrialUsage(),
       ]);
       if (cancelled) return;
       if (notesResult.error) {
@@ -2077,6 +2079,7 @@ function ExamDetail({ user, exam, lang = 'en', onBack, onAddChapter, onEditChapt
         flashcards: flashcardsResult.error ? [] : (flashcardsResult.data || []),
         loading: false,
       });
+      if (!usageResult.error) setMaterialTrialUsage(usageResult.data || { documentsUploadedTotal: 0, source: 'unknown' });
       setNotesLoading(false);
       setMaterialsLoading(false);
     }
@@ -2085,11 +2088,15 @@ function ExamDetail({ user, exam, lang = 'en', onBack, onAddChapter, onEditChapt
   }, [exam.id]);
 
   const reloadMaterials = async () => {
-    const result = await listMaterials({ examId: exam.id });
+    const [result, usageResult] = await Promise.all([
+      listMaterials({ examId: exam.id }),
+      getMaterialTrialUsage(),
+    ]);
     if (result.error) {
       setMaterialsError(formatStudyServiceError(result.error, 'Unable to load materials.'));
       return;
     }
+    if (!usageResult.error) setMaterialTrialUsage(usageResult.data || { documentsUploadedTotal: 0, source: 'unknown' });
     setMaterials((result.data || []).map((material) => ({ ...material, ...(materialUiMeta[material.id] || {}) })));
   };
 
@@ -2397,6 +2404,10 @@ function ExamDetail({ user, exam, lang = 'en', onBack, onAddChapter, onEditChapt
       runPracticeGeneration(material, { title: material.title || exam.name });
     }
     if (resolvedPageCount) rememberMaterialUiMeta([material]);
+    setMaterialTrialUsage((current) => ({
+      documentsUploadedTotal: Math.max(Number(current.documentsUploadedTotal || 0), usedMaterialTrialCount + 1),
+      source: current.source || 'local',
+    }));
     setMaterials((prev) => [material, ...prev]);
     setMaterialTitle('');
     setMaterialUrl('');
