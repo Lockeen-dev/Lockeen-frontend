@@ -497,6 +497,18 @@ function NotesView({ user, exams, lang = 'en', setExams, activeId, setActiveId, 
       };
       if (!activeId) throw new Error('Open an exam before adding a chapter.');
       const uploadFiles = Array.from(files || []).filter(Boolean);
+      const activePlanLimits = getPlanLimits(user);
+      if (isFreePlan(user) && Number.isFinite(activePlanLimits.activeDocuments) && uploadFiles.length) {
+        const materialsResult = await listMaterials();
+        if (materialsResult.error) throw new Error(formatStudyServiceError(materialsResult.error, 'Unable to check plan limits.'));
+        const activeMaterialCount = (materialsResult.data || []).length;
+        const remainingSlots = Math.max(0, activePlanLimits.activeDocuments - activeMaterialCount);
+        if (uploadFiles.length > remainingSlots) {
+          throw new Error(lang === 'it'
+            ? `Il piano Free include ${activePlanLimits.activeDocuments} documento attivo. Passa a Pro per caricare altri materiali.`
+            : `Free includes ${activePlanLimits.activeDocuments} active document. Upgrade to Pro to upload more materials.`);
+        }
+      }
       const safeFileCount = Number.isFinite(Number(fileCount)) ? Number(fileCount) : uploadFiles.length;
       const existingChapterId = chapterId == null || chapterId === '' ? null : chapterId;
       let targetChapter = existingChapterId
@@ -1930,9 +1942,10 @@ function ExamDetail({ user, exam, lang = 'en', onBack, onAddChapter, onEditChapt
   const materialLimit = planLimits.activeDocuments;
   const hasMaterialLimit = Number.isFinite(materialLimit);
   const materialLimitReached = freePlan && hasMaterialLimit && materials.length >= materialLimit;
+  const remainingMaterialSlots = hasMaterialLimit ? Math.max(0, materialLimit - materials.length) : Infinity;
   const materialLimitMessage = lang === 'it'
-    ? `Il piano Free include ${materialLimit} documento attivo. Passa a Pro quando colleghiamo Stripe per caricare altri materiali.`
-    : `Free includes ${materialLimit} active document. Upgrade to Pro once Stripe is connected to upload more materials.`;
+    ? `Il piano Free include ${materialLimit} documento attivo. Passa a Pro per caricare altri materiali.`
+    : `Free includes ${materialLimit} active document. Upgrade to Pro to upload more materials.`;
   const materialStatsByChapter = materials.reduce((acc, material) => {
     if (!material.chapterId) return acc;
     const key = String(material.chapterId);
@@ -2459,6 +2472,10 @@ function ExamDetail({ user, exam, lang = 'en', onBack, onAddChapter, onEditChapt
       const message = 'Open the chapter again before adding a document.';
       setMaterialsError(message);
       throw new Error(message);
+    }
+    if (freePlan && hasMaterialLimit && pickedFiles.length > remainingMaterialSlots) {
+      setMaterialsError(materialLimitMessage);
+      throw new Error(materialLimitMessage);
     }
     setMaterialsError(null);
     try {
