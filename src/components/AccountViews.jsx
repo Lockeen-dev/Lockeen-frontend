@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-import { ChevronDown, Coins, EyeOff, FileText, LogOut, MsgCircle, Pencil, Trash2, Trophy } from '../lib/icons';
+import { ChevronDown, Coins, EyeOff, FileText, LogOut, MsgCircle, Pencil, Trophy } from '../lib/icons';
 import { LANG_OPTIONS } from '../lib/i18n';
 import { formatLimit, getPlanLimits, getUserPlanTier, isFreePlan } from '../lib/planLimits';
 import useIsMobile from '../lib/useIsMobile';
@@ -282,17 +282,6 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         </div>
       </section>
 
-      <section style={accountS.section}>
-        <h3 style={accountS.sectionTitle}>{copy.dangerZone}</h3>
-        <div style={accountS.card}>
-          <Row
-            icon={<Trash2 size={18} />}
-            title={copy.deleteAccount}
-            sub={copy.deleteAccountSub}
-            action={<button onClick={() => showNotice('error', copy.deleteAccountSoon)} style={accountS.dangerBtn}>{copy.requestDeletion}</button>}
-          />
-        </div>
-      </section>
     </div>
   );
 }
@@ -435,11 +424,6 @@ const accountCopy = {
     checkoutSuccess: 'Payment completed. Pro status may take a moment to appear.',
     checkoutCancelled: 'Checkout cancelled. No payment was completed.',
     portalSoon: 'The billing portal will be enabled after the Stripe webhook is connected.',
-    dangerZone: 'Danger zone',
-    deleteAccount: 'Delete account',
-    deleteAccountSub: 'Account deletion will be enabled after the data deletion workflow is connected.',
-    deleteAccountSoon: 'Delete account is not enabled yet. No data was changed.',
-    requestDeletion: 'Request deletion',
   },
   it: {
     account: 'Account',
@@ -520,11 +504,6 @@ const accountCopy = {
     checkoutSuccess: 'Pagamento completato. Lo stato Pro può richiedere qualche momento per comparire.',
     checkoutCancelled: 'Checkout annullato. Nessun pagamento completato.',
     portalSoon: 'Il portale billing verrà attivato dopo il collegamento del webhook Stripe.',
-    dangerZone: 'Zona pericolosa',
-    deleteAccount: 'Elimina account',
-    deleteAccountSub: 'La cancellazione account verrà attivata quando il workflow di eliminazione dati sarà collegato.',
-    deleteAccountSoon: 'Elimina account non è ancora attivo. Nessun dato è stato modificato.',
-    requestDeletion: 'Richiedi eliminazione',
   },
 };
 
