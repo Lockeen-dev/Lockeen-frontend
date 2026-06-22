@@ -76,7 +76,7 @@ export function DashboardRoutes({
             : <FlashcardViewer {...flashcardDeck} setTab={setTab} darkMode={darkMode} exams={exams} onFlashComplete={onFlashComplete} onBackToLanding={() => setFlashLanding(true)} lang={lang} />
           )}
           {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} darkMode={darkMode} lang={lang} />}
-          {tab === 'tutor'     && <TutorView lang={lang} />}
+          {tab === 'tutor'     && <TutorView user={user} lang={lang} />}
           {tab === 'analytics' && <AnalyticsView weekData={weekData} studySessions={studySessions} calEvents={calEvents} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuizForExam={openQuizForExam} lang={lang} />}
           {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} exams={exams} onStudySessionsChanged={onStudySessionsChanged} lang={lang} />}
           {tab === 'earn'      && <EarnView lang={lang} />}

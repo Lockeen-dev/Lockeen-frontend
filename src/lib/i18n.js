@@ -126,6 +126,10 @@ export const UI_T = {
     fileLimit: 'You can attach up to {count} files.', imageTooLargeTutor: 'Image is too large to read inline in AI Tutor.',
     pdfTooLargeTutor: 'PDF is too large to read inline in AI Tutor.', pdfNoTextTutor: 'PDF has no selectable text. OCR is not available in AI Tutor yet.',
     unsupportedTutorFile: 'Unsupported file type for direct AI Tutor reading.',
+    freeModeShort: 'Free',
+    unlimited: 'Unlimited',
+    freeAiTutorLimitTitle: 'Free includes {count} AI Tutor messages per day.',
+    freeAiTutorLimitCopy: 'If the quota is reached, Lockeen will show the real provider limit and you can try again tomorrow.',
     contentLanguagePolicy: 'Practice content follows the uploaded material language. App controls follow your UI language.',
   },
   it: {
@@ -228,6 +232,10 @@ export const UI_T = {
     fileLimit: 'Puoi allegare massimo {count} file.', imageTooLargeTutor: 'Immagine troppo grande per essere letta direttamente dall’AI Tutor.',
     pdfTooLargeTutor: 'PDF troppo grande per essere letto direttamente dall’AI Tutor.', pdfNoTextTutor: 'Il PDF non contiene testo selezionabile. OCR non è ancora disponibile nell’AI Tutor.',
     unsupportedTutorFile: 'Tipo file non supportato per lettura diretta nell’AI Tutor.',
+    freeModeShort: 'Free',
+    unlimited: 'Illimitato',
+    freeAiTutorLimitTitle: 'Il piano Free include {count} messaggi AI Tutor al giorno.',
+    freeAiTutorLimitCopy: 'Se raggiungi la quota, Lockeen mostrerà il limite reale del provider e potrai riprovare domani.',
     contentLanguagePolicy: 'I contenuti di quiz e flashcard seguono la lingua del materiale caricato. I comandi seguono la lingua dell’app.',
   },
 };

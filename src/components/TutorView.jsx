@@ -5,6 +5,7 @@ import { askTutor } from '../services/ai';
 import { extractTextFromFile } from '../services/materials';
 import { createTutorSession, deleteTutorSession, listTutorSessions, updateTutorSession } from '../services/tutorSessions';
 import { tt } from '../lib/i18n';
+import { formatLimit, getPlanLimits, isFreePlan } from '../lib/planLimits';
 
 /* ===================== AI TUTOR ===================== */
 const UNTITLED_SESSION_TITLES = new Set(['New conversation', 'Nuova conversazione']);
@@ -359,8 +360,11 @@ function MarkdownMessage({ text }) {
   );
 }
 
-export default function TutorView({ lang = 'en' }) {
+export default function TutorView({ user, lang = 'en' }) {
   const isMobile = useIsMobile();
+  const planLimits = getPlanLimits(user);
+  const freePlan = isFreePlan(user);
+  const dailyTutorLimit = formatLimit(planLimits.aiTutorMessagesPerDay, tt(lang, 'unlimited'));
   const [sessions, setSessions] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [msgs, setMsgs] = useState(() => initialTutorMsgs(lang));
@@ -693,6 +697,16 @@ export default function TutorView({ lang = 'en' }) {
           )}
         </div>
 
+        {freePlan && (
+          <div style={tutorS.planNotice}>
+            <div>
+              <strong style={tutorS.planNoticeTitle}>{tt(lang, 'freeAiTutorLimitTitle', { count: dailyTutorLimit })}</strong>
+              <p style={tutorS.planNoticeCopy}>{tt(lang, 'freeAiTutorLimitCopy')}</p>
+            </div>
+            <span style={tutorS.planNoticeBadge}>{tt(lang, 'freeModeShort')}</span>
+          </div>
+        )}
+
         <div ref={endRef} style={tutorS.thread}>
           {msgs.map((m, i) => {
             const isNew = i >= msgs.length - 1;
@@ -853,6 +867,10 @@ const tutorS = {
   suggestRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' },
   suggestChip: { padding: '8px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12 },
   errorBox: { marginBottom: 8, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600 },
+  planNotice: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, padding: '11px 12px', borderRadius: 14, background: '#FFF7ED', border: '1px solid #FED7AA' },
+  planNoticeTitle: { display: 'block', color: '#9A3412', fontSize: 12, fontWeight: 900, lineHeight: 1.35 },
+  planNoticeCopy: { margin: '2px 0 0', color: '#9A3412', opacity: .82, fontSize: 11, fontWeight: 700, lineHeight: 1.4 },
+  planNoticeBadge: { flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 28, padding: '0 10px', borderRadius: 999, background: '#FFEDD5', color: '#9A3412', fontSize: 11, fontWeight: 900 },
   composer: { display: 'flex', flexDirection: 'column', gap: 10, padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
   composerRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%' },
   composerInput: { flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: 'var(--ink)' },
