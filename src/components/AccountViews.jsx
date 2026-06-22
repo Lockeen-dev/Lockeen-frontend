@@ -105,11 +105,22 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
           </div>
           <button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.primaryBtn}>{freePlan ? copy.upgradeToPro : copy.managePlan}</button>
         </div>
-        <div style={accountS.limitGrid}>
-          <PlanLimitItem label={copy.limitDocuments} value={formatLimit(planLimits.activeDocuments)} />
-          <PlanLimitItem label={copy.limitQuiz} value={formatLimit(planLimits.quizGenerationsPerMonth)} />
-          <PlanLimitItem label={copy.limitFlashcards} value={formatLimit(planLimits.flashcardGenerationsPerMonth)} />
-          <PlanLimitItem label={copy.limitTutor} value={formatLimit(planLimits.aiTutorMessagesPerDay)} />
+        <div style={accountS.usageCard}>
+          <div style={accountS.usageHeader}>
+            <div>
+              <div style={accountS.usageEyebrow}>{copy.currentPlan}</div>
+              <h4 style={accountS.usageTitle}>{copy.usageTitle}</h4>
+              <p style={accountS.usageSub}>{copy.usageSub}</p>
+            </div>
+            <div style={accountS.usageBadge}>{freePlan ? copy.freeMode : copy.proMode}</div>
+          </div>
+          <div style={accountS.usageGrid}>
+            <PlanLimitItem label={copy.limitDocuments} value={`${formatLimit(planLimits.activeDocuments, copy.unlimited)} ${copy.limitDocumentsUnit}`} />
+            <PlanLimitItem label={copy.limitQuiz} value={`${formatLimit(planLimits.quizGenerationsPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
+            <PlanLimitItem label={copy.limitFlashcards} value={`${formatLimit(planLimits.flashcardGenerationsPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
+            <PlanLimitItem label={copy.limitTutor} value={`${formatLimit(planLimits.aiTutorMessagesPerDay, copy.unlimited)} ${copy.limitDailyUnit}`} />
+          </div>
+          <div style={accountS.usageHint}>{freePlan ? copy.usageUpgradeHint : copy.usageProHint}</div>
         </div>
         <div style={accountS.card}>
           <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={copy.planHistorySub} action={<button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.softBtn}>{copy.manage}</button>} />
@@ -204,8 +215,8 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
 function PlanLimitItem({ label, value }) {
   return (
     <div style={accountS.limitItem}>
-      <strong style={accountS.limitValue}>{value}</strong>
       <span style={accountS.limitLabel}>{label}</span>
+      <strong style={accountS.limitValue}>{value}</strong>
     </div>
   );
 }
@@ -253,10 +264,19 @@ const accountCopy = {
     proPlanText: 'Unlimited documents, higher AI limits, and priority study tools.',
     upgradeToPro: 'Upgrade to Pro',
     managePlan: 'Manage plan',
-    limitDocuments: 'active document',
-    limitQuiz: 'quiz generations / month',
-    limitFlashcards: 'flashcard generations / month',
-    limitTutor: 'AI Tutor messages / day',
+    currentPlan: 'Current plan',
+    usageTitle: 'Free usage',
+    usageSub: 'Clear limits until Stripe subscriptions are connected.',
+    usageUpgradeHint: 'Upgrade unlocks more documents and higher AI limits. Stripe is not connected yet.',
+    usageProHint: 'Your Pro plan removes these limits after Stripe is connected.',
+    unlimited: 'Unlimited',
+    limitDocuments: 'Documents',
+    limitQuiz: 'Quiz generations',
+    limitFlashcards: 'Flashcard generations',
+    limitTutor: 'AI Tutor messages',
+    limitDocumentsUnit: 'active',
+    limitMonthlyUnit: '/ month',
+    limitDailyUnit: '/ day',
     planHistory: 'Plan history',
     planHistorySub: 'Billing history will appear here after Stripe is connected.',
     reactivate: 'Reactivate',
@@ -311,10 +331,19 @@ const accountCopy = {
     proPlanText: 'Documenti illimitati, limiti AI più alti e strumenti studio prioritari.',
     upgradeToPro: 'Passa a Pro',
     managePlan: 'Gestisci piano',
-    limitDocuments: 'documento attivo',
-    limitQuiz: 'generazioni quiz / mese',
-    limitFlashcards: 'generazioni flashcard / mese',
-    limitTutor: 'messaggi AI Tutor / giorno',
+    currentPlan: 'Piano attuale',
+    usageTitle: 'Utilizzo Free',
+    usageSub: 'Limiti chiari finché colleghiamo gli abbonamenti Stripe.',
+    usageUpgradeHint: 'Con Pro sblocchi più documenti e limiti AI più alti. Stripe non è ancora collegato.',
+    usageProHint: 'Il piano Pro rimuove questi limiti quando Stripe è collegato.',
+    unlimited: 'Illimitato',
+    limitDocuments: 'Documenti',
+    limitQuiz: 'Generazioni quiz',
+    limitFlashcards: 'Generazioni flashcard',
+    limitTutor: 'Messaggi AI Tutor',
+    limitDocumentsUnit: 'attivo',
+    limitMonthlyUnit: '/ mese',
+    limitDailyUnit: '/ giorno',
     planHistory: 'Storico piano',
     planHistorySub: 'Lo storico billing apparirà qui quando Stripe sarà collegato.',
     reactivate: 'Riattiva',
@@ -374,9 +403,16 @@ const accountS = {
   sectionTitle: { margin:0, fontSize:18, fontWeight:800, color:'var(--ink)', letterSpacing:'-.02em' },
   card: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, overflow:'hidden', boxShadow:'0 12px 30px -26px rgba(15,16,53,.35)' },
   planCard: { display:'flex', alignItems:'center', justifyContent:'space-between', gap:14, padding:18, borderRadius:16, background:'var(--surface)', border:'1px solid var(--border)', boxShadow:'0 12px 30px -26px rgba(15,16,53,.35)', flexWrap:'wrap' },
-  limitGrid: { display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))', gap:10 },
-  limitItem: { display:'flex', flexDirection:'column', gap:4, padding:'13px 14px', borderRadius:14, border:'1px solid var(--border)', background:'var(--surface)', boxShadow:'0 12px 30px -28px rgba(15,16,53,.35)' },
-  limitValue: { fontSize:20, fontWeight:900, color:'var(--indigo)', lineHeight:1 },
+  usageCard: { display:'flex', flexDirection:'column', gap:14, padding:16, borderRadius:16, border:'1px solid var(--border)', background:'linear-gradient(135deg,#FFFFFF,#F8FAFF)', boxShadow:'0 12px 30px -26px rgba(15,16,53,.35)' },
+  usageHeader: { display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, flexWrap:'wrap' },
+  usageEyebrow: { fontSize:11, fontWeight:900, color:'var(--indigo)', textTransform:'uppercase', letterSpacing:'.04em' },
+  usageTitle: { margin:'3px 0 0', fontSize:16, fontWeight:900, color:'var(--ink)' },
+  usageSub: { margin:'3px 0 0', color:'var(--gray)', fontSize:12, lineHeight:1.45 },
+  usageBadge: { display:'inline-flex', padding:'6px 10px', borderRadius:999, background:'#EEF2FF', color:'var(--indigo)', fontSize:11, fontWeight:900 },
+  usageGrid: { display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px, 1fr))', gap:8 },
+  usageHint: { padding:'10px 12px', borderRadius:12, background:'#FEF3C7', color:'#92400E', fontSize:12, fontWeight:800, lineHeight:1.4 },
+  limitItem: { display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, padding:'11px 12px', borderRadius:12, border:'1px solid #E7E9F4', background:'rgba(255,255,255,.82)' },
+  limitValue: { fontSize:14, fontWeight:900, color:'var(--ink)', lineHeight:1, whiteSpace:'nowrap' },
   limitLabel: { fontSize:12, fontWeight:800, color:'var(--gray)', lineHeight:1.35 },
   planBadge: { display:'inline-flex', padding:'5px 10px', borderRadius:999, background:'#ECFDF5', color:'#047857', fontSize:11, fontWeight:800, marginBottom:8 },
   planTitle: { margin:0, fontSize:18, fontWeight:800, color:'var(--ink)' },

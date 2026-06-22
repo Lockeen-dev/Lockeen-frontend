@@ -31,6 +31,6 @@ export function isFreePlan(user = {}) {
   return getUserPlanTier(user) === PLAN_TIERS.FREE;
 }
 
-export function formatLimit(value) {
-  return value === Infinity ? 'Unlimited' : String(value);
+export function formatLimit(value, unlimitedLabel = 'Unlimited') {
+  return value === Infinity ? unlimitedLabel : String(value);
 }
