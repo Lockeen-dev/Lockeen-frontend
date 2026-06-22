@@ -5,7 +5,7 @@ import { LANG_OPTIONS } from '../lib/i18n';
 import { formatLimit, getPlanLimits, getUserPlanTier, isFreePlan } from '../lib/planLimits';
 import useIsMobile from '../lib/useIsMobile';
 import { useAuth } from '../context/AuthContext';
-import { startCheckout } from '../services/billing';
+import { openBillingPortal, startCheckout } from '../services/billing';
 import LanguageSelect from './LanguageSelect';
 
 function AccountView({ user, lang, onLangChange, onLogout }) {
@@ -94,6 +94,17 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
     window.location.href = result.data.url;
   };
 
+  const handleManageBilling = async () => {
+    setSaving('portal');
+    const result = await openBillingPortal();
+    setSaving(null);
+    if (result.error) {
+      showNotice('error', formatAccountError(result.error, copy));
+      return;
+    }
+    window.location.href = result.data.url;
+  };
+
   const Row = ({ icon, title, sub, action, danger }) => (
     <div style={accountS.row}>
       <div style={accountS.rowIcon}>{icon}</div>
@@ -150,11 +161,11 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
               </div>
             )}
             <button
-              onClick={freePlan ? handleUpgrade : () => showNotice('success', copy.portalSoon)}
-              disabled={saving === 'checkout'}
-              style={{ ...accountS.primaryBtn, ...(saving === 'checkout' ? accountS.primaryBtnDisabled : null) }}
+              onClick={freePlan ? handleUpgrade : handleManageBilling}
+              disabled={saving === 'checkout' || saving === 'portal'}
+              style={{ ...accountS.primaryBtn, ...(saving === 'checkout' || saving === 'portal' ? accountS.primaryBtnDisabled : null) }}
             >
-              {saving === 'checkout' ? copy.openingCheckout : (freePlan ? copy.upgradeToPro : copy.managePlan)}
+              {saving === 'checkout' ? copy.openingCheckout : saving === 'portal' ? copy.openingPortal : (freePlan ? copy.upgradeToPro : copy.managePlan)}
             </button>
           </div>
         </div>
@@ -176,7 +187,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
           <div style={accountS.usageHint}>{freePlan ? copy.usageUpgradeHint : copy.usageProHint}</div>
         </div>
         <div style={accountS.card}>
-          <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={copy.planHistorySub} action={<button onClick={() => showNotice('success', copy.portalSoon)} style={accountS.softBtn}>{copy.manage}</button>} />
+          <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={copy.planHistorySub} action={<button onClick={handleManageBilling} disabled={saving === 'portal'} style={saving === 'portal' ? accountS.disabledBtn : accountS.softBtn}>{saving === 'portal' ? copy.openingPortal : copy.manage}</button>} />
         </div>
       </section>
 
@@ -185,7 +196,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         <div style={accountS.card}>
           <Row icon={<FileText size={18} />} title={copy.payments} sub={copy.paymentsSub} action={<ChevronDown size={18} color="var(--gray)" />} />
           <div style={accountS.divider} />
-          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={copy.billingMethodSub} action={<button onClick={() => showNotice('success', copy.portalSoon)} style={accountS.ghostBtn}>{copy.manage}</button>} />
+          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={copy.billingMethodSub} action={<button onClick={handleManageBilling} disabled={saving === 'portal'} style={saving === 'portal' ? accountS.disabledBtn : accountS.ghostBtn}>{saving === 'portal' ? copy.openingPortal : copy.manage}</button>} />
         </div>
       </section>
 
@@ -369,7 +380,8 @@ const accountCopy = {
     monthly: 'Monthly',
     yearly: 'Yearly',
     openingCheckout: 'Opening checkout...',
-    checkoutSuccess: 'Payment completed. Pro will activate after the Stripe webhook is connected.',
+    openingPortal: 'Opening...',
+    checkoutSuccess: 'Payment completed. Pro status may take a moment to appear.',
     checkoutCancelled: 'Checkout cancelled. No payment was completed.',
     portalSoon: 'The billing portal will be enabled after the Stripe webhook is connected.',
     dangerZone: 'Danger zone',
@@ -441,7 +453,8 @@ const accountCopy = {
     monthly: 'Mensile',
     yearly: 'Annuale',
     openingCheckout: 'Apertura checkout...',
-    checkoutSuccess: 'Pagamento completato. Pro verrà attivato dopo il collegamento del webhook Stripe.',
+    openingPortal: 'Apertura...',
+    checkoutSuccess: 'Pagamento completato. Lo stato Pro può richiedere qualche momento per comparire.',
     checkoutCancelled: 'Checkout annullato. Nessun pagamento completato.',
     portalSoon: 'Il portale billing verrà attivato dopo il collegamento del webhook Stripe.',
     dangerZone: 'Zona pericolosa',

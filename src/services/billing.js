@@ -56,3 +56,35 @@ export async function startCheckout({ billingPeriod = 'monthly' } = {}) {
 
   return ok({ url: payload.url });
 }
+
+export async function openBillingPortal() {
+  if (isMockAuthMode()) {
+    return fail('The Stripe billing portal is available only in real auth mode.', 'BILLING_REAL_MODE_REQUIRED');
+  }
+
+  const tokenResult = await getAccessToken();
+  if (tokenResult.error) return tokenResult;
+
+  const response = await fetch('/api/create-billing-portal-session', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${tokenResult.data}`,
+    },
+  });
+
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
+  }
+
+  if (!response.ok || !payload.url) {
+    return fail(
+      payload?.error?.message || 'Could not open the Stripe billing portal.',
+      payload?.error?.code || 'STRIPE_PORTAL_FAILED',
+    );
+  }
+
+  return ok({ url: payload.url });
+}
