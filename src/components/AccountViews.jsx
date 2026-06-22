@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { ChevronDown, Coins, EyeOff, FileText, LogOut, MsgCircle, Pencil, Trash2, Trophy } from '../lib/icons';
 import { LANG_OPTIONS } from '../lib/i18n';
+import { formatLimit, getPlanLimits, getUserPlanTier, isFreePlan } from '../lib/planLimits';
 import useIsMobile from '../lib/useIsMobile';
 import { useAuth } from '../context/AuthContext';
 import LanguageSelect from './LanguageSelect';
@@ -13,6 +14,9 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
   const initial = user?.name?.[0]?.toUpperCase() || 'A';
   const accountLang = LANG_OPTIONS.find(l => l.value === lang) || LANG_OPTIONS[0];
   const copy = accountCopy[lang] || accountCopy.en;
+  const planTier = getUserPlanTier(user);
+  const planLimits = getPlanLimits(user);
+  const freePlan = isFreePlan(user);
   const [name, setName] = useState(user?.name || '');
   const [timezone, setTimezone] = useState(user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome');
   const [saving, setSaving] = useState(null);
@@ -95,11 +99,17 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         <h3 style={accountS.sectionTitle}>{copy.plan}</h3>
         <div style={accountS.planCard}>
           <div>
-            <div style={accountS.planBadge}>{copy.freeMode}</div>
-            <h4 style={accountS.planTitle}>Lockeen Free</h4>
-            <p style={accountS.planText}>{copy.freePlanText}</p>
+            <div style={accountS.planBadge}>{freePlan ? copy.freeMode : copy.proMode}</div>
+            <h4 style={accountS.planTitle}>Lockeen {planTier === 'pro' ? 'Pro' : 'Free'}</h4>
+            <p style={accountS.planText}>{freePlan ? copy.freePlanText : copy.proPlanText}</p>
           </div>
-          <button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.primaryBtn}>{copy.upgradeToPro}</button>
+          <button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.primaryBtn}>{freePlan ? copy.upgradeToPro : copy.managePlan}</button>
+        </div>
+        <div style={accountS.limitGrid}>
+          <PlanLimitItem label={copy.limitDocuments} value={formatLimit(planLimits.activeDocuments)} />
+          <PlanLimitItem label={copy.limitQuiz} value={formatLimit(planLimits.quizGenerationsPerMonth)} />
+          <PlanLimitItem label={copy.limitFlashcards} value={formatLimit(planLimits.flashcardGenerationsPerMonth)} />
+          <PlanLimitItem label={copy.limitTutor} value={formatLimit(planLimits.aiTutorMessagesPerDay)} />
         </div>
         <div style={accountS.card}>
           <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={copy.planHistorySub} action={<button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.softBtn}>{copy.manage}</button>} />
@@ -191,6 +201,15 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
   );
 }
 
+function PlanLimitItem({ label, value }) {
+  return (
+    <div style={accountS.limitItem}>
+      <strong style={accountS.limitValue}>{value}</strong>
+      <span style={accountS.limitLabel}>{label}</span>
+    </div>
+  );
+}
+
 function getCurrentDeviceLabel() {
   if (typeof navigator === 'undefined') return 'Current browser';
   const platform = navigator.platform || 'Browser';
@@ -229,8 +248,15 @@ const accountCopy = {
     logout: 'Log out',
     plan: 'Plan',
     freeMode: 'Free mode',
+    proMode: 'Pro mode',
     freePlanText: '1 active document, limited quizzes, basic flashcards.',
+    proPlanText: 'Unlimited documents, higher AI limits, and priority study tools.',
     upgradeToPro: 'Upgrade to Pro',
+    managePlan: 'Manage plan',
+    limitDocuments: 'active document',
+    limitQuiz: 'quiz generations / month',
+    limitFlashcards: 'flashcard generations / month',
+    limitTutor: 'AI Tutor messages / day',
     planHistory: 'Plan history',
     planHistorySub: 'Billing history will appear here after Stripe is connected.',
     reactivate: 'Reactivate',
@@ -280,8 +306,15 @@ const accountCopy = {
     logout: 'Esci',
     plan: 'Piano',
     freeMode: 'Modalità free',
+    proMode: 'Modalità Pro',
     freePlanText: '1 documento attivo, quiz limitati, flashcard base.',
+    proPlanText: 'Documenti illimitati, limiti AI più alti e strumenti studio prioritari.',
     upgradeToPro: 'Passa a Pro',
+    managePlan: 'Gestisci piano',
+    limitDocuments: 'documento attivo',
+    limitQuiz: 'generazioni quiz / mese',
+    limitFlashcards: 'generazioni flashcard / mese',
+    limitTutor: 'messaggi AI Tutor / giorno',
     planHistory: 'Storico piano',
     planHistorySub: 'Lo storico billing apparirà qui quando Stripe sarà collegato.',
     reactivate: 'Riattiva',
@@ -341,6 +374,10 @@ const accountS = {
   sectionTitle: { margin:0, fontSize:18, fontWeight:800, color:'var(--ink)', letterSpacing:'-.02em' },
   card: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, overflow:'hidden', boxShadow:'0 12px 30px -26px rgba(15,16,53,.35)' },
   planCard: { display:'flex', alignItems:'center', justifyContent:'space-between', gap:14, padding:18, borderRadius:16, background:'var(--surface)', border:'1px solid var(--border)', boxShadow:'0 12px 30px -26px rgba(15,16,53,.35)', flexWrap:'wrap' },
+  limitGrid: { display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))', gap:10 },
+  limitItem: { display:'flex', flexDirection:'column', gap:4, padding:'13px 14px', borderRadius:14, border:'1px solid var(--border)', background:'var(--surface)', boxShadow:'0 12px 30px -28px rgba(15,16,53,.35)' },
+  limitValue: { fontSize:20, fontWeight:900, color:'var(--indigo)', lineHeight:1 },
+  limitLabel: { fontSize:12, fontWeight:800, color:'var(--gray)', lineHeight:1.35 },
   planBadge: { display:'inline-flex', padding:'5px 10px', borderRadius:999, background:'#ECFDF5', color:'#047857', fontSize:11, fontWeight:800, marginBottom:8 },
   planTitle: { margin:0, fontSize:18, fontWeight:800, color:'var(--ink)' },
   planText: { margin:'4px 0 0', color:'var(--gray)', fontSize:13 },

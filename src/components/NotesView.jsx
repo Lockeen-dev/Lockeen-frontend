@@ -4,6 +4,7 @@ import { BarChart3, BookOpen, ChevronDown, Eye, FileText, Layers, LockeenLogo, P
 import { tt } from '../lib/i18n';
 import { EXTRA_SUBJECT_COLORS, daysLeft, formatExamDate, getSubjectPalette, inferSubjectFromName } from '../data/mockData';
 import { getExamEmoji, getExamPalette, getNextExamPalette } from '../lib/examUi';
+import { getPlanLimits, isFreePlan } from '../lib/planLimits';
 import useIsMobile from '../lib/useIsMobile';
 import { createChapter, createExam, deleteChapter, deleteExam, listExams, updateChapter, updateExam } from '../services/exams';
 import { createMaterial, deleteMaterial, extractTextFromFile, getMaterialDownloadUrl, getMaterialProcessingLabel, listMaterials, requestMaterialOcr, updateMaterial } from '../services/materials';
@@ -353,7 +354,7 @@ function buildGeneratedFlashcards(title, seedCards = [], seedText = '') {
   return [];
 }
 
-function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
+function NotesView({ user, exams, lang = 'en', setExams, activeId, setActiveId, onOpenFlashcards, onOpenQuiz, onOpenQuizForExam, darkMode, onOpenPlanner, onExamAdded, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
   const isMobile = useIsMobile();
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -606,7 +607,7 @@ function NotesView({ exams, lang = 'en', setExams, activeId, setActiveId, onOpen
       if (result.error) throw new Error(formatExamServiceError(result.error, 'Unable to update chapter.'));
       await refreshExamsQuietly();
     };
-    return <ExamDetail exam={activeExam} lang={lang} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onDeleteChapterDocument={onDeleteChapterDocument} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
+    return <ExamDetail user={user} exam={activeExam} lang={lang} onBack={() => setActiveId(null)} onAddChapter={onAddChapter} onEditChapter={onEditChapter} onDeleteChapter={onDeleteChapter} onDeleteChapterDocument={onDeleteChapterDocument} onOpenFlashcards={onOpenFlashcards} onOpenQuiz={onOpenQuiz} darkMode={darkMode} quizHistory={quizHistory} flashHistory={flashHistory} quizRuns={quizRuns} recentFlashDecks={recentFlashDecks} />;
   }
 
   const filtered = exams.filter((x) => (x.name + ' ' + (x.subject || '')).toLowerCase().includes(q.toLowerCase()));
@@ -1897,7 +1898,7 @@ function StudyHistoryPanel({ quizHistory, flashHistory, quizRuns, recentFlashDec
   );
 }
 
-function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, onDeleteChapter, onDeleteChapterDocument, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
+function ExamDetail({ user, exam, lang = 'en', onBack, onAddChapter, onEditChapter, onDeleteChapter, onDeleteChapterDocument, onOpenFlashcards, onOpenQuiz, darkMode, quizHistory = {}, flashHistory = {}, quizRuns = [], recentFlashDecks = [] }) {
   const [q, setQ] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
@@ -1924,6 +1925,14 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
   const [savingStudyAction, setSavingStudyAction] = useState(null);
   const autoPracticeMaterialIdsRef = useRef(new Set());
   const palette = getExamPalette(exam, darkMode);
+  const planLimits = getPlanLimits(user);
+  const freePlan = isFreePlan(user);
+  const materialLimit = planLimits.activeDocuments;
+  const hasMaterialLimit = Number.isFinite(materialLimit);
+  const materialLimitReached = freePlan && hasMaterialLimit && materials.length >= materialLimit;
+  const materialLimitMessage = lang === 'it'
+    ? `Il piano Free include ${materialLimit} documento attivo. Passa a Pro quando colleghiamo Stripe per caricare altri materiali.`
+    : `Free includes ${materialLimit} active document. Upgrade to Pro once Stripe is connected to upload more materials.`;
   const materialStatsByChapter = materials.reduce((acc, material) => {
     if (!material.chapterId) return acc;
     const key = String(material.chapterId);
@@ -2297,6 +2306,10 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
   const handleCreateMaterial = async (e) => {
     e.preventDefault();
     setMaterialsError(null);
+    if (materialLimitReached) {
+      setMaterialsError(materialLimitMessage);
+      return;
+    }
     if (!materialTitle.trim()) {
       setMaterialsError('Material title is required.');
       return;
@@ -2584,6 +2597,8 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
             onDeleteDocument={handleDeleteChapterDocument}
             onRenameDocument={handleRenameChapterDocument}
             saving={savingStudyAction}
+            materialLimitReached={materialLimitReached}
+            materialLimitMessage={materialLimitMessage}
           />
         )}
       </div>
@@ -2591,7 +2606,7 @@ function ExamDetail({ exam, lang = 'en', onBack, onAddChapter, onEditChapter, on
   );
 }
 
-function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDocument, onRenameDocument, saving }) {
+function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDocument, onRenameDocument, saving, materialLimitReached = false, materialLimitMessage = '' }) {
   const inputRef = useRef(null);
   const [previewUrls, setPreviewUrls] = useState({});
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -2616,6 +2631,10 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
     event.target.value = '';
     if (!picked.length) return;
     setDocumentError('');
+    if (materialLimitReached) {
+      setDocumentError(materialLimitMessage || 'Your plan limit has been reached.');
+      return;
+    }
     setAddingDocument(true);
     try {
       await onAddDocument?.(safeChapter, picked);
@@ -2734,11 +2753,11 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
             ) : (
               <button
                 type="button"
-                onClick={() => !addingDocument && inputRef.current?.click()}
-                disabled={addingDocument}
-                style={{ height: 50, borderRadius: 14, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'inline-flex', alignItems: 'center', gap: 12, padding: '0 22px', fontSize: 17, fontWeight: 900, cursor: addingDocument ? 'not-allowed' : 'pointer', opacity: addingDocument ? .65 : 1 }}
+                onClick={() => !addingDocument && !materialLimitReached && inputRef.current?.click()}
+                disabled={addingDocument || materialLimitReached}
+                style={{ height: 50, borderRadius: 14, border: '1.5px solid #C7CAFF', background: '#EEF2FF', color: 'var(--indigo)', display: 'inline-flex', alignItems: 'center', gap: 12, padding: '0 22px', fontSize: 17, fontWeight: 900, cursor: addingDocument || materialLimitReached ? 'not-allowed' : 'pointer', opacity: addingDocument || materialLimitReached ? .65 : 1 }}
               >
-                <Plus size={22} /> {addingDocument ? 'Working...' : 'Add document'}
+                <Plus size={22} /> {addingDocument ? 'Working...' : materialLimitReached ? 'Upgrade for more' : 'Add document'}
               </button>
             )}
             <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.txt,application/pdf,image/png,image/jpeg,text/plain" multiple onChange={handleFilePick} style={{ display: 'none' }} />
@@ -2767,6 +2786,11 @@ function PDFModal({ chapter, materials = [], onClose, onAddDocument, onDeleteDoc
           {documentError && !selectedDoc && (
             <div style={{ marginBottom: 18, padding: '12px 14px', borderRadius: 16, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#991B1B', fontSize: 13, fontWeight: 800, lineHeight: 1.4 }}>
               {documentError}
+            </div>
+          )}
+          {materialLimitReached && !documentError && !selectedDoc && (
+            <div style={{ marginBottom: 18, padding: '12px 14px', borderRadius: 16, border: '1px solid #C7D2FE', background: '#EEF2FF', color: '#3730A3', fontSize: 13, fontWeight: 800, lineHeight: 1.4 }}>
+              {materialLimitMessage}
             </div>
           )}
           {selectedDoc ? (
