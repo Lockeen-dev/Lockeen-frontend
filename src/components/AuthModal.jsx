@@ -46,10 +46,10 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
       const result = await requestPasswordReset({ email });
       setLoading(false);
       if (result.error) {
-        setError(result.error.message || 'Unable to send reset email.');
+        setError(formatAuthError(result.error, 'reset-request'));
         return;
       }
-      setNotice('Password reset email sent. Check your inbox.');
+      setNotice('Password reset email sent. Check your inbox and open the latest link.');
       return;
     }
     if (mode === 'reset') {
@@ -71,9 +71,10 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
       const result = await updatePassword({ password });
       setLoading(false);
       if (result.error) {
-        setError(result.error.message || 'Unable to update password.');
+        setError(formatAuthError(result.error, 'reset-update'));
         return;
       }
+      setNotice('Password updated. Signing you in...');
       onAuth && onAuth(result.data.user);
       return;
     }
@@ -93,7 +94,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     const result = mode === 'signin' ? await signIn(input) : await signUp(input);
     setLoading(false);
     if (result.error) {
-      setError(result.error.message || 'Unable to authenticate.');
+      setError(formatAuthError(result.error, mode));
       return;
     }
     onAuth && onAuth(result.data.user);
@@ -107,7 +108,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
     const result = await signInWithGoogle();
     setLoading(false);
     if (result.error) {
-      setError(result.error.message || 'Unable to authenticate.');
+      setError(formatAuthError(result.error, 'google'));
       return;
     }
     if (result.data?.user) onAuth && onAuth(result.data.user);
@@ -267,6 +268,32 @@ function Field({ label, right, children }) {
       {children}
     </div>
   );
+}
+
+function formatAuthError(error, context) {
+  const code = String(error?.code || '').toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+
+  if (code.includes('rate') || message.includes('rate limit') || message.includes('security purposes')) {
+    return 'Too many attempts. Please wait a few minutes before requesting another email.';
+  }
+  if (context === 'reset-update' && (code.includes('session') || message.includes('session') || message.includes('jwt'))) {
+    return 'This reset link is no longer valid. Request a new password reset email and open the latest link.';
+  }
+  if (context === 'reset-request') {
+    return error?.message || 'Unable to send the reset email. Check the address and try again.';
+  }
+  if (context === 'reset-update') {
+    return error?.message || 'Unable to update your password. Request a new reset link and try again.';
+  }
+  if (message.includes('invalid login credentials')) {
+    return 'Email or password is not correct.';
+  }
+  if (message.includes('email not confirmed')) {
+    return 'Please confirm your email before signing in.';
+  }
+
+  return error?.message || 'Unable to authenticate.';
 }
 
 const authS = {

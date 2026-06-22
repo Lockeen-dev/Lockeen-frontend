@@ -315,7 +315,7 @@ export async function requestPasswordReset(input = {}) {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
 
-    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/?auth=reset` : undefined;
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,
     });
