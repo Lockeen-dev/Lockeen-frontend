@@ -144,11 +144,10 @@ function AuthShell() {
   useEffect(() => {
     if (!isAuthenticated || !pendingBillingIntent || billingIntentRunningRef.current) return;
 
-    let cancelled = false;
     async function runBillingIntent() {
+      const intent = pendingBillingIntent;
       billingIntentRunningRef.current = true;
       saveBillingIntent(null);
-      setPendingBillingIntent(null);
       setModal(null);
       setBillingError(null);
       setBillingAction('checkout');
@@ -157,7 +156,7 @@ function AuthShell() {
       try {
         result = await withBillingTimeout(
           isFreePlan(user)
-            ? startCheckout({ billingPeriod: pendingBillingIntent.billingPeriod })
+            ? startCheckout({ billingPeriod: intent.billingPeriod })
             : openBillingPortal(),
         );
       } catch (error) {
@@ -168,12 +167,9 @@ function AuthShell() {
         };
       }
 
-      if (cancelled) {
-        billingIntentRunningRef.current = false;
-        return;
-      }
       setBillingAction(null);
       billingIntentRunningRef.current = false;
+      setPendingBillingIntent(null);
 
       if (result.error) {
         setBillingError(result.error.message || 'Could not open billing.');
@@ -184,7 +180,6 @@ function AuthShell() {
     }
 
     runBillingIntent();
-    return () => { cancelled = true; };
   }, [isAuthenticated, pendingBillingIntent, user]);
 
   useEffect(() => {
