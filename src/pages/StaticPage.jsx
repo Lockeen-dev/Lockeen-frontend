@@ -3,13 +3,24 @@ import { useLocation, useParams } from 'react-router-dom';
 import { staticPages } from '../content/staticPages';
 
 const pageTitles = {
-  about: 'About — Lockeen',
-  blog: 'Blog — Lockeen',
-  careers: 'Careers – Lockeen',
-  earn: 'Earn · Ambassador Program – Lockeen',
-  press: 'Press – Lockeen',
-  privacy: 'Privacy Policy — Lockeen',
-  terms: 'Terms of Service — Lockeen',
+  en: {
+    about: 'About — Lockeen',
+    blog: 'Blog — Lockeen',
+    careers: 'Careers – Lockeen',
+    earn: 'Earn · Ambassador Program – Lockeen',
+    press: 'Press – Lockeen',
+    privacy: 'Privacy Policy — Lockeen',
+    terms: 'Terms of Service — Lockeen',
+  },
+  it: {
+    about: 'Chi siamo — Lockeen',
+    blog: 'Blog — Lockeen',
+    careers: 'Lavora con noi – Lockeen',
+    earn: 'Guadagna · Programma Ambassador – Lockeen',
+    press: 'Stampa – Lockeen',
+    privacy: 'Privacy Policy — Lockeen',
+    terms: 'Termini di servizio — Lockeen',
+  },
 };
 
 function normalizePage(raw) {
@@ -24,7 +35,8 @@ export default function StaticPage() {
   const html = staticPages[pageName] || staticPages.about;
 
   useEffect(() => {
-    document.title = pageTitles[pageName] || 'Lockeen';
+    const lang = localStorage.getItem('lockeen-lang') === 'it' ? 'it' : 'en';
+    document.title = pageTitles[lang]?.[pageName] || pageTitles.en[pageName] || 'Lockeen';
     localStorage.removeItem('lockeen-theme');
     document.documentElement.setAttribute('data-theme', 'light');
     const root = document.getElementById('static-page-root');
