@@ -109,18 +109,18 @@ export function initMarketingDom() {
     { name: 'Free', monthlyPrice: '€0', annualPrice: '€0', period: 'forever',
       features: ['1 active document','1 quiz generation','1 flashcard generation','20 AI Tutor messages/mo'],
       cta: 'Get Started Free', popular: false },
-    { name: 'Pro', monthlyPrice: '€9.99', annualPrice: '€79.99', period: '/mo',
+    { name: 'Pro', monthlyPrice: '€9.99', annualPrice: '€6.67', annualBillingTotal: '€79.99', period: '/mo',
       features: ['More documents and materials','High quiz and flashcard limits','Higher AI Tutor usage','Analytics and Study Planner'],
       cta: 'Upgrade to Pro', popular: true },
   ];
   const pricingCopy = {
     en: [
       { name:'Free', periodForever:'trial', cta:'Start Free', features:['1 active document','1 quiz generation','1 flashcard generation','20 AI Tutor messages/month'] },
-      { name:'Pro', periodMonthly:'/month', periodAnnual:'/year', cta:'Upgrade to Pro', badge:'Best value', features:['More documents and materials','High quiz and flashcard limits','Higher AI Tutor usage','Analytics and Study Planner'] },
+      { name:'Pro', periodMonthly:'/month', periodAnnual:'/month', annualBillingNote:'Billed yearly at €79.99', cta:'Upgrade to Pro', badge:'Best value', features:['More documents and materials','High quiz and flashcard limits','Higher AI Tutor usage','Analytics and Study Planner'] },
     ],
     it: [
       { name:'Free', periodForever:'prova', cta:'Inizia gratis', features:['1 documento attivo','1 generazione quiz','1 generazione flashcard','20 messaggi AI Tutor/mese'] },
-      { name:'Pro', periodMonthly:'/mese', periodAnnual:'/anno', cta:'Passa a Pro', badge:'Miglior valore', features:['Più documenti e materiali','Limiti quiz e flashcard alti','Uso AI Tutor più alto','Analytics e Study Planner'] },
+      { name:'Pro', periodMonthly:'/mese', periodAnnual:'/mese', annualBillingNote:'Fatturato annualmente a €79,99', cta:'Passa a Pro', badge:'Miglior valore', features:['Più documenti e materiali','Limiti quiz e flashcard alti','Uso AI Tutor più alto','Analytics e Study Planner'] },
     ],
   };
 
@@ -130,6 +130,7 @@ export function initMarketingDom() {
       const pc = copy[plans.indexOf(p)] || pricingCopy.en[plans.indexOf(p)];
       const price = billingAnnual ? p.annualPrice : p.monthlyPrice;
       const period = p.period === 'forever' ? pc.periodForever : (billingAnnual ? pc.periodAnnual : pc.periodMonthly);
+      const billingNote = billingAnnual && p.annualBillingTotal ? (pc.annualBillingNote || `Billed yearly at ${p.annualBillingTotal}`) : '';
       return `
     <div class="relative p-8 bg-white rounded-3xl border-2 transition-all duration-300 ${p.popular ? 'border-primary shadow-2xl shadow-primary/20' : 'border-border hover:border-primary/30 hover:shadow-lg'}">
       ${p.popular ? `<div class="absolute -top-5 left-1/2 z-20 -translate-x-1/2"><div class="px-5 py-2 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold shadow-primary-soft whitespace-nowrap">${pc.badge}</div></div>` : ''}
@@ -138,6 +139,7 @@ export function initMarketingDom() {
         <div class="flex items-baseline gap-1 mt-4 mb-1">
           <span class="text-5xl font-bold" translate="no">${price}</span>
           <span class="text-foreground/50 text-sm">${period}</span>        </div>
+        ${billingNote ? `<p class="text-xs font-semibold text-foreground/50 mt-1">${billingNote}</p>` : ''}
       </div>
       <button onclick="window.openAuth && window.openAuth('signup')" class="w-full py-3 rounded-xl mb-6 transition-all font-semibold text-sm ${p.popular ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-foreground hover:bg-border'}">${pc.cta}</button>
       <div class="space-y-3">
