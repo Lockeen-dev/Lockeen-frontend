@@ -43,6 +43,7 @@ function mapSupabaseUser(user) {
   if (!user) return null;
 
   const metadata = user.user_metadata || {};
+  const appMetadata = user.app_metadata || {};
   const name =
     metadata.full_name ||
     metadata.name ||
@@ -55,6 +56,7 @@ function mapSupabaseUser(user) {
     name,
     language: metadata.language || 'en',
     timezone: metadata.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome',
+    planTier: appMetadata.plan_tier || appMetadata.plan || appMetadata.subscription_plan || 'free',
     provider: 'supabase',
     createdAt: user.created_at || new Date().toISOString(),
   };
