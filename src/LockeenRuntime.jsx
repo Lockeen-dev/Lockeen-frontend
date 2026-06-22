@@ -9,6 +9,9 @@ import { isFreePlan } from './lib/planLimits';
 import { openBillingPortal, startCheckout } from './services/billing';
 
 const BILLING_INTENT_STORAGE_KEY = 'lockeen-billing-intent';
+const BILLING_INTENT_VERSION = 2;
+const BILLING_INTENT_MAX_AGE_MS = 10 * 60 * 1000;
+const BILLING_REQUEST_TIMEOUT_MS = 12000;
 
 function normalizeBillingPeriod(value) {
   return value === 'yearly' ? 'yearly' : 'monthly';
@@ -18,13 +21,21 @@ function parseStoredBillingIntent() {
   if (typeof window === 'undefined') return null;
   try {
     const stored = JSON.parse(localStorage.getItem(BILLING_INTENT_STORAGE_KEY) || 'null');
-    if (stored?.intent !== 'checkout') return null;
+    if (stored?.intent !== 'checkout' || stored.version !== BILLING_INTENT_VERSION) {
+      saveBillingIntent(null);
+      return null;
+    }
+    if (!stored.createdAt || Date.now() - Number(stored.createdAt) > BILLING_INTENT_MAX_AGE_MS) {
+      saveBillingIntent(null);
+      return null;
+    }
     return {
       intent: 'checkout',
       billingPeriod: normalizeBillingPeriod(stored.billingPeriod),
-      createdAt: stored.createdAt || Date.now(),
+      createdAt: stored.createdAt,
     };
   } catch {
+    saveBillingIntent(null);
     return null;
   }
 }
@@ -32,6 +43,7 @@ function parseStoredBillingIntent() {
 function buildBillingIntent(options = {}) {
   if (options?.intent !== 'checkout') return null;
   return {
+    version: BILLING_INTENT_VERSION,
     intent: 'checkout',
     billingPeriod: normalizeBillingPeriod(options.billingPeriod),
     createdAt: Date.now(),
@@ -45,6 +57,18 @@ function saveBillingIntent(intent) {
     return;
   }
   localStorage.setItem(BILLING_INTENT_STORAGE_KEY, JSON.stringify(intent));
+}
+
+function withBillingTimeout(promise) {
+  let timeoutId;
+  const timeout = new Promise((resolve) => {
+    timeoutId = window.setTimeout(() => resolve({
+      error: {
+        message: 'Billing took too long to open. Please try again.',
+      },
+    }), BILLING_REQUEST_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
 }
 
 /* ===================== ROOT APP ===================== */
@@ -123,15 +147,19 @@ function AuthShell() {
     let cancelled = false;
     async function runBillingIntent() {
       billingIntentRunningRef.current = true;
+      saveBillingIntent(null);
+      setPendingBillingIntent(null);
       setModal(null);
       setBillingError(null);
       setBillingAction('checkout');
 
       let result;
       try {
-        result = isFreePlan(user)
-          ? await startCheckout({ billingPeriod: pendingBillingIntent.billingPeriod })
-          : await openBillingPortal();
+        result = await withBillingTimeout(
+          isFreePlan(user)
+            ? startCheckout({ billingPeriod: pendingBillingIntent.billingPeriod })
+            : openBillingPortal(),
+        );
       } catch (error) {
         result = {
           error: {
@@ -140,19 +168,18 @@ function AuthShell() {
         };
       }
 
-      if (cancelled) return;
+      if (cancelled) {
+        billingIntentRunningRef.current = false;
+        return;
+      }
       setBillingAction(null);
       billingIntentRunningRef.current = false;
 
       if (result.error) {
-        saveBillingIntent(null);
-        setPendingBillingIntent(null);
         setBillingError(result.error.message || 'Could not open billing.');
         return;
       }
 
-      saveBillingIntent(null);
-      setPendingBillingIntent(null);
       window.location.href = result.data.url;
     }
 
