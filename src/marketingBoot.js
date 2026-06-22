@@ -110,17 +110,17 @@ export function initMarketingDom() {
       features: ['1 active document','1 quiz generation','1 flashcard generation','20 AI Tutor messages/mo'],
       cta: 'Get Started Free', popular: false },
     { name: 'Pro', monthlyPrice: '€9.99', annualPrice: '€6.67', annualBillingTotal: '€79.99', period: '/mo',
-      features: ['More documents and materials','High quiz and flashcard limits','Higher AI Tutor usage','Analytics and Study Planner'],
+      features: ['Unlimited documents and materials','Higher quiz and flashcard limits','Higher AI Tutor usage','Analytics and Study Planner'],
       cta: 'Upgrade to Pro', popular: true },
   ];
   const pricingCopy = {
     en: [
       { name:'Free', periodForever:'trial', cta:'Start Free', features:['1 active document','1 quiz generation','1 flashcard generation','20 AI Tutor messages/month'] },
-      { name:'Pro', periodMonthly:'/month', periodAnnual:'/month', annualBillingNote:'Billed yearly at €79.99', cta:'Upgrade to Pro', badge:'Best value', features:['More documents and materials','High quiz and flashcard limits','Higher AI Tutor usage','Analytics and Study Planner'] },
+      { name:'Pro', periodMonthly:'/month', periodAnnual:'/month', annualBillingNote:'€79.99/year, billed yearly', cta:'Upgrade to Pro', badge:'Best value', features:['Unlimited documents and materials','Higher quiz and flashcard limits','Higher AI Tutor usage','Analytics and Study Planner'] },
     ],
     it: [
       { name:'Free', periodForever:'prova', cta:'Inizia gratis', features:['1 documento attivo','1 generazione quiz','1 generazione flashcard','20 messaggi AI Tutor/mese'] },
-      { name:'Pro', periodMonthly:'/mese', periodAnnual:'/mese', annualBillingNote:'Fatturato annualmente a €79,99', cta:'Passa a Pro', badge:'Miglior valore', features:['Più documenti e materiali','Limiti quiz e flashcard alti','Uso AI Tutor più alto','Analytics e Study Planner'] },
+      { name:'Pro', periodMonthly:'/mese', periodAnnual:'/mese', annualBillingNote:'€79.99/anno, fatturato annualmente', cta:'Passa a Pro', badge:'Miglior valore', features:['Documenti e materiali illimitati','Limiti quiz e flashcard più alti','Uso AI Tutor più alto','Analytics e Study Planner'] },
     ],
   };
 

@@ -9,6 +9,21 @@ import { getAiTutorUsage } from '../services/ai';
 import { openBillingPortal, startCheckout } from '../services/billing';
 import LanguageSelect from './LanguageSelect';
 
+const BILLING_PRICE_COPY = {
+  monthly: {
+    price: '€9.99',
+    period: '/mo',
+    noteEn: 'Billed monthly.',
+    noteIt: 'Fatturato mensilmente.',
+  },
+  yearly: {
+    price: '€6.67',
+    period: '/mo',
+    noteEn: '€79.99/year, billed yearly.',
+    noteIt: '€79.99/anno, fatturato annualmente.',
+  },
+};
+
 function AccountView({ user, lang, onLangChange, onLogout }) {
   const isMobile = useIsMobile();
   const { refreshSession, requestPasswordReset, updateProfile } = useAuth();
@@ -26,6 +41,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
   const [notice, setNotice] = useState(null);
   const [billingPeriod, setBillingPeriod] = useState('monthly');
   const [aiTutorUsage, setAiTutorUsage] = useState(null);
+  const selectedPrice = BILLING_PRICE_COPY[billingPeriod] || BILLING_PRICE_COPY.monthly;
   const deviceLabel = getCurrentDeviceLabel();
   const aiTutorLimitValue = getAiTutorLimitValue({ usage: aiTutorUsage, planLimits, copy, freePlan });
 
@@ -164,21 +180,28 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
           </div>
           <div style={accountS.planActions}>
             {freePlan && (
-              <div style={accountS.billingToggle} aria-label={copy.billingCycle}>
-                <button
-                  type="button"
-                  onClick={() => setBillingPeriod('monthly')}
-                  style={{ ...accountS.billingToggleBtn, ...(billingPeriod === 'monthly' ? accountS.billingToggleBtnActive : null) }}
-                >
-                  {copy.monthly}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBillingPeriod('yearly')}
-                  style={{ ...accountS.billingToggleBtn, ...(billingPeriod === 'yearly' ? accountS.billingToggleBtnActive : null) }}
-                >
-                  {copy.yearly}
-                </button>
+              <div style={accountS.billingChoice}>
+                <div style={accountS.billingToggle} aria-label={copy.billingCycle}>
+                  <button
+                    type="button"
+                    onClick={() => setBillingPeriod('monthly')}
+                    style={{ ...accountS.billingToggleBtn, ...(billingPeriod === 'monthly' ? accountS.billingToggleBtnActive : null) }}
+                  >
+                    {copy.monthly}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillingPeriod('yearly')}
+                    style={{ ...accountS.billingToggleBtn, ...(billingPeriod === 'yearly' ? accountS.billingToggleBtnActive : null) }}
+                  >
+                    {copy.yearly}
+                  </button>
+                </div>
+                <div style={accountS.priceSummary}>
+                  <span style={accountS.priceValue}>{selectedPrice.price}</span>
+                  <span style={accountS.pricePeriod}>{selectedPrice.period}</span>
+                  <span style={accountS.priceNote}>{lang === 'it' ? selectedPrice.noteIt : selectedPrice.noteEn}</span>
+                </div>
               </div>
             )}
             <button
@@ -350,8 +373,8 @@ const accountCopy = {
     accountSub: 'Manage plan, profile, devices, and preferences.',
     logout: 'Log out',
     plan: 'Plan',
-    freeMode: 'Free mode',
-    proMode: 'Pro mode',
+    freeMode: 'Free trial',
+    proMode: 'Pro active',
     freePlanText: 'Try one document with one quiz and one flashcard generation.',
     proPlanText: 'Unlimited documents, higher AI limits, and priority study tools.',
     upgradeToPro: 'Upgrade to Pro',
@@ -430,8 +453,8 @@ const accountCopy = {
     accountSub: 'Gestisci piano, profilo, dispositivi e preferenze.',
     logout: 'Esci',
     plan: 'Piano',
-    freeMode: 'Modalità free',
-    proMode: 'Modalità Pro',
+    freeMode: 'Prova Free',
+    proMode: 'Pro attivo',
     freePlanText: 'Prova un documento con una generazione quiz e una flashcard.',
     proPlanText: 'Documenti illimitati, limiti AI più alti e strumenti studio prioritari.',
     upgradeToPro: 'Passa a Pro',
@@ -548,9 +571,14 @@ const accountS = {
   primaryBtn: { padding:'11px 16px', borderRadius:12, border:'none', background:'var(--indigo)', color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer' },
   primaryBtnDisabled: { opacity:.68, cursor:'not-allowed' },
   planActions: { display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'flex-end' },
+  billingChoice: { display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'flex-end' },
   billingToggle: { display:'inline-flex', alignItems:'center', gap:3, padding:4, borderRadius:12, border:'1px solid var(--border)', background:'var(--sidebar-bg)' },
   billingToggleBtn: { border:'none', borderRadius:9, background:'transparent', color:'var(--gray)', padding:'7px 10px', fontSize:12, fontWeight:900, cursor:'pointer' },
   billingToggleBtnActive: { background:'var(--surface)', color:'var(--indigo)', boxShadow:'0 5px 14px -12px rgba(15,16,53,.55)' },
+  priceSummary: { minWidth:142, display:'grid', gridTemplateColumns:'auto 1fr', alignItems:'baseline', columnGap:3, rowGap:1 },
+  priceValue: { fontSize:19, fontWeight:900, color:'var(--ink)', lineHeight:1, fontVariantNumeric:'tabular-nums' },
+  pricePeriod: { fontSize:12, fontWeight:900, color:'var(--gray)' },
+  priceNote: { gridColumn:'1 / -1', fontSize:11, fontWeight:800, color:'var(--gray)', lineHeight:1.25 },
   softBtn: { padding:'9px 13px', borderRadius:10, border:'none', background:'#FEF3C7', color:'#92400E', fontWeight:800, fontSize:12, cursor:'pointer' },
   ghostBtn: { padding:'9px 13px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:12, cursor:'pointer' },
   disabledBtn: { padding:'9px 13px', borderRadius:10, border:'none', background:'#E5E7EB', color:'#9CA3AF', fontWeight:800, fontSize:12, cursor:'not-allowed' },
