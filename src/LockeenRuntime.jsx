@@ -54,6 +54,7 @@ function AuthShell() {
   const [pendingBillingIntent, setPendingBillingIntent] = useState(() => parseStoredBillingIntent());
   const [billingAction, setBillingAction] = useState(null);
   const [billingError, setBillingError] = useState(null);
+  const billingIntentRunningRef = useRef(false);
   const [lang, setLang] = useState(() => normalizeLang(localStorage.getItem('lockeen-lang') || 'en'));
   const [pageAppEl, setPageAppEl] = useState(null);
 
@@ -117,20 +118,31 @@ function AuthShell() {
   }, [isAuthenticated, pageAppEl, status]);
 
   useEffect(() => {
-    if (!isAuthenticated || !pendingBillingIntent || billingAction) return;
+    if (!isAuthenticated || !pendingBillingIntent || billingIntentRunningRef.current) return;
 
     let cancelled = false;
     async function runBillingIntent() {
+      billingIntentRunningRef.current = true;
       setModal(null);
       setBillingError(null);
       setBillingAction('checkout');
 
-      const result = isFreePlan(user)
-        ? await startCheckout({ billingPeriod: pendingBillingIntent.billingPeriod })
-        : await openBillingPortal();
+      let result;
+      try {
+        result = isFreePlan(user)
+          ? await startCheckout({ billingPeriod: pendingBillingIntent.billingPeriod })
+          : await openBillingPortal();
+      } catch (error) {
+        result = {
+          error: {
+            message: error?.message || 'Could not open billing.',
+          },
+        };
+      }
 
       if (cancelled) return;
       setBillingAction(null);
+      billingIntentRunningRef.current = false;
 
       if (result.error) {
         saveBillingIntent(null);
@@ -146,7 +158,7 @@ function AuthShell() {
 
     runBillingIntent();
     return () => { cancelled = true; };
-  }, [billingAction, isAuthenticated, pendingBillingIntent, user]);
+  }, [isAuthenticated, pendingBillingIntent, user]);
 
   useEffect(() => {
     function onLang(e) {
