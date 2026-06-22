@@ -103,49 +103,24 @@ export function initMarketingDom() {
     refreshIcons();
   }
 
-  // Pricing data — simplified 2-plan layout
+  // Pricing data — Free is a short trial; Pro unlocks the full workflow.
   let billingAnnual = false;
   const plans = [
-    { name: 'Free', monthlyPrice: '$0', annualPrice: '$0', period: 'forever',
-      features: ['5 AI quiz generations/mo','50 flashcards','AI Tutor access','Calendar & progress tracking'],
+    { name: 'Free', monthlyPrice: '€0', annualPrice: '€0', period: 'forever',
+      features: ['1 active document','1 quiz generation','1 flashcard generation','20 AI Tutor messages/mo'],
       cta: 'Get Started Free', popular: false },
-    { name: 'Pro', monthlyPrice: '$12', annualPrice: '$10', period: '/mo',
-      features: ['Unlimited quizzes & flashcards','Advanced AI Tutor (priority)','Analytics & Study Arena','Export, sharing & mobile app'],
-      cta: 'Start Free Trial', popular: true },
-    { name: 'Lifetime', monthlyPrice: '$150', annualPrice: '$150', period: 'one-time', oneTime: true,
-      features: ['Pay once, use forever','All Pro features included','No recurring subscription','Future updates included'],
-      cta: 'Get Lifetime', popular: false },
+    { name: 'Pro', monthlyPrice: '€9.99', annualPrice: '€6.67', annualBillingTotal: '€79.99', period: '/mo',
+      features: ['More documents and materials','High quiz and flashcard limits','Higher AI Tutor usage','Analytics and Study Planner'],
+      cta: 'Upgrade to Pro', popular: true },
   ];
   const pricingCopy = {
     en: [
-      { name:'Free', periodForever:'forever', cta:'Get Started Free', features:['5 AI quiz generations/mo','50 flashcards','AI Tutor access','Calendar & progress tracking'] },
-      { name:'Pro', periodMonthly:'/mo', periodAnnual:'/mo, billed annually', cta:'Start Free Trial', badge:'Most Popular', features:['Unlimited quizzes & flashcards','Advanced AI Tutor (priority)','Analytics & Study Arena','Export, sharing & mobile app'] },
-      { name:'Lifetime', periodOneTime:'one-time', cta:'Get Lifetime', features:['Pay once, use forever','All Pro features included','No recurring subscription','Future updates included'] },
+      { name:'Free', periodForever:'trial', cta:'Start Free', features:['1 active document','1 quiz generation','1 flashcard generation','20 AI Tutor messages/month'] },
+      { name:'Pro', periodMonthly:'/month', periodAnnual:'/month', annualBillingNote:'Billed yearly at €79.99', cta:'Upgrade to Pro', badge:'Best value', features:['More documents and materials','High quiz and flashcard limits','Higher AI Tutor usage','Analytics and Study Planner'] },
     ],
     it: [
-      { name:'Gratis', periodForever:'per sempre', cta:'Inizia gratis', features:['5 generazioni quiz AI/mese','50 flashcard','Accesso Tutor AI','Calendario e progressi'] },
-      { name:'Pro', periodMonthly:'/mese', periodAnnual:'/mese, fatturato annualmente', cta:'Prova gratis', badge:'Più scelto', features:['Quiz e flashcard illimitati','Tutor AI avanzato (priorità)','Analytics e Study Arena','Export, condivisione e app mobile'] },
-      { name:'Lifetime', periodOneTime:'una volta sola', cta:'Prendi Lifetime', features:['Paghi una volta, usi per sempre','Tutte le funzioni Pro incluse','Nessun abbonamento ricorrente','Aggiornamenti futuri inclusi'] },
-    ],
-    de: [
-      { name:'Kostenlos', periodForever:'für immer', cta:'Kostenlos starten', features:['5 KI-Quiz-Generierungen/Monat','50 Karteikarten','KI-Tutor-Zugang','Kalender & Fortschritt'] },
-      { name:'Pro', periodMonthly:'/Monat', periodAnnual:'/Monat, jährlich abgerechnet', cta:'Kostenlos testen', badge:'Beliebt', features:['Unbegrenzte Quizze & Karteikarten','Erweiterter KI-Tutor (Priorität)','Analysen & Study Arena','Export, Teilen & mobile App'] },
-      { name:'Lifetime', periodOneTime:'einmalig', cta:'Lifetime kaufen', features:['Einmal zahlen, für immer nutzen','Alle Pro-Funktionen enthalten','Kein wiederkehrendes Abo','Zukünftige Updates enthalten'] },
-    ],
-    es: [
-      { name:'Gratis', periodForever:'para siempre', cta:'Empezar gratis', features:['5 generaciones de quiz IA/mes','50 flashcards','Acceso Tutor IA','Calendario y progreso'] },
-      { name:'Pro', periodMonthly:'/mes', periodAnnual:'/mes, facturado anual', cta:'Prueba gratis', badge:'Más popular', features:['Quizzes y flashcards ilimitados','Tutor IA avanzado (prioridad)','Analíticas y Study Arena','Exportar, compartir y app móvil'] },
-      { name:'Lifetime', periodOneTime:'pago único', cta:'Comprar Lifetime', features:['Paga una vez, úsalo siempre','Todas las funciones Pro incluidas','Sin suscripción recurrente','Actualizaciones futuras incluidas'] },
-    ],
-    fr: [
-      { name:'Gratuit', periodForever:'à vie', cta:'Commencer gratis', features:['5 générations quiz IA/mois','50 flashcards','Accès Tuteur IA','Calendrier & progression'] },
-      { name:'Pro', periodMonthly:'/mois', periodAnnual:'/mois, facturé annuellement', cta:'Essai gratuit', badge:'Le plus populaire', features:['Quiz et flashcards illimités','Tuteur IA avancé (priorité)','Analytics & Study Arena','Export, partage & app mobile'] },
-      { name:'Lifetime', periodOneTime:'paiement unique', cta:'Obtenir Lifetime', features:['Paie une fois, utilise pour toujours','Toutes les fonctions Pro incluses','Aucun abonnement récurrent','Mises à jour futures incluses'] },
-    ],
-    pt: [
-      { name:'Grátis', periodForever:'para sempre', cta:'Começar grátis', features:['5 gerações de quiz IA/mês','50 flashcards','Acesso Tutor IA','Calendário e progresso'] },
-      { name:'Pro', periodMonthly:'/mês', periodAnnual:'/mês, faturado anualmente', cta:'Teste grátis', badge:'Mais popular', features:['Quizzes e flashcards ilimitados','Tutor IA avançado (prioridade)','Analytics e Study Arena','Exportar, partilhar e app móvel'] },
-      { name:'Lifetime', periodOneTime:'pagamento único', cta:'Obter Lifetime', features:['Paga uma vez, usa para sempre','Todas as funções Pro incluídas','Sem subscrição recorrente','Atualizações futuras incluídas'] },
+      { name:'Free', periodForever:'prova', cta:'Inizia gratis', features:['1 documento attivo','1 generazione quiz','1 generazione flashcard','20 messaggi AI Tutor/mese'] },
+      { name:'Pro', periodMonthly:'/mese', periodAnnual:'/mese', annualBillingNote:'Fatturato annualmente a €79,99', cta:'Passa a Pro', badge:'Miglior valore', features:['Più documenti e materiali','Limiti quiz e flashcard alti','Uso AI Tutor più alto','Analytics e Study Planner'] },
     ],
   };
 
@@ -154,7 +129,8 @@ export function initMarketingDom() {
     document.getElementById('pricing-grid').innerHTML = plans.map(p => {
       const pc = copy[plans.indexOf(p)] || pricingCopy.en[plans.indexOf(p)];
       const price = billingAnnual ? p.annualPrice : p.monthlyPrice;
-      const period = p.period === 'forever' ? pc.periodForever : (p.oneTime ? pc.periodOneTime : (billingAnnual ? pc.periodAnnual : pc.periodMonthly));
+      const period = p.period === 'forever' ? pc.periodForever : (billingAnnual ? pc.periodAnnual : pc.periodMonthly);
+      const billingNote = billingAnnual && p.annualBillingTotal ? (pc.annualBillingNote || `Billed yearly at ${p.annualBillingTotal}`) : '';
       return `
     <div class="relative p-8 bg-white rounded-3xl border-2 transition-all duration-300 ${p.popular ? 'border-primary shadow-2xl shadow-primary/20' : 'border-border hover:border-primary/30 hover:shadow-lg'}">
       ${p.popular ? `<div class="absolute -top-5 left-1/2 z-20 -translate-x-1/2"><div class="px-5 py-2 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold shadow-primary-soft whitespace-nowrap">${pc.badge}</div></div>` : ''}
@@ -163,6 +139,7 @@ export function initMarketingDom() {
         <div class="flex items-baseline gap-1 mt-4 mb-1">
           <span class="text-5xl font-bold" translate="no">${price}</span>
           <span class="text-foreground/50 text-sm">${period}</span>        </div>
+        ${billingNote ? `<p class="text-xs font-semibold text-foreground/50 mt-1">${billingNote}</p>` : ''}
       </div>
       <button onclick="window.openAuth && window.openAuth('signup')" class="w-full py-3 rounded-xl mb-6 transition-all font-semibold text-sm ${p.popular ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-foreground hover:bg-border'}">${pc.cta}</button>
       <div class="space-y-3">
@@ -214,11 +191,11 @@ export function initMarketingDom() {
       'trust.title':"Trusted by students at the world's top universities", 'stats.students':'Active Students', 'stats.sessions':'Study Sessions', 'stats.grades':'Improved Grades',
       'features.badge':'Features', 'features.title':'Everything you need to<br /><span class="gradient-text">excel in your studies</span>', 'features.sub':'Powerful AI tools designed to transform the way you learn',
       'product.title':'A workspace designed for<br /><span class="gradient-text">modern learners</span>', 'product.sub':'Clean, intuitive, and packed with intelligent features',
-      'pricing.title':'Simple, <span class="gradient-text">transparent pricing</span>', 'pricing.sub':'Three plans. No hidden fees.', 'pricing.monthly':'Monthly', 'pricing.annual':'Annual', 'pricing.teams':'For schools & teams', 'pricing.teamsSub':'Volume pricing from <strong>$6</strong>/student/mo · dedicated workspace · admin controls', 'pricing.contact':'Contact Sales →',
-      'pricing.trialNote':'14-day free trial · No credit card required · Cancel anytime',
+      'pricing.title':'Simple, <span class="gradient-text">transparent pricing</span>', 'pricing.sub':'Start free, then unlock the full workflow with Pro.', 'pricing.monthly':'Monthly', 'pricing.annual':'Annual', 'pricing.teams':'For schools & teams', 'pricing.teamsSub':'Volume pricing from <strong>€6</strong>/student/month · dedicated workspace · admin controls', 'pricing.contact':'Contact Sales →',
+      'pricing.trialNote':'Free trial plan · No credit card required · Upgrade when ready',
       'final.title':'Ready to transform your<br />study experience?',
       'final.sub':'Join thousands of students who are already achieving better grades with AI-powered learning.',
-      'final.primary':'Start Free Trial', 'final.secondary':'Schedule Demo', 'final.note':'No credit card required • 14-day free trial • Cancel anytime',
+      'final.primary':'Start Free', 'final.secondary':'Schedule Demo', 'final.note':'No credit card required • Upgrade only when you are ready',
       'footer.tagline':'The AI-powered workspace for smarter studying. Learn better, achieve more.',
       'footer.product':'Product', 'footer.company':'Company', 'footer.resources':'Resources', 'footer.legal':'Legal',
       'footer.pricing':'Pricing', 'footer.quizzes':'Quizzes', 'footer.about':'About', 'footer.blog':'Blog', 'footer.careers':'Careers', 'footer.earn':'Earn', 'footer.press':'Press', 'footer.partners':'Partners',
@@ -240,11 +217,11 @@ export function initMarketingDom() {
       'trust.title':'Scelto da studenti delle migliori università al mondo', 'stats.students':'Studenti attivi', 'stats.sessions':'Sessioni di studio', 'stats.grades':'Voti migliorati',
       'features.badge':'Funzioni', 'features.title':'Tutto ciò che ti serve per<br /><span class="gradient-text">eccellere nello studio</span>', 'features.sub':'Strumenti AI potenti per trasformare il modo in cui impari',
       'product.title':'Uno spazio progettato per<br /><span class="gradient-text">studenti moderni</span>', 'product.sub':'Pulito, intuitivo e pieno di funzioni intelligenti',
-      'pricing.title':'Prezzi <span class="gradient-text">semplici e trasparenti</span>', 'pricing.sub':'Tre piani. Nessun costo nascosto.', 'pricing.monthly':'Mensile', 'pricing.annual':'Annuale', 'pricing.teams':'Per scuole e team', 'pricing.teamsSub':'Prezzi volume da <strong>$6</strong>/studente/mese · workspace dedicato · controlli admin', 'pricing.contact':'Contatta vendite →',
-      'pricing.trialNote':'14 giorni di prova gratis · Nessuna carta richiesta · Cancelli quando vuoi',
+      'pricing.title':'Prezzi <span class="gradient-text">semplici e trasparenti</span>', 'pricing.sub':'Inizia gratis, poi sblocca il flusso completo con Pro.', 'pricing.monthly':'Mensile', 'pricing.annual':'Annuale', 'pricing.teams':'Per scuole e team', 'pricing.teamsSub':'Prezzi volume da <strong>€6</strong>/studente/mese · workspace dedicato · controlli admin', 'pricing.contact':'Contatta vendite →',
+      'pricing.trialNote':'Piano Free di prova · Nessuna carta richiesta · Passi a Pro quando vuoi',
       'final.title':'Pronto a trasformare<br />il tuo modo di studiare?',
       'final.sub':'Unisciti agli studenti che stanno già ottenendo risultati migliori con l’apprendimento potenziato dall’AI.',
-      'final.primary':'Inizia prova gratis', 'final.secondary':'Guarda demo', 'final.note':'Nessuna carta richiesta • 14 giorni di prova gratis • Cancelli quando vuoi',
+      'final.primary':'Inizia gratis', 'final.secondary':'Guarda demo', 'final.note':'Nessuna carta richiesta • Passi a Pro solo quando vuoi',
       'footer.tagline':'Lo spazio AI per studiare meglio. Impara meglio, ottieni di più.',
       'footer.product':'Prodotto', 'footer.company':'Azienda', 'footer.resources':'Risorse', 'footer.legal':'Legale',
       'footer.pricing':'Prezzi', 'footer.quizzes':'Quiz', 'footer.about':'Chi siamo', 'footer.blog':'Blog', 'footer.careers':'Lavora con noi', 'footer.earn':'Guadagna', 'footer.press':'Stampa', 'footer.partners':'Partner',
@@ -537,7 +514,7 @@ export function initMarketingDom() {
   }
 
   const marketingStaticText = [
-    ['p.text-foreground\\/50.text-sm', '14-day free trial · No credit card required · Cancel anytime', 'pricing.trialNote'],
+    ['p.text-foreground\\/50.text-sm', 'Free trial plan · No credit card required · Upgrade when ready', 'pricing.trialNote'],
     ['footer p.text-white\\/70', 'The AI-powered workspace for smarter studying. Learn better, achieve more.', 'footer.tagline'],
     ['footer h4', 'Product', 'footer.product'],
     ['footer h4', 'Company', 'footer.company'],
@@ -596,9 +573,9 @@ export function initMarketingDom() {
 
     setExactHtml('section h2', 'Ready to transform your study experience?', dict['final.title'], 'final.title');
     setExactText('section p', 'Join thousands of students who are already achieving better grades with AI-powered learning.', dict['final.sub'], 'final.sub');
-    setExactText('section button', 'Start Free Trial', dict['final.primary'], 'final.primary');
+    setExactText('section button', 'Start Free', dict['final.primary'], 'final.primary');
     setExactText('section button', 'Schedule Demo', dict['final.secondary'], 'final.secondary');
-    setExactText('section p', 'No credit card required • 14-day free trial • Cancel anytime', dict['final.note'], 'final.note');
+    setExactText('section p', 'No credit card required • Upgrade only when you are ready', dict['final.note'], 'final.note');
     setExactHtml('footer p', 'Diventa Ambassador nella tua università. Guadagni €2 per ogni studente che si iscrive con il tuo link — per sempre, senza limiti.', dict['footer.ambassadorCopy'], 'footer.ambassadorCopy');
 
     document.querySelectorAll('footer p.text-white\\/60.text-sm').forEach(function(el) {
