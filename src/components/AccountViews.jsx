@@ -34,7 +34,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
     const result = await updateProfile({ name, language: lang, timezone });
     setSaving(null);
     if (result.error) {
-      showNotice('error', result.error.message || copy.saveError);
+      showNotice('error', formatAccountError(result.error, copy));
       return;
     }
     showNotice('success', copy.profileSaved);
@@ -46,7 +46,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
     const result = await updateProfile({ name, language: nextLang, timezone });
     setSaving(null);
     if (result.error) {
-      showNotice('error', result.error.message || copy.saveError);
+      showNotice('error', formatAccountError(result.error, copy));
       return;
     }
     showNotice('success', (accountCopy[nextLang] || accountCopy.en).languageSaved);
@@ -57,7 +57,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
     const result = await requestPasswordReset({ email });
     setSaving(null);
     if (result.error) {
-      showNotice('error', result.error.message || copy.saveError);
+      showNotice('error', formatAccountError(result.error, copy));
       return;
     }
     showNotice('success', copy.passwordResetSent);
@@ -213,6 +213,15 @@ function formatTimezoneLabel(timezone) {
   }
 }
 
+function formatAccountError(error, copy) {
+  const code = String(error?.code || '').toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+  if (code.includes('rate') || message.includes('rate limit')) {
+    return copy.emailRateLimit;
+  }
+  return error?.message || copy.saveError;
+}
+
 const accountCopy = {
   en: {
     account: 'Account',
@@ -247,6 +256,7 @@ const accountCopy = {
     languageSaved: 'Language updated.',
     passwordResetSent: 'Password reset email sent.',
     saveError: 'Could not save this setting. Please try again.',
+    emailRateLimit: 'A reset email was already sent. Please wait a few minutes before requesting another one.',
     sendReset: 'Send reset',
     changeLater: 'Change later',
     emailChangeLater: 'Email changes will be enabled after the confirmation flow is fully verified.',
@@ -297,6 +307,7 @@ const accountCopy = {
     languageSaved: 'Lingua aggiornata.',
     passwordResetSent: 'Email per reimpostare la password inviata.',
     saveError: 'Impossibile salvare questa impostazione. Riprova.',
+    emailRateLimit: 'Hai già richiesto una mail di reset. Aspetta qualche minuto prima di richiederne un’altra.',
     sendReset: 'Invia reset',
     changeLater: 'Più avanti',
     emailChangeLater: 'Il cambio email verrà attivato quando il flusso di conferma sarà verificato completamente.',
