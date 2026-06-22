@@ -53,6 +53,8 @@ function mapSupabaseUser(user) {
     id: user.id,
     email: user.email || '',
     name,
+    language: metadata.language || 'en',
+    timezone: metadata.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome',
     provider: 'supabase',
     createdAt: user.created_at || new Date().toISOString(),
   };
@@ -203,7 +205,7 @@ export async function signInWithGoogle() {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
 
-    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/?auth=reset` : undefined;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -335,6 +337,90 @@ export async function updatePassword(input = {}) {
   return ok({
     user: readMockSession()?.user || null,
     status: 'authenticated',
+  });
+}
+
+export async function updateProfile(input = {}) {
+  const name = String(input.name || '').trim();
+  const language = input.language === 'it' ? 'it' : 'en';
+  const timezone = String(input.timezone || '').trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome';
+
+  if (!name) return fail('Name is required.', 'VALIDATION_ERROR');
+
+  if (!isMockAuthMode()) {
+    const modeError = requireSupabaseAuthMode();
+    if (modeError) return modeError;
+
+    const { data, error } = await supabase.auth.updateUser({
+      data: {
+        name,
+        full_name: name,
+        language,
+        timezone,
+      },
+    });
+
+    if (error) return fail(error.message, error.code || 'PROFILE_UPDATE_FAILED');
+
+    return ok(createSupabaseSession({ user: data.user }));
+  }
+
+  const session = readMockSession();
+  if (!session?.user) return fail('You must be signed in to update your profile.', 'AUTH_REQUIRED');
+
+  const nextSession = {
+    ...session,
+    user: {
+      ...session.user,
+      name,
+      language,
+      timezone,
+    },
+  };
+  writeMockSession(nextSession);
+  notify(nextSession);
+
+  return ok({
+    user: nextSession.user,
+    status: 'authenticated',
+  });
+}
+
+export async function updateEmail(input = {}) {
+  const email = normalizeEmail(input.email);
+  if (!email) return fail('Email is required.', 'VALIDATION_ERROR');
+
+  if (!isMockAuthMode()) {
+    const modeError = requireSupabaseAuthMode();
+    if (modeError) return modeError;
+
+    const { data, error } = await supabase.auth.updateUser({ email });
+
+    if (error) return fail(error.message, error.code || 'EMAIL_UPDATE_FAILED');
+
+    return ok({
+      ...createSupabaseSession({ user: data.user }),
+      pendingEmail: data.user?.new_email || email,
+    });
+  }
+
+  const session = readMockSession();
+  if (!session?.user) return fail('You must be signed in to update your email.', 'AUTH_REQUIRED');
+
+  const nextSession = {
+    ...session,
+    user: {
+      ...session.user,
+      email,
+    },
+  };
+  writeMockSession(nextSession);
+  notify(nextSession);
+
+  return ok({
+    user: nextSession.user,
+    status: 'authenticated',
+    pendingEmail: null,
   });
 }
 

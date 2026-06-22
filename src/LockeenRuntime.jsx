@@ -20,7 +20,7 @@ function AuthShell() {
   }, []);
 
   useLayoutEffect(() => {
-    const openAuth = (m) => setModal(m === 'signup' ? 'signup' : 'signin');
+    const openAuth = (m) => setModal(m === 'signup' ? 'signup' : m === 'reset' ? 'reset' : 'signin');
     const closeAuth = () => setModal(null);
     const signOut = () => {
       setModal(null);
@@ -34,6 +34,20 @@ function AuthShell() {
       if (window.closeAuth === closeAuth) window.closeAuth = undefined;
       if (window.signOut === signOut) window.signOut = undefined;
     };
+  }, []);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const isRecoveryLink = searchParams.get('auth') === 'reset' || hashParams.get('type') === 'recovery';
+
+    if (isRecoveryLink) {
+      setModal('reset');
+      searchParams.delete('auth');
+      const nextSearch = searchParams.toString();
+      const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
   }, []);
 
   useEffect(() => {
