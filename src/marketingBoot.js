@@ -215,6 +215,16 @@ export function initMarketingDom() {
       'features.badge':'Features', 'features.title':'Everything you need to<br /><span class="gradient-text">excel in your studies</span>', 'features.sub':'Powerful AI tools designed to transform the way you learn',
       'product.title':'A workspace designed for<br /><span class="gradient-text">modern learners</span>', 'product.sub':'Clean, intuitive, and packed with intelligent features',
       'pricing.title':'Simple, <span class="gradient-text">transparent pricing</span>', 'pricing.sub':'Three plans. No hidden fees.', 'pricing.monthly':'Monthly', 'pricing.annual':'Annual', 'pricing.teams':'For schools & teams', 'pricing.teamsSub':'Volume pricing from <strong>$6</strong>/student/mo · dedicated workspace · admin controls', 'pricing.contact':'Contact Sales →',
+      'pricing.trialNote':'14-day free trial · No credit card required · Cancel anytime',
+      'final.title':'Ready to transform your<br />study experience?',
+      'final.sub':'Join thousands of students who are already achieving better grades with AI-powered learning.',
+      'final.primary':'Start Free Trial', 'final.secondary':'Schedule Demo', 'final.note':'No credit card required • 14-day free trial • Cancel anytime',
+      'footer.tagline':'The AI-powered workspace for smarter studying. Learn better, achieve more.',
+      'footer.product':'Product', 'footer.company':'Company', 'footer.resources':'Resources', 'footer.legal':'Legal',
+      'footer.pricing':'Pricing', 'footer.quizzes':'Quizzes', 'footer.about':'About', 'footer.blog':'Blog', 'footer.careers':'Careers', 'footer.earn':'Earn', 'footer.press':'Press', 'footer.partners':'Partners',
+      'footer.help':'Help Center', 'footer.guides':'Guides', 'footer.apiDocs':'API Docs', 'footer.status':'Status', 'footer.privacy':'Privacy', 'footer.terms':'Terms', 'footer.security':'Security', 'footer.cookiePolicy':'Cookie Policy',
+      'footer.ambassadorBadge':'Lockeen Ambassador Program', 'footer.ambassadorTitle':'Earn with Lockeen', 'footer.ambassadorCopy':'Become an Ambassador at your university. Earn <strong style="color:#34D399">€2 for every student</strong> who signs up with your link — recurring, with no cap.', 'footer.ambassadorCta':'Become an Ambassador →',
+      'footer.rights':'© 2026 Lockeen. All rights reserved.', 'footer.privacyPolicy':'Privacy Policy', 'footer.termsService':'Terms of Service', 'footer.cookieSettings':'Cookie Settings',
       'app.dashboard':'Dashboard', 'app.myExams':'My Exams', 'app.flashcards':'Flashcards', 'app.quiz':'Quiz', 'app.aiTutor':'AI Tutor', 'app.analytics':'Analytics', 'app.calendar':'Calendar', 'app.weeklyGoal':'Weekly Goal',
     },
     it: {
@@ -231,6 +241,16 @@ export function initMarketingDom() {
       'features.badge':'Funzioni', 'features.title':'Tutto ciò che ti serve per<br /><span class="gradient-text">eccellere nello studio</span>', 'features.sub':'Strumenti AI potenti per trasformare il modo in cui impari',
       'product.title':'Uno spazio progettato per<br /><span class="gradient-text">studenti moderni</span>', 'product.sub':'Pulito, intuitivo e pieno di funzioni intelligenti',
       'pricing.title':'Prezzi <span class="gradient-text">semplici e trasparenti</span>', 'pricing.sub':'Tre piani. Nessun costo nascosto.', 'pricing.monthly':'Mensile', 'pricing.annual':'Annuale', 'pricing.teams':'Per scuole e team', 'pricing.teamsSub':'Prezzi volume da <strong>$6</strong>/studente/mese · workspace dedicato · controlli admin', 'pricing.contact':'Contatta vendite →',
+      'pricing.trialNote':'14 giorni di prova gratis · Nessuna carta richiesta · Cancelli quando vuoi',
+      'final.title':'Pronto a trasformare<br />il tuo modo di studiare?',
+      'final.sub':'Unisciti agli studenti che stanno già ottenendo risultati migliori con l’apprendimento potenziato dall’AI.',
+      'final.primary':'Inizia prova gratis', 'final.secondary':'Guarda demo', 'final.note':'Nessuna carta richiesta • 14 giorni di prova gratis • Cancelli quando vuoi',
+      'footer.tagline':'Lo spazio AI per studiare meglio. Impara meglio, ottieni di più.',
+      'footer.product':'Prodotto', 'footer.company':'Azienda', 'footer.resources':'Risorse', 'footer.legal':'Legale',
+      'footer.pricing':'Prezzi', 'footer.quizzes':'Quiz', 'footer.about':'Chi siamo', 'footer.blog':'Blog', 'footer.careers':'Lavora con noi', 'footer.earn':'Guadagna', 'footer.press':'Stampa', 'footer.partners':'Partner',
+      'footer.help':'Centro assistenza', 'footer.guides':'Guide', 'footer.apiDocs':'API Docs', 'footer.status':'Status', 'footer.privacy':'Privacy', 'footer.terms':'Termini', 'footer.security':'Sicurezza', 'footer.cookiePolicy':'Cookie Policy',
+      'footer.ambassadorBadge':'Programma Ambassador Lockeen', 'footer.ambassadorTitle':'Guadagna con Lockeen', 'footer.ambassadorCopy':'Diventa Ambassador nella tua università. Guadagni <strong style="color:#34D399">€2 per ogni studente</strong> che si iscrive con il tuo link — ricorrenti, senza limiti.', 'footer.ambassadorCta':'Diventa Ambassador →',
+      'footer.rights':'© 2026 Lockeen. Tutti i diritti riservati.', 'footer.privacyPolicy':'Privacy Policy', 'footer.termsService':'Termini di servizio', 'footer.cookieSettings':'Impostazioni cookie',
       'app.dashboard':'Dashboard', 'app.myExams':'I miei esami', 'app.flashcards':'Flashcard', 'app.quiz':'Quiz', 'app.aiTutor':'Tutor AI', 'app.analytics':'Analytics', 'app.calendar':'Calendario', 'app.weeklyGoal':'Obiettivo settimanale',
     },
     de: {
@@ -516,6 +536,76 @@ export function initMarketingDom() {
     }
   }
 
+  const marketingStaticText = [
+    ['p.text-foreground\\/50.text-sm', '14-day free trial · No credit card required · Cancel anytime', 'pricing.trialNote'],
+    ['footer p.text-white\\/70', 'The AI-powered workspace for smarter studying. Learn better, achieve more.', 'footer.tagline'],
+    ['footer h4', 'Product', 'footer.product'],
+    ['footer h4', 'Company', 'footer.company'],
+    ['footer h4', 'Resources', 'footer.resources'],
+    ['footer h4', 'Legal', 'footer.legal'],
+    ['footer a', 'Pricing', 'footer.pricing'],
+    ['footer a', 'Quizzes', 'footer.quizzes'],
+    ['footer a', 'About', 'footer.about'],
+    ['footer a', 'Careers', 'footer.careers'],
+    ['footer a', 'Earn', 'footer.earn'],
+    ['footer a', 'Press', 'footer.press'],
+    ['footer a', 'Partners', 'footer.partners'],
+    ['footer a', 'Help Center', 'footer.help'],
+    ['footer a', 'Guides', 'footer.guides'],
+    ['footer a', 'Status', 'footer.status'],
+    ['footer a', 'Privacy', 'footer.privacy'],
+    ['footer a', 'Terms', 'footer.terms'],
+    ['footer a', 'Security', 'footer.security'],
+    ['footer a', 'Cookie Policy', 'footer.cookiePolicy'],
+    ['footer a', 'Privacy Policy', 'footer.privacyPolicy'],
+    ['footer a', 'Terms of Service', 'footer.termsService'],
+    ['footer a', 'Cookie Settings', 'footer.cookieSettings'],
+    ['footer span', 'Lockeen Ambassador Program', 'footer.ambassadorBadge'],
+    ['footer h3', 'Guadagna con Lockeen', 'footer.ambassadorTitle'],
+    ['footer a', 'Diventa Ambassador →', 'footer.ambassadorCta'],
+  ];
+
+  function setExactText(selector, sourceText, translatedText, translationKey) {
+    document.querySelectorAll(selector).forEach(function(el) {
+      const current = el.textContent.trim();
+      const knownValues = Object.values(LOCKEEN_I18N).map(function(dict) { return dict[translationKey]; }).filter(Boolean);
+      if (current === sourceText || knownValues.includes(current)) el.textContent = translatedText;
+    });
+  }
+
+  function setExactHtml(selector, sourceText, translatedHtml, translationKey) {
+    document.querySelectorAll(selector).forEach(function(el) {
+      const current = el.textContent.trim().replace(/\s+/g, ' ');
+      const currentCompact = current.replace(/\s+/g, '');
+      const sourceCompact = sourceText.replace(/\s+/g, '');
+      const knownValues = Object.values(LOCKEEN_I18N).map(function(dict) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = dict[translationKey] || '';
+        return tmp.textContent.trim().replace(/\s+/g, ' ');
+      }).filter(Boolean);
+      const knownCompacts = knownValues.map(function(value) { return value.replace(/\s+/g, ''); });
+      if (current === sourceText || currentCompact === sourceCompact || knownValues.includes(current) || knownCompacts.includes(currentCompact)) el.innerHTML = translatedHtml;
+    });
+  }
+
+  function applyMarketingStaticCopy(lang) {
+    const dict = LOCKEEN_I18N[lang] || LOCKEEN_I18N.en;
+    marketingStaticText.forEach(function(item) {
+      setExactText(item[0], item[1], dict[item[2]], item[2]);
+    });
+
+    setExactHtml('section h2', 'Ready to transform your study experience?', dict['final.title'], 'final.title');
+    setExactText('section p', 'Join thousands of students who are already achieving better grades with AI-powered learning.', dict['final.sub'], 'final.sub');
+    setExactText('section button', 'Start Free Trial', dict['final.primary'], 'final.primary');
+    setExactText('section button', 'Schedule Demo', dict['final.secondary'], 'final.secondary');
+    setExactText('section p', 'No credit card required • 14-day free trial • Cancel anytime', dict['final.note'], 'final.note');
+    setExactHtml('footer p', 'Diventa Ambassador nella tua università. Guadagni €2 per ogni studente che si iscrive con il tuo link — per sempre, senza limiti.', dict['footer.ambassadorCopy'], 'footer.ambassadorCopy');
+
+    document.querySelectorAll('footer p.text-white\\/60.text-sm').forEach(function(el) {
+      if (el.textContent.includes('© 2026 Lockeen.')) el.textContent = dict['footer.rights'];
+    });
+  }
+
   function applyLockeenLanguage(lang) {
     const safeLang = normalizeLockeenLang(lang);
     const dict = LOCKEEN_I18N[safeLang];
@@ -532,6 +622,7 @@ export function initMarketingDom() {
     });
     renderFeatures(safeLang);
     renderPricing(safeLang);
+    applyMarketingStaticCopy(safeLang);
     setupHeroDemoCards();
   }
 
