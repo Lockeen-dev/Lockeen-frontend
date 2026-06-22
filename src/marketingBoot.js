@@ -141,7 +141,7 @@ export function initMarketingDom() {
           <span class="text-foreground/50 text-sm">${period}</span>        </div>
         ${billingNote ? `<p class="text-xs font-semibold text-foreground/50 mt-1">${billingNote}</p>` : ''}
       </div>
-      <button onclick="window.openAuth && window.openAuth('signup')" class="w-full py-3 rounded-xl mb-6 transition-all font-semibold text-sm ${p.popular ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-foreground hover:bg-border'}">${pc.cta}</button>
+      <button onclick="${p.popular ? `window.openAuth && window.openAuth('signup', { intent: 'checkout', billingPeriod: '${billingAnnual ? 'yearly' : 'monthly'}' })` : `window.openAuth && window.openAuth('signup')`}" class="w-full py-3 rounded-xl mb-6 transition-all font-semibold text-sm ${p.popular ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-foreground hover:bg-border'}">${pc.cta}</button>
       <div class="space-y-3">
         ${pc.features.map(feat => `
           <div class="flex items-center gap-3">

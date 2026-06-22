@@ -224,7 +224,7 @@ export async function signInWithGoogle() {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
 
-    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/?auth=reset` : undefined;
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
