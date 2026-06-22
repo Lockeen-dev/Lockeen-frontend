@@ -118,3 +118,43 @@ export function askTutor(input = {}) {
 export function generateStudyPlan(input = {}) {
   return requestAi({ kind: 'planner', ...input });
 }
+
+export async function getAiTutorUsage() {
+  if (AI_MODE !== 'real') {
+    return ok({
+      planTier: 'free',
+      used: 0,
+      remaining: 20,
+      quota: 20,
+      resetAt: null,
+      window: 'monthly',
+    });
+  }
+
+  const clientError = requireSupabaseClient();
+  if (clientError) return clientError;
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (sessionError || !token) {
+    return fail('AI usage requires an authenticated Supabase session.', 'AUTH_REQUIRED');
+  }
+
+  let response;
+  try {
+    response = await fetch('/api/ai-usage-status', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (error) {
+    return fail(error?.message || 'Unable to load AI usage.', 'AI_USAGE_UNAVAILABLE');
+  }
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || payload?.error) {
+    const error = payload?.error || {};
+    return fail(error.message || 'Unable to load AI usage.', error.code || 'AI_USAGE_UNAVAILABLE');
+  }
+
+  return ok(payload.data);
+}

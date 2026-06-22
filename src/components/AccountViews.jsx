@@ -5,6 +5,7 @@ import { LANG_OPTIONS } from '../lib/i18n';
 import { formatLimit, getPlanLimits, getUserPlanTier, isFreePlan } from '../lib/planLimits';
 import useIsMobile from '../lib/useIsMobile';
 import { useAuth } from '../context/AuthContext';
+import { getAiTutorUsage } from '../services/ai';
 import { openBillingPortal, startCheckout } from '../services/billing';
 import LanguageSelect from './LanguageSelect';
 
@@ -24,12 +25,28 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
   const [saving, setSaving] = useState(null);
   const [notice, setNotice] = useState(null);
   const [billingPeriod, setBillingPeriod] = useState('monthly');
+  const [aiTutorUsage, setAiTutorUsage] = useState(null);
   const deviceLabel = getCurrentDeviceLabel();
+  const aiTutorLimitValue = getAiTutorLimitValue({ usage: aiTutorUsage, planLimits, copy, freePlan });
 
   useEffect(() => {
     setName(user?.name || '');
     setTimezone(user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome');
   }, [user?.email, user?.name, user?.timezone]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAiTutorUsage() {
+      if (!freePlan) {
+        setAiTutorUsage(null);
+        return;
+      }
+      const result = await getAiTutorUsage();
+      if (!cancelled && result.data) setAiTutorUsage(result.data);
+    }
+    loadAiTutorUsage();
+    return () => { cancelled = true; };
+  }, [freePlan, user?.id, user?.planTier]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -186,7 +203,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
             <PlanLimitItem label={copy.limitDocuments} value={`${formatLimit(planLimits.activeDocuments, copy.unlimited)} ${copy.limitDocumentsUnit}`} />
             <PlanLimitItem label={copy.limitQuiz} value={`${formatLimit(planLimits.quizGenerationsPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
             <PlanLimitItem label={copy.limitFlashcards} value={`${formatLimit(planLimits.flashcardGenerationsPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
-            <PlanLimitItem label={copy.limitTutor} value={`${formatLimit(planLimits.aiTutorMessagesPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
+            <PlanLimitItem label={copy.limitTutor} value={aiTutorLimitValue} />
           </div>
           <div style={accountS.usageHint}>{usageCopy.hint}</div>
         </div>
@@ -289,6 +306,18 @@ function PlanLimitItem({ label, value }) {
   );
 }
 
+function getAiTutorLimitValue({ usage, planLimits, copy, freePlan }) {
+  if (!freePlan) return `${formatLimit(planLimits.aiTutorMessagesPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`;
+  const quota = Number(usage?.quota);
+  const remaining = Number(usage?.remaining);
+  if (Number.isFinite(quota) && Number.isFinite(remaining)) {
+    return copy.limitTutorRemaining
+      .replace('{remaining}', String(Math.max(remaining, 0)))
+      .replace('{count}', String(quota));
+  }
+  return `${formatLimit(planLimits.aiTutorMessagesPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`;
+}
+
 function getCurrentDeviceLabel() {
   if (typeof navigator === 'undefined') return 'Current browser';
   const platform = navigator.platform || 'Browser';
@@ -354,6 +383,7 @@ const accountCopy = {
     limitQuiz: 'Quiz generations',
     limitFlashcards: 'Flashcard generations',
     limitTutor: 'AI Tutor messages',
+    limitTutorRemaining: '{remaining} / {count} left',
     limitDocumentsUnit: 'active',
     limitMonthlyUnit: '/ month',
     planHistory: 'Plan history',
@@ -437,6 +467,7 @@ const accountCopy = {
     limitQuiz: 'Generazioni quiz',
     limitFlashcards: 'Generazioni flashcard',
     limitTutor: 'Messaggi AI Tutor',
+    limitTutorRemaining: '{remaining} / {count} rimasti',
     limitDocumentsUnit: 'attivo',
     limitMonthlyUnit: '/ mese',
     planHistory: 'Storico piano',

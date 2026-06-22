@@ -129,7 +129,9 @@ export const UI_T = {
     freeModeShort: 'Free',
     unlimited: 'Unlimited',
     freeAiTutorLimitTitle: 'Free includes {count} AI Tutor messages per month.',
-    freeAiTutorLimitCopy: 'Free is meant to test the tutor. Pro will unlock higher usage once Stripe is connected.',
+    freeAiTutorRemainingTitle: '{remaining} / {count} AI Tutor messages left this month.',
+    freeAiTutorRemainingCopy: 'Pro removes this monthly tutor limit.',
+    freeAiTutorLimitCopy: 'Free is meant to test the tutor. Pro unlocks higher usage.',
     contentLanguagePolicy: 'Practice content follows the uploaded material language. App controls follow your UI language.',
   },
   it: {
@@ -235,7 +237,9 @@ export const UI_T = {
     freeModeShort: 'Free',
     unlimited: 'Illimitato',
     freeAiTutorLimitTitle: 'Il piano Free include {count} messaggi AI Tutor al mese.',
-    freeAiTutorLimitCopy: 'Free serve per provare il tutor. Pro sbloccherà un uso più alto quando Stripe sarà collegato.',
+    freeAiTutorRemainingTitle: '{remaining} / {count} messaggi AI Tutor rimasti questo mese.',
+    freeAiTutorRemainingCopy: 'Pro rimuove questo limite mensile del tutor.',
+    freeAiTutorLimitCopy: 'Free serve per provare il tutor. Pro sblocca un uso più alto.',
     contentLanguagePolicy: 'I contenuti di quiz e flashcard seguono la lingua del materiale caricato. I comandi seguono la lingua dell’app.',
   },
 };

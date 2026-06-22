@@ -2,7 +2,8 @@ import { seedExams } from '../data/mockData';
 import { isMockMode } from '../lib/apiClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 import { createStudyMaterialSignedUrl } from './storage';
-import { requireAuthenticatedUserId } from './auth';
+import { getCurrentUser, requireAuthenticatedUserId } from './auth';
+import { getPlanLimits, isFreePlan } from '../lib/planLimits';
 
 const mockMaterials = [];
 const MATERIAL_PROCESSING_STATUSES = new Set(['uploaded', 'processing', 'ready', 'failed', 'unsupported']);
@@ -328,15 +329,36 @@ async function createRealMaterial(input = {}) {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
 
-  const userResult = await requireAuthenticatedUserId();
-  if (userResult.error) return userResult;
+  const currentUserResult = await getCurrentUser();
+  if (currentUserResult.error) return currentUserResult;
+  if (!currentUserResult.data?.id) return fail('Real mode requires an authenticated Supabase session.', 'AUTH_REQUIRED');
+  const user = currentUserResult.data;
+  const userId = user.id;
 
   const validationError = validateMaterial(input);
   if (validationError) return validationError;
 
+  const planLimits = getPlanLimits(user);
+  if (isFreePlan(user) && Number.isFinite(planLimits.activeDocuments)) {
+    const { count, error: countError } = await supabase
+      .from('study_materials')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'active');
+
+    if (countError) {
+      const normalized = normalizeError(countError, 'Unable to check plan limits.');
+      return fail(normalized.message, normalized.code);
+    }
+
+    if ((count || 0) >= planLimits.activeDocuments) {
+      return fail('Free includes 1 active document. Upgrade to Pro to upload more materials.', 'PLAN_LIMIT_REACHED');
+    }
+  }
+
   const { data, error } = await supabase
     .from('study_materials')
-    .insert(toMaterialInsert(input, userResult.data))
+    .insert(toMaterialInsert(input, userId))
     .select()
     .single();
 

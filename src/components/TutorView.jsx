@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Brain, FileText, MsgCircle, Paperclip, Pencil, Pin, Plus, Send, Trash2 } from '../lib/icons';
 import useIsMobile from '../lib/useIsMobile';
-import { askTutor } from '../services/ai';
+import { askTutor, getAiTutorUsage } from '../services/ai';
 import { extractTextFromFile } from '../services/materials';
 import { createTutorSession, deleteTutorSession, listTutorSessions, updateTutorSession } from '../services/tutorSessions';
 import { tt } from '../lib/i18n';
@@ -378,8 +378,17 @@ export default function TutorView({ user, lang = 'en' }) {
   const [renameTarget, setRenameTarget] = useState(null);
   const [renameDraft, setRenameDraft] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [tutorUsage, setTutorUsage] = useState(null);
   const fileRef = useRef(null);
   const endRef = useRef(null);
+  const tutorUsageQuota = Number.isFinite(Number(tutorUsage?.quota)) ? Number(tutorUsage.quota) : planLimits.aiTutorMessagesPerMonth;
+  const tutorUsageRemaining = Number.isFinite(Number(tutorUsage?.remaining)) ? Number(tutorUsage.remaining) : null;
+  const tutorUsageUsed = Number.isFinite(Number(tutorUsage?.used))
+    ? Number(tutorUsage.used)
+    : (tutorUsageRemaining == null || !Number.isFinite(tutorUsageQuota) ? null : Math.max(0, tutorUsageQuota - tutorUsageRemaining));
+  const tutorUsageProgress = Number.isFinite(tutorUsageQuota) && tutorUsageUsed != null
+    ? Math.min(100, Math.max(0, (tutorUsageUsed / tutorUsageQuota) * 100))
+    : 0;
 
   const formatAiError = (error) => {
 	    if (!error) return tt(lang, 'aiRequestFailed');
@@ -396,6 +405,19 @@ export default function TutorView({ user, lang = 'en' }) {
 
   useEffect(() => { endRef.current?.scrollTo({ top: endRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, typing]);
   useEffect(() => { if (!isMobile) setHistoryOpen(true); else setHistoryOpen(false); }, [isMobile]);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTutorUsage() {
+      if (!freePlan) {
+        setTutorUsage(null);
+        return;
+      }
+      const result = await getAiTutorUsage();
+      if (!cancelled && result.data) setTutorUsage(result.data);
+    }
+    loadTutorUsage();
+    return () => { cancelled = true; };
+  }, [freePlan, user?.id, user?.planTier]);
   useEffect(() => {
     const previews = files.map((file) => ({
       name: file.name,
@@ -506,8 +528,16 @@ export default function TutorView({ user, lang = 'en' }) {
           attachments: preparedAttachments,
         },
       });
+      if (result.data?.quota) setTutorUsage(result.data.quota);
       const reply = result.data?.text || tt(lang, 'noAnswerReturned');
-      if (result.error) setAiError(formatAiError(result.error));
+      if (result.error) {
+        setAiError(formatAiError(result.error));
+        if (result.error.code === 'AI_QUOTA_EXCEEDED') {
+          getAiTutorUsage().then((usageResult) => {
+            if (usageResult.data) setTutorUsage(usageResult.data);
+          });
+        }
+      }
       setMsgs(m => {
         const next = [...m, { who: 'ai', text: result.error ? formatAiError(result.error) : reply }];
         setSessions(prev => prev.map(s => s.id === activeId ? { ...s, msgs: next } : s));
@@ -700,8 +730,13 @@ export default function TutorView({ user, lang = 'en' }) {
         {freePlan && (
           <div style={tutorS.planNotice}>
             <div>
-              <strong style={tutorS.planNoticeTitle}>{tt(lang, 'freeAiTutorLimitTitle', { count: monthlyTutorLimit })}</strong>
-              <p style={tutorS.planNoticeCopy}>{tt(lang, 'freeAiTutorLimitCopy')}</p>
+              <strong style={tutorS.planNoticeTitle}>
+                {tutorUsageRemaining == null
+                  ? tt(lang, 'freeAiTutorLimitTitle', { count: monthlyTutorLimit })
+                  : tt(lang, 'freeAiTutorRemainingTitle', { remaining: tutorUsageRemaining, count: tutorUsageQuota })}
+              </strong>
+              <div style={tutorS.planNoticeMeter}><span style={{ ...tutorS.planNoticeMeterFill, width: `${tutorUsageProgress}%` }} /></div>
+              <p style={tutorS.planNoticeCopy}>{tt(lang, 'freeAiTutorRemainingCopy')}</p>
             </div>
             <span style={tutorS.planNoticeBadge}>{tt(lang, 'freeModeShort')}</span>
           </div>
@@ -867,10 +902,12 @@ const tutorS = {
   suggestRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' },
   suggestChip: { padding: '8px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12 },
   errorBox: { marginBottom: 8, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600 },
-  planNotice: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, padding: '11px 12px', borderRadius: 14, background: '#FFF7ED', border: '1px solid #FED7AA' },
-  planNoticeTitle: { display: 'block', color: '#9A3412', fontSize: 12, fontWeight: 900, lineHeight: 1.35 },
-  planNoticeCopy: { margin: '2px 0 0', color: '#9A3412', opacity: .82, fontSize: 11, fontWeight: 700, lineHeight: 1.4 },
-  planNoticeBadge: { flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 28, padding: '0 10px', borderRadius: 999, background: '#FFEDD5', color: '#9A3412', fontSize: 11, fontWeight: 900 },
+  planNotice: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, padding: '11px 12px', borderRadius: 14, background: '#F8FAFF', border: '1px solid #E0E7FF' },
+  planNoticeTitle: { display: 'block', color: 'var(--ink)', fontSize: 12, fontWeight: 900, lineHeight: 1.35 },
+  planNoticeCopy: { margin: '5px 0 0', color: 'var(--gray)', fontSize: 11, fontWeight: 700, lineHeight: 1.4 },
+  planNoticeMeter: { marginTop: 8, height: 6, width: 'min(240px, 100%)', borderRadius: 999, background: '#E5E7FF', overflow: 'hidden' },
+  planNoticeMeterFill: { display: 'block', height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--indigo), var(--purple))', transition: 'width .2s ease' },
+  planNoticeBadge: { flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 28, padding: '0 10px', borderRadius: 999, background: '#EEF2FF', color: 'var(--indigo)', fontSize: 11, fontWeight: 900 },
   composer: { display: 'flex', flexDirection: 'column', gap: 10, padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
   composerRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%' },
   composerInput: { flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: 'var(--ink)' },

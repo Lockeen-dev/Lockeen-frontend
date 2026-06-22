@@ -146,7 +146,7 @@ function checkMemoryQuota(userKey, quota = getFreeMonthlyQuota()) {
 
   if (record.resetAt <= now) {
     record.count = 0;
-    record.resetAt = now + WINDOW_MS;
+    record.resetAt = Date.parse(monthWindow.resetAt);
   }
 
   if (record.count >= quota) {
