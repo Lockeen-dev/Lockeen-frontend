@@ -128,8 +128,8 @@ export const UI_T = {
     unsupportedTutorFile: 'Unsupported file type for direct AI Tutor reading.',
     freeModeShort: 'Free',
     unlimited: 'Unlimited',
-    freeAiTutorLimitTitle: 'Free includes {count} AI Tutor messages per day.',
-    freeAiTutorLimitCopy: 'If the quota is reached, Lockeen will show the real provider limit and you can try again tomorrow.',
+    freeAiTutorLimitTitle: 'Free includes {count} AI Tutor messages per month.',
+    freeAiTutorLimitCopy: 'Free is meant to test the tutor. Pro will unlock higher usage once Stripe is connected.',
     contentLanguagePolicy: 'Practice content follows the uploaded material language. App controls follow your UI language.',
   },
   it: {
@@ -234,8 +234,8 @@ export const UI_T = {
     unsupportedTutorFile: 'Tipo file non supportato per lettura diretta nell’AI Tutor.',
     freeModeShort: 'Free',
     unlimited: 'Illimitato',
-    freeAiTutorLimitTitle: 'Il piano Free include {count} messaggi AI Tutor al giorno.',
-    freeAiTutorLimitCopy: 'Se raggiungi la quota, Lockeen mostrerà il limite reale del provider e potrai riprovare domani.',
+    freeAiTutorLimitTitle: 'Il piano Free include {count} messaggi AI Tutor al mese.',
+    freeAiTutorLimitCopy: 'Free serve per provare il tutor. Pro sbloccherà un uso più alto quando Stripe sarà collegato.',
     contentLanguagePolicy: 'I contenuti di quiz e flashcard seguono la lingua del materiale caricato. I comandi seguono la lingua dell’app.',
   },
 };

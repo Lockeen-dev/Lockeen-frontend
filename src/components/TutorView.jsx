@@ -364,7 +364,7 @@ export default function TutorView({ user, lang = 'en' }) {
   const isMobile = useIsMobile();
   const planLimits = getPlanLimits(user);
   const freePlan = isFreePlan(user);
-  const dailyTutorLimit = formatLimit(planLimits.aiTutorMessagesPerDay, tt(lang, 'unlimited'));
+  const monthlyTutorLimit = formatLimit(planLimits.aiTutorMessagesPerMonth, tt(lang, 'unlimited'));
   const [sessions, setSessions] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [msgs, setMsgs] = useState(() => initialTutorMsgs(lang));
@@ -700,7 +700,7 @@ export default function TutorView({ user, lang = 'en' }) {
         {freePlan && (
           <div style={tutorS.planNotice}>
             <div>
-              <strong style={tutorS.planNoticeTitle}>{tt(lang, 'freeAiTutorLimitTitle', { count: dailyTutorLimit })}</strong>
+              <strong style={tutorS.planNoticeTitle}>{tt(lang, 'freeAiTutorLimitTitle', { count: monthlyTutorLimit })}</strong>
               <p style={tutorS.planNoticeCopy}>{tt(lang, 'freeAiTutorLimitCopy')}</p>
             </div>
             <span style={tutorS.planNoticeBadge}>{tt(lang, 'freeModeShort')}</span>

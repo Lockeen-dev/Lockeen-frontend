@@ -118,7 +118,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
             <PlanLimitItem label={copy.limitDocuments} value={`${formatLimit(planLimits.activeDocuments, copy.unlimited)} ${copy.limitDocumentsUnit}`} />
             <PlanLimitItem label={copy.limitQuiz} value={`${formatLimit(planLimits.quizGenerationsPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
             <PlanLimitItem label={copy.limitFlashcards} value={`${formatLimit(planLimits.flashcardGenerationsPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
-            <PlanLimitItem label={copy.limitTutor} value={`${formatLimit(planLimits.aiTutorMessagesPerDay, copy.unlimited)} ${copy.limitDailyUnit}`} />
+            <PlanLimitItem label={copy.limitTutor} value={`${formatLimit(planLimits.aiTutorMessagesPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
           </div>
           <div style={accountS.usageHint}>{freePlan ? copy.usageUpgradeHint : copy.usageProHint}</div>
         </div>
@@ -260,14 +260,14 @@ const accountCopy = {
     plan: 'Plan',
     freeMode: 'Free mode',
     proMode: 'Pro mode',
-    freePlanText: '1 active document, limited quizzes, basic flashcards.',
+    freePlanText: 'Try one document with one quiz and one flashcard generation.',
     proPlanText: 'Unlimited documents, higher AI limits, and priority study tools.',
     upgradeToPro: 'Upgrade to Pro',
     managePlan: 'Manage plan',
     currentPlan: 'Current plan',
     usageTitle: 'Free usage',
-    usageSub: 'Clear limits until Stripe subscriptions are connected.',
-    usageUpgradeHint: 'Upgrade unlocks more documents and higher AI limits. Stripe is not connected yet.',
+    usageSub: 'Free is a short trial of the core study flow.',
+    usageUpgradeHint: 'If the first generated quiz and flashcards are useful, Pro will unlock more materials and higher AI limits. Stripe is not connected yet.',
     usageProHint: 'Your Pro plan removes these limits after Stripe is connected.',
     unlimited: 'Unlimited',
     limitDocuments: 'Documents',
@@ -276,7 +276,6 @@ const accountCopy = {
     limitTutor: 'AI Tutor messages',
     limitDocumentsUnit: 'active',
     limitMonthlyUnit: '/ month',
-    limitDailyUnit: '/ day',
     planHistory: 'Plan history',
     planHistorySub: 'Billing history will appear here after Stripe is connected.',
     reactivate: 'Reactivate',
@@ -327,14 +326,14 @@ const accountCopy = {
     plan: 'Piano',
     freeMode: 'Modalità free',
     proMode: 'Modalità Pro',
-    freePlanText: '1 documento attivo, quiz limitati, flashcard base.',
+    freePlanText: 'Prova un documento con una generazione quiz e una flashcard.',
     proPlanText: 'Documenti illimitati, limiti AI più alti e strumenti studio prioritari.',
     upgradeToPro: 'Passa a Pro',
     managePlan: 'Gestisci piano',
     currentPlan: 'Piano attuale',
     usageTitle: 'Utilizzo Free',
-    usageSub: 'Limiti chiari finché colleghiamo gli abbonamenti Stripe.',
-    usageUpgradeHint: 'Con Pro sblocchi più documenti e limiti AI più alti. Stripe non è ancora collegato.',
+    usageSub: 'Free è una prova breve del flusso studio principale.',
+    usageUpgradeHint: 'Se il primo quiz e le prime flashcard generate ti sono utili, Pro sbloccherà più materiali e limiti AI più alti. Stripe non è ancora collegato.',
     usageProHint: 'Il piano Pro rimuove questi limiti quando Stripe è collegato.',
     unlimited: 'Illimitato',
     limitDocuments: 'Documenti',
@@ -343,7 +342,6 @@ const accountCopy = {
     limitTutor: 'Messaggi AI Tutor',
     limitDocumentsUnit: 'attivo',
     limitMonthlyUnit: '/ mese',
-    limitDailyUnit: '/ giorno',
     planHistory: 'Storico piano',
     planHistorySub: 'Lo storico billing apparirà qui quando Stripe sarà collegato.',
     reactivate: 'Riattiva',
