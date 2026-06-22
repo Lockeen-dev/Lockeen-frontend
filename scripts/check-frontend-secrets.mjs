@@ -18,6 +18,7 @@ const blockedContentPatterns = [
 
 const allowedContentFiles = new Set([
   '.env.example',
+  'api/_billing-utils.js',
   'api/ai-study-assist.js',
   'scripts/check-frontend-secrets.mjs',
   'scripts/validate-env.mjs',

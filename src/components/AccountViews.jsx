@@ -10,7 +10,7 @@ import LanguageSelect from './LanguageSelect';
 
 function AccountView({ user, lang, onLangChange, onLogout }) {
   const isMobile = useIsMobile();
-  const { requestPasswordReset, updateProfile } = useAuth();
+  const { refreshSession, requestPasswordReset, updateProfile } = useAuth();
   const email = user?.email || '';
   const initial = user?.name?.[0]?.toUpperCase() || 'A';
   const accountLang = LANG_OPTIONS.find(l => l.value === lang) || LANG_OPTIONS[0];
@@ -35,14 +35,17 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
     const checkout = params.get('checkout');
     if (!checkout) return;
 
-    if (checkout === 'success') showNotice('success', copy.checkoutSuccess);
+    if (checkout === 'success') {
+      showNotice('success', copy.checkoutSuccess);
+      window.setTimeout(() => refreshSession(), 1200);
+    }
     if (checkout === 'cancelled') showNotice('error', copy.checkoutCancelled);
 
     params.delete('checkout');
     params.delete('session_id');
     const nextSearch = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`);
-  }, [copy.checkoutCancelled, copy.checkoutSuccess]);
+  }, [copy.checkoutCancelled, copy.checkoutSuccess, refreshSession]);
 
   const showNotice = (type, text) => {
     setNotice({ type, text });
