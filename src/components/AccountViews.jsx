@@ -18,6 +18,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
   const planTier = getUserPlanTier(user);
   const planLimits = getPlanLimits(user);
   const freePlan = isFreePlan(user);
+  const usageCopy = freePlan ? copy.freeUsage : copy.proUsage;
   const [name, setName] = useState(user?.name || '');
   const [timezone, setTimezone] = useState(user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome');
   const [saving, setSaving] = useState(null);
@@ -176,8 +177,8 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
           <div style={accountS.usageHeader}>
             <div>
               <div style={accountS.usageEyebrow}>{copy.currentPlan}</div>
-              <h4 style={accountS.usageTitle}>{copy.usageTitle}</h4>
-              <p style={accountS.usageSub}>{copy.usageSub}</p>
+              <h4 style={accountS.usageTitle}>{usageCopy.title}</h4>
+              <p style={accountS.usageSub}>{usageCopy.sub}</p>
             </div>
             <div style={accountS.usageBadge}>{freePlan ? copy.freeMode : copy.proMode}</div>
           </div>
@@ -187,10 +188,10 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
             <PlanLimitItem label={copy.limitFlashcards} value={`${formatLimit(planLimits.flashcardGenerationsPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
             <PlanLimitItem label={copy.limitTutor} value={`${formatLimit(planLimits.aiTutorMessagesPerMonth, copy.unlimited)} ${copy.limitMonthlyUnit}`} />
           </div>
-          <div style={accountS.usageHint}>{freePlan ? copy.usageUpgradeHint : copy.usageProHint}</div>
+          <div style={accountS.usageHint}>{usageCopy.hint}</div>
         </div>
         <div style={accountS.card}>
-          <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={copy.planHistorySub} action={<button onClick={handleManageBilling} disabled={saving === 'portal'} style={saving === 'portal' ? accountS.disabledBtn : accountS.softBtn}>{saving === 'portal' ? copy.openingPortal : copy.manage}</button>} />
+          <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={freePlan ? copy.planHistorySubFree : copy.planHistorySubPro} action={<button onClick={handleManageBilling} disabled={saving === 'portal'} style={saving === 'portal' ? accountS.disabledBtn : accountS.softBtn}>{saving === 'portal' ? copy.openingPortal : copy.manage}</button>} />
         </div>
       </section>
 
@@ -199,7 +200,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         <div style={accountS.card}>
           <Row icon={<FileText size={18} />} title={copy.payments} sub={copy.paymentsSub} action={<ChevronDown size={18} color="var(--gray)" />} />
           <div style={accountS.divider} />
-          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={copy.billingMethodSub} action={<button onClick={handleManageBilling} disabled={saving === 'portal'} style={saving === 'portal' ? accountS.disabledBtn : accountS.ghostBtn}>{saving === 'portal' ? copy.openingPortal : copy.manage}</button>} />
+          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={freePlan ? copy.billingMethodSubFree : copy.billingMethodSubPro} action={<button onClick={handleManageBilling} disabled={saving === 'portal'} style={saving === 'portal' ? accountS.disabledBtn : accountS.ghostBtn}>{saving === 'portal' ? copy.openingPortal : copy.manage}</button>} />
         </div>
       </section>
 
@@ -316,6 +317,12 @@ function formatAccountError(error, copy) {
   if (code.includes('rate') || message.includes('rate limit')) {
     return copy.emailRateLimit;
   }
+  if (code.includes('stripe_customer_missing') || message.includes('no stripe customer')) {
+    return copy.billingCustomerMissing;
+  }
+  if (code.includes('stripe_portal_failed') || message.includes('billing portal')) {
+    return copy.billingPortalError;
+  }
   return error?.message || copy.saveError;
 }
 
@@ -332,10 +339,16 @@ const accountCopy = {
     upgradeToPro: 'Upgrade to Pro',
     managePlan: 'Manage plan',
     currentPlan: 'Current plan',
-    usageTitle: 'Free usage',
-    usageSub: 'Free is a short trial of the core study flow.',
-    usageUpgradeHint: 'If the first generated quiz and flashcards are useful, Pro unlocks more materials and higher AI limits.',
-    usageProHint: 'Your Pro plan removes these trial limits.',
+    freeUsage: {
+      title: 'Free trial limits',
+      sub: 'Free is a short trial of the core study flow.',
+      hint: 'If the first generated quiz and flashcards are useful, Pro unlocks more materials and higher AI limits.',
+    },
+    proUsage: {
+      title: 'Pro plan limits',
+      sub: 'Your Pro subscription unlocks the full study workspace.',
+      hint: 'Your Pro plan removes these trial limits.',
+    },
     unlimited: 'Unlimited',
     limitDocuments: 'Documents',
     limitQuiz: 'Quiz generations',
@@ -344,13 +357,15 @@ const accountCopy = {
     limitDocumentsUnit: 'active',
     limitMonthlyUnit: '/ month',
     planHistory: 'Plan history',
-    planHistorySub: 'Billing history will appear here after Stripe is connected.',
+    planHistorySubFree: 'Billing history appears after your first Pro subscription.',
+    planHistorySubPro: 'Manage your subscription and billing history in Stripe.',
     reactivate: 'Reactivate',
     bills: 'Bills',
     payments: 'Payments',
     paymentsSub: 'See payments and receipts',
     billingMethod: 'Billing method',
-    billingMethodSub: 'No active payment method on Free plan',
+    billingMethodSubFree: 'No active payment method on Free plan',
+    billingMethodSubPro: 'Managed securely in Stripe.',
     manage: 'Manage',
     profile: 'Profile',
     name: 'Name',
@@ -369,6 +384,8 @@ const accountCopy = {
     passwordResetSent: 'Password reset email sent.',
     saveError: 'Could not save this setting. Please try again.',
     emailRateLimit: 'A reset email was already sent. Please wait a few minutes before requesting another one.',
+    billingCustomerMissing: 'Stripe is not connected to this account yet. Upgrade to Pro first.',
+    billingPortalError: 'Stripe billing portal is not ready yet. Check the portal settings in Stripe.',
     sendReset: 'Send reset',
     changeLater: 'Change later',
     emailChangeLater: 'Email changes will be enabled after the confirmation flow is fully verified.',
@@ -405,10 +422,16 @@ const accountCopy = {
     upgradeToPro: 'Passa a Pro',
     managePlan: 'Gestisci piano',
     currentPlan: 'Piano attuale',
-    usageTitle: 'Utilizzo Free',
-    usageSub: 'Free è una prova breve del flusso studio principale.',
-    usageUpgradeHint: 'Se il primo quiz e le prime flashcard generate ti sono utili, Pro sblocca più materiali e limiti AI più alti.',
-    usageProHint: 'Il piano Pro rimuove questi limiti di prova.',
+    freeUsage: {
+      title: 'Limiti prova Free',
+      sub: 'Free è una prova breve del flusso studio principale.',
+      hint: 'Se il primo quiz e le prime flashcard generate ti sono utili, Pro sblocca più materiali e limiti AI più alti.',
+    },
+    proUsage: {
+      title: 'Limiti piano Pro',
+      sub: 'Il tuo abbonamento Pro sblocca tutto il workspace di studio.',
+      hint: 'Il piano Pro rimuove questi limiti di prova.',
+    },
     unlimited: 'Illimitato',
     limitDocuments: 'Documenti',
     limitQuiz: 'Generazioni quiz',
@@ -417,13 +440,15 @@ const accountCopy = {
     limitDocumentsUnit: 'attivo',
     limitMonthlyUnit: '/ mese',
     planHistory: 'Storico piano',
-    planHistorySub: 'Lo storico billing apparirà qui quando Stripe sarà collegato.',
+    planHistorySubFree: 'Lo storico billing appare dopo il primo abbonamento Pro.',
+    planHistorySubPro: 'Gestisci abbonamento e storico billing in Stripe.',
     reactivate: 'Riattiva',
     bills: 'Fatture',
     payments: 'Pagamenti',
     paymentsSub: 'Vedi pagamenti e ricevute',
     billingMethod: 'Metodo di pagamento',
-    billingMethodSub: 'Nessun metodo di pagamento attivo sul piano Free',
+    billingMethodSubFree: 'Nessun metodo di pagamento attivo sul piano Free',
+    billingMethodSubPro: 'Gestito in modo sicuro da Stripe.',
     manage: 'Gestisci',
     profile: 'Profilo',
     name: 'Nome',
@@ -442,6 +467,8 @@ const accountCopy = {
     passwordResetSent: 'Email per reimpostare la password inviata.',
     saveError: 'Impossibile salvare questa impostazione. Riprova.',
     emailRateLimit: 'Hai già richiesto una mail di reset. Aspetta qualche minuto prima di richiederne un’altra.',
+    billingCustomerMissing: 'Stripe non è ancora collegato a questo account. Passa prima a Pro.',
+    billingPortalError: 'Il portale billing Stripe non è ancora pronto. Controlla le impostazioni del portale su Stripe.',
     sendReset: 'Invia reset',
     changeLater: 'Più avanti',
     emailChangeLater: 'Il cambio email verrà attivato quando il flusso di conferma sarà verificato completamente.',
