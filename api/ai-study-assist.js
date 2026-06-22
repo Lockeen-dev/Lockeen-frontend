@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const MAX_PROMPT_CHARS = 4000;
-const WINDOW_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_DAILY_QUOTA = 20;
+const DEFAULT_FREE_MONTHLY_QUOTA = 20;
 const DEFAULT_MODEL = 'gpt-4.1-mini';
 const MAX_ATTACHMENT_TEXT_CHARS = 12000;
 const MAX_INLINE_IMAGES = 3;
@@ -34,9 +33,26 @@ function getJsonBody(req) {
   return req.body;
 }
 
-function getQuotaLimit() {
-  const quota = Number(process.env.AI_DAILY_QUOTA || DEFAULT_DAILY_QUOTA);
-  return Number.isFinite(quota) && quota > 0 ? quota : DEFAULT_DAILY_QUOTA;
+function getFreeMonthlyQuota() {
+  const quota = Number(process.env.AI_FREE_MONTHLY_QUOTA || process.env.AI_DAILY_QUOTA || DEFAULT_FREE_MONTHLY_QUOTA);
+  return Number.isFinite(quota) && quota > 0 ? quota : DEFAULT_FREE_MONTHLY_QUOTA;
+}
+
+function getPlanTier(user = {}) {
+  const metadata = user.app_metadata || {};
+  const plan = String(metadata.plan_tier || metadata.plan || metadata.subscription_plan || 'free').toLowerCase();
+  return plan === 'pro' ? 'pro' : 'free';
+}
+
+function getMonthWindow(now = new Date()) {
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const start = new Date(Date.UTC(year, month, 1));
+  const reset = new Date(Date.UTC(year, month + 1, 1));
+  return {
+    usageDate: start.toISOString().slice(0, 10),
+    resetAt: reset.toISOString(),
+  };
 }
 
 function requiresPersistentQuota() {
@@ -120,13 +136,13 @@ async function requireAuthenticatedUser(req) {
     };
   }
 
-  return { data: { userId: data.user.id }, error: null };
+  return { data: { user: data.user, userId: data.user.id, planTier: getPlanTier(data.user) }, error: null };
 }
 
-function checkMemoryQuota(userKey) {
+function checkMemoryQuota(userKey, quota = getFreeMonthlyQuota()) {
   const now = Date.now();
-  const quota = getQuotaLimit();
-  const record = usageByUser.get(userKey) || { count: 0, resetAt: now + WINDOW_MS };
+  const monthWindow = getMonthWindow(new Date(now));
+  const record = usageByUser.get(userKey) || { count: 0, resetAt: Date.parse(monthWindow.resetAt) };
 
   if (record.resetAt <= now) {
     record.count = 0;
@@ -155,18 +171,19 @@ function checkMemoryQuota(userKey) {
 
 async function checkPersistentQuota(userId) {
   const client = getSupabaseAdmin();
+  const quota = getFreeMonthlyQuota();
+  const { usageDate, resetAt } = getMonthWindow();
 
   if (!client) {
     if (requiresPersistentQuota()) {
       throw quotaUnavailable('Persistent AI quota requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
     }
-    return checkMemoryQuota(userId);
+    return {
+      ...checkMemoryQuota(userId, quota),
+      quota,
+      window: 'monthly',
+    };
   }
-
-  const quota = getQuotaLimit();
-  const usageDate = new Date().toISOString().slice(0, 10);
-  const resetAt = new Date(`${usageDate}T00:00:00.000Z`);
-  resetAt.setUTCDate(resetAt.getUTCDate() + 1);
 
   const { data, error } = await client.rpc('increment_ai_usage', {
     p_user_id: userId,
@@ -183,8 +200,22 @@ async function checkPersistentQuota(userId) {
   return {
     allowed,
     remaining: Math.max(quota - nextCount, 0),
-    resetAt: resetAt.toISOString(),
+    resetAt,
     source: 'persistent',
+    quota,
+    window: 'monthly',
+  };
+}
+
+function getUnlimitedQuota(planTier) {
+  return {
+    allowed: true,
+    remaining: null,
+    resetAt: null,
+    source: 'plan',
+    quota: null,
+    window: 'unlimited',
+    planTier,
   };
 }
 
@@ -384,6 +415,7 @@ export default async function handler(req, res) {
     return json(res, status, { error: authResult.error });
   }
   const userId = authResult.data.userId;
+  const planTier = authResult.data.planTier;
 
   const body = getJsonBody(req);
   const prompt = String(body.prompt || '').trim();
@@ -398,19 +430,23 @@ export default async function handler(req, res) {
   }
 
   let quota;
-  try {
-    quota = await checkPersistentQuota(userId);
-  } catch (error) {
-    return json(res, 503, {
-      error: {
-        code: error?.code || error?.name || 'AI_QUOTA_UNAVAILABLE',
-        message: 'AI quota is temporarily unavailable.',
-      },
-    });
-  }
+  if (planTier === 'pro') {
+    quota = getUnlimitedQuota(planTier);
+  } else {
+    try {
+      quota = await checkPersistentQuota(userId);
+    } catch (error) {
+      return json(res, 503, {
+        error: {
+          code: error?.code || error?.name || 'AI_QUOTA_UNAVAILABLE',
+          message: 'AI quota is temporarily unavailable.',
+        },
+      });
+    }
 
-  if (!quota.allowed) {
-    return json(res, 429, { error: { code: 'AI_QUOTA_EXCEEDED', message: 'Daily AI quota reached.', resetAt: quota.resetAt } });
+    if (!quota.allowed) {
+      return json(res, 429, { error: { code: 'AI_QUOTA_EXCEEDED', message: 'Monthly AI Tutor quota reached.', resetAt: quota.resetAt } });
+    }
   }
 
   try {
