@@ -5,6 +5,7 @@ import { LANG_OPTIONS } from '../lib/i18n';
 import { formatLimit, getPlanLimits, getUserPlanTier, isFreePlan } from '../lib/planLimits';
 import useIsMobile from '../lib/useIsMobile';
 import { useAuth } from '../context/AuthContext';
+import { startCheckout } from '../services/billing';
 import LanguageSelect from './LanguageSelect';
 
 function AccountView({ user, lang, onLangChange, onLogout }) {
@@ -21,12 +22,27 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
   const [timezone, setTimezone] = useState(user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome');
   const [saving, setSaving] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [billingPeriod, setBillingPeriod] = useState('monthly');
   const deviceLabel = getCurrentDeviceLabel();
 
   useEffect(() => {
     setName(user?.name || '');
     setTimezone(user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome');
   }, [user?.email, user?.name, user?.timezone]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get('checkout');
+    if (!checkout) return;
+
+    if (checkout === 'success') showNotice('success', copy.checkoutSuccess);
+    if (checkout === 'cancelled') showNotice('error', copy.checkoutCancelled);
+
+    params.delete('checkout');
+    params.delete('session_id');
+    const nextSearch = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`);
+  }, [copy.checkoutCancelled, copy.checkoutSuccess]);
 
   const showNotice = (type, text) => {
     setNotice({ type, text });
@@ -67,6 +83,17 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
     showNotice('success', copy.passwordResetSent);
   };
 
+  const handleUpgrade = async () => {
+    setSaving('checkout');
+    const result = await startCheckout({ billingPeriod });
+    setSaving(null);
+    if (result.error) {
+      showNotice('error', formatAccountError(result.error, copy));
+      return;
+    }
+    window.location.href = result.data.url;
+  };
+
   const Row = ({ icon, title, sub, action, danger }) => (
     <div style={accountS.row}>
       <div style={accountS.rowIcon}>{icon}</div>
@@ -103,7 +130,33 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
             <h4 style={accountS.planTitle}>Lockeen {planTier === 'pro' ? 'Pro' : 'Free'}</h4>
             <p style={accountS.planText}>{freePlan ? copy.freePlanText : copy.proPlanText}</p>
           </div>
-          <button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.primaryBtn}>{freePlan ? copy.upgradeToPro : copy.managePlan}</button>
+          <div style={accountS.planActions}>
+            {freePlan && (
+              <div style={accountS.billingToggle} aria-label={copy.billingCycle}>
+                <button
+                  type="button"
+                  onClick={() => setBillingPeriod('monthly')}
+                  style={{ ...accountS.billingToggleBtn, ...(billingPeriod === 'monthly' ? accountS.billingToggleBtnActive : null) }}
+                >
+                  {copy.monthly}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingPeriod('yearly')}
+                  style={{ ...accountS.billingToggleBtn, ...(billingPeriod === 'yearly' ? accountS.billingToggleBtnActive : null) }}
+                >
+                  {copy.yearly}
+                </button>
+              </div>
+            )}
+            <button
+              onClick={freePlan ? handleUpgrade : () => showNotice('success', copy.portalSoon)}
+              disabled={saving === 'checkout'}
+              style={{ ...accountS.primaryBtn, ...(saving === 'checkout' ? accountS.primaryBtnDisabled : null) }}
+            >
+              {saving === 'checkout' ? copy.openingCheckout : (freePlan ? copy.upgradeToPro : copy.managePlan)}
+            </button>
+          </div>
         </div>
         <div style={accountS.usageCard}>
           <div style={accountS.usageHeader}>
@@ -123,7 +176,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
           <div style={accountS.usageHint}>{freePlan ? copy.usageUpgradeHint : copy.usageProHint}</div>
         </div>
         <div style={accountS.card}>
-          <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={copy.planHistorySub} action={<button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.softBtn}>{copy.manage}</button>} />
+          <Row icon={<Trophy size={18} />} title={copy.planHistory} sub={copy.planHistorySub} action={<button onClick={() => showNotice('success', copy.portalSoon)} style={accountS.softBtn}>{copy.manage}</button>} />
         </div>
       </section>
 
@@ -132,7 +185,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         <div style={accountS.card}>
           <Row icon={<FileText size={18} />} title={copy.payments} sub={copy.paymentsSub} action={<ChevronDown size={18} color="var(--gray)" />} />
           <div style={accountS.divider} />
-          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={copy.billingMethodSub} action={<button onClick={() => showNotice('success', copy.billingSoon)} style={accountS.ghostBtn}>{copy.manage}</button>} />
+          <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={copy.billingMethodSub} action={<button onClick={() => showNotice('success', copy.portalSoon)} style={accountS.ghostBtn}>{copy.manage}</button>} />
         </div>
       </section>
 
@@ -267,8 +320,8 @@ const accountCopy = {
     currentPlan: 'Current plan',
     usageTitle: 'Free usage',
     usageSub: 'Free is a short trial of the core study flow.',
-    usageUpgradeHint: 'If the first generated quiz and flashcards are useful, Pro will unlock more materials and higher AI limits. Stripe is not connected yet.',
-    usageProHint: 'Your Pro plan removes these limits after Stripe is connected.',
+    usageUpgradeHint: 'If the first generated quiz and flashcards are useful, Pro unlocks more materials and higher AI limits.',
+    usageProHint: 'Your Pro plan removes these trial limits.',
     unlimited: 'Unlimited',
     limitDocuments: 'Documents',
     limitQuiz: 'Quiz generations',
@@ -312,7 +365,13 @@ const accountCopy = {
     current: 'Current',
     language: 'Language',
     languageSub: 'This setting changes the Lockeen interface language.',
-    billingSoon: 'Billing is coming with Stripe. Nothing was charged.',
+    billingCycle: 'Billing cycle',
+    monthly: 'Monthly',
+    yearly: 'Yearly',
+    openingCheckout: 'Opening checkout...',
+    checkoutSuccess: 'Payment completed. Pro will activate after the Stripe webhook is connected.',
+    checkoutCancelled: 'Checkout cancelled. No payment was completed.',
+    portalSoon: 'The billing portal will be enabled after the Stripe webhook is connected.',
     dangerZone: 'Danger zone',
     deleteAccount: 'Delete account',
     deleteAccountSub: 'Account deletion will be enabled after the data deletion workflow is connected.',
@@ -333,8 +392,8 @@ const accountCopy = {
     currentPlan: 'Piano attuale',
     usageTitle: 'Utilizzo Free',
     usageSub: 'Free è una prova breve del flusso studio principale.',
-    usageUpgradeHint: 'Se il primo quiz e le prime flashcard generate ti sono utili, Pro sbloccherà più materiali e limiti AI più alti. Stripe non è ancora collegato.',
-    usageProHint: 'Il piano Pro rimuove questi limiti quando Stripe è collegato.',
+    usageUpgradeHint: 'Se il primo quiz e le prime flashcard generate ti sono utili, Pro sblocca più materiali e limiti AI più alti.',
+    usageProHint: 'Il piano Pro rimuove questi limiti di prova.',
     unlimited: 'Illimitato',
     limitDocuments: 'Documenti',
     limitQuiz: 'Generazioni quiz',
@@ -378,7 +437,13 @@ const accountCopy = {
     current: 'Corrente',
     language: 'Lingua',
     languageSub: 'Questa impostazione cambia la lingua dell’interfaccia Lockeen.',
-    billingSoon: 'Il billing arriva con Stripe. Non è stato addebitato nulla.',
+    billingCycle: 'Periodo fatturazione',
+    monthly: 'Mensile',
+    yearly: 'Annuale',
+    openingCheckout: 'Apertura checkout...',
+    checkoutSuccess: 'Pagamento completato. Pro verrà attivato dopo il collegamento del webhook Stripe.',
+    checkoutCancelled: 'Checkout annullato. Nessun pagamento completato.',
+    portalSoon: 'Il portale billing verrà attivato dopo il collegamento del webhook Stripe.',
     dangerZone: 'Zona pericolosa',
     deleteAccount: 'Elimina account',
     deleteAccountSub: 'La cancellazione account verrà attivata quando il workflow di eliminazione dati sarà collegato.',
@@ -426,6 +491,11 @@ const accountS = {
   readOnlyPill: { minHeight:42, border:'1px solid var(--border)', borderRadius:12, padding:'0 12px', background:'var(--sidebar-bg)', color:'var(--ink)', fontSize:14, fontWeight:800, display:'flex', alignItems:'center' },
   divider: { height:1, background:'var(--border)' },
   primaryBtn: { padding:'11px 16px', borderRadius:12, border:'none', background:'var(--indigo)', color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer' },
+  primaryBtnDisabled: { opacity:.68, cursor:'not-allowed' },
+  planActions: { display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'flex-end' },
+  billingToggle: { display:'inline-flex', alignItems:'center', gap:3, padding:4, borderRadius:12, border:'1px solid var(--border)', background:'var(--sidebar-bg)' },
+  billingToggleBtn: { border:'none', borderRadius:9, background:'transparent', color:'var(--gray)', padding:'7px 10px', fontSize:12, fontWeight:900, cursor:'pointer' },
+  billingToggleBtnActive: { background:'var(--surface)', color:'var(--indigo)', boxShadow:'0 5px 14px -12px rgba(15,16,53,.55)' },
   softBtn: { padding:'9px 13px', borderRadius:10, border:'none', background:'#FEF3C7', color:'#92400E', fontWeight:800, fontSize:12, cursor:'pointer' },
   ghostBtn: { padding:'9px 13px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:12, cursor:'pointer' },
   disabledBtn: { padding:'9px 13px', borderRadius:10, border:'none', background:'#E5E7EB', color:'#9CA3AF', fontWeight:800, fontSize:12, cursor:'not-allowed' },

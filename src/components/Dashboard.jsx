@@ -137,7 +137,10 @@ function isDashboardServiceEvent(event = {}) {
 
 function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange }) {
   const { signOut } = useAuth();
-  const [tab, setTab] = useState('dashboard');
+  const [tab, setTab] = useState(() => {
+    if (typeof window === 'undefined') return 'dashboard';
+    return new URLSearchParams(window.location.search).has('checkout') ? 'account' : 'dashboard';
+  });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isMobile = useIsMobile();
   const realMode = !isMockMode();
