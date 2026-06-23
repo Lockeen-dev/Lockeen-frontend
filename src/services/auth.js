@@ -92,12 +92,30 @@ function readAuthCodeFromUrl() {
   return url.searchParams.get('code');
 }
 
-function cleanAuthCodeFromUrl() {
+function readOAuthTokensFromUrl() {
+  if (typeof window === 'undefined') return null;
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const isRecovery = url.searchParams.get('auth') === 'reset' || hashParams.get('type') === 'recovery';
+  if (isRecovery) return null;
+
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+  if (!accessToken || !refreshToken) return null;
+
+  return {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  };
+}
+
+function cleanAuthCallbackFromUrl() {
   if (typeof window === 'undefined') return;
   const url = new URL(window.location.href);
-  if (!url.searchParams.has('code')) return;
+  const hasAuthCallback = url.searchParams.has('code') || window.location.hash;
+  if (!hasAuthCallback) return;
   url.searchParams.delete('code');
-  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  window.history.replaceState({}, '', `${url.pathname}${url.search}`);
 }
 
 function requireSupabaseAuthMode() {
@@ -165,7 +183,14 @@ export async function restoreSession() {
     const authCode = readAuthCodeFromUrl();
     if (authCode) {
       const { error } = await supabase.auth.exchangeCodeForSession(authCode);
-      cleanAuthCodeFromUrl();
+      cleanAuthCallbackFromUrl();
+      if (error) return fail(error.message, error.code || 'OAUTH_SESSION_FAILED');
+    }
+
+    const oauthTokens = readOAuthTokensFromUrl();
+    if (oauthTokens) {
+      const { error } = await supabase.auth.setSession(oauthTokens);
+      cleanAuthCallbackFromUrl();
       if (error) return fail(error.message, error.code || 'OAUTH_SESSION_FAILED');
     }
 

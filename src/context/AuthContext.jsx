@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   onAuthStateChange,
   requestPasswordReset as requestPasswordResetService,
@@ -23,8 +23,10 @@ const INITIAL_STATE = {
 
 export function AuthProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
+  const refreshingRef = useRef(false);
 
   const refreshSession = useCallback(async () => {
+    refreshingRef.current = true;
     setState((current) => ({
       ...current,
       status: 'loading',
@@ -32,6 +34,7 @@ export function AuthProvider({ children }) {
     }));
 
     const result = await restoreSession();
+    refreshingRef.current = false;
 
     if (result.error) {
       setState({
@@ -57,6 +60,7 @@ export function AuthProvider({ children }) {
     refreshSession();
 
     return onAuthStateChange((session) => {
+      if (refreshingRef.current && session.event === 'INITIAL_SESSION' && !session.user) return;
       setState({
         user: session.user,
         status: session.status,
