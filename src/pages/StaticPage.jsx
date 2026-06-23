@@ -3,6 +3,7 @@ import { useLocation, useParams } from 'react-router-dom';
 import { staticPages } from '../content/staticPages';
 import { submitCareerApplication } from '../services/careerApplications';
 import { subscribeToNewsletter } from '../services/newsletter';
+import { submitPartnerApplication } from '../services/partnerApplications';
 
 const pageTitles = {
   en: {
@@ -327,9 +328,13 @@ const staticPageContentTranslations = {
     ['Request-only access', 'Accesso su richiesta'],
     ['Apply as a Lockeen Partner.', 'Candidati come Partner Lockeen.'],
     ['Leave your email: we will contact you with details, your personal link, and guidelines. The program pays €2 per month for every active student who signs up from your link.', 'Lascia la tua email: ti contattiamo noi con dettagli, link personale e linee guida. Il programma prevede €2 al mese per ogni studente attivo iscritto dal tuo link.'],
+    ['Fill out a mini application: we just need to understand who you are, where you study, and which community you can reach. The program pays €2 per month for every active student who signs up from your link.', 'Compila una mini application: ci basta capire chi sei, dove studi e che community puoi raggiungere. Il programma prevede €2 al mese per ogni studente attivo iscritto dal tuo link.'],
     ['Send request', 'Invia richiesta'],
+    ['Submit application', 'Invia application'],
     ['Request sent!', 'Richiesta inviata!'],
     ['We will send you the details as soon as possible.', 'Ti mandiamo i dettagli appena possibile.'],
+    ['Application submitted!', 'Application inviata!'],
+    ['We saved your application and will reach out if there is a fit.', 'Abbiamo salvato la candidatura e ti contatteremo se c’è fit.'],
     ['For real students', 'Per studenti veri'],
     ['It works when you know the context: course, exam session, and real study problems.', 'Funziona se conosci il contesto: corso, sessione, problemi reali di studio.'],
     ['Product before link', 'Prodotto prima del link'],
@@ -828,6 +833,97 @@ function ensureCareersApplicationForm(root, lang) {
   }, true);
 }
 
+function ensurePartnerApplicationForm(root, lang) {
+  const form = root.querySelector('#earn-form');
+  const success = root.querySelector('#earn-success');
+  const status = root.querySelector('#earn-form-status');
+  if (!form || !success) return;
+  form.dataset.partnerLang = lang;
+
+  const placeholders = lang === 'it'
+    ? {
+      first_name: 'Nome',
+      last_name: 'Cognome',
+      email: 'Email universitaria o personale',
+      university: 'Università',
+      study_field: 'Cosa studi',
+      study_year: 'Anno di corso',
+      city_country: 'Città / paese',
+      community_reach: 'Che community puoi raggiungere? Es. gruppo corso, rappresentanza, Instagram, associazione',
+      motivation: 'Perché vorresti diventare Partner Lockeen?',
+    }
+    : {
+      first_name: 'First name',
+      last_name: 'Last name',
+      email: 'University or personal email',
+      university: 'University',
+      study_field: 'What are you studying?',
+      study_year: 'Year of study',
+      city_country: 'City / country',
+      community_reach: 'Which community can you reach? Course group, student reps, Instagram, association...',
+      motivation: 'Why would you like to become a Lockeen Partner?',
+    };
+  Object.entries(placeholders).forEach(([name, placeholder]) => {
+    const field = form.querySelector(`[name="${name}"]`);
+    if (field) field.setAttribute('placeholder', placeholder);
+  });
+
+  if (form.dataset.partnerRealSubmit === 'true') return;
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  const setStatus = (message, tone = 'error') => {
+    if (!status) return;
+    status.textContent = message;
+    status.style.display = 'block';
+    status.style.color = tone === 'error' ? '#B91C1C' : '#047857';
+  };
+
+  form.dataset.partnerRealSubmit = 'true';
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!form.reportValidity()) return;
+
+    const currentLang = form.dataset.partnerLang === 'it' ? 'it' : 'en';
+    const formData = new FormData(form);
+    const originalLabel = submitButton?.textContent || '';
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = currentLang === 'it' ? 'Invio...' : 'Submitting...';
+    }
+    if (status) status.style.display = 'none';
+
+    const result = await submitPartnerApplication({
+      firstName: formData.get('first_name'),
+      lastName: formData.get('last_name'),
+      email: formData.get('email'),
+      university: formData.get('university'),
+      studyField: formData.get('study_field'),
+      studyYear: formData.get('study_year'),
+      cityCountry: formData.get('city_country'),
+      communityReach: formData.get('community_reach'),
+      motivation: formData.get('motivation'),
+      locale: currentLang,
+    });
+
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+    }
+
+    if (result.error) {
+      setStatus(currentLang === 'it'
+        ? 'Non siamo riusciti a inviare l’application. Controlla i campi e riprova.'
+        : 'We could not submit the application. Check the fields and try again.');
+      return;
+    }
+
+    form.reset();
+    form.style.display = 'none';
+    success.style.display = 'flex';
+  }, true);
+}
+
 function applyStaticLanguage(root, lang, pageName) {
   ensureStaticNavLinks(root);
   ensureStaticLanguageControls(root, lang);
@@ -838,6 +934,7 @@ function applyStaticLanguage(root, lang, pageName) {
     ensureBlogNewsletter(root, lang);
   }
   if (pageName === 'careers') ensureCareersApplicationForm(root, lang);
+  if (pageName === 'earn') ensurePartnerApplicationForm(root, lang);
 
   const targetIndex = lang === 'it' ? 1 : 0;
   const lookup = new Map();
