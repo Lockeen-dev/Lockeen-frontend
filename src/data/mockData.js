@@ -64,7 +64,7 @@ export function getSubjectPalette(subject, fallback = {}, darkMode = false) {
 }
 
 export function inferSubjectFromName(value) {
-  const text = (value || '').toLowerCase();
+  const text = String(value || '').toLowerCase();
   const patterns = [
     ['Biology', ['biology', 'biologia', 'cellular', 'genetics']],
     ['Chemistry', ['chemistry', 'chimica', 'organic', 'reaction']],

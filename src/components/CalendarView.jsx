@@ -11,6 +11,7 @@ import {
 } from '../services/calendar';
 import { autoRescheduleMissedStudyPlanItems, listStudyPlanItems, listStudyPlans, updateStudyPlanItem } from '../services/studyPlans';
 import { localeFor, tt } from '../lib/i18n';
+import useIsMobile from '../lib/useIsMobile';
 import { homeS } from '../styles/dashboardStyles';
 import { LIFE_CATS, applyExamPaletteToEvent, calendarKeyFromDate, dayKey, durToMins, initCalEvents, normalizeClockTime, resolveEventPalette, resolveStudyPalette, studyPlanItemToCalendarEvent } from './calendarData';
 export { LIFE_CATS, dayKey, durToMins, initCalEvents, resolveEventPalette };
@@ -204,13 +205,19 @@ function formatCalendarError(error) {
 }
 
 function serviceEventToCalendarEvent(event) {
-  const palette = resolveStudyPalette(event);
+  const title = String(event.title || event.name || 'Exam');
+  const palette = resolveStudyPalette({
+    ...event,
+    title,
+    name: String(event.name || title),
+    subject: String(event.subject || title),
+  });
   return {
     type: event.type,
     source: 'exam-service',
     serviceId: event.id,
     examId: event.examId,
-    name: `📝 Exam: ${event.title}`,
+    name: `📝 Exam: ${title}`,
     time: normalizeClockTime(event.time || '09:00'),
     dur: event.durationMin ? `${Math.max(1, Number(event.durationMin))}m` : '2h',
     cat: 'study',
@@ -267,10 +274,12 @@ function examCutoffKey(exam = null) {
 
 export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams = [], onStudySessionsChanged, lang = 'en' }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+  const isMobile = useIsMobile();
   const [view, setView]           = useState('week');
   const [weekStart, setWeekStart] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
   const [viewYear, setViewYear]   = useState(() => new Date().getFullYear());
+  const [mobileSelectedKey, setMobileSelectedKey] = useState(() => dayKey(new Date()));
   const [activeCats, setActiveCats] = useState(() => new Set(LIFE_CATS.map(c => c.id)));
   const [modalKey, setModalKey]     = useState(null);
   const [dayDetailKey, setDayDetailKey] = useState(null);
@@ -1078,7 +1087,147 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
   const _rot = (today.getDay() + 6) % 7; // Mon=0..Sun=6
   const WEEK_LABELS = [..._ALL_LABELS.slice(_rot), ..._ALL_LABELS.slice(0, _rot)];
 
+  useEffect(() => {
+    if (!isMobile || view !== 'week') return;
+    const visibleKeys = new Set(weekDays.map(dayKey));
+    if (visibleKeys.has(mobileSelectedKey)) return;
+    const todayKey = dayKey(today);
+    setMobileSelectedKey(visibleKeys.has(todayKey) ? todayKey : dayKey(weekDays[0]));
+  }, [isMobile, mobileSelectedKey, today, view, weekDays]);
+
+  const renderMobileEventRow = ({ event: ev, index: eventIndex }, key, idx) => {
+    const { bg, color, text } = paletteForEvent(ev);
+    const isStudyAction = isStudyActionEvent(ev);
+    const totalAttach = (ev.materials ? ev.materials.length : 0) + (ev.files ? ev.files.length : 0);
+    return (
+      <div
+        key={`${ev.serviceId || ev.name || idx}-${eventIndex}`}
+        onClick={() => openEditEvent(key, eventIndex)}
+        style={{
+          display:'grid',
+          gridTemplateColumns:'4px minmax(0, 1fr) auto',
+          gap:12,
+          alignItems:'stretch',
+          padding:14,
+          borderRadius:18,
+          background:bg,
+          border:`1px solid ${color}26`,
+          boxShadow:'0 12px 30px -24px rgba(15,16,53,.4)',
+          opacity:ev.completed ? 0.58 : 1,
+          cursor:'pointer',
+          touchAction:'manipulation',
+        }}>
+        <div style={{ width:4, borderRadius:999, background:color }} />
+        <div style={{ minWidth:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+            <span style={{ fontSize:12, fontWeight:900, color:text }}>{normalizeClockTime(ev.time || '09:00')}</span>
+            <span style={{ width:4, height:4, borderRadius:999, background:color, opacity:.45 }} />
+            <span style={{ fontSize:12, fontWeight:800, color:text, opacity:.72 }}>{ev.dur || '30m'}</span>
+            {totalAttach > 0 && <span style={{ fontSize:12, fontWeight:800, color:text, opacity:.72 }}>{totalAttach} file</span>}
+          </div>
+          <div style={{ fontSize:15, fontWeight:850, color:text || 'var(--ink)', lineHeight:1.25, textDecoration:ev.completed ? 'line-through' : 'none', overflowWrap:'anywhere' }}>
+            {ev.name}
+          </div>
+          {ev.noteSubject && (
+            <div style={{ marginTop:8, display:'inline-flex', maxWidth:'100%', padding:'4px 9px', borderRadius:999, background:'rgba(255,255,255,.58)', color:text, fontSize:11, fontWeight:850 }}>
+              <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ev.noteSubject}</span>
+            </div>
+          )}
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:8, alignItems:'flex-end' }}>
+          {isStudyAction && (
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); toggleEventDone(key, eventIndex); }}
+              aria-label={ev.completed ? 'Mark planned' : 'Mark done'}
+              style={{ width:44, height:44, borderRadius:14, border:`1px solid ${color}26`, background:ev.completed ? '#DCFCE7' : 'rgba(255,255,255,.7)', color:ev.completed ? '#16A34A' : color, display:'grid', placeItems:'center', cursor:'pointer' }}>
+              <Check size={17} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); deleteEvent(key, eventIndex); }}
+            aria-label="Delete event"
+            style={{ width:44, height:44, borderRadius:14, border:`1px solid ${color}20`, background:'rgba(255,255,255,.56)', color, display:'grid', placeItems:'center', cursor:'pointer' }}>
+            <Trash size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMobileAgenda = (key, emptyCopy = 'No activities scheduled.') => {
+    const dayEvs = getVisibleDayEvents(key).sort((a, b) => clockToMinutes(a.event.time) - clockToMinutes(b.event.time));
+    return (
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {dayEvs.length ? dayEvs.map((item, idx) => renderMobileEventRow(item, key, idx)) : (
+          <button
+            type="button"
+            onClick={() => openModal(key)}
+            style={{ minHeight:112, border:'1.5px dashed var(--border)', borderRadius:20, background:'var(--surface)', color:'var(--gray)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, fontSize:14, fontWeight:800, cursor:'pointer' }}>
+            <Plus size={20} />
+            <span>{emptyCopy}</span>
+            <span style={{ fontSize:12, fontWeight:700, color:'var(--indigo)' }}>{tt(lang, 'addActivity')}</span>
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderMobileWeek = () => {
+    const selectedDate = dateFromCalendarKey(mobileSelectedKey) || today;
+    const selectedLabel = new Intl.DateTimeFormat(localeFor(lang), { weekday:'long', day:'numeric', month:'long' }).format(selectedDate);
+    const selectedEvents = getVisibleDayEvents(mobileSelectedKey);
+    return (
+      <div style={calS.mobilePanel}>
+        <div style={calS.mobileDayRail} aria-label="Week days">
+          {weekDays.map((day) => {
+            const key = dayKey(day);
+            const isToday = key === dayKey(today);
+            const isSelected = key === mobileSelectedKey;
+            const count = getVisibleDayEvents(key).length;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setMobileSelectedKey(key)}
+                style={{
+                  ...calS.mobileDayButton,
+                  ...(isSelected ? calS.mobileDayButtonActive : null),
+                  borderColor:isSelected ? 'var(--indigo)' : isToday ? '#C7D2FE' : 'var(--border)',
+                }}>
+                <span style={{ fontSize:11, fontWeight:900, color:isSelected ? 'var(--indigo)' : 'var(--gray)', textTransform:'uppercase' }}>
+                  {new Intl.DateTimeFormat(localeFor(lang), { weekday:'short' }).format(day)}
+                </span>
+                <span style={{ width:34, height:34, borderRadius:999, display:'grid', placeItems:'center', background:isSelected ? 'var(--indigo)' : isToday ? 'var(--lavender)' : 'transparent', color:isSelected ? '#fff' : 'var(--ink)', fontSize:16, fontWeight:900 }}>
+                  {day.getDate()}
+                </span>
+                <span style={{ height:18, minWidth:18, padding:'0 6px', borderRadius:999, display:'inline-grid', placeItems:'center', background:count ? '#EEF2FF' : 'transparent', color:count ? 'var(--indigo)' : 'var(--gray-2)', fontSize:10, fontWeight:900 }}>
+                  {count || ''}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={calS.mobileAgendaHeader}>
+          <div>
+            <div style={{ fontSize:17, fontWeight:900, color:'var(--ink)', textTransform:'capitalize' }}>{selectedLabel}</div>
+            <div style={{ fontSize:12, fontWeight:800, color:'var(--gray)', marginTop:3 }}>
+              {selectedEvents.length} {selectedEvents.length === 1 ? 'activity' : 'activities'}
+            </div>
+          </div>
+          <button type="button" onClick={() => openModal(mobileSelectedKey)} style={calS.mobilePrimaryBtn}>
+            <Plus size={16} /> {tt(lang, 'addActivity')}
+          </button>
+        </div>
+        {renderMobileAgenda(mobileSelectedKey, 'No activities on this day.')}
+      </div>
+    );
+  };
+
   const renderWeek = () => {
+    if (isMobile) return renderMobileWeek();
+
     const hours   = Array.from({ length: 24 }, (_, i) => i);
     const now     = new Date();
     const nowFrac = now.getHours() + now.getMinutes() / 60;
@@ -1233,8 +1382,61 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     );
   };
 
+  const renderMobileMonth = () => {
+    const selectedDate = dateFromCalendarKey(mobileSelectedKey) || new Date(viewYear, viewMonth, 1);
+    const selectedLabel = new Intl.DateTimeFormat(localeFor(lang), { weekday:'long', day:'numeric', month:'long' }).format(selectedDate);
+    return (
+      <div style={calS.mobilePanel}>
+        <div style={calS.mobileMonthGrid}>
+          {WEEK_LABELS.map(d => <div key={d} style={calS.mobileMonthWeekLabel}>{d.slice(0, 2)}</div>)}
+          {monthGrid.map((day, i) => {
+            const key = dayKey(day);
+            const dayEvs = getVisibleDayEvents(key);
+            const isCurrentMonth = day.getMonth() === viewMonth;
+            const isToday = key === dayKey(today);
+            const isSelected = key === mobileSelectedKey;
+            return (
+              <button
+                key={i}
+                type="button"
+                disabled={!isCurrentMonth}
+                onClick={() => setMobileSelectedKey(key)}
+                style={{
+                  ...calS.mobileMonthCell,
+                  opacity:isCurrentMonth ? 1 : 0.28,
+                  borderColor:isSelected ? 'var(--indigo)' : isToday ? '#C7D2FE' : 'var(--border)',
+                  background:isSelected ? 'var(--lavender)' : 'var(--surface)',
+                }}>
+                <span style={{ width:28, height:28, borderRadius:999, display:'grid', placeItems:'center', background:isToday ? 'var(--indigo)' : 'transparent', color:isToday ? '#fff' : 'var(--ink)', fontSize:13, fontWeight:900 }}>
+                  {day.getDate()}
+                </span>
+                <span style={{ display:'flex', gap:3, justifyContent:'center', minHeight:5 }}>
+                  {dayEvs.slice(0, 3).map(({ event }, dotIndex) => (
+                    <span key={dotIndex} style={{ width:5, height:5, borderRadius:999, background:paletteForEvent(event).color }} />
+                  ))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={calS.mobileAgendaHeader}>
+          <div>
+            <div style={{ fontSize:17, fontWeight:900, color:'var(--ink)', textTransform:'capitalize' }}>{selectedLabel}</div>
+            <div style={{ fontSize:12, fontWeight:800, color:'var(--gray)', marginTop:3 }}>
+              {getVisibleDayEvents(mobileSelectedKey).length} activities
+            </div>
+          </div>
+          <button type="button" onClick={() => openModal(mobileSelectedKey)} style={calS.mobilePrimaryBtn}>
+            <Plus size={16} /> {tt(lang, 'addActivity')}
+          </button>
+        </div>
+        {renderMobileAgenda(mobileSelectedKey, 'No activities on this date.')}
+      </div>
+    );
+  };
+
   const renderMonth = () => (
-    <div>
+    isMobile ? renderMobileMonth() : <div>
       <div style={calS.monthWeekHeader}>{WEEK_LABELS.map(d => <div key={d} style={calS.monthWeekLabel}>{d}</div>)}</div>
       <div style={calS.monthGrid}>
         {monthGrid.map((day, i) => {
@@ -1275,15 +1477,16 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     const cat = LIFE_CATS.find(c => c.id === selCat);
     const noteInfo = selNoteId ? subjectOptions.find((subject) => String(subject.noteId) === String(selNoteId)) : null;
     return (
-      <div style={calS.overlay} onClick={closeModal}>
-        <div style={calS.modal} onClick={e => e.stopPropagation()}>
+      <div style={{ ...calS.overlay, ...(isMobile ? calS.mobileOverlay : null) }} onClick={closeModal}>
+        <div style={{ ...calS.modal, ...(isMobile ? calS.mobileModal : null) }} onClick={e => e.stopPropagation()}>
+          {isMobile && <div style={calS.sheetHandle} />}
           <h3 style={calS.modalTitle}>{tt(lang, 'addActivity')} · {fmtModalDate(modalKey)}</h3>
           <div style={calS.modalField}>
             <label style={calS.modalLabel}>{tt(lang, 'activityTitle')}</label>
             <input value={modalName} onChange={e => setModalName(e.target.value)} onKeyDown={e => e.key==='Enter' && addEvent()}
               placeholder={tt(lang, 'activityPlaceholder')} style={calS.modalInput} autoFocus />
           </div>
-          <div style={{ display:'flex', gap:12, marginBottom:16 }}>
+          <div style={{ display:'flex', flexDirection:isMobile ? 'column' : 'row', gap:12, marginBottom:16 }}>
             <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'startTime')}</label><input type="time" value={modalTime} onChange={e => setModalTime(e.target.value)} style={calS.modalInput} /></div>
             <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'duration')}</label>
               <select value={modalDur} onChange={e => setModalDur(e.target.value)} style={calS.modalInput}>
@@ -1331,9 +1534,9 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
               </div>
             </div>
           )}
-          <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20 }}>
-            <button onClick={closeModal} style={calS.cancelBtn}>{tt(lang, 'cancel')}</button>
-            <button onClick={addEvent} style={calS.saveBtn}>{tt(lang, 'addActivity')}</button>
+          <div style={{ display:'flex', flexDirection:isMobile ? 'column-reverse' : 'row', gap:10, justifyContent:'flex-end', marginTop:20 }}>
+            <button onClick={closeModal} style={{ ...calS.cancelBtn, ...(isMobile ? calS.mobileFullBtn : null) }}>{tt(lang, 'cancel')}</button>
+            <button onClick={addEvent} style={{ ...calS.saveBtn, ...(isMobile ? calS.mobileFullBtn : null) }}>{tt(lang, 'addActivity')}</button>
           </div>
         </div>
       </div>
@@ -1355,9 +1558,10 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       : null;
     const upd = (patch) => setEditForm(prev => prev ? ({ ...prev, ...patch }) : prev);
     return (
-      <div style={calS.overlay} onClick={closeEditEvent}>
-        <div style={{ ...calS.modal, maxHeight:'88vh', overflowY:'auto' }} onClick={e => e.stopPropagation()}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
+      <div style={{ ...calS.overlay, ...(isMobile ? calS.mobileOverlay : null) }} onClick={closeEditEvent}>
+        <div style={{ ...calS.modal, maxHeight:isMobile ? '92dvh' : '88vh', overflowY:'auto', ...(isMobile ? calS.mobileModal : null) }} onClick={e => e.stopPropagation()}>
+          {isMobile && <div style={calS.sheetHandle} />}
+          <div style={{ display:'flex', flexDirection:isMobile ? 'column' : 'row', alignItems:isMobile ? 'flex-start' : 'center', justifyContent:'space-between', gap:isMobile ? 10 : 0, marginBottom:18 }}>
             <h3 style={{ ...calS.modalTitle, margin:0 }}>{tt(lang, 'editActivity')} · {fmtModalDate(editEv.key)}</h3>
             <label style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:12, color:'var(--gray)', cursor:'pointer', userSelect:'none' }}>
               <input type="checkbox" checked={f.completed} onChange={e => upd({ completed: e.target.checked })} />
@@ -1368,7 +1572,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
             <label style={calS.modalLabel}>{tt(lang, 'activityTitle')}</label>
             <input value={f.name} onChange={e => upd({ name: e.target.value })} readOnly={isPlannerEvent} style={{ ...calS.modalInput, ...(isPlannerEvent ? { background:'var(--sidebar-bg)', color:'var(--gray)' } : null) }} />
           </div>
-          <div style={{ display:'flex', gap:12, marginBottom:16 }}>
+          <div style={{ display:'flex', flexDirection:isMobile ? 'column' : 'row', gap:12, marginBottom:16 }}>
             <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'startTime')}</label><input type="time" value={f.time} onChange={e => upd({ time: e.target.value })} style={calS.modalInput} /></div>
             <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'duration')}</label>
               <select value={f.dur} onChange={e => upd({ dur: e.target.value })} style={calS.modalInput}>
@@ -1510,14 +1714,14 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
               </div>
             )}
           </div>
-          <div style={{ display:'flex', gap:10, justifyContent:'space-between', marginTop:20 }}>
+          <div style={{ display:'flex', flexDirection:isMobile ? 'column' : 'row', gap:10, justifyContent:'space-between', marginTop:20 }}>
             <button onClick={deleteEditEvent}
-              style={{ padding:'10px 16px', borderRadius:999, border:'1px solid #EF4444', background:'transparent', color:'#EF4444', fontWeight:600, fontSize:13, cursor:'pointer' }}>
+              style={{ padding:'10px 16px', borderRadius:999, border:'1px solid #EF4444', background:'transparent', color:'#EF4444', fontWeight:600, fontSize:13, cursor:'pointer', ...(isMobile ? calS.mobileFullBtn : null) }}>
               {tt(lang, 'delete')}
             </button>
-            <div style={{ display:'flex', gap:10 }}>
-              <button onClick={closeEditEvent} style={calS.cancelBtn}>{tt(lang, 'cancel')}</button>
-              <button onClick={saveEditEvent} style={calS.saveBtn}>{tt(lang, 'save')}</button>
+            <div style={{ display:'flex', flexDirection:isMobile ? 'column-reverse' : 'row', gap:10, width:isMobile ? '100%' : 'auto' }}>
+              <button onClick={closeEditEvent} style={{ ...calS.cancelBtn, ...(isMobile ? calS.mobileFullBtn : null) }}>{tt(lang, 'cancel')}</button>
+              <button onClick={saveEditEvent} style={{ ...calS.saveBtn, ...(isMobile ? calS.mobileFullBtn : null) }}>{tt(lang, 'save')}</button>
             </div>
           </div>
         </div>
@@ -1526,26 +1730,26 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
   };
 
   return (
-    <div style={calS.wrap}>
-      <div style={{ marginBottom:22 }}>
-        <h2 style={homeS.h1}>{tt(lang, 'calendar')}</h2>
+    <div style={{ ...calS.wrap, ...(isMobile ? calS.mobileWrap : null) }}>
+      <div style={{ marginBottom:isMobile ? 8 : 22 }}>
+        <h2 style={{ ...homeS.h1, ...(isMobile ? { fontSize:28, lineHeight:1.12 } : null) }}>{tt(lang, 'calendar')}</h2>
         <p style={homeS.sub}>{tt(lang, 'calendarSub')}</p>
       </div>
-      <div style={calS.header}>
-        <div style={calS.navGroup}>
-          <button onClick={navPrev} style={calS.navBtn}>‹</button>
-          <span style={calS.rangeLabel}>{rangeLabel}</span>
-          <button onClick={navNext} style={calS.navBtn}>›</button>
+      <div style={{ ...calS.header, ...(isMobile ? calS.mobileHeader : null) }}>
+        <div style={{ ...calS.navGroup, ...(isMobile ? { width:'100%', justifyContent:'space-between' } : null) }}>
+          <button onClick={navPrev} style={{ ...calS.navBtn, ...(isMobile ? calS.mobileIconBtn : null) }}>‹</button>
+          <span style={{ ...calS.rangeLabel, ...(isMobile ? calS.mobileRangeLabel : null) }}>{rangeLabel}</span>
+          <button onClick={navNext} style={{ ...calS.navBtn, ...(isMobile ? calS.mobileIconBtn : null) }}>›</button>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, ...(isMobile ? calS.mobileToolbar : null) }}>
           <button onClick={() => setDensity((current) => current === 'compact' ? 'detailed' : 'compact')}
-            style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:999, fontSize:13, fontWeight:600, color:'var(--ink)', cursor:'pointer' }}>
+            style={{ display:'inline-flex', alignItems:'center', gap:7, minHeight:isMobile ? 44 : 'auto', padding:isMobile ? '0 14px' : '8px 14px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:999, fontSize:13, fontWeight:600, color:'var(--ink)', cursor:'pointer', whiteSpace:'nowrap' }}>
             {density === 'compact' ? tt(lang, 'compact') : tt(lang, 'detailed')}
           </button>
           {/* View dropdown pill */}
           <div style={{ position:'relative' }}>
             <button onClick={() => setViewDropOpen(o => !o)}
-              style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:999, fontSize:13, fontWeight:600, color:'var(--ink)', cursor:'pointer', userSelect:'none' }}>
+              style={{ display:'inline-flex', alignItems:'center', gap:7, minHeight:isMobile ? 44 : 'auto', padding:isMobile ? '0 16px' : '8px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:999, fontSize:13, fontWeight:600, color:'var(--ink)', cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>
               {view === 'week' ? 'Settimana' : 'Mese'}
               <ChevronDown size={14} color="var(--gray)" />
             </button>
@@ -1562,15 +1766,15 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
               </div>
             )}
           </div>
-          <button onClick={onOpenPlanner} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 16px', background:'var(--indigo)', color:'#fff', borderRadius:999, fontSize:13, fontWeight:600, border:'none', cursor:'pointer' }}>
+          <button onClick={onOpenPlanner} style={{ display:'inline-flex', alignItems:'center', gap:7, minHeight:isMobile ? 44 : 'auto', padding:isMobile ? '0 16px' : '8px 16px', background:'var(--indigo)', color:'#fff', borderRadius:999, fontSize:13, fontWeight:600, border:'none', cursor:'pointer', whiteSpace:'nowrap' }}>
             <Brain size={14} /> Studio AI
           </button>
         </div>
       </div>
-      <div style={calS.catsRow}>
+      <div style={{ ...calS.catsRow, ...(isMobile ? calS.mobileCatsRow : null) }}>
         {LIFE_CATS.map(c => (
           <button key={c.id} onClick={() => toggleCat(c.id)}
-            style={{ ...calS.catChip, opacity:activeCats.has(c.id)?1:0.3, background:c.bg, color:c.text, border:`1.5px solid ${c.color}33` }}>
+            style={{ ...calS.catChip, ...(isMobile ? { minHeight:38, flex:'0 0 auto' } : null), opacity:activeCats.has(c.id)?1:0.3, background:c.bg, color:c.text, border:`1.5px solid ${c.color}33` }}>
             <span style={{ ...calS.catDot, background:c.color }} />{c.label}
           </button>
         ))}
@@ -1588,7 +1792,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
         <div style={calS.readModelNotice}>No exam or study plan events yet. Add an exam date or generate a plan.</div>
       )}
       {planQuality && (
-        <div style={{ ...calS.qualityNotice, ...(planQuality.tone === 'good' ? calS.qualityGood : planQuality.tone === 'warn' ? calS.qualityWarn : calS.qualityInfo) }}>
+        <div style={{ ...calS.qualityNotice, ...(isMobile ? { alignItems:'flex-start', flexDirection:'column', gap:4 } : null), ...(planQuality.tone === 'good' ? calS.qualityGood : planQuality.tone === 'warn' ? calS.qualityWarn : calS.qualityInfo) }}>
           <strong>{planQuality.label}</strong>
           <span>{planQuality.text}</span>
         </div>
@@ -1596,9 +1800,9 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       {view === 'week' ? renderWeek() : renderMonth()}
       <div style={calS.balanceSection}>
         <h4 style={calS.balanceTitle}>Life Balance — this week</h4>
-        <div style={calS.balanceGrid}>
+        <div style={{ ...calS.balanceGrid, ...(isMobile ? calS.mobileBalanceGrid : null) }}>
           {lifeBalance.map(b => (
-            <div key={b.id} style={calS.balanceCard}>
+            <div key={b.id} style={{ ...calS.balanceCard, ...(isMobile ? { padding:12, borderRadius:12 } : null) }}>
               <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
                 <span style={{ ...calS.catDot, background:b.color }} />
                 <span style={{ fontSize:12, fontWeight:600, color:'var(--ink)' }}>{b.label}</span>
@@ -1619,18 +1823,19 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
         const d = new Date(yr, mo - 1, dy);
         const label = d.toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
         return (
-          <div style={{ position:'fixed', inset:0, background:'rgba(15,16,53,.45)', display:'grid', placeItems:'center', zIndex:100 }}
+          <div style={{ position:'fixed', inset:0, background:'rgba(15,16,53,.45)', display:'grid', placeItems:isMobile ? 'end center' : 'center', zIndex:100, padding:isMobile ? '0 10px' : 0 }}
             onClick={closeDayDetail}>
-            <div style={{ width:'100%', maxWidth:460, maxHeight:'80vh', display:'flex', flexDirection:'column', background:'var(--surface)', borderRadius:20, border:'1px solid var(--border)', boxShadow:'0 30px 80px -20px rgba(15,16,53,.4)', overflow:'hidden' }}
+            <div style={{ width:'100%', maxWidth:isMobile ? 'none' : 460, maxHeight:isMobile ? '88dvh' : '80vh', display:'flex', flexDirection:'column', background:'var(--surface)', borderRadius:isMobile ? '24px 24px 0 0' : 20, border:'1px solid var(--border)', boxShadow:'0 30px 80px -20px rgba(15,16,53,.4)', overflow:'hidden' }}
               onClick={e => e.stopPropagation()}>
-              <div style={{ padding:'20px 22px 16px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              {isMobile && <div style={{ ...calS.sheetHandle, marginTop:10, marginBottom:4 }} />}
+              <div style={{ padding:isMobile ? '14px 18px 14px' : '20px 22px 16px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
                 <div>
                   <div style={{ fontSize:16, fontWeight:700, color:'var(--ink)', textTransform:'capitalize' }}>{label}</div>
                   <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>{dayEvs.length} {dayEvs.length === 1 ? 'attività' : 'attività'}</div>
                 </div>
-                <button onClick={closeDayDetail} style={{ width:30, height:30, borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--gray)', fontSize:16, display:'grid', placeItems:'center', cursor:'pointer' }}>✕</button>
+                <button onClick={closeDayDetail} style={{ width:isMobile ? 40 : 30, height:isMobile ? 40 : 30, borderRadius:isMobile ? 12 : 8, border:'1px solid var(--border)', background:'transparent', color:'var(--gray)', fontSize:16, display:'grid', placeItems:'center', cursor:'pointer', flexShrink:0 }}>✕</button>
               </div>
-              <div style={{ flex:1, overflowY:'auto', padding:'12px 22px' }}>
+              <div style={{ flex:1, overflowY:'auto', padding:isMobile ? '12px 18px' : '12px 22px' }}>
                 {dayEvs.length === 0 ? (
                   <div style={{ textAlign:'center', padding:'32px 0', color:'var(--gray)', fontSize:13 }}>Nessuna attività — aggiungine una!</div>
                 ) : dayEvs.map(({ event: ev, index: eventIndex }, idx) => {
@@ -1651,7 +1856,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                         if (!isNaN(from) && from !== eventIndex) reorderEvent(key, from, eventIndex);
                       }}
                       onClick={() => { if (reorderDragIdx !== null) return; closeDayDetail(); openEditEvent(key, eventIndex); }}
-                      style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, background:bg, border:isDropTarget ? `1.5px dashed ${color}` : `1px solid ${color}33`, marginBottom:8, opacity: isDragging ? 0.4 : (ev.completed ? 0.55 : 1), cursor:'pointer' }}>
+                      style={{ display:'flex', alignItems:'center', gap:10, padding:isMobile ? '12px' : '10px 12px', minHeight:isMobile ? 64 : 'auto', borderRadius:isMobile ? 14 : 10, background:bg, border:isDropTarget ? `1.5px dashed ${color}` : `1px solid ${color}33`, marginBottom:8, opacity: isDragging ? 0.4 : (ev.completed ? 0.55 : 1), cursor:'pointer' }}>
                       <span style={{ color:text||'var(--gray)', opacity:.5, fontSize:14, lineHeight:1, cursor:'grab', userSelect:'none', flexShrink:0 }}>⋮⋮</span>
                       <div style={{ width:4, alignSelf:'stretch', borderRadius:999, background:color, flexShrink:0 }} />
                       <div style={{ flex:1, minWidth:0 }}>
@@ -1661,16 +1866,16 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                           {totalAttach > 0 && <span>📎 {totalAttach}</span>}
                         </div>
                       </div>
-                      <button onClick={e => { e.stopPropagation(); deleteEvent(key, eventIndex); }} style={{ color:'var(--gray-2)', padding:4, borderRadius:6, border:'none', background:'transparent', cursor:'pointer', opacity:.6, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}><Trash size={13} /></button>
+                      <button onClick={e => { e.stopPropagation(); deleteEvent(key, eventIndex); }} style={{ color:'var(--gray-2)', width:isMobile ? 36 : 'auto', height:isMobile ? 36 : 'auto', padding:4, borderRadius:10, border:'none', background:'transparent', cursor:'pointer', opacity:.6, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}><Trash size={13} /></button>
                       {isStudyActionEvent(ev) && (
-                        <button onClick={e => { e.stopPropagation(); toggleEventDone(key, eventIndex); }} style={{ color:ev.completed ? '#16A34A' : 'var(--gray-2)', padding:4, borderRadius:6, border:'none', background:ev.completed ? '#DCFCE7' : 'transparent', cursor:'pointer', opacity:.9, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}><Check size={13} /></button>
+                        <button onClick={e => { e.stopPropagation(); toggleEventDone(key, eventIndex); }} style={{ color:ev.completed ? '#16A34A' : 'var(--gray-2)', width:isMobile ? 36 : 'auto', height:isMobile ? 36 : 'auto', padding:4, borderRadius:10, border:'none', background:ev.completed ? '#DCFCE7' : 'transparent', cursor:'pointer', opacity:.9, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}><Check size={13} /></button>
                       )}
                     </div>
                   );
                 })}
               </div>
-              <div style={{ padding:'14px 22px', borderTop:'1px solid var(--border)' }}>
-                <button onClick={() => { closeDayDetail(); openModal(key); }} style={{ width:'100%', padding:'11px', borderRadius:12, background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:14, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+              <div style={{ padding:isMobile ? '14px 18px calc(14px + env(safe-area-inset-bottom, 0px))' : '14px 22px', borderTop:'1px solid var(--border)' }}>
+                <button onClick={() => { closeDayDetail(); openModal(key); }} style={{ width:'100%', minHeight:isMobile ? 46 : 'auto', padding:'11px', borderRadius:12, background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:14, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
                   + Aggiungi attività
                 </button>
               </div>
@@ -1695,14 +1900,20 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
 
 const calS = {
   wrap: { display:'flex', flexDirection:'column', gap:18 },
+  mobileWrap: { gap:14, paddingBottom:8 },
   header: { display:'flex', alignItems:'center', justifyContent:'space-between' },
+  mobileHeader: { flexDirection:'column', alignItems:'stretch', gap:12 },
   navGroup: { display:'flex', alignItems:'center', gap:10 },
   navBtn: { width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:18, display:'grid', placeItems:'center', cursor:'pointer' },
+  mobileIconBtn: { width:44, height:44, borderRadius:14, fontSize:22, flexShrink:0 },
   rangeLabel: { fontSize:14, fontWeight:700, color:'var(--ink)', letterSpacing:'-0.01em', padding:'6px 18px', border:'1px solid var(--border)', borderRadius:10, background:'var(--surface)', textAlign:'center', whiteSpace:'nowrap' },
+  mobileRangeLabel: { flex:1, minWidth:0, minHeight:44, display:'grid', placeItems:'center', padding:'0 12px', borderRadius:14, fontSize:13, overflow:'hidden', textOverflow:'ellipsis' },
+  mobileToolbar: { width:'100%', overflowX:'auto', paddingBottom:2, scrollbarWidth:'none' },
   viewToggleGroup: { display:'flex', background:'var(--sidebar-bg)', border:'1.5px solid var(--border)', borderRadius:10, padding:3, gap:2 },
   toggleBtn: { padding:'6px 16px', borderRadius:8, fontSize:13, fontWeight:600, color:'var(--gray)', background:'transparent', border:'none', cursor:'pointer' },
   toggleBtnActive: { background:'var(--surface)', color:'var(--ink)', boxShadow:'0 1px 4px rgba(0,0,0,.15)', border:'0.5px solid var(--border)' },
   catsRow: { display:'flex', gap:8, flexWrap:'wrap' },
+  mobileCatsRow: { flexWrap:'nowrap', overflowX:'auto', margin:'0 -14px', padding:'0 14px 4px', scrollbarWidth:'none' },
   catChip: { display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:999, fontSize:12, fontWeight:600, cursor:'pointer', transition:'opacity .15s' },
   catDot: { width:8, height:8, borderRadius:999, flexShrink:0 },
   readModelNotice: { margin:'0 0 12px', padding:'10px 12px', borderRadius:12, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--gray)', fontSize:13, fontWeight:700 },
@@ -1735,9 +1946,13 @@ const calS = {
   balanceSection: { borderTop:'1px solid var(--border)', paddingTop:18 },
   balanceTitle: { margin:'0 0 12px', fontSize:14, fontWeight:700, color:'var(--ink)' },
   balanceGrid: { display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:10 },
+  mobileBalanceGrid: { gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:8 },
   balanceCard: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:14 },
   overlay: { position:'fixed', inset:0, background:'rgba(15,16,53,.4)', display:'grid', placeItems:'center', zIndex:100 },
+  mobileOverlay: { placeItems:'end center', padding:'0 10px' },
   modal: { background:'var(--surface)', borderRadius:20, padding:28, width:'100%', maxWidth:480, boxShadow:'0 20px 60px -10px rgba(15,16,53,.2)' },
+  mobileModal: { maxWidth:'none', borderRadius:'24px 24px 0 0', padding:'12px 18px calc(18px + env(safe-area-inset-bottom, 0px))', maxHeight:'92dvh', overflowY:'auto' },
+  sheetHandle: { width:42, height:4, borderRadius:999, background:'#D1D5DB', margin:'0 auto 14px' },
   modalTitle: { margin:'0 0 20px', fontSize:16, fontWeight:700, color:'var(--ink)' },
   modalField: { marginBottom:16 },
   modalLabel: { display:'block', fontSize:12, fontWeight:700, color:'var(--ink)', marginBottom:8 },
@@ -1745,5 +1960,15 @@ const calS = {
   realSourceBox: { margin:'0 0 12px', padding:'11px 13px', borderRadius:12, border:'1px solid var(--border)', background:'var(--sidebar-bg)', color:'var(--ink)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, fontSize:12, fontWeight:800 },
   cancelBtn: { padding:'10px 20px', borderRadius:999, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor:'pointer' },
   saveBtn: { padding:'10px 20px', borderRadius:999, border:'none', background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:14, cursor:'pointer' },
+  mobileFullBtn: { width:'100%', minHeight:46 },
   repairBtn: { padding:'8px 12px', borderRadius:999, border:'1px solid', fontSize:12, fontWeight:800, cursor:'pointer' },
+  mobilePanel: { display:'flex', flexDirection:'column', gap:14 },
+  mobileDayRail: { display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(68px, 1fr)', gap:8, overflowX:'auto', margin:'0 -14px', padding:'2px 14px 4px', scrollbarWidth:'none' },
+  mobileDayButton: { minHeight:92, minWidth:68, borderRadius:18, border:'1px solid var(--border)', background:'var(--surface)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6, cursor:'pointer', padding:'8px 6px' },
+  mobileDayButtonActive: { background:'var(--lavender)', borderColor:'var(--indigo)', boxShadow:'0 12px 26px -22px rgba(55,48,232,.55)' },
+  mobileAgendaHeader: { display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 },
+  mobilePrimaryBtn: { minHeight:44, padding:'0 14px', borderRadius:14, border:'none', background:'var(--indigo)', color:'#fff', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:7, fontSize:12, fontWeight:900, cursor:'pointer', whiteSpace:'nowrap' },
+  mobileMonthGrid: { display:'grid', gridTemplateColumns:'repeat(7, minmax(0, 1fr))', gap:5 },
+  mobileMonthWeekLabel: { textAlign:'center', fontSize:10, fontWeight:900, color:'var(--gray)', padding:'0 0 4px' },
+  mobileMonthCell: { minHeight:48, borderRadius:14, border:'1px solid var(--border)', background:'var(--surface)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3, padding:3, cursor:'pointer' },
 };
