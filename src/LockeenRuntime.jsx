@@ -59,12 +59,12 @@ function saveBillingIntent(intent) {
   localStorage.setItem(BILLING_INTENT_STORAGE_KEY, JSON.stringify(intent));
 }
 
-function withBillingTimeout(promise) {
+function withBillingTimeout(promise, timeoutMessage) {
   let timeoutId;
   const timeout = new Promise((resolve) => {
     timeoutId = window.setTimeout(() => resolve({
       error: {
-        message: 'Billing took too long to open. Please try again.',
+        message: timeoutMessage,
       },
     }), BILLING_REQUEST_TIMEOUT_MS);
   });
@@ -154,11 +154,12 @@ function AuthShell() {
           isFreePlan(user)
             ? startCheckout({ billingPeriod: intent.billingPeriod })
             : openBillingPortal(),
+          tt(lang, 'billingOpenTimeout'),
         );
       } catch (error) {
         result = {
           error: {
-            message: error?.message || 'Could not open billing.',
+            message: error?.message || tt(lang, 'couldNotOpenBilling'),
           },
         };
       }
@@ -168,7 +169,7 @@ function AuthShell() {
       setPendingBillingIntent(null);
 
       if (result.error) {
-        setBillingError(result.error.message || 'Could not open billing.');
+        setBillingError(result.error.message || tt(lang, 'couldNotOpenBilling'));
         return;
       }
 
@@ -176,7 +177,7 @@ function AuthShell() {
     }
 
     runBillingIntent();
-  }, [isAuthenticated, pendingBillingIntent, user]);
+  }, [isAuthenticated, lang, pendingBillingIntent, user]);
 
   useEffect(() => {
     function onLang(e) {
@@ -226,14 +227,14 @@ function AuthShell() {
       )}
       {billingAction && (
         <div style={runtimeS.state}>
-          <strong>{isFreePlan(user) ? 'Opening Stripe Checkout' : 'Opening billing portal'}</strong>
-          <span>Please wait a moment.</span>
+          <strong>{isFreePlan(user) ? tt(lang, 'openingStripeCheckout') : tt(lang, 'openingBillingPortal')}</strong>
+          <span>{tt(lang, 'pleaseWaitMoment')}</span>
         </div>
       )}
       {billingError && (
         <div style={runtimeS.notice}>
           <span>{billingError}</span>
-          <button onClick={() => setBillingError(null)} style={runtimeS.noticeButton}>Dismiss</button>
+          <button onClick={() => setBillingError(null)} style={runtimeS.noticeButton}>{tt(lang, 'dismiss')}</button>
         </div>
       )}
       {modal && (
@@ -242,6 +243,7 @@ function AuthShell() {
           onAuth={handleAuth}
           onClose={() => setModal(null)}
           darkMode={false}
+          lang={lang}
         />
       )}
       {isAuthenticated && pageAppEl && createPortal(

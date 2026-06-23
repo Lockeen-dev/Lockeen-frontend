@@ -23,9 +23,70 @@ const pageTitles = {
   },
 };
 
+const staticTextTranslations = {
+  it: {
+    About: 'Chi siamo',
+    Blog: 'Blog',
+    Careers: 'Lavora con noi',
+    Press: 'Stampa',
+    Product: 'Prodotto',
+    Features: 'Funzionalità',
+    Pricing: 'Prezzi',
+    Calendar: 'Calendario',
+    Company: 'Azienda',
+    Resources: 'Risorse',
+    Legal: 'Legale',
+    'Privacy Policy': 'Privacy Policy',
+    'Terms of Service': 'Termini di servizio',
+    'Sign In': 'Accedi',
+    'Start Free': 'Inizia gratis',
+    'Get Started': 'Inizia',
+    'Contact us': 'Contattaci',
+    'Media kit': 'Media kit',
+    'Back to home': 'Torna alla home',
+    'All rights reserved.': 'Tutti i diritti riservati.',
+    'Study smarter with AI': 'Studia meglio con l’AI',
+    'Join Lockeen': 'Unisciti a Lockeen',
+    'Earn with Lockeen': 'Guadagna con Lockeen',
+    'Ambassador Program': 'Programma Ambassador',
+    'Terms': 'Termini',
+    Privacy: 'Privacy',
+  },
+};
+
 function normalizePage(raw) {
   if (!raw) return 'about';
   return raw.replace(/\.html$/, '');
+}
+
+function applyStaticLanguage(root, lang, pageName) {
+  const translations = staticTextTranslations[lang];
+  if (!translations) return;
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+  textNodes.forEach((node) => {
+    const text = node.nodeValue;
+    const trimmed = text.trim();
+    if (!trimmed || !translations[trimmed]) return;
+    node.nodeValue = text.replace(trimmed, translations[trimmed]);
+  });
+
+  const pageHeading = {
+    about: 'Chi siamo',
+    careers: 'Lavora con noi',
+    earn: 'Programma Ambassador',
+    press: 'Stampa',
+    privacy: 'Privacy Policy',
+    terms: 'Termini di servizio',
+  }[pageName];
+
+  if (pageHeading) {
+    const heading = root.querySelector('h1');
+    if (heading && heading.textContent.trim()) heading.textContent = pageHeading;
+  }
 }
 
 export default function StaticPage() {
@@ -63,6 +124,8 @@ export default function StaticPage() {
       }
       oldScript.remove();
     });
+
+    applyStaticLanguage(root, lang, pageName);
 
     return () => {
       document.body.style.overflow = '';
