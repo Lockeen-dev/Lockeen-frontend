@@ -3,24 +3,28 @@ import { useLocation, useParams } from 'react-router-dom';
 import { staticPages } from '../content/staticPages';
 import { submitCareerApplication } from '../services/careerApplications';
 import { subscribeToNewsletter } from '../services/newsletter';
+import { submitPartnerApplication } from '../services/partnerApplications';
+import { ensureFooterLegalLinks, initCookieConsentUi } from '../utils/cookieConsent';
 
 const pageTitles = {
   en: {
     about: 'About — Lockeen',
     blog: 'Blog — Lockeen',
     careers: 'Careers – Lockeen',
-    earn: 'Earn · Ambassador Program – Lockeen',
+    earn: 'Earn · Partner Program – Lockeen',
     press: 'Press – Lockeen',
     privacy: 'Privacy Policy — Lockeen',
+    'cookie-policy': 'Cookie Policy — Lockeen',
     terms: 'Terms of Service — Lockeen',
   },
   it: {
     about: 'Chi siamo — Lockeen',
     blog: 'Blog — Lockeen',
     careers: 'Lavora con noi – Lockeen',
-    earn: 'Guadagna · Programma Ambassador – Lockeen',
+    earn: 'Guadagna · Partner Program – Lockeen',
     press: 'Stampa – Lockeen',
     privacy: 'Privacy Policy — Lockeen',
+    'cookie-policy': 'Cookie Policy — Lockeen',
     terms: 'Termini di servizio — Lockeen',
   },
 };
@@ -57,6 +61,11 @@ const staticTextTranslations = {
     ['Cookie Settings', 'Impostazioni cookie'],
     ['The AI-powered workspace for smarter studying. Learn better, achieve more.', 'Lo spazio AI per studiare meglio. Impara meglio, ottieni di più.'],
     ['Lockeen Ambassador Program', 'Programma Ambassador Lockeen'],
+    ['Lockeen Partner Program', 'Partner Program Lockeen'],
+    ['Grow with Lockeen', 'Cresci con Lockeen'],
+    ['Join the campus partner program. Share Lockeen with students who can really use it, then track every verified referral from your personal link.', 'Entra nel Partner Program campus. Condividi Lockeen con studenti a cui può servire davvero e monitora ogni referral verificato dal tuo link personale.'],
+    ['Request access →', 'Richiedi accesso →'],
+    ['required', 'obbligatorio'],
     ['Earn with Lockeen', 'Guadagna con Lockeen'],
     ['Become an Ambassador at your university. Earn €2 for every student who signs up with your link — recurring, with no cap.', 'Diventa Ambassador nella tua università. Guadagni €2 per ogni studente che si iscrive con il tuo link — ricorrenti, senza limiti.'],
     ['Diventa Ambassador nella tua università. Guadagni €2 per ogni studente che si iscrive con il tuo link — per sempre, senza limiti.', 'Diventa Ambassador nella tua università. Guadagni €2 per ogni studente che si iscrive con il tuo link — ricorrenti, senza limiti.'],
@@ -110,6 +119,22 @@ const staticPageContentTranslations = {
     ['Join over 120,000 students already using Lockeen to learn faster, retain more, and stress less.', 'Unisciti a oltre 120.000 studenti che usano già Lockeen per imparare più velocemente, ricordare meglio e stressarsi meno.'],
     ["Get started — it's free", 'Inizia: è gratis'],
     ['Read the blog', 'Leggi il blog'],
+  ],
+  'cookie-policy': [
+    ['Cookie Policy', 'Cookie Policy'],
+    ['Last updated: June 23, 2026', 'Ultimo aggiornamento: 23 giugno 2026'],
+    ['This page explains how Lockeen uses cookies and similar local technologies.', 'Questa pagina spiega come Lockeen usa cookie e tecnologie locali simili.'],
+    ['We use the minimum cookies and local storage needed to run the product, keep you signed in, remember your language, and protect the service.', 'Usiamo il minimo di cookie e local storage necessario per far funzionare il prodotto, mantenere l’accesso, ricordare la lingua e proteggere il servizio.'],
+    ['Necessary cookies', 'Cookie necessari'],
+    ['These are required for authentication, security, billing return states, language preferences, and core product behavior. They cannot be disabled through Lockeen because the service would not work correctly without them.', 'Sono necessari per autenticazione, sicurezza, ritorni dal billing, preferenze lingua e funzioni essenziali del prodotto. Non possono essere disattivati da Lockeen perché senza di essi il servizio non funzionerebbe correttamente.'],
+    ['Analytics cookies', 'Cookie analytics'],
+    ['Analytics cookies are optional. If enabled, they help us understand aggregate usage and performance so we can improve Lockeen. They are not used for advertising.', 'I cookie analytics sono opzionali. Se abilitati, ci aiutano a capire utilizzo aggregato e performance per migliorare Lockeen. Non vengono usati per pubblicità.'],
+    ['Advertising cookies', 'Cookie pubblicitari'],
+    ['Lockeen does not currently use advertising cookies or third-party ad tracking cookies.', 'Lockeen al momento non usa cookie pubblicitari né cookie di tracciamento pubblicitario di terze parti.'],
+    ['Manage your preferences', 'Gestisci le preferenze'],
+    ['You can update your cookie preferences at any time from Cookie Settings in the footer.', 'Puoi aggiornare le preferenze cookie in qualsiasi momento da Impostazioni cookie nel footer.'],
+    ['Open Cookie Settings', 'Apri impostazioni cookie'],
+    ['For more information about how we process personal data, read our Privacy Policy.', 'Per maggiori informazioni su come trattiamo i dati personali, leggi la Privacy Policy.'],
   ],
   careers: [
     ["We're hiring", 'Stiamo assumendo'],
@@ -300,6 +325,74 @@ const staticPageContentTranslations = {
     ['Mailing Address:', 'Indirizzo postale:'],
     ['Milan, Italy', 'Milano, Italia'],
   ],
+  earn: [
+    ['Bring Lockeen to your campus.', 'Porta Lockeen nel tuo campus.'],
+    ['With your personal link, you earn €2 per month for every student who signs up and stays active. It is recurring revenue: the more students you bring to Lockeen, the more your passive income grows.', 'Con il tuo link personale guadagni €2 al mese per ogni studente che si iscrive e resta attivo. È un guadagno ricorrente: più studenti porti a Lockeen, più cresce la tua entrata passiva.'],
+    ['€2/month per student', '€2/mese per studente'],
+    ['Recurring while they stay active', 'Ricorrente finché resta attivo'],
+    ['See how it works', 'Vedi come funziona'],
+    ['Partner kit', 'Partner kit'],
+    ['What you receive after approval', "Quello che ricevi dopo l'approvazione"],
+    ['Personal link', 'Link personale'],
+    ['Referrals tracked from one unique link.', 'Referral tracciati da un link unico.'],
+    ['Ready-to-use material', 'Materiali pronti'],
+    ['Copy, examples, and assets to adapt.', 'Copy, esempi e asset da adattare.'],
+    ['Clear dashboard', 'Dashboard chiara'],
+    ['Referrals, active students, and payouts always readable.', 'Referral, studenti attivi e payout sempre leggibili.'],
+    ['€2 / month', '€2 / mese'],
+    ['For every active student who signs up with your link.', 'Per ogni studente attivo iscritto con il tuo link.'],
+    ['Payout from €20', 'Payout da €20'],
+    ['Payment when referrals are confirmed.', 'Pagamento quando i referral sono confermati.'],
+    ['Simple rule:', 'Regola semplice:'],
+    ['You earn €2 per month for every active student, but share only where Lockeen can be useful. Trust and context beat copied messages everywhere.', 'guadagni €2 al mese per ogni studente attivo, ma condividi solo dove Lockeen può essere utile. Meglio fiducia e contesto che messaggi copiati ovunque.'],
+    ['Request-only access', 'Accesso su richiesta'],
+    ['Apply as a Lockeen Partner.', 'Candidati come Partner Lockeen.'],
+    ['Leave your email: we will contact you with details, your personal link, and guidelines. The program pays €2 per month for every active student who signs up from your link.', 'Lascia la tua email: ti contattiamo noi con dettagli, link personale e linee guida. Il programma prevede €2 al mese per ogni studente attivo iscritto dal tuo link.'],
+    ['Fill out a mini application: we just need to understand who you are, where you study, and which community you can reach. The program pays €2 per month for every active student who signs up from your link.', 'Compila una mini application: ci basta capire chi sei, dove studi e che community puoi raggiungere. Il programma prevede €2 al mese per ogni studente attivo iscritto dal tuo link.'],
+    ['Send request', 'Invia richiesta'],
+    ['Submit application', 'Invia application'],
+    ['Request sent!', 'Richiesta inviata!'],
+    ['We will send you the details as soon as possible.', 'Ti mandiamo i dettagli appena possibile.'],
+    ['Application submitted!', 'Application inviata!'],
+    ['We saved your application and will reach out if there is a fit.', 'Abbiamo salvato la candidatura e ti contatteremo se c’è fit.'],
+    ['For real students', 'Per studenti veri'],
+    ['It works when you know the context: course, exam session, and real study problems.', 'Funziona se conosci il contesto: corso, sessione, problemi reali di studio.'],
+    ['Product before link', 'Prodotto prima del link'],
+    ['Show Lockeen while you use it: quizzes, flashcards, calendar, AI Tutor.', 'Mostra Lockeen mentre lo usi: quiz, flashcard, calendario, AI Tutor.'],
+    ['Trust, not spam', 'Fiducia, non spam'],
+    ['One useful share in the right community beats ten generic posts.', 'Meglio una condivisione utile in una community giusta che dieci post generici.'],
+    ['Verified referrals', 'Referral verificati'],
+    ['Results are tracked and approved before payout.', 'I risultati vengono tracciati e approvati prima del payout.'],
+    ['How it works', 'Come funziona'],
+    ['Three steps, with human review.', 'Tre passaggi, con controllo umano.'],
+    ['Request access', 'Richiedi accesso'],
+    ['Tell us who you are, where you study, and which community you can reach. If it makes sense, we enable you.', 'Ci dici chi sei, dove studi e che community puoi raggiungere. Se ha senso, ti abilitiamo.'],
+    ['Receive the kit', 'Ricevi il kit'],
+    ['Personal link, guidelines, example messages, and assets to explain Lockeen without forcing it.', 'Link personale, linee guida, messaggi di esempio e asset per spiegare Lockeen senza forzature.'],
+    ['Earn every month', 'Guadagna ogni mese'],
+    ['For every active student who signs up with your link, you receive €2 per month. Payout starts from the planned threshold.', 'Per ogni studente attivo iscritto con il tuo link ricevi €2 al mese. Il payout parte dalla soglia prevista.'],
+    ['Campus playbook', 'Playbook campus'],
+    ['Where Lockeen is easiest to explain', 'Dove Lockeen si racconta meglio'],
+    ['No inflated promises: the model is simple, €2 monthly for every active student. Below are the contexts where it is easiest to explain.', 'Niente promesse gonfiate: il modello è semplice, €2 mensili per ogni studente attivo. Qui sotto trovi i contesti dove raccontarlo meglio.'],
+    ['Course chat', 'Chat corso'],
+    ['One message when it matters', 'Un messaggio quando serve'],
+    ['Share Lockeen near an exam session, a deadline, or a concrete problem: notes to organize, quizzes to create, study plan to fix.', 'Condividi Lockeen vicino a una sessione, un esame o un problema concreto: appunti da organizzare, quiz da creare, piano studio da sistemare.'],
+    ['Useful beats pushy', 'Meglio utile che insistente'],
+    ['Community', 'Community'],
+    ['Class reps, tutors, study groups', 'Rappresentanti, tutor, gruppi studio'],
+    ['If you already help other students, present Lockeen as a practical tool: a short demo is worth more than a long pitch.', 'Se aiuti già altri studenti, presenta Lockeen come strumento pratico: una demo breve vale più di un discorso lungo.'],
+    ['Best when trust already exists', 'Ideale quando hai già fiducia'],
+    ['In person', 'Dal vivo'],
+    ['Word of mouth in class or library', 'Passaparola in aula o biblioteca'],
+    ['Show one feature on your phone, send the link only to people who ask, and let the product do the rest.', 'Mostri una funzione sul telefono, mandi il link solo a chi te lo chiede e lasci che sia il prodotto a fare il resto.'],
+    ['Zero pressure, maximum context', 'Zero pressione, massimo contesto'],
+    ['Light social', 'Social leggero'],
+    ['Story, screenshot, mini demo', 'Story, screenshot, mini demo'],
+    ['A screenshot of your study plan or generated quiz communicates more than a perfect caption. Credibility matters.', 'Una schermata del tuo piano studio o di un quiz generato comunica più di una caption perfetta. Conta la credibilità.'],
+    ['Authentic beats polished', 'Autentico batte patinato'],
+    ['Want to bring Lockeen to your university?', 'Vuoi portare Lockeen nella tua università?'],
+    ['Apply to the Partner Program. If the profile fits, we will send you access, guidelines, and a personal link to start generating recurring earnings.', 'Candidati al Partner Program. Se il profilo è adatto, ti mandiamo accesso, linee guida e link personale per iniziare a generare guadagni ricorrenti.'],
+  ],
   blog: [
     ['From the Lockeen team', 'Dal team Lockeen'],
     ['Ideas worth', 'Idee che vale la pena'],
@@ -398,6 +491,115 @@ function normalizeStaticLang(lang) {
 
 function getStaticLang() {
   return normalizeStaticLang(localStorage.getItem('lockeen-lang') || 'en');
+}
+
+function buildCookiePolicyHtml() {
+  return `
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#E5E7EB]">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        <a href="/" class="flex items-center gap-3">
+          <div style="width:36px;height:36px;background:#3730E8;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+            <img src="/Lockeen-2.png" alt="Lockeen" style="width:58px;height:58px;max-width:none;" />
+          </div>
+          <span class="text-2xl font-bold" style="color:#432bff">Lockeen</span>
+        </a>
+        <div class="hidden md:flex items-center gap-8">
+          <a href="/#features" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Features</a>
+          <a href="/#product" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Product</a>
+          <a href="/#pricing" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Pricing</a>
+          <a href="/about" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">About</a>
+          <a href="/blog" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Blog</a>
+        </div>
+        <div class="hidden md:flex items-center gap-4">
+          <a href="/" data-static-auth="signin" class="px-5 py-2.5 text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Sign In</a>
+          <a href="/" data-static-auth="signup" class="px-6 py-2.5 bg-[#2F2BFF] text-white rounded-full hover:opacity-90 transition-opacity font-medium">Start Free</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <main class="pt-20">
+    <section class="bg-white py-20">
+      <div class="max-w-3xl mx-auto px-6 lg:px-8">
+        <p class="text-sm font-semibold uppercase tracking-widest text-[#2F2BFF] mb-4">Last updated: June 23, 2026</p>
+        <h1 class="text-5xl md:text-6xl font-bold tracking-tight text-[#070B2D] mb-6">Cookie Policy</h1>
+        <p class="text-xl text-[#070B2D]/60 leading-relaxed mb-10">This page explains how Lockeen uses cookies and similar local technologies.</p>
+
+        <div class="space-y-10 text-[#070B2D]/72">
+          <section>
+            <p class="text-lg leading-relaxed">We use the minimum cookies and local storage needed to run the product, keep you signed in, remember your language, and protect the service.</p>
+          </section>
+          <section>
+            <h2 class="text-2xl font-bold text-[#070B2D] mb-3">Necessary cookies</h2>
+            <p class="leading-relaxed">These are required for authentication, security, billing return states, language preferences, and core product behavior. They cannot be disabled through Lockeen because the service would not work correctly without them.</p>
+          </section>
+          <section>
+            <h2 class="text-2xl font-bold text-[#070B2D] mb-3">Analytics cookies</h2>
+            <p class="leading-relaxed">Analytics cookies are optional. If enabled, they help us understand aggregate usage and performance so we can improve Lockeen. They are not used for advertising.</p>
+          </section>
+          <section>
+            <h2 class="text-2xl font-bold text-[#070B2D] mb-3">Advertising cookies</h2>
+            <p class="leading-relaxed">Lockeen does not currently use advertising cookies or third-party ad tracking cookies.</p>
+          </section>
+          <section>
+            <h2 class="text-2xl font-bold text-[#070B2D] mb-3">Manage your preferences</h2>
+            <p class="leading-relaxed mb-5">You can update your cookie preferences at any time from Cookie Settings in the footer.</p>
+            <button type="button" data-cookie-settings-link class="px-6 py-3 rounded-full bg-[#2F2BFF] text-white font-bold hover:opacity-90 transition-opacity">Open Cookie Settings</button>
+            <p class="leading-relaxed mt-6">For more information about how we process personal data, read our <a href="/privacy" class="text-[#2F2BFF] font-semibold hover:underline">Privacy Policy</a>.</p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="bg-[#070B2D] text-white">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8 py-16 lg:py-20">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-12 mb-16">
+        <div class="col-span-2">
+          <div class="flex items-center gap-3 mb-4">
+            <div style="width:36px;height:36px;background:#3730E8;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+              <img src="/Lockeen-2.png" alt="Lockeen logo" style="width:58px;height:58px;max-width:none;" />
+            </div>
+            <span class="text-xl text-white font-bold">Lockeen</span>
+          </div>
+          <p class="text-white/70 mb-6 max-w-xs">The AI-powered workspace for smarter studying. Learn better, achieve more.</p>
+        </div>
+        <div>
+          <h4 class="mb-4 font-semibold">Product</h4>
+          <ul class="space-y-3">
+            <li><a href="/#pricing" class="text-white/70 hover:text-white transition-colors">Pricing</a></li>
+            <li><a href="/?preview=aiTutor#product-tablet" class="text-white/70 hover:text-white transition-colors">AI Tutor</a></li>
+            <li><a href="/?preview=flashcards#product-tablet" class="text-white/70 hover:text-white transition-colors">Flashcards</a></li>
+            <li><a href="/?preview=quiz#product-tablet" class="text-white/70 hover:text-white transition-colors">Quizzes</a></li>
+            <li><a href="/?preview=analytics#product-tablet" class="text-white/70 hover:text-white transition-colors">Analytics</a></li>
+            <li><a href="/?preview=calendar#product-tablet" class="text-white/70 hover:text-white transition-colors">Calendar</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 font-semibold">Company</h4>
+          <ul class="space-y-3">
+            <li><a href="/about" class="text-white/70 hover:text-white transition-colors">About</a></li>
+            <li><a href="/blog" class="text-white/70 hover:text-white transition-colors">Blog</a></li>
+            <li><a href="/careers" class="text-white/70 hover:text-white transition-colors">Careers</a></li>
+            <li><a href="/earn" class="text-white/70 hover:text-white transition-colors">Earn</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 font-semibold">Legal</h4>
+          <ul class="space-y-3">
+            <li><a href="/privacy" class="text-white/70 hover:text-white transition-colors">Privacy</a></li>
+            <li><a href="/terms" class="text-white/70 hover:text-white transition-colors">Terms</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
+        <p class="text-white/60 text-sm">© 2026 Lockeen. All rights reserved.</p>
+        <div class="flex gap-6 text-sm">
+          <a href="/privacy" class="text-white/60 hover:text-white transition-colors">Privacy Policy</a>
+          <a href="/terms" class="text-white/60 hover:text-white transition-colors">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>`;
 }
 
 function updateStaticDocumentTitle(lang, pageName) {
@@ -760,6 +962,97 @@ function ensureCareersApplicationForm(root, lang) {
   }, true);
 }
 
+function ensurePartnerApplicationForm(root, lang) {
+  const form = root.querySelector('#earn-form');
+  const success = root.querySelector('#earn-success');
+  const status = root.querySelector('#earn-form-status');
+  if (!form || !success) return;
+  form.dataset.partnerLang = lang;
+
+  const placeholders = lang === 'it'
+    ? {
+      first_name: 'Nome *',
+      last_name: 'Cognome *',
+      email: 'Email universitaria o personale *',
+      university: 'Università *',
+      study_field: 'Cosa studi *',
+      study_year: 'Anno di corso',
+      city_country: 'Città / paese',
+      community_reach: 'Che community puoi raggiungere? Es. gruppo corso, rappresentanza, Instagram, associazione',
+      motivation: 'Perché vorresti diventare Partner Lockeen?',
+    }
+    : {
+      first_name: 'First name *',
+      last_name: 'Last name *',
+      email: 'University or personal email *',
+      university: 'University *',
+      study_field: 'What are you studying? *',
+      study_year: 'Year of study',
+      city_country: 'City / country',
+      community_reach: 'Which community can you reach? Course group, student reps, Instagram, association...',
+      motivation: 'Why would you like to become a Lockeen Partner?',
+    };
+  Object.entries(placeholders).forEach(([name, placeholder]) => {
+    const field = form.querySelector(`[name="${name}"]`);
+    if (field) field.setAttribute('placeholder', placeholder);
+  });
+
+  if (form.dataset.partnerRealSubmit === 'true') return;
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  const setStatus = (message, tone = 'error') => {
+    if (!status) return;
+    status.textContent = message;
+    status.style.display = 'block';
+    status.style.color = tone === 'error' ? '#B91C1C' : '#047857';
+  };
+
+  form.dataset.partnerRealSubmit = 'true';
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!form.reportValidity()) return;
+
+    const currentLang = form.dataset.partnerLang === 'it' ? 'it' : 'en';
+    const formData = new FormData(form);
+    const originalLabel = submitButton?.textContent || '';
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = currentLang === 'it' ? 'Invio...' : 'Submitting...';
+    }
+    if (status) status.style.display = 'none';
+
+    const result = await submitPartnerApplication({
+      firstName: formData.get('first_name'),
+      lastName: formData.get('last_name'),
+      email: formData.get('email'),
+      university: formData.get('university'),
+      studyField: formData.get('study_field'),
+      studyYear: formData.get('study_year'),
+      cityCountry: formData.get('city_country'),
+      communityReach: formData.get('community_reach'),
+      motivation: formData.get('motivation'),
+      locale: currentLang,
+    });
+
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+    }
+
+    if (result.error) {
+      setStatus(currentLang === 'it'
+        ? 'Non siamo riusciti a inviare l’application. Controlla i campi e riprova.'
+        : 'We could not submit the application. Check the fields and try again.');
+      return;
+    }
+
+    form.reset();
+    form.style.display = 'none';
+    success.style.display = 'flex';
+  }, true);
+}
+
 function applyStaticLanguage(root, lang, pageName) {
   ensureStaticNavLinks(root);
   ensureStaticLanguageControls(root, lang);
@@ -770,6 +1063,7 @@ function applyStaticLanguage(root, lang, pageName) {
     ensureBlogNewsletter(root, lang);
   }
   if (pageName === 'careers') ensureCareersApplicationForm(root, lang);
+  if (pageName === 'earn') ensurePartnerApplicationForm(root, lang);
 
   const targetIndex = lang === 'it' ? 1 : 0;
   const lookup = new Map();
@@ -799,18 +1093,20 @@ function applyStaticLanguage(root, lang, pageName) {
       about: 'Built by students, for students.',
       blog: 'Ideas worth studying.',
       careers: 'Build the future of learning',
-      earn: 'Share Lockeen. Earn €2 for every student.',
+      earn: 'Bring Lockeen to your campus.',
       press: 'Lockeen in the news',
       privacy: 'Privacy Policy',
+      'cookie-policy': 'Cookie Policy',
       terms: 'Terms of Service',
     },
     it: {
       about: 'Creato da studenti, per studenti.',
       blog: 'Idee da studiare.',
       careers: 'Costruisci il futuro dello studio',
-      earn: 'Condividi Lockeen. Guadagna €2 per ogni studente.',
+      earn: 'Porta Lockeen nel tuo campus.',
       press: 'Lockeen sulla stampa',
       privacy: 'Privacy Policy',
+      'cookie-policy': 'Cookie Policy',
       terms: 'Termini di servizio',
     },
   };
@@ -822,13 +1118,14 @@ function applyStaticLanguage(root, lang, pageName) {
   }
 
   ensureStaticAuthLinks(root);
+  ensureFooterLegalLinks(root, lang);
 }
 
 export default function StaticPage() {
   const { page } = useParams();
   const location = useLocation();
   const pageName = normalizePage(page || location.pathname.split('/').filter(Boolean)[0]);
-  const html = staticPages[pageName] || staticPages.about;
+  const html = pageName === 'cookie-policy' ? buildCookiePolicyHtml() : (staticPages[pageName] || staticPages.about);
 
   useEffect(() => {
     const lang = getStaticLang();
@@ -855,6 +1152,7 @@ export default function StaticPage() {
           if (typeof openArticle !== 'undefined') window.openArticle = openArticle;
           if (typeof closeModal !== 'undefined') window.closeModal = closeModal;
           if (typeof showForm !== 'undefined') window.showForm = showForm;
+          if (typeof submitForm !== 'undefined') window.submitForm = submitForm;
         `)();
       } catch (error) {
         console.error('Static page script failed', error);
@@ -864,6 +1162,7 @@ export default function StaticPage() {
 
     replaceAboutTeam(root, pageName);
     applyStaticLanguage(root, lang, pageName);
+    initCookieConsentUi(root);
 
     let activeLang = lang;
 
@@ -904,6 +1203,7 @@ export default function StaticPage() {
       window.openArticle = undefined;
       window.closeModal = undefined;
       window.showForm = undefined;
+      window.submitForm = undefined;
       window.__lockeenBlogArticles = undefined;
       window.__lockeenBlogRenderAll = undefined;
     };
