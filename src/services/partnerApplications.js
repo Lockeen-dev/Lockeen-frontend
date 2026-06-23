@@ -15,13 +15,13 @@ export async function submitPartnerApplication(input = {}) {
   const email = normalizeEmail(input.email);
   const university = cleanText(input.university, 180);
   const studyField = cleanText(input.studyField, 180);
-  const studyYear = cleanText(input.studyYear, 80);
+  const studyYear = cleanText(input.studyYear || '', 80);
   const cityCountry = cleanText(input.cityCountry || '', 180);
   const communityReach = cleanText(input.communityReach || '', 500);
   const motivation = cleanText(input.motivation || '', 1200);
   const locale = input.locale === 'it' ? 'it' : 'en';
 
-  if (!firstName || !lastName || !email || !university || !studyField || !studyYear) {
+  if (!firstName || !lastName || !email || !university || !studyField) {
     return fail('Please complete the required fields.', 'VALIDATION_ERROR');
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -39,7 +39,7 @@ export async function submitPartnerApplication(input = {}) {
       email,
       university,
       study_field: studyField,
-      study_year: studyYear,
+      study_year: studyYear || null,
       city_country: cityCountry || null,
       community_reach: communityReach || null,
       motivation: motivation || null,
