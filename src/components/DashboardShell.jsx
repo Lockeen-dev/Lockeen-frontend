@@ -16,18 +16,17 @@ export function BottomNav({ tab, setTab, lang = 'en' }) {
   ];
 
   return (
-    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'rgba(255,255,255,.96)', borderTop: '1px solid var(--border)', display: 'flex', gap: 2, padding: '6px 6px calc(6px + env(safe-area-inset-bottom, 0px))', boxShadow: '0 -16px 40px -28px rgba(15,16,53,.45)', backdropFilter: 'blur(16px)' }}>
       {items.map(({ id, label, Icon: I }) => {
         const active = id === tab;
         return (
           <button
             key={id}
             onClick={() => setTab(id)}
-            style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, border: 'none', background: 'none', padding: '7px 0 5px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor: 'pointer', minHeight: 54 }}
+            style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, border: 'none', borderRadius: 14, background: active ? 'var(--lavender)' : 'transparent', padding: '7px 0 6px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor: 'pointer', minHeight: 58 }}
           >
             <I size={19} />
-            <span style={{ fontSize: 9, fontWeight: 600, lineHeight: 1, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-            {active && <span style={{ position: 'absolute', bottom: 0, width: 24, height: 3, borderRadius: 999, background: 'var(--indigo)', marginTop: 2 }} />}
+            <span style={{ fontSize: 10, fontWeight: 800, lineHeight: 1, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
           </button>
         );
       })}
