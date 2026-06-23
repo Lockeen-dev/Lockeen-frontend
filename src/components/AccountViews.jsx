@@ -672,6 +672,9 @@ function EarnView({ user, lang = 'en' }) {
     link: 'Link personale',
     copyLink: 'Copia link',
     linkCopied: 'Link copiato',
+    liveStatus: 'Live',
+    pausedStatus: 'In pausa',
+    pausedNote: 'Il tuo profilo ambassador è in pausa: il link resta visibile, ma non attribuisce nuovi signup finché un admin non lo riattiva.',
     referrals: 'Iscritti dal link',
     active: 'Pro attivi',
     available: 'Saldo disponibile',
@@ -692,6 +695,9 @@ function EarnView({ user, lang = 'en' }) {
     link: 'Personal link',
     copyLink: 'Copy link',
     linkCopied: 'Link copied',
+    liveStatus: 'Live',
+    pausedStatus: 'Paused',
+    pausedNote: 'Your ambassador profile is paused: the link stays visible, but it will not attribute new signups until an admin reactivates it.',
     referrals: 'Link signups',
     active: 'Active Pro',
     available: 'Available balance',
@@ -784,15 +790,16 @@ function EarnView({ user, lang = 'en' }) {
   const referralLink = ambassador?.referral_code
     ? `${window.location.origin}/?ref=${ambassador.referral_code}`
     : '';
+  const ambassadorStatus = ambassador?.status || 'active';
   const activeReferrals = (data?.referrals || []).filter((item) => ['paid', 'active'].includes(item.status)).length;
 
   return (
     <div style={{ maxWidth: 1040, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div style={{ ...card, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr .8fr', gap: 18, alignItems: 'center', background: 'linear-gradient(135deg,#F7F8FF,#FFFFFF)' }}>
         <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 999, background: '#ECFDF5', color: '#047857', fontSize: 12, fontWeight: 900, marginBottom: 12 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 99, background: '#10B981' }} />
-            Lockeen Ambassador Program
+          <div style={{ ...getStatusPillStyle(ambassador ? ambassadorStatus : 'active'), display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 99, background: 'currentColor' }} />
+            Lockeen Ambassador Program {ambassador ? (ambassadorStatus === 'paused' ? copy.pausedStatus : copy.liveStatus) : ''}
           </div>
           <h1 style={{ margin: 0, fontSize: isMobile ? 26 : 34, lineHeight: 1.08, color: 'var(--ink)', letterSpacing: '-.04em', fontWeight: 900 }}>{copy.title}</h1>
           <p style={{ margin: '10px 0 0', color: 'var(--gray)', fontSize: 14, lineHeight: 1.6, maxWidth: 620 }}>{copy.subtitle}</p>
@@ -823,9 +830,11 @@ function EarnView({ user, lang = 'en' }) {
           <div style={card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
               <div>
-                <div style={earnS.kicker}>{copy.approved}</div>
+                <div style={{ ...getStatusPillStyle(ambassadorStatus), display: 'inline-flex', marginBottom: 8 }}>
+                  {ambassadorStatus === 'paused' ? copy.pausedStatus : copy.liveStatus}
+                </div>
                 <h2 style={earnS.h2}>{copy.link}</h2>
-                <p style={earnS.muted}>{copy.threshold}</p>
+                <p style={earnS.muted}>{ambassadorStatus === 'paused' ? copy.pausedNote : copy.threshold}</p>
               </div>
               <button
                 type="button"
@@ -909,7 +918,7 @@ function EarnView({ user, lang = 'en' }) {
                         <div style={earnS.rowTitle}>{app.first_name} {app.last_name}</div>
                         <div style={earnS.rowSub}>{app.email} · {app.university} · {app.status}</div>
                       </div>
-                      <span style={earnS.statusPill}>{app.status}</span>
+                      <span style={getStatusPillStyle(app.status)}>{app.status}</span>
                     </summary>
                     <AdminDetailGrid
                       items={[
@@ -974,7 +983,7 @@ function EarnView({ user, lang = 'en' }) {
                         <div style={earnS.rowTitle}>{invite.first_name} {invite.last_name}</div>
                         <div style={earnS.rowSub}>{invite.email} · {invite.university} · {invite.referral_code}</div>
                       </div>
-                      <span style={earnS.statusPill}>In attesa signup</span>
+                      <span style={getStatusPillStyle('pending_signup')}>In attesa signup</span>
                     </summary>
                     <AdminDetailGrid
                       items={[
@@ -1000,7 +1009,7 @@ function EarnView({ user, lang = 'en' }) {
                           <div style={earnS.rowTitle}>{amb.first_name} {amb.last_name}</div>
                           <div style={earnS.rowSub}>{amb.referral_code} · disponibile {euro(s.available)} · {amb.status}</div>
                         </div>
-                        <span style={earnS.statusPill}>{amb.status}</span>
+                        <span style={getStatusPillStyle(amb.status)}>{amb.status}</span>
                       </summary>
                       <AdminDetailGrid
                         items={[
@@ -1108,6 +1117,25 @@ function AdminDetailGrid({ items = [] }) {
   );
 }
 
+function getStatusPillStyle(status = '') {
+  const value = String(status || '').toLowerCase();
+  const base = {
+    alignSelf: 'center',
+    padding: '5px 8px',
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: 900,
+    whiteSpace: 'nowrap',
+  };
+  if (['approved', 'active', 'claimed', 'paid'].includes(value)) {
+    return { ...base, background: '#DCFCE7', color: '#166534' };
+  }
+  if (['rejected', 'paused', 'cancelled', 'failed', 'archived'].includes(value)) {
+    return { ...base, background: '#FEE2E2', color: '#B91C1C' };
+  }
+  return { ...base, background: '#FEF3C7', color: '#92400E' };
+}
+
 function Empty({ text }) {
   return <div style={{ padding: 15, color: 'var(--gray)', fontSize: 13, fontWeight: 800 }}>{text}</div>;
 }
@@ -1126,7 +1154,6 @@ const earnS = {
   detailItem: { padding: 10, borderRadius: 10, background: '#F8FAFC', border: '1px solid #EEF2F7', minWidth: 0 },
   detailLabel: { fontSize: 10, fontWeight: 900, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 },
   detailValue: { fontSize: 12, fontWeight: 800, color: 'var(--ink)', lineHeight: 1.35, overflowWrap: 'anywhere' },
-  statusPill: { alignSelf: 'center', padding: '5px 8px', borderRadius: 999, background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' },
 };
 
 export { AccountView, EarnView };
