@@ -24,34 +24,51 @@ const pageTitles = {
 };
 
 const staticTextTranslations = {
-  it: {
-    About: 'Chi siamo',
-    Blog: 'Blog',
-    Careers: 'Lavora con noi',
-    Press: 'Stampa',
-    Product: 'Prodotto',
-    Features: 'Funzionalità',
-    Pricing: 'Prezzi',
-    Calendar: 'Calendario',
-    Company: 'Azienda',
-    Resources: 'Risorse',
-    Legal: 'Legale',
-    'Privacy Policy': 'Privacy Policy',
-    'Terms of Service': 'Termini di servizio',
-    'Sign In': 'Accedi',
-    'Start Free': 'Inizia gratis',
-    'Get Started': 'Inizia',
-    'Contact us': 'Contattaci',
-    'Media kit': 'Media kit',
-    'Back to home': 'Torna alla home',
-    'All rights reserved.': 'Tutti i diritti riservati.',
-    'Study smarter with AI': 'Studia meglio con l’AI',
-    'Join Lockeen': 'Unisciti a Lockeen',
-    'Earn with Lockeen': 'Guadagna con Lockeen',
-    'Ambassador Program': 'Programma Ambassador',
-    'Terms': 'Termini',
-    Privacy: 'Privacy',
-  },
+  en: [
+    ['Features', 'Funzioni'],
+    ['Product', 'Prodotto'],
+    ['Pricing', 'Prezzi'],
+    ['Quizzes', 'Quiz'],
+    ['Calendar', 'Calendario'],
+    ['Sign In', 'Accedi'],
+    ['Start Free', 'Inizia gratis'],
+    ['Get Started', 'Inizia'],
+    ['About', 'Chi siamo'],
+    ['Blog', 'Blog'],
+    ['Careers', 'Lavora con noi'],
+    ['Earn', 'Guadagna'],
+    ['Press', 'Stampa'],
+    ['Partners', 'Partner'],
+    ['Company', 'Azienda'],
+    ['Resources', 'Risorse'],
+    ['Help Center', 'Centro assistenza'],
+    ['Guides', 'Guide'],
+    ['API Docs', 'API Docs'],
+    ['Status', 'Status'],
+    ['Legal', 'Legale'],
+    ['Privacy', 'Privacy'],
+    ['Terms', 'Termini'],
+    ['Security', 'Sicurezza'],
+    ['Cookie Policy', 'Cookie Policy'],
+    ['Privacy Policy', 'Privacy Policy'],
+    ['Terms of Service', 'Termini di servizio'],
+    ['Cookie Settings', 'Impostazioni cookie'],
+    ['The AI-powered workspace for smarter studying. Learn better, achieve more.', 'Lo spazio AI per studiare meglio. Impara meglio, ottieni di più.'],
+    ['Lockeen Ambassador Program', 'Programma Ambassador Lockeen'],
+    ['Earn with Lockeen', 'Guadagna con Lockeen'],
+    ['Become an Ambassador at your university. Earn €2 for every student who signs up with your link — recurring, with no cap.', 'Diventa Ambassador nella tua università. Guadagni €2 per ogni studente che si iscrive con il tuo link — ricorrenti, senza limiti.'],
+    ['Diventa Ambassador nella tua università. Guadagni €2 per ogni studente che si iscrive con il tuo link — per sempre, senza limiti.', 'Diventa Ambassador nella tua università. Guadagni €2 per ogni studente che si iscrive con il tuo link — ricorrenti, senza limiti.'],
+    ['Become an Ambassador at your university. Earn', 'Diventa Ambassador nella tua università. Guadagni'],
+    ['for every student who signs up with your link — recurring, with no cap.', 'che si iscrive con il tuo link — ricorrenti, senza limiti.'],
+    ['che si iscrive con il tuo link — per sempre, senza limiti.', 'che si iscrive con il tuo link — ricorrenti, senza limiti.'],
+    ['Become an Ambassador →', 'Diventa Ambassador →'],
+    ['Diventa Ambassador →', 'Diventa Ambassador →'],
+    ['© 2026 Lockeen. All rights reserved.', '© 2026 Lockeen. Tutti i diritti riservati.'],
+    ['Study smarter with AI', 'Studia meglio con l’AI'],
+    ['Contact us', 'Contattaci'],
+    ['Media kit', 'Media kit'],
+    ['Back to home', 'Torna alla home'],
+  ],
 };
 
 function normalizePage(raw) {
@@ -59,9 +76,59 @@ function normalizePage(raw) {
   return raw.replace(/\.html$/, '');
 }
 
+function normalizeStaticLang(lang) {
+  return lang === 'it' ? 'it' : 'en';
+}
+
+function getStaticLang() {
+  return normalizeStaticLang(localStorage.getItem('lockeen-lang') || 'en');
+}
+
+function updateStaticDocumentTitle(lang, pageName) {
+  document.title = pageTitles[lang]?.[pageName] || pageTitles.en[pageName] || 'Lockeen';
+}
+
+function ensureStaticLanguageControls(root, lang) {
+  const makeSelect = (extraClass = '') => `
+    <select class="lang-select lang-select-compact js-static-lang-select ${extraClass}" aria-label="Language">
+      <option value="en">🇬🇧 EN</option>
+      <option value="it">🇮🇹 IT</option>
+    </select>`;
+
+  const desktopActions = root.querySelector('nav .hidden.md\\:flex.items-center.gap-4');
+  if (desktopActions && !desktopActions.querySelector('.js-static-lang-select')) {
+    desktopActions.insertAdjacentHTML('afterbegin', makeSelect());
+  }
+
+  const mobileMenu = root.querySelector('#mob-menu');
+  if (mobileMenu && !mobileMenu.querySelector('.js-static-lang-select')) {
+    mobileMenu.insertAdjacentHTML('afterbegin', makeSelect('w-full mb-3'));
+  }
+
+  const navRow = root.querySelector('nav .h-20');
+  if (navRow && !mobileMenu && !root.querySelector('.js-static-lang-select-mobile-inline')) {
+    const mobileToggle = root.querySelector('#mob-toggle');
+    const mobileWrap = document.createElement('div');
+    mobileWrap.className = 'js-static-lang-select-mobile-inline md:hidden ml-auto mr-3';
+    mobileWrap.innerHTML = makeSelect();
+    navRow.insertBefore(mobileWrap, mobileToggle || null);
+  }
+
+  root.querySelectorAll('.js-static-lang-select').forEach((select) => {
+    select.value = lang;
+  });
+}
+
 function applyStaticLanguage(root, lang, pageName) {
-  const translations = staticTextTranslations[lang];
-  if (!translations) return;
+  ensureStaticLanguageControls(root, lang);
+  updateStaticDocumentTitle(lang, pageName);
+
+  const targetIndex = lang === 'it' ? 1 : 0;
+  const lookup = new Map();
+  staticTextTranslations.en.forEach((entry) => {
+    lookup.set(entry[0], entry[targetIndex]);
+    lookup.set(entry[1], entry[targetIndex]);
+  });
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const textNodes = [];
@@ -69,23 +136,36 @@ function applyStaticLanguage(root, lang, pageName) {
 
   textNodes.forEach((node) => {
     const text = node.nodeValue;
-    const trimmed = text.trim();
-    if (!trimmed || !translations[trimmed]) return;
-    node.nodeValue = text.replace(trimmed, translations[trimmed]);
+    const normalized = text.trim().replace(/\s+/g, ' ');
+    if (!normalized || !lookup.has(normalized)) return;
+    node.nodeValue = text.replace(text.trim(), lookup.get(normalized));
   });
 
   const pageHeading = {
-    about: 'Chi siamo',
-    careers: 'Lavora con noi',
-    earn: 'Programma Ambassador',
-    press: 'Stampa',
-    privacy: 'Privacy Policy',
-    terms: 'Termini di servizio',
-  }[pageName];
+    en: {
+      about: 'Built by students, for students.',
+      blog: 'Ideas worth studying.',
+      careers: 'Build the future of learning',
+      earn: 'Share Lockeen. Earn €2 for every student.',
+      press: 'Lockeen in the news',
+      privacy: 'Privacy Policy',
+      terms: 'Terms of Service',
+    },
+    it: {
+      about: 'Creato da studenti, per studenti.',
+      blog: 'Idee da studiare.',
+      careers: 'Costruisci il futuro dello studio',
+      earn: 'Condividi Lockeen. Guadagna €2 per ogni studente.',
+      press: 'Lockeen sulla stampa',
+      privacy: 'Privacy Policy',
+      terms: 'Termini di servizio',
+    },
+  };
 
-  if (pageHeading) {
+  const headingText = pageHeading[lang]?.[pageName];
+  if (headingText) {
     const heading = root.querySelector('h1');
-    if (heading && heading.textContent.trim()) heading.textContent = pageHeading;
+    if (heading && heading.textContent.trim()) heading.textContent = headingText;
   }
 }
 
@@ -96,8 +176,8 @@ export default function StaticPage() {
   const html = staticPages[pageName] || staticPages.about;
 
   useEffect(() => {
-    const lang = localStorage.getItem('lockeen-lang') === 'it' ? 'it' : 'en';
-    document.title = pageTitles[lang]?.[pageName] || pageTitles.en[pageName] || 'Lockeen';
+    const lang = getStaticLang();
+    updateStaticDocumentTitle(lang, pageName);
     localStorage.removeItem('lockeen-theme');
     document.documentElement.setAttribute('data-theme', 'light');
     const root = document.getElementById('static-page-root');
@@ -127,7 +207,18 @@ export default function StaticPage() {
 
     applyStaticLanguage(root, lang, pageName);
 
+    const onChange = (event) => {
+      if (!event.target.matches('.js-static-lang-select')) return;
+      const nextLang = normalizeStaticLang(event.target.value);
+      localStorage.setItem('lockeen-lang', nextLang);
+      applyStaticLanguage(root, nextLang, pageName);
+      window.dispatchEvent(new CustomEvent('lockeen-language', { detail: { lang: nextLang } }));
+    };
+
+    root.addEventListener('change', onChange);
+
     return () => {
+      root.removeEventListener('change', onChange);
       document.body.style.overflow = '';
       window.openArticle = undefined;
       window.closeModal = undefined;
