@@ -22,7 +22,6 @@ function copy(lang = getLang()) {
         analytics: 'Cookie analytics',
         analyticsHelp: 'Opzionali. Ci aiutano a misurare utilizzo e performance senza pubblicità.',
         acceptAll: 'Accetta tutto',
-        customize: 'Personalizza',
         necessaryOnly: 'Solo necessari',
         save: 'Salva preferenze',
         close: 'Chiudi',
@@ -39,7 +38,6 @@ function copy(lang = getLang()) {
         analytics: 'Analytics cookies',
         analyticsHelp: 'Optional. They help us measure usage and performance without advertising.',
         acceptAll: 'Accept all',
-        customize: 'Customize',
         necessaryOnly: 'Necessary only',
         save: 'Save preferences',
         close: 'Close',
@@ -84,9 +82,8 @@ function ensureBanner() {
         <p data-cookie-banner-body style="font-size:14px;line-height:1.48;color:rgba(7,11,45,.68);margin:0;">${dict.bannerBody}</p>
       </div>
       <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;justify-content:center;">
+        <button type="button" data-cookie-accept-banner style="padding:12px 22px;border-radius:999px;border:0;background:#2F2BFF;color:#fff;font-weight:900;cursor:pointer;box-shadow:0 10px 24px rgba(47,43,255,.26);">${dict.acceptAll}</button>
         <button type="button" data-cookie-necessary-banner style="padding:10px 14px;border-radius:999px;border:1px solid rgba(7,11,45,.14);background:#fff;color:#070B2D;font-weight:750;cursor:pointer;">${dict.necessaryOnly}</button>
-        <button type="button" data-cookie-customize-banner style="padding:10px 14px;border-radius:999px;border:1px solid rgba(47,43,255,.22);background:#F7F8FC;color:#2F2BFF;font-weight:800;cursor:pointer;">${dict.customize}</button>
-        <button type="button" data-cookie-accept-banner style="padding:10px 16px;border-radius:999px;border:0;background:#2F2BFF;color:#fff;font-weight:850;cursor:pointer;">${dict.acceptAll}</button>
       </div>
     </section>`;
 
@@ -98,10 +95,6 @@ function ensureBanner() {
   banner.querySelector('[data-cookie-accept-banner]').addEventListener('click', () => {
     saveConsent({ analytics: true });
     closeCookieBanner();
-  });
-  banner.querySelector('[data-cookie-customize-banner]').addEventListener('click', () => {
-    closeCookieBanner();
-    openCookieSettings();
   });
 }
 
@@ -197,7 +190,6 @@ function refreshCookieBannerCopy() {
   banner.querySelector('[data-cookie-banner-title]').textContent = dict.title;
   banner.querySelector('[data-cookie-banner-body]').textContent = dict.bannerBody;
   banner.querySelector('[data-cookie-necessary-banner]').textContent = dict.necessaryOnly;
-  banner.querySelector('[data-cookie-customize-banner]').textContent = dict.customize;
   banner.querySelector('[data-cookie-accept-banner]').textContent = dict.acceptAll;
 }
 
