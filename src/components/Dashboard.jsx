@@ -159,6 +159,16 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const profileRef = useRef(null);
 
   useEffect(() => {
+    function onDashboardView(event) {
+      const view = event.detail?.view;
+      if (view === 'earn' || view === 'ambassador') setTab('earn');
+      if (view === 'account') setTab('account');
+    }
+    window.addEventListener('lockeen-dashboard-view', onDashboardView);
+    return () => window.removeEventListener('lockeen-dashboard-view', onDashboardView);
+  }, []);
+
+  useEffect(() => {
     function closePanel(e) {
       if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifPanel(false);
     }

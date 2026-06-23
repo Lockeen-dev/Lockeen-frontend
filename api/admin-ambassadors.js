@@ -157,6 +157,69 @@ async function approveApplication(admin, actor, body) {
   return { data: ambassador };
 }
 
+async function findAuthUserByEmail(admin, email) {
+  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (error) throw error;
+  return (data?.users || []).find((user) => String(user.email || '').toLowerCase() === String(email || '').toLowerCase()) || null;
+}
+
+async function createAmbassadorByEmail(admin, actor, body) {
+  const email = cleanText(body.email, 320).toLowerCase();
+  const firstName = cleanText(body.firstName, 120);
+  const lastName = cleanText(body.lastName, 120);
+  const university = cleanText(body.university, 180);
+  const studyField = cleanText(body.studyField, 180);
+  const requested = normalizeReferralCode(body.referralCode);
+
+  if (!email || !firstName || !lastName || !university) {
+    return {
+      error: {
+        code: 'OUTBOUND_AMBASSADOR_FIELDS_REQUIRED',
+        message: 'Email, first name, last name, and university are required.',
+      },
+    };
+  }
+
+  const user = await findAuthUserByEmail(admin, email);
+  if (!user?.id) {
+    return {
+      error: {
+        code: 'USER_NOT_FOUND',
+        message: 'This email does not have a Lockeen account yet. Ask them to sign up first, then create the ambassador profile.',
+      },
+    };
+  }
+
+  const baseCode = requested || makeReferralCode([firstName, lastName, university]);
+  const referralCode = await uniqueReferralCode(admin, baseCode);
+
+  const { data: ambassador, error } = await admin
+    .from('ambassadors')
+    .upsert([{
+      user_id: user.id,
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      university,
+      study_field: studyField || null,
+      referral_code: referralCode,
+      status: 'active',
+      commission_cents: COMMISSION_CENTS,
+      payout_threshold_cents: PAYOUT_THRESHOLD_CENTS,
+      approved_by: actor.id,
+      approved_at: new Date().toISOString(),
+      metadata: { approvedFrom: 'admin_outbound_create' },
+    }], { onConflict: 'user_id' })
+    .select('*')
+    .single();
+
+  if (error) {
+    return { error: { code: 'AMBASSADOR_CREATE_FAILED', message: error.message } };
+  }
+
+  return { data: ambassador };
+}
+
 async function payAmbassador(admin, actor, body) {
   const ambassadorId = cleanText(body.ambassadorId, 80);
   if (!ambassadorId) {
@@ -251,6 +314,7 @@ export default async function handler(req, res) {
       let result;
 
       if (action === 'approve_application') result = await approveApplication(admin, authResult.data.user, body);
+      else if (action === 'create_ambassador') result = await createAmbassadorByEmail(admin, authResult.data.user, body);
       else if (action === 'pay_ambassador') result = await payAmbassador(admin, authResult.data.user, body);
       else result = { error: { code: 'UNKNOWN_ACTION', message: 'Unknown admin action.' } };
 

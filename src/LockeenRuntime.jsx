@@ -11,6 +11,7 @@ import { openBillingPortal, startCheckout } from './services/billing';
 import { captureReferralFromUrl, clearStoredReferral, readStoredReferral } from './utils/referralTracking';
 
 const BILLING_INTENT_STORAGE_KEY = 'lockeen-billing-intent';
+const AUTH_RETURN_VIEW_KEY = 'lockeen-auth-return-view';
 const BILLING_INTENT_VERSION = 2;
 const BILLING_INTENT_MAX_AGE_MS = 10 * 60 * 1000;
 const BILLING_REQUEST_TIMEOUT_MS = 12000;
@@ -162,6 +163,14 @@ function AuthShell() {
   useEffect(() => {
     if (isAuthenticated && pageAppEl) {
       if (window.showPage) window.showPage('page-app');
+      const returnView = localStorage.getItem(AUTH_RETURN_VIEW_KEY);
+      if (returnView) {
+        localStorage.removeItem(AUTH_RETURN_VIEW_KEY);
+        const url = new URL(window.location.href);
+        url.searchParams.set('view', returnView);
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        window.dispatchEvent(new CustomEvent('lockeen-dashboard-view', { detail: { view: returnView } }));
+      }
     } else if (status === 'anonymous') {
       if (window.showPage) window.showPage('page-landing');
     }

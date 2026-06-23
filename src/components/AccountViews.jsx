@@ -651,12 +651,20 @@ function EarnView({ user, lang = 'en' }) {
     communityReach: '',
     motivation: '',
   });
+  const [outboundForm, setOutboundForm] = React.useState({
+    email: '',
+    firstName: '',
+    lastName: '',
+    university: '',
+    studyField: '',
+    referralCode: '',
+  });
 
   const copy = lang === 'it' ? {
     title: 'Ambassador dashboard',
     subtitle: 'Candidati, ottieni un link personale e monitora iscritti, Pro attivi e saldo maturato.',
-    applyTitle: 'Richiedi accesso Ambassador',
-    applySub: 'Il programma è approvato manualmente: dopo la call, se c’è fit, ti attiviamo link e dashboard.',
+    applyTitle: 'Candidati come Ambassador',
+    applySub: 'Questo form serve per gli studenti inbound: raccoglie università, corso e reach. Dopo la call, un admin approva e attiva link e dashboard.',
     pendingTitle: 'Candidatura ricevuta',
     pendingSub: 'La richiesta è in review. Quando viene approvata, qui comparirà il tuo link personale.',
     approved: 'Approvato',
@@ -674,8 +682,8 @@ function EarnView({ user, lang = 'en' }) {
   } : {
     title: 'Ambassador dashboard',
     subtitle: 'Apply, get a personal link, and track signups, active Pro users, and earned balance.',
-    applyTitle: 'Request Ambassador access',
-    applySub: 'The program is manually approved: after the call, if there is fit, we activate your link and dashboard.',
+    applyTitle: 'Apply as Ambassador',
+    applySub: 'This form is for inbound students: it collects university, study field, and reach. After the call, an admin approves and activates link and dashboard.',
     pendingTitle: 'Application received',
     pendingSub: 'Your request is under review. Once approved, your personal link will appear here.',
     approved: 'Approved',
@@ -883,6 +891,27 @@ function EarnView({ user, lang = 'en' }) {
                     </button>
                   </div>
                 ))}
+              </DataPanel>
+              <DataPanel title="Crea ambassador">
+                <div style={{ padding: 12, display: 'grid', gap: 10 }}>
+                  <Field label="Email account Lockeen *" type="email" value={outboundForm.email} onChange={(v) => setOutboundForm({ ...outboundForm, email: v })} required />
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
+                    <Field label="Nome *" value={outboundForm.firstName} onChange={(v) => setOutboundForm({ ...outboundForm, firstName: v })} required />
+                    <Field label="Cognome *" value={outboundForm.lastName} onChange={(v) => setOutboundForm({ ...outboundForm, lastName: v })} required />
+                    <Field label="Università *" value={outboundForm.university} onChange={(v) => setOutboundForm({ ...outboundForm, university: v })} required />
+                    <Field label="Cosa studia" value={outboundForm.studyField} onChange={(v) => setOutboundForm({ ...outboundForm, studyField: v })} />
+                  </div>
+                  <Field label="Referral code opzionale" value={outboundForm.referralCode} onChange={(v) => setOutboundForm({ ...outboundForm, referralCode: v })} />
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => runAdmin({ action: 'create_ambassador', ...outboundForm })}
+                    style={submitting ? accountS.disabledBtn : accountS.primaryBtn}
+                  >
+                    Crea ambassador
+                  </button>
+                  <div style={earnS.rowSub}>Nota: l’email deve già avere un account Lockeen. Se non esiste ancora, prima deve registrarsi.</div>
+                </div>
               </DataPanel>
               <DataPanel title="Payout manuali">
                 {(adminData.ambassadors || []).map((amb) => {
