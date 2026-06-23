@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { staticPages } from '../content/staticPages';
+import { submitCareerApplication } from '../services/careerApplications';
 import { subscribeToNewsletter } from '../services/newsletter';
 
 const pageTitles = {
@@ -156,7 +157,8 @@ const staticPageContentTranslations = {
     ['PDF, DOC, or DOCX. Keep it simple.', 'PDF, DOC o DOCX. Tienilo semplice.'],
     ['Portfolio / LinkedIn', 'Portfolio / LinkedIn'],
     ['Short note', 'Breve nota'],
-    ["Application ready. In this demo we don't send files yet, but form flow is complete.", 'Candidatura pronta. In questa demo non inviamo ancora file, ma il flusso del form è completo.'],
+    ["Application ready. In this demo we don't send files yet, but form flow is complete.", 'Candidatura inviata. Ti contatteremo se c’è fit.'],
+    ['Application submitted. We will reach out if there is a fit.', 'Candidatura inviata. Ti contatteremo se c’è fit.'],
     ['Cancel', 'Annulla'],
     ['Submit application', 'Invia candidatura'],
   ],
@@ -683,6 +685,81 @@ function replaceAboutTeam(root, pageName) {
     </div>`;
 }
 
+function ensureCareersApplicationForm(root, lang) {
+  const form = root.querySelector('#application-form');
+  const success = root.querySelector('#application-success');
+  if (!form || !success) return;
+  form.dataset.careersLang = lang;
+  if (form.dataset.careersRealSubmit === 'true') return;
+
+  const modal = root.querySelector('#application-modal');
+  const submitButton = form.querySelector('button[type="submit"]');
+  const closeModal = () => {
+    modal?.classList.add('hidden');
+    modal?.classList.remove('flex');
+    document.body.style.overflow = '';
+  };
+  const setStatus = (message, tone = 'success') => {
+    success.textContent = message;
+    success.classList.remove('hidden', 'border-emerald-200', 'bg-emerald-50', 'text-emerald-700', 'border-red-200', 'bg-red-50', 'text-red-700');
+    success.classList.add(
+      tone === 'error' ? 'border-red-200' : 'border-emerald-200',
+      tone === 'error' ? 'bg-red-50' : 'bg-emerald-50',
+      tone === 'error' ? 'text-red-700' : 'text-emerald-700',
+    );
+  };
+
+  form.dataset.careersRealSubmit = 'true';
+  success.textContent = lang === 'it'
+    ? 'Candidatura inviata. Ti contatteremo se c’è fit.'
+    : 'Application submitted. We will reach out if there is a fit.';
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!form.reportValidity()) return;
+
+    const currentLang = form.dataset.careersLang === 'it' ? 'it' : 'en';
+    const formData = new FormData(form);
+    const originalLabel = submitButton?.textContent || '';
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = currentLang === 'it' ? 'Invio...' : 'Submitting...';
+    }
+    success.classList.add('hidden');
+
+    const result = await submitCareerApplication({
+      role: formData.get('role'),
+      desiredRole: formData.get('desired_role'),
+      firstName: formData.get('first_name'),
+      lastName: formData.get('last_name'),
+      email: formData.get('email'),
+      cv: formData.get('cv'),
+      portfolioUrl: formData.get('portfolio'),
+      note: formData.get('note'),
+      locale: currentLang,
+    });
+
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+    }
+
+    if (result.error) {
+      setStatus(currentLang === 'it'
+        ? 'Non siamo riusciti a inviare la candidatura. Controlla i campi e riprova.'
+        : 'We could not submit the application. Check the fields and try again.', 'error');
+      return;
+    }
+
+    setStatus(currentLang === 'it'
+      ? 'Candidatura inviata. Ti contatteremo se c’è fit.'
+      : 'Application submitted. We will reach out if there is a fit.');
+    form.reset();
+    setTimeout(closeModal, 1800);
+  }, true);
+}
+
 function applyStaticLanguage(root, lang, pageName) {
   ensureStaticNavLinks(root);
   ensureStaticLanguageControls(root, lang);
@@ -692,6 +769,7 @@ function applyStaticLanguage(root, lang, pageName) {
     ensureBlogFeaturedCtas(root, lang);
     ensureBlogNewsletter(root, lang);
   }
+  if (pageName === 'careers') ensureCareersApplicationForm(root, lang);
 
   const targetIndex = lang === 'it' ? 1 : 0;
   const lookup = new Map();

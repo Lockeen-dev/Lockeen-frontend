@@ -28,7 +28,6 @@ revoke all on public.newsletter_signups from authenticated;
 
 grant insert on public.newsletter_signups to anon;
 grant insert on public.newsletter_signups to authenticated;
-grant select, insert, update, delete on public.newsletter_signups to service_role;
 
 create or replace function public.update_newsletter_signups_updated_at()
 returns trigger as $$
@@ -37,7 +36,7 @@ begin
   new.email = lower(trim(new.email));
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql set search_path = public;
 
 do $$
 begin
@@ -54,6 +53,11 @@ begin
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'newsletter_signups' and policyname = 'newsletter_signups insert public') then
     create policy "newsletter_signups insert public" on public.newsletter_signups
     for insert to anon, authenticated
-    with check (true);
+    with check (
+      email = lower(trim(email))
+      and source = 'blog'
+      and locale in ('en', 'it')
+      and status = 'subscribed'
+    );
   end if;
 end $$;
