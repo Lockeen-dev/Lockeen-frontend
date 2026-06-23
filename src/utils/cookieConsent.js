@@ -82,8 +82,8 @@ function ensureBanner() {
         <p data-cookie-banner-body style="font-size:14px;line-height:1.48;color:rgba(7,11,45,.68);margin:0;">${dict.bannerBody}</p>
       </div>
       <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;justify-content:center;">
-        <button type="button" data-cookie-accept-banner style="padding:12px 22px;border-radius:999px;border:0;background:#2F2BFF;color:#fff;font-weight:900;cursor:pointer;box-shadow:0 10px 24px rgba(47,43,255,.26);">${dict.acceptAll}</button>
         <button type="button" data-cookie-necessary-banner style="padding:10px 14px;border-radius:999px;border:1px solid rgba(7,11,45,.14);background:#fff;color:#070B2D;font-weight:750;cursor:pointer;">${dict.necessaryOnly}</button>
+        <button type="button" data-cookie-accept-banner style="padding:12px 22px;border-radius:999px;border:0;background:#2F2BFF;color:#fff;font-weight:900;cursor:pointer;box-shadow:0 10px 24px rgba(47,43,255,.26);">${dict.acceptAll}</button>
       </div>
     </section>`;
 
