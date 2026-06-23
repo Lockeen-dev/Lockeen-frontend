@@ -63,6 +63,15 @@ export function DashboardHeader({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <LanguageSelect lang={lang} onChange={onLangChange} compact />
+          {user?.isAdmin && !isMobile && (
+            <button
+              type="button"
+              onClick={() => setTab('earn')}
+              style={shellS.adminAmbassadorBtn}
+            >
+              <Coins size={15} /> Ambassador
+            </button>
+          )}
           {!isMobile && (
             <div ref={notifRef} style={{ position: 'relative' }}>
               <button
@@ -205,6 +214,7 @@ export const shellS = {
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   brand: { fontSize: 18, fontWeight: 800, color: 'var(--indigo)' },
   iconBtn: { width: 38, height: 38, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
+  adminAmbassadorBtn: { height: 38, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '0 13px', borderRadius: 10, background: 'rgba(55,48,232,.08)', border: '1px solid rgba(55,48,232,.18)', color: 'var(--indigo)', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
   outerCard: { width: '100%', maxWidth: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
   grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 132px)', width: '100%', minWidth: 0 },
