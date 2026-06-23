@@ -697,7 +697,10 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
 
   const handleLogout = async () => {
     const result = await signOut();
-    if (!result.error) onLogout && onLogout();
+    if (!result.error) {
+      onLogout && onLogout();
+      window.location.replace(`/?signed_out=1&v=${Date.now()}`);
+    }
   };
 
   return (
