@@ -10,6 +10,7 @@ import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 
 const listeners = new Set();
 const AUTH_RETURN_VIEW_KEY = 'lockeen-auth-return-view';
+const OAUTH_RELOAD_KEY = 'lockeen-oauth-reload';
 
 function ok(data) {
   return { data: structuredClone(data), error: null };
@@ -118,7 +119,20 @@ function cleanAuthCallbackFromUrl() {
   const hasAuthCallback = url.searchParams.has('code') || window.location.hash;
   if (!hasAuthCallback) return;
   url.searchParams.delete('code');
+  url.searchParams.delete('auth');
   window.history.replaceState({}, '', `${url.pathname}${url.search}`);
+}
+
+function reloadAfterOAuthCallback() {
+  if (typeof window === 'undefined') return;
+  if (sessionStorage.getItem(OAUTH_RELOAD_KEY) === 'done') return;
+  sessionStorage.setItem(OAUTH_RELOAD_KEY, 'done');
+  const url = new URL(window.location.href);
+  url.searchParams.delete('code');
+  url.searchParams.delete('auth');
+  url.searchParams.set('oauth_ready', '1');
+  url.searchParams.set('v', String(Date.now()));
+  window.location.replace(`${url.pathname}${url.search}`);
 }
 
 function rememberReturnView() {
@@ -195,6 +209,7 @@ export async function restoreSession() {
       const { error } = await supabase.auth.exchangeCodeForSession(authCode);
       cleanAuthCallbackFromUrl();
       if (error) return fail(error.message, error.code || 'OAUTH_SESSION_FAILED');
+      reloadAfterOAuthCallback();
     }
 
     const oauthTokens = readOAuthTokensFromUrl();
@@ -202,6 +217,7 @@ export async function restoreSession() {
       const { error } = await supabase.auth.setSession(oauthTokens);
       cleanAuthCallbackFromUrl();
       if (error) return fail(error.message, error.code || 'OAUTH_SESSION_FAILED');
+      reloadAfterOAuthCallback();
     }
 
     const { data, error, timedOut } = await withTimeout(
@@ -336,7 +352,8 @@ export async function signInWithGoogle() {
     if (modeError) return modeError;
 
     rememberReturnView();
-    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/?auth=oauth` : undefined;
+    if (typeof window !== 'undefined') sessionStorage.removeItem(OAUTH_RELOAD_KEY);
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/?auth=oauth&v=${Date.now()}` : undefined;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
