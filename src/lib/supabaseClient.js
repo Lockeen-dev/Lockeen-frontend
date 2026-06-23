@@ -36,6 +36,12 @@ export function hasSupabaseConfig() {
 
 export const supabase = hasSupabaseConfig()
   ? createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        flowType: 'pkce',
+        persistSession: true,
+      },
       global: {
         fetch: fetchWithTimeout,
       },
