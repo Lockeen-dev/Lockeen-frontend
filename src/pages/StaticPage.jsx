@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { staticPages } from '../content/staticPages';
+import { subscribeToNewsletter } from '../services/newsletter';
 
 const pageTitles = {
   en: {
@@ -309,6 +310,8 @@ const staticPageContentTranslations = {
     ['Research', 'Ricerca'],
     ['Featured', 'In evidenza'],
     ['Read article', 'Leggi articolo'],
+    ['See demo', 'Guarda demo'],
+    ['Start free', 'Inizia gratis'],
     ['No articles found.', 'Nessun articolo trovato.'],
     ['Load more articles', 'Carica altri articoli'],
     ['← Back to Blog', '← Torna al blog'],
@@ -551,8 +554,8 @@ function ensureBlogNewsletter(root, lang) {
   const input = subscribeButton?.parentElement?.querySelector('input[type="email"]');
   if (!subscribeButton || !input) return;
   const helperCopy = lang === 'it'
-    ? 'La newsletter non è ancora collegata. Se lasci la mail, per ora la salviamo solo su questo dispositivo.'
-    : 'Newsletter signup is not live yet. Leave your email and we will store it on this device for now.';
+    ? 'Ricevi aggiornamenti prodotto e consigli di studio. Niente spam.'
+    : 'Get product updates and study tips. No spam.';
   if (subscribeButton.dataset.newsletterReady === 'true') {
     const helperNode = subscribeButton.parentElement.querySelector('.newsletter-status');
     if (helperNode && !helperNode.dataset.newsletterTouched) helperNode.textContent = helperCopy;
@@ -566,7 +569,7 @@ function ensureBlogNewsletter(root, lang) {
   subscribeButton.parentElement.appendChild(helper);
 
   subscribeButton.dataset.newsletterReady = 'true';
-  subscribeButton.addEventListener('click', (event) => {
+  subscribeButton.addEventListener('click', async (event) => {
     event.preventDefault();
     const email = input.value.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -575,16 +578,75 @@ function ensureBlogNewsletter(root, lang) {
       helper.style.color = '#FCA5A5';
       return;
     }
-    const stored = JSON.parse(localStorage.getItem('lockeen-newsletter-interest') || '[]');
-    if (!stored.includes(email)) stored.push(email);
-    localStorage.setItem('lockeen-newsletter-interest', JSON.stringify(stored));
-    helper.textContent = lang === 'it'
-      ? 'Salvata localmente per ora. Collegheremo una raccolta email reale prima del lancio.'
-      : 'Saved locally for now. We will connect real email collection before launch.';
+
+    const originalLabel = subscribeButton.textContent;
+    subscribeButton.disabled = true;
+    subscribeButton.textContent = lang === 'it' ? 'Iscrizione...' : 'Subscribing...';
+    helper.textContent = lang === 'it' ? 'Ti stiamo aggiungendo alla lista.' : 'Adding you to the list.';
     helper.dataset.newsletterTouched = 'true';
+    helper.style.color = 'rgba(255,255,255,.65)';
+
+    const result = await subscribeToNewsletter({
+      email,
+      source: 'blog',
+      locale: lang,
+      page: 'blog',
+    });
+
+    subscribeButton.disabled = false;
+    subscribeButton.textContent = originalLabel;
+    helper.dataset.newsletterTouched = 'true';
+
+    if (result.error) {
+      helper.textContent = lang === 'it'
+        ? 'Non siamo riusciti a completare l’iscrizione. Riprova tra poco.'
+        : 'We could not complete the signup. Please try again in a moment.';
+      helper.style.color = '#FCA5A5';
+      return;
+    }
+
+    helper.textContent = result.data?.status === 'already_subscribed'
+      ? (lang === 'it' ? 'Sei già nella lista.' : 'You are already on the list.')
+      : (lang === 'it'
+        ? 'Iscrizione completata. Riceverai i prossimi aggiornamenti via email.'
+        : 'You are subscribed. Check your inbox for future updates.');
     helper.style.color = '#86EFAC';
-    input.value = '';
+    if (result.data?.status !== 'already_subscribed') input.value = '';
   });
+}
+
+function ensureBlogFeaturedCtas(root, lang) {
+  const card = root.querySelector('#featured-card');
+  if (!card || card.querySelector('[data-blog-featured-ctas="true"]')) return;
+
+  const labels = lang === 'it'
+    ? { demo: 'Guarda demo', signup: 'Inizia gratis' }
+    : { demo: 'See demo', signup: 'Start free' };
+  const actionSpan = Array.from(card.querySelectorAll('span')).find((node) => {
+    const text = node.textContent.trim().toLowerCase();
+    return text === 'read article' || text === 'leggi articolo' || text === "leggi l'articolo";
+  });
+  const actionContainer = actionSpan?.parentElement || card;
+  const ctaRow = document.createElement('div');
+  ctaRow.dataset.blogFeaturedCtas = 'true';
+  ctaRow.className = 'flex flex-wrap gap-2 mt-4';
+  ctaRow.innerHTML = `
+    <a href="/?preview=analytics#product-tablet" data-blog-demo-link="true" class="inline-flex items-center justify-center rounded-full bg-white text-[#070B2D] px-4 py-2 text-sm font-semibold transition hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white/70">${labels.demo}</a>
+    <a href="#signup" data-static-auth="signup" class="inline-flex items-center justify-center rounded-full border border-white/35 text-white px-4 py-2 text-sm font-semibold transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/70">${labels.signup}</a>
+  `;
+  ctaRow.querySelector('[data-blog-demo-link]')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+  ctaRow.querySelector('[data-static-auth]')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (window.openAuth) {
+      window.openAuth('signup');
+    } else {
+      window.location.href = '/?auth=signup';
+    }
+  });
+  actionContainer.appendChild(ctaRow);
 }
 
 function replaceAboutTeam(root, pageName) {
@@ -627,6 +689,7 @@ function applyStaticLanguage(root, lang, pageName) {
   updateStaticDocumentTitle(lang, pageName);
   if (pageName === 'blog') {
     applyBlogArticleOverrides(lang);
+    ensureBlogFeaturedCtas(root, lang);
     ensureBlogNewsletter(root, lang);
   }
 
