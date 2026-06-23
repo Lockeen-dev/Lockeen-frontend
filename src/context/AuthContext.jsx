@@ -24,6 +24,7 @@ const INITIAL_STATE = {
 export function AuthProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
   const refreshingRef = useRef(false);
+  const authenticatedAtRef = useRef(0);
 
   const refreshSession = useCallback(async () => {
     refreshingRef.current = true;
@@ -46,6 +47,8 @@ export function AuthProvider({ children }) {
       return result;
     }
 
+    if (result.data.status === 'authenticated') authenticatedAtRef.current = Date.now();
+
     setState({
       user: result.data.user,
       status: result.data.status,
@@ -57,17 +60,33 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    refreshSession();
+    const unsubscribe = onAuthStateChange((session) => {
+      setState((current) => {
+        if (!session.user && session.event === 'INITIAL_SESSION') return current;
+        if (refreshingRef.current && !session.user) return current;
+        if (
+          !session.user &&
+          current.status === 'authenticated' &&
+          session.event !== 'SIGNED_OUT' &&
+          Date.now() - authenticatedAtRef.current < 5000
+        ) {
+          return current;
+        }
 
-    return onAuthStateChange((session) => {
-      if (refreshingRef.current && session.event === 'INITIAL_SESSION' && !session.user) return;
-      setState({
-        user: session.user,
-        status: session.status,
-        error: session.error || null,
-        authEvent: session.event || null,
+        if (session.status === 'authenticated') authenticatedAtRef.current = Date.now();
+
+        return {
+          user: session.user,
+          status: session.status,
+          error: session.error || null,
+          authEvent: session.event || null,
+        };
       });
     });
+
+    refreshSession();
+
+    return unsubscribe;
   }, [refreshSession]);
 
   const signIn = useCallback(async (input) => {
@@ -88,6 +107,8 @@ export function AuthProvider({ children }) {
       });
       return result;
     }
+
+    if (result.data.status === 'authenticated') authenticatedAtRef.current = Date.now();
 
     setState({
       user: result.data.user,
@@ -148,6 +169,7 @@ export function AuthProvider({ children }) {
     }
 
     if (result.data?.status === 'authenticated') {
+      authenticatedAtRef.current = Date.now();
       setState({
         user: result.data.user,
         status: result.data.status,
