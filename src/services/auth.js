@@ -83,6 +83,41 @@ function normalizeEmail(email = '') {
   return String(email).trim().toLowerCase();
 }
 
+function readAuthCodeFromUrl() {
+  if (typeof window === 'undefined') return null;
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const isRecovery = url.searchParams.get('auth') === 'reset' || hashParams.get('type') === 'recovery';
+  if (isRecovery) return null;
+  return url.searchParams.get('code');
+}
+
+function readOAuthTokensFromUrl() {
+  if (typeof window === 'undefined') return null;
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const isRecovery = url.searchParams.get('auth') === 'reset' || hashParams.get('type') === 'recovery';
+  if (isRecovery) return null;
+
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+  if (!accessToken || !refreshToken) return null;
+
+  return {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  };
+}
+
+function cleanAuthCallbackFromUrl() {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  const hasAuthCallback = url.searchParams.has('code') || window.location.hash;
+  if (!hasAuthCallback) return;
+  url.searchParams.delete('code');
+  window.history.replaceState({}, '', `${url.pathname}${url.search}`);
+}
+
 function requireSupabaseAuthMode() {
   const clientError = requireSupabaseClient();
   if (clientError) return clientError;
@@ -144,6 +179,20 @@ export async function restoreSession() {
   if (!isMockAuthMode()) {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
+
+    const authCode = readAuthCodeFromUrl();
+    if (authCode) {
+      const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+      cleanAuthCallbackFromUrl();
+      if (error) return fail(error.message, error.code || 'OAUTH_SESSION_FAILED');
+    }
+
+    const oauthTokens = readOAuthTokensFromUrl();
+    if (oauthTokens) {
+      const { error } = await supabase.auth.setSession(oauthTokens);
+      cleanAuthCallbackFromUrl();
+      if (error) return fail(error.message, error.code || 'OAUTH_SESSION_FAILED');
+    }
 
     const { data, error, timedOut } = await withTimeout(
       supabase.auth.getSession(),
@@ -276,7 +325,7 @@ export async function signInWithGoogle() {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
 
-    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/?auth=oauth` : undefined;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
