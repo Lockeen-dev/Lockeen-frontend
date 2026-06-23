@@ -44,6 +44,10 @@ function mapSupabaseUser(user) {
 
   const metadata = user.user_metadata || {};
   const appMetadata = user.app_metadata || {};
+  const authProviders = Array.isArray(user.identities)
+    ? user.identities.map((identity) => String(identity?.provider || '').toLowerCase()).filter(Boolean)
+    : [];
+  const authProvider = authProviders[0] || String(appMetadata.provider || 'email').toLowerCase();
   const name =
     metadata.full_name ||
     metadata.name ||
@@ -58,6 +62,8 @@ function mapSupabaseUser(user) {
     timezone: metadata.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome',
     planTier: appMetadata.plan_tier || appMetadata.plan || appMetadata.subscription_plan || 'free',
     provider: 'supabase',
+    authProvider,
+    authProviders,
     createdAt: user.created_at || new Date().toISOString(),
   };
 }

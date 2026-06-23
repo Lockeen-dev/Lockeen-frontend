@@ -187,6 +187,15 @@ function AuthShell() {
     return () => window.removeEventListener('lockeen-language', onLang);
   }, []);
 
+  useEffect(() => {
+    if (!isAuthenticated || !user?.language) return;
+    const next = normalizeLang(user.language);
+    if (next === lang) return;
+    setLang(next);
+    if (window.setLockeenLanguage) window.setLockeenLanguage(next);
+    else localStorage.setItem('lockeen-lang', next);
+  }, [isAuthenticated, lang, user?.language]);
+
   function changeLang(next) {
     const safe = normalizeLang(next);
     setLang(safe);
