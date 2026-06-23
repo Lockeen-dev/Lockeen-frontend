@@ -78,12 +78,12 @@ function ensureBanner() {
   const banner = document.createElement('div');
   banner.id = 'lockeen-cookie-banner';
   banner.innerHTML = `
-    <section role="region" aria-label="${dict.title}" style="position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;margin:auto;max-width:980px;border-radius:22px;background:#fff;color:#070B2D;border:1px solid rgba(7,11,45,.12);box-shadow:0 20px 70px rgba(7,11,45,.22);padding:18px;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
-      <div style="max-width:610px;">
+    <section role="region" aria-label="${dict.title}" style="position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;margin:auto;max-width:980px;border-radius:22px;background:#fff;color:#070B2D;border:1px solid rgba(7,11,45,.12);box-shadow:0 20px 70px rgba(7,11,45,.22);padding:18px;display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center;">
+      <div style="max-width:680px;">
         <strong data-cookie-banner-title style="display:block;font-size:16px;margin-bottom:4px;">${dict.title}</strong>
         <p data-cookie-banner-body style="font-size:14px;line-height:1.48;color:rgba(7,11,45,.68);margin:0;">${dict.bannerBody}</p>
       </div>
-      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;">
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;justify-content:center;">
         <button type="button" data-cookie-necessary-banner style="padding:10px 14px;border-radius:999px;border:1px solid rgba(7,11,45,.14);background:#fff;color:#070B2D;font-weight:750;cursor:pointer;">${dict.necessaryOnly}</button>
         <button type="button" data-cookie-customize-banner style="padding:10px 14px;border-radius:999px;border:1px solid rgba(47,43,255,.22);background:#F7F8FC;color:#2F2BFF;font-weight:800;cursor:pointer;">${dict.customize}</button>
         <button type="button" data-cookie-accept-banner style="padding:10px 16px;border-radius:999px;border:0;background:#2F2BFF;color:#fff;font-weight:850;cursor:pointer;">${dict.acceptAll}</button>
