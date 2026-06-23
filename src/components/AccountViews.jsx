@@ -875,21 +875,47 @@ function EarnView({ user, lang = 'en' }) {
           {adminData && (
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
               <DataPanel title="Candidature">
+                {(adminData.applications || []).length === 0 && <Empty text={copy.noRows} />}
                 {(adminData.applications || []).slice(0, 12).map((app) => (
-                  <div key={app.id} style={earnS.adminRow}>
-                    <div>
-                      <div style={earnS.rowTitle}>{app.first_name} {app.last_name}</div>
-                      <div style={earnS.rowSub}>{app.email} · {app.university} · {app.status}</div>
+                  <details key={app.id} style={earnS.adminDetails}>
+                    <summary style={earnS.adminSummary}>
+                      <div>
+                        <div style={earnS.rowTitle}>{app.first_name} {app.last_name}</div>
+                        <div style={earnS.rowSub}>{app.email} · {app.university} · {app.status}</div>
+                      </div>
+                      <span style={earnS.statusPill}>{app.status}</span>
+                    </summary>
+                    <AdminDetailGrid
+                      items={[
+                        ['Email', app.email],
+                        ['Università', app.university],
+                        ['Cosa studia', app.study_field],
+                        ['Anno', app.study_year || '—'],
+                        ['Città / Paese', app.city_country || '—'],
+                        ['Community / reach', app.community_reach || '—'],
+                        ['Motivazione', app.motivation || '—'],
+                        ['Creata', formatDate(app.created_at)],
+                      ]}
+                    />
+                    <div style={earnS.adminActions}>
+                      <button
+                        type="button"
+                        disabled={submitting || app.status === 'approved'}
+                        onClick={() => runAdmin({ action: 'approve_application', applicationId: app.id })}
+                        style={app.status === 'approved' ? accountS.currentBtn : accountS.primaryBtn}
+                      >
+                        Approva
+                      </button>
+                      <button
+                        type="button"
+                        disabled={submitting || ['approved', 'rejected'].includes(app.status)}
+                        onClick={() => runAdmin({ action: 'reject_application', applicationId: app.id, reason: 'manual_admin_reject' })}
+                        style={['approved', 'rejected'].includes(app.status) ? accountS.disabledBtn : accountS.dangerBtn}
+                      >
+                        Non approvare
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      disabled={submitting || app.status === 'approved'}
-                      onClick={() => runAdmin({ action: 'approve_application', applicationId: app.id })}
-                      style={app.status === 'approved' ? accountS.currentBtn : accountS.primaryBtn}
-                    >
-                      Approva
-                    </button>
-                  </div>
+                  </details>
                 ))}
               </DataPanel>
               <DataPanel title="Crea ambassador">
@@ -916,33 +942,75 @@ function EarnView({ user, lang = 'en' }) {
               <DataPanel title="Pre-approvati in attesa">
                 {(adminData.invites || []).filter((invite) => invite.status === 'pending_signup').length === 0 && <Empty text={copy.noRows} />}
                 {(adminData.invites || []).filter((invite) => invite.status === 'pending_signup').map((invite) => (
-                  <div key={invite.id} style={earnS.adminRow}>
-                    <div>
-                      <div style={earnS.rowTitle}>{invite.first_name} {invite.last_name}</div>
-                      <div style={earnS.rowSub}>{invite.email} · {invite.university} · {invite.referral_code}</div>
-                    </div>
-                    <span style={earnS.statusPill}>In attesa signup</span>
-                  </div>
+                  <details key={invite.id} style={earnS.adminDetails}>
+                    <summary style={earnS.adminSummary}>
+                      <div>
+                        <div style={earnS.rowTitle}>{invite.first_name} {invite.last_name}</div>
+                        <div style={earnS.rowSub}>{invite.email} · {invite.university} · {invite.referral_code}</div>
+                      </div>
+                      <span style={earnS.statusPill}>In attesa signup</span>
+                    </summary>
+                    <AdminDetailGrid
+                      items={[
+                        ['Email', invite.email],
+                        ['Università', invite.university],
+                        ['Cosa studia', invite.study_field || '—'],
+                        ['Referral code', invite.referral_code],
+                        ['Commissione', euro(invite.commission_cents)],
+                        ['Soglia payout', euro(invite.payout_threshold_cents)],
+                        ['Creata', formatDate(invite.created_at)],
+                      ]}
+                    />
+                  </details>
                 ))}
               </DataPanel>
               <DataPanel title="Payout manuali">
                 {(adminData.ambassadors || []).map((amb) => {
                   const s = adminData.summaries?.[amb.id] || {};
                   return (
-                    <div key={amb.id} style={earnS.adminRow}>
-                      <div>
-                        <div style={earnS.rowTitle}>{amb.first_name} {amb.last_name}</div>
-                        <div style={earnS.rowSub}>{amb.referral_code} · disponibile {euro(s.available)}</div>
+                    <details key={amb.id} style={earnS.adminDetails}>
+                      <summary style={earnS.adminSummary}>
+                        <div>
+                          <div style={earnS.rowTitle}>{amb.first_name} {amb.last_name}</div>
+                          <div style={earnS.rowSub}>{amb.referral_code} · disponibile {euro(s.available)} · {amb.status}</div>
+                        </div>
+                        <span style={earnS.statusPill}>{amb.status}</span>
+                      </summary>
+                      <AdminDetailGrid
+                        items={[
+                          ['Email', amb.email],
+                          ['Università', amb.university],
+                          ['Cosa studia', amb.study_field || '—'],
+                          ['Referral code', amb.referral_code],
+                          ['Status', amb.status],
+                          ['Iscritti dal link', s.referrals || 0],
+                          ['Pro attivi', s.activeReferrals || 0],
+                          ['Disponibile', euro(s.available)],
+                          ['Pending', euro(s.pending)],
+                          ['Pagato', euro(s.paid)],
+                          ['Soglia payout', euro(s.threshold || amb.payout_threshold_cents)],
+                          ['Approvato', formatDate(amb.approved_at)],
+                        ]}
+                      />
+                      <div style={earnS.adminActions}>
+                        <button
+                          type="button"
+                          disabled={submitting || Number(s.available || 0) < Number(s.threshold || 2000)}
+                          onClick={() => runAdmin({ action: 'pay_ambassador', ambassadorId: amb.id, method: 'manual_bank' })}
+                          style={Number(s.available || 0) >= Number(s.threshold || 2000) ? accountS.primaryBtn : accountS.disabledBtn}
+                        >
+                          Segna pagato
+                        </button>
+                        <button
+                          type="button"
+                          disabled={submitting || amb.status !== 'active'}
+                          onClick={() => runAdmin({ action: 'deactivate_ambassador', ambassadorId: amb.id, reason: 'manual_admin_pause' })}
+                          style={amb.status === 'active' ? accountS.dangerBtn : accountS.disabledBtn}
+                        >
+                          Disattiva ambassador
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        disabled={submitting || Number(s.available || 0) < Number(s.threshold || 2000)}
-                        onClick={() => runAdmin({ action: 'pay_ambassador', ambassadorId: amb.id, method: 'manual_bank' })}
-                        style={Number(s.available || 0) >= Number(s.threshold || 2000) ? accountS.primaryBtn : accountS.disabledBtn}
-                      >
-                        Segna pagato
-                      </button>
-                    </div>
+                    </details>
                   );
                 })}
               </DataPanel>
@@ -993,6 +1061,19 @@ function Row({ left, sub, right }) {
   );
 }
 
+function AdminDetailGrid({ items = [] }) {
+  return (
+    <div style={earnS.detailGrid}>
+      {items.map(([label, value]) => (
+        <div key={label} style={earnS.detailItem}>
+          <div style={earnS.detailLabel}>{label}</div>
+          <div style={earnS.detailValue}>{value || '—'}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Empty({ text }) {
   return <div style={{ padding: 15, color: 'var(--gray)', fontSize: 13, fontWeight: 800 }}>{text}</div>;
 }
@@ -1004,6 +1085,13 @@ const earnS = {
   rowTitle: { fontSize: 13, fontWeight: 900, color: 'var(--ink)' },
   rowSub: { marginTop: 3, fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
   adminRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, borderBottom: '1px solid var(--border)' },
+  adminDetails: { borderBottom: '1px solid var(--border)' },
+  adminSummary: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, cursor: 'pointer', listStyle: 'none' },
+  adminActions: { display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 12px 12px' },
+  detailGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8, padding: '0 12px 12px' },
+  detailItem: { padding: 10, borderRadius: 10, background: '#F8FAFC', border: '1px solid #EEF2F7', minWidth: 0 },
+  detailLabel: { fontSize: 10, fontWeight: 900, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 },
+  detailValue: { fontSize: 12, fontWeight: 800, color: 'var(--ink)', lineHeight: 1.35, overflowWrap: 'anywhere' },
   statusPill: { alignSelf: 'center', padding: '5px 8px', borderRadius: 999, background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' },
 };
 

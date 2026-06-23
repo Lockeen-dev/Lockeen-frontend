@@ -168,7 +168,66 @@ async function approveApplication(admin, actor, body) {
     return { error: { code: 'APPLICATION_UPDATE_FAILED', message: updateError.message } };
   }
 
+  const { error: duplicateUpdateError } = await admin
+    .from('partner_applications')
+    .update({
+      status: 'rejected',
+      metadata: {
+        closedAsDuplicateOf: application.id,
+        closedReason: 'same_email_already_approved',
+      },
+    })
+    .eq('email', application.email)
+    .neq('id', application.id)
+    .in('status', ['new', 'reviewing', 'contacted']);
+
+  if (duplicateUpdateError) {
+    return { error: { code: 'DUPLICATE_APPLICATIONS_CLOSE_FAILED', message: duplicateUpdateError.message } };
+  }
+
   return { data: ambassador };
+}
+
+async function rejectApplication(admin, actor, body) {
+  const applicationId = cleanText(body.applicationId, 80);
+  const reason = cleanText(body.reason, 500) || 'not_a_fit';
+  if (!applicationId) {
+    return { error: { code: 'APPLICATION_ID_REQUIRED', message: 'Application ID is required.' } };
+  }
+
+  const { data: application, error: applicationError } = await admin
+    .from('partner_applications')
+    .select('*')
+    .eq('id', applicationId)
+    .single();
+
+  if (applicationError || !application?.id) {
+    return { error: { code: 'APPLICATION_NOT_FOUND', message: applicationError?.message || 'Application not found.' } };
+  }
+  if (application.status === 'approved') {
+    return { error: { code: 'APPLICATION_ALREADY_APPROVED', message: 'Approved applications cannot be rejected from this action.' } };
+  }
+
+  const { data, error } = await admin
+    .from('partner_applications')
+    .update({
+      status: 'rejected',
+      metadata: {
+        ...(application.metadata || {}),
+        rejectedBy: actor.id,
+        rejectedAt: new Date().toISOString(),
+        rejectedReason: reason,
+      },
+    })
+    .eq('id', application.id)
+    .select('*')
+    .single();
+
+  if (error) {
+    return { error: { code: 'APPLICATION_REJECT_FAILED', message: error.message } };
+  }
+
+  return { data };
 }
 
 async function findAuthUserByEmail(admin, email) {
@@ -339,6 +398,45 @@ async function payAmbassador(admin, actor, body) {
   return { data: payout };
 }
 
+async function deactivateAmbassador(admin, actor, body) {
+  const ambassadorId = cleanText(body.ambassadorId, 80);
+  const reason = cleanText(body.reason, 500) || 'manual_admin_pause';
+  if (!ambassadorId) {
+    return { error: { code: 'AMBASSADOR_ID_REQUIRED', message: 'Ambassador ID is required.' } };
+  }
+
+  const { data: ambassador, error: ambassadorError } = await admin
+    .from('ambassadors')
+    .select('*')
+    .eq('id', ambassadorId)
+    .single();
+
+  if (ambassadorError || !ambassador?.id) {
+    return { error: { code: 'AMBASSADOR_NOT_FOUND', message: ambassadorError?.message || 'Ambassador not found.' } };
+  }
+
+  const { data, error } = await admin
+    .from('ambassadors')
+    .update({
+      status: 'paused',
+      metadata: {
+        ...(ambassador.metadata || {}),
+        deactivatedBy: actor.id,
+        deactivatedAt: new Date().toISOString(),
+        deactivatedReason: reason,
+      },
+    })
+    .eq('id', ambassador.id)
+    .select('*')
+    .single();
+
+  if (error) {
+    return { error: { code: 'AMBASSADOR_DEACTIVATE_FAILED', message: error.message } };
+  }
+
+  return { data };
+}
+
 export default async function handler(req, res) {
   const authResult = await requireAdminUser(req);
   if (authResult.error) {
@@ -360,8 +458,10 @@ export default async function handler(req, res) {
       let result;
 
       if (action === 'approve_application') result = await approveApplication(admin, authResult.data.user, body);
+      else if (action === 'reject_application') result = await rejectApplication(admin, authResult.data.user, body);
       else if (action === 'create_ambassador') result = await createAmbassadorByEmail(admin, authResult.data.user, body);
       else if (action === 'pay_ambassador') result = await payAmbassador(admin, authResult.data.user, body);
+      else if (action === 'deactivate_ambassador') result = await deactivateAmbassador(admin, authResult.data.user, body);
       else result = { error: { code: 'UNKNOWN_ACTION', message: 'Unknown admin action.' } };
 
       if (result.error) return json(res, 400, { error: result.error });
