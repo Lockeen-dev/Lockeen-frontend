@@ -99,15 +99,10 @@ const staticPageContentTranslations = {
     ['Every decision we make starts with one question: does this actually help the student? Not the university, not the institution — the human sitting at the desk trying to understand something.', 'Ogni decisione parte da una domanda: aiuta davvero lo studente? Non l’università, non l’istituzione: la persona seduta alla scrivania che sta cercando di capire qualcosa.'],
     ['The people', 'Le persone'],
     ['Meet the founders', 'Conosci i founder'],
-    ['A small, focused team united by a shared obsession: making learning feel effortless.', 'Un team piccolo e concentrato, unito da un’ossessione comune: rendere lo studio più naturale e leggero.'],
-    ['CEO & Co-founder', 'CEO e co-founder'],
-    ['Computer Science, Bocconi \'23', 'Informatica, Bocconi \'23'],
-    ['CPO & Co-founder', 'CPO e co-founder'],
-    ['Cognitive Science, UniMi \'23', 'Scienze cognitive, UniMi \'23'],
-    ['CTO & Co-founder', 'CTO e co-founder'],
-    ['ML Engineering, Polimi \'22', 'ML Engineering, Polimi \'22'],
-    ['Head of Research', 'Head of Research'],
-    ['Learning Sciences, PhD UniTo', 'Learning Sciences, PhD UniTo'],
+    ['A small, focused team building Lockeen from real student needs.', 'Un team piccolo e concentrato che costruisce Lockeen partendo da bisogni reali degli studenti.'],
+    ['Co-founder', 'Co-founder'],
+    ['Product, growth, and student experience.', 'Prodotto, crescita ed esperienza studenti.'],
+    ['Technology, AI, and product engineering.', 'Tecnologia, AI e product engineering.'],
     ['Join us', 'Unisciti a noi'],
     ['Ready to study smarter?', 'Pronto a studiare meglio?'],
     ['Join over 120,000 students already using Lockeen to learn faster, retain more, and stress less.', 'Unisciti a oltre 120.000 studenti che usano già Lockeen per imparare più velocemente, ricordare meglio e stressarsi meno.'],
@@ -435,6 +430,40 @@ function ensureStaticLanguageControls(root, lang) {
   });
 }
 
+function replaceAboutTeam(root, pageName) {
+  if (pageName !== 'about' || root.querySelector('[data-lockeen-real-team="true"]')) return;
+
+  const heading = Array.from(root.querySelectorAll('h2')).find((node) => {
+    const text = node.textContent.trim();
+    return text === 'Meet the founders' || text === 'Conosci i founder';
+  });
+  const section = heading?.closest('section');
+  if (!section) return;
+
+  section.innerHTML = `
+    <div class="max-w-7xl mx-auto px-6 lg:px-8" data-lockeen-real-team="true">
+      <div class="text-center mb-16">
+        <p class="text-sm font-semibold uppercase tracking-widest text-[#2F2BFF] mb-4">The people</p>
+        <h2 class="text-4xl md:text-5xl font-bold text-[#070B2D] mb-4">Meet the founders</h2>
+        <p class="text-lg text-[#070B2D]/60 max-w-xl mx-auto">A small, focused team building Lockeen from real student needs.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
+        <div class="text-center group rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm hover:shadow-xl hover:shadow-[#2F2BFF]/5 transition-all">
+          <img src="/team-federico-de-luca.jpg" alt="Federico De Luca" class="w-28 h-28 rounded-3xl object-cover mx-auto mb-5 shadow-lg transition-transform group-hover:-translate-y-1" loading="lazy" />
+          <h3 class="text-lg font-bold text-[#070B2D] mb-1">Federico De Luca</h3>
+          <p class="text-sm text-[#070B2D]/50">Co-founder</p>
+          <p class="text-xs text-[#070B2D]/40 mt-3 leading-relaxed">Product, growth, and student experience.</p>
+        </div>
+        <div class="text-center group rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm hover:shadow-xl hover:shadow-[#2F2BFF]/5 transition-all">
+          <img src="/team-alberto-piazza.jpg" alt="Alberto Piazza" class="w-28 h-28 rounded-3xl object-cover mx-auto mb-5 shadow-lg transition-transform group-hover:-translate-y-1" loading="lazy" />
+          <h3 class="text-lg font-bold text-[#070B2D] mb-1">Alberto Piazza</h3>
+          <p class="text-sm text-[#070B2D]/50">Co-founder</p>
+          <p class="text-xs text-[#070B2D]/40 mt-3 leading-relaxed">Technology, AI, and product engineering.</p>
+        </div>
+      </div>
+    </div>`;
+}
+
 function applyStaticLanguage(root, lang, pageName) {
   ensureStaticLanguageControls(root, lang);
   updateStaticDocumentTitle(lang, pageName);
@@ -526,6 +555,7 @@ export default function StaticPage() {
       oldScript.remove();
     });
 
+    replaceAboutTeam(root, pageName);
     applyStaticLanguage(root, lang, pageName);
 
     let activeLang = lang;
