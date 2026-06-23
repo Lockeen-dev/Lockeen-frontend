@@ -140,7 +140,10 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const [tab, setTab] = useState(() => {
     if (typeof window === 'undefined') return 'dashboard';
     const params = new URLSearchParams(window.location.search);
-    return params.has('checkout') || params.get('view') === 'account' ? 'account' : 'dashboard';
+    const view = params.get('view');
+    if (params.has('checkout') || view === 'account') return 'account';
+    if (view === 'earn' || view === 'ambassador') return 'earn';
+    return 'dashboard';
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isMobile = useIsMobile();

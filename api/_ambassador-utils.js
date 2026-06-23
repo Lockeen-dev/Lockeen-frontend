@@ -64,7 +64,7 @@ export function getAdminClient() {
   if (!admin) {
     return {
       data: null,
-      error: { code: 'SUPABASE_SERVICE_ROLE_MISSING', message: 'Supabase service role key is required.' },
+      error: { code: 'SUPABASE_ADMIN_CONFIG_MISSING', message: 'Supabase admin config is required.' },
     };
   }
   return { data: admin, error: null };
