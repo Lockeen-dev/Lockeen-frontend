@@ -831,7 +831,7 @@ function EarnView({ user, lang = 'en' }) {
         </>
       )}
 
-      {!loading && !ambassador && application && (
+      {!loading && !user?.isAdmin && !ambassador && application && (
         <div style={card}>
           <div style={earnS.kicker}>{application.status}</div>
           <h2 style={earnS.h2}>{copy.pendingTitle}</h2>
@@ -839,7 +839,7 @@ function EarnView({ user, lang = 'en' }) {
         </div>
       )}
 
-      {!loading && !ambassador && !application && (
+      {!loading && !user?.isAdmin && !ambassador && !application && (
         <form onSubmit={submitApplication} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <h2 style={earnS.h2}>{copy.applyTitle}</h2>
@@ -894,7 +894,7 @@ function EarnView({ user, lang = 'en' }) {
               </DataPanel>
               <DataPanel title="Crea ambassador">
                 <div style={{ padding: 12, display: 'grid', gap: 10 }}>
-                  <Field label="Email account Lockeen *" type="email" value={outboundForm.email} onChange={(v) => setOutboundForm({ ...outboundForm, email: v })} required />
+                  <Field label="Email *" type="email" value={outboundForm.email} onChange={(v) => setOutboundForm({ ...outboundForm, email: v })} required />
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
                     <Field label="Nome *" value={outboundForm.firstName} onChange={(v) => setOutboundForm({ ...outboundForm, firstName: v })} required />
                     <Field label="Cognome *" value={outboundForm.lastName} onChange={(v) => setOutboundForm({ ...outboundForm, lastName: v })} required />
@@ -910,8 +910,20 @@ function EarnView({ user, lang = 'en' }) {
                   >
                     Crea ambassador
                   </button>
-                  <div style={earnS.rowSub}>Nota: l’email deve già avere un account Lockeen. Se non esiste ancora, prima deve registrarsi.</div>
+                  <div style={earnS.rowSub}>Se l’email ha già un account Lockeen, viene attivata subito. Se non esiste ancora, resta pre-approvata e si attiva automaticamente al primo signup con quella email.</div>
                 </div>
+              </DataPanel>
+              <DataPanel title="Pre-approvati in attesa">
+                {(adminData.invites || []).filter((invite) => invite.status === 'pending_signup').length === 0 && <Empty text={copy.noRows} />}
+                {(adminData.invites || []).filter((invite) => invite.status === 'pending_signup').map((invite) => (
+                  <div key={invite.id} style={earnS.adminRow}>
+                    <div>
+                      <div style={earnS.rowTitle}>{invite.first_name} {invite.last_name}</div>
+                      <div style={earnS.rowSub}>{invite.email} · {invite.university} · {invite.referral_code}</div>
+                    </div>
+                    <span style={earnS.statusPill}>In attesa signup</span>
+                  </div>
+                ))}
               </DataPanel>
               <DataPanel title="Payout manuali">
                 {(adminData.ambassadors || []).map((amb) => {
@@ -992,6 +1004,7 @@ const earnS = {
   rowTitle: { fontSize: 13, fontWeight: 900, color: 'var(--ink)' },
   rowSub: { marginTop: 3, fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
   adminRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, borderBottom: '1px solid var(--border)' },
+  statusPill: { alignSelf: 'center', padding: '5px 8px', borderRadius: 999, background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' },
 };
 
 export { AccountView, EarnView };

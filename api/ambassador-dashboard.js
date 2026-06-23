@@ -1,6 +1,59 @@
 import { json, requireAuthenticatedUser } from './_billing-utils.js';
 import { getAdminClient, maskEmail, summarizeMoney } from './_ambassador-utils.js';
 
+async function claimPendingInvite(admin, user) {
+  const email = String(user.email || '').trim().toLowerCase();
+  if (!email) return null;
+
+  const { data: invite, error: inviteError } = await admin
+    .from('ambassador_invites')
+    .select('*')
+    .eq('email', email)
+    .eq('status', 'pending_signup')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (inviteError) throw inviteError;
+  if (!invite?.id) return null;
+
+  const { data: ambassador, error: ambassadorError } = await admin
+    .from('ambassadors')
+    .upsert([{
+      user_id: user.id,
+      email,
+      first_name: invite.first_name,
+      last_name: invite.last_name,
+      university: invite.university,
+      study_field: invite.study_field || null,
+      referral_code: invite.referral_code,
+      status: 'active',
+      commission_cents: invite.commission_cents,
+      payout_threshold_cents: invite.payout_threshold_cents,
+      approved_by: invite.invited_by,
+      approved_at: new Date().toISOString(),
+      metadata: { ...(invite.metadata || {}), claimedFromInvite: invite.id },
+    }], { onConflict: 'user_id' })
+    .select('*')
+    .single();
+
+  if (ambassadorError) throw ambassadorError;
+
+  const { error: updateError } = await admin
+    .from('ambassador_invites')
+    .update({
+      status: 'claimed',
+      claimed_user_id: user.id,
+      claimed_ambassador_id: ambassador.id,
+      claimed_at: new Date().toISOString(),
+    })
+    .eq('id', invite.id);
+
+  if (updateError) throw updateError;
+
+  return ambassador;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -16,19 +69,26 @@ export default async function handler(req, res) {
   const admin = adminResult.data;
   const user = authResult.data.user;
 
-  const [{ data: ambassador, error: ambassadorError }, { data: applications, error: applicationError }] = await Promise.all([
-    admin
-      .from('ambassadors')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle(),
-    admin
-      .from('partner_applications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1),
-  ]);
+  let { data: ambassador, error: ambassadorError } = await admin
+    .from('ambassadors')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!ambassador?.id && !ambassadorError) {
+    try {
+      ambassador = await claimPendingInvite(admin, user);
+    } catch (error) {
+      return json(res, 500, { error: { code: 'AMBASSADOR_INVITE_CLAIM_FAILED', message: error?.message || 'Could not activate ambassador invite.' } });
+    }
+  }
+
+  const { data: applications, error: applicationError } = await admin
+    .from('partner_applications')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1);
 
   if (ambassadorError) {
     return json(res, 500, { error: { code: 'AMBASSADOR_LOOKUP_FAILED', message: ambassadorError.message } });

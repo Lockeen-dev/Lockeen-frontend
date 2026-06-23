@@ -15,19 +15,27 @@ async function uniqueReferralCode(admin, base) {
   let candidate = normalizeReferralCode(base);
   for (let i = 0; i < 12; i += 1) {
     const code = i === 0 ? candidate : `${candidate}-${i + 1}`;
-    const { data, error } = await admin
-      .from('ambassadors')
-      .select('id')
-      .ilike('referral_code', code)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data?.id) return code;
+    const [{ data: ambassador, error: ambassadorError }, { data: invite, error: inviteError }] = await Promise.all([
+      admin
+        .from('ambassadors')
+        .select('id')
+        .eq('referral_code', code)
+        .maybeSingle(),
+      admin
+        .from('ambassador_invites')
+        .select('id')
+        .eq('referral_code', code)
+        .neq('status', 'cancelled')
+        .maybeSingle(),
+    ]);
+    if (ambassadorError || inviteError) throw ambassadorError || inviteError;
+    if (!ambassador?.id && !invite?.id) return code;
   }
   return `${candidate}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 async function getAdminPayload(admin) {
-  const [{ data: applications, error: applicationsError }, { data: ambassadors, error: ambassadorsError }, { data: payouts, error: payoutsError }] = await Promise.all([
+  const [{ data: applications, error: applicationsError }, { data: ambassadors, error: ambassadorsError }, { data: payouts, error: payoutsError }, { data: invites, error: invitesError }] = await Promise.all([
     admin
       .from('partner_applications')
       .select('*')
@@ -43,9 +51,14 @@ async function getAdminPayload(admin) {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(80),
+    admin
+      .from('ambassador_invites')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(80),
   ]);
 
-  const error = applicationsError || ambassadorsError || payoutsError;
+  const error = applicationsError || ambassadorsError || payoutsError || invitesError;
   if (error) throw error;
 
   const ambassadorIds = (ambassadors || []).map((item) => item.id);
@@ -85,6 +98,7 @@ async function getAdminPayload(admin) {
   return {
     applications: applications || [],
     ambassadors: ambassadors || [],
+    invites: invites || [],
     payouts: payouts || [],
     referrals,
     commissions,
@@ -181,17 +195,49 @@ async function createAmbassadorByEmail(admin, actor, body) {
   }
 
   const user = await findAuthUserByEmail(admin, email);
-  if (!user?.id) {
-    return {
-      error: {
-        code: 'USER_NOT_FOUND',
-        message: 'This email does not have a Lockeen account yet. Ask them to sign up first, then create the ambassador profile.',
-      },
-    };
-  }
-
   const baseCode = requested || makeReferralCode([firstName, lastName, university]);
   const referralCode = await uniqueReferralCode(admin, baseCode);
+
+  if (!user?.id) {
+    const { data: existingInvite, error: lookupError } = await admin
+      .from('ambassador_invites')
+      .select('id')
+      .eq('email', email)
+      .eq('status', 'pending_signup')
+      .maybeSingle();
+
+    if (lookupError) {
+      return { error: { code: 'AMBASSADOR_INVITE_LOOKUP_FAILED', message: lookupError.message } };
+    }
+
+    const payload = {
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      university,
+      study_field: studyField || null,
+      referral_code: referralCode,
+      status: 'pending_signup',
+      commission_cents: COMMISSION_CENTS,
+      payout_threshold_cents: PAYOUT_THRESHOLD_CENTS,
+      invited_by: actor.id,
+      metadata: { approvedFrom: 'admin_outbound_preapproval' },
+    };
+
+    const query = existingInvite?.id
+      ? admin.from('ambassador_invites').update(payload).eq('id', existingInvite.id)
+      : admin.from('ambassador_invites').insert([payload]);
+
+    const { data: invite, error } = await query
+      .select('*')
+      .single();
+
+    if (error) {
+      return { error: { code: 'AMBASSADOR_INVITE_FAILED', message: error.message } };
+    }
+
+    return { data: invite };
+  }
 
   const { data: ambassador, error } = await admin
     .from('ambassadors')
