@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { staticPages } from '../content/staticPages';
+import { submitCareerApplication } from '../services/careerApplications';
+import { subscribeToNewsletter } from '../services/newsletter';
 
 const pageTitles = {
   en: {
@@ -126,15 +128,15 @@ const staticPageContentTranslations = {
     ["We're fully remote and async-first. Great work can happen anywhere, and we trust you to make it happen.", 'Siamo completamente remote e async-first. Il lavoro eccellente può nascere ovunque, e ci fidiamo del tuo modo di farlo accadere.'],
     ['Open positions', 'Posizioni aperte'],
     ['All roles are fully remote unless noted otherwise.', 'Tutti i ruoli sono completamente da remoto, salvo diversa indicazione.'],
-    ['Senior Frontend Engineer', 'Senior Frontend Engineer'],
+    ['Full Stack Engineer', 'Full Stack Engineer'],
     ['Remote', 'Remoto'],
     ['Full-time', 'Full-time'],
-    ['Build beautiful, fast interfaces that students love.', 'Costruisci interfacce belle e veloci che gli studenti amano usare.'],
+    ['Build end-to-end product features across frontend, backend, and AI workflows.', 'Costruisci funzionalità end-to-end tra frontend, backend e flussi AI.'],
     ['Apply', 'Candidati'],
     ['ML / AI Engineer', 'ML / AI Engineer'],
     ['Train and fine-tune models that power our AI tutor.', 'Allena e ottimizza i modelli che alimentano il nostro AI Tutor.'],
-    ['Product Designer', 'Product Designer'],
-    ['Design delightful experiences across web and mobile.', 'Disegna esperienze curate su web e mobile.'],
+    ['Sales Development Representative (SDR)', 'Sales Development Representative (SDR)'],
+    ['Find and qualify schools, teams, and student communities ready for Lockeen.', 'Trova e qualifica scuole, team e community studentesche pronte per Lockeen.'],
     ['Growth Marketing Manager', 'Growth Marketing Manager'],
     ['Own our go-to-market strategy and user acquisition.', 'Guida la strategia go-to-market e l’acquisizione utenti.'],
     ['Student Ambassador', 'Student Ambassador'],
@@ -155,7 +157,8 @@ const staticPageContentTranslations = {
     ['PDF, DOC, or DOCX. Keep it simple.', 'PDF, DOC o DOCX. Tienilo semplice.'],
     ['Portfolio / LinkedIn', 'Portfolio / LinkedIn'],
     ['Short note', 'Breve nota'],
-    ["Application ready. In this demo we don't send files yet, but form flow is complete.", 'Candidatura pronta. In questa demo non inviamo ancora file, ma il flusso del form è completo.'],
+    ["Application ready. In this demo we don't send files yet, but form flow is complete.", 'Candidatura inviata. Ti contatteremo se c’è fit.'],
+    ['Application submitted. We will reach out if there is a fit.', 'Candidatura inviata. Ti contatteremo se c’è fit.'],
     ['Cancel', 'Annulla'],
     ['Submit application', 'Invia candidatura'],
   ],
@@ -309,6 +312,8 @@ const staticPageContentTranslations = {
     ['Research', 'Ricerca'],
     ['Featured', 'In evidenza'],
     ['Read article', 'Leggi articolo'],
+    ['See demo', 'Guarda demo'],
+    ['Start free', 'Inizia gratis'],
     ['No articles found.', 'Nessun articolo trovato.'],
     ['Load more articles', 'Carica altri articoli'],
     ['← Back to Blog', '← Torna al blog'],
@@ -430,6 +435,222 @@ function ensureStaticLanguageControls(root, lang) {
   });
 }
 
+function ensureStaticNavLinks(root) {
+  const desktopNav = root.querySelector('nav .hidden.md\\:flex.items-center.gap-8');
+  const mobileMenu = root.querySelector('#mob-menu');
+  const navLinks = [
+    { href: '/#features', label: 'Features' },
+    { href: '/#product', label: 'Product' },
+    { href: '/#pricing', label: 'Pricing' },
+    { href: '/about', label: 'About' },
+    { href: '/blog', label: 'Blog' },
+  ];
+
+  if (desktopNav && desktopNav.dataset.staticNavReady !== 'true') {
+    desktopNav.innerHTML = navLinks.map(({ href, label }) => (
+      `<a href="${href}" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">${label}</a>`
+    )).join('');
+    desktopNav.dataset.staticNavReady = 'true';
+  }
+
+  if (mobileMenu && mobileMenu.dataset.staticNavReady !== 'true') {
+    const authLink = mobileMenu.querySelector('[data-static-auth="signup"]')?.outerHTML
+      || '<a href="#signup" data-static-auth="signup" class="block mt-4 px-6 py-2.5 bg-[#2F2BFF] text-white rounded-full text-center font-medium">Start Free</a>';
+    mobileMenu.innerHTML = `${navLinks.map(({ href, label }) => (
+      `<a href="${href}" class="block text-[#070B2D]/70">${label}</a>`
+    )).join('')}${authLink}`;
+    mobileMenu.dataset.staticNavReady = 'true';
+  }
+}
+
+function ensureStaticAuthLinks(root) {
+  root.querySelectorAll('a').forEach((anchor) => {
+    const text = anchor.textContent.trim().replace(/\s+/g, ' ').toLowerCase();
+    const href = anchor.getAttribute('href') || '';
+    const isSignIn = text === 'sign in' || text === 'accedi';
+    const isStartFree =
+      text === 'start free'
+      || text === 'inizia gratis'
+      || text === 'start for free'
+      || text === 'get started — it\'s free'
+      || text === 'get started - it\'s free'
+      || text === 'inizia: è gratis';
+
+    if (isSignIn) {
+      anchor.setAttribute('href', '#signin');
+      anchor.dataset.staticAuth = 'signin';
+      return;
+    }
+
+    if (isStartFree && (href === '/' || href === '#signup' || href === '')) {
+      anchor.setAttribute('href', '#signup');
+      anchor.dataset.staticAuth = 'signup';
+    }
+  });
+}
+
+const BLOG_FEATURED_ARTICLES = {
+  en: {
+    id: 1,
+    category: 'Product',
+    title: 'How Lockeen works: from messy notes to a study plan',
+    excerpt: 'A simple walkthrough of the Lockeen workflow: upload your material, turn it into practice, ask questions, and plan the week without switching tools.',
+    body: `<p>Most students do not need another folder of notes. They need a way to turn those notes into action. That is the idea behind Lockeen: one place where your material becomes flashcards, quizzes, AI explanations, and a calendar you can actually follow.</p>
+    <h3>1. Upload what you already have</h3>
+    <p>You start with your real study material: PDFs, lecture notes, summaries, slides, or documents. Lockeen keeps the workflow close to what students already do, so there is no need to rebuild your system from scratch.</p>
+    <h3>2. Turn notes into practice</h3>
+    <p>Once your material is inside the workspace, you can generate flashcards and quizzes from it. The point is not to create content for the sake of it. The point is to move quickly from passive reading to active recall, because that is where learning starts to stick.</p>
+    <h3>3. Ask the AI Tutor when you get stuck</h3>
+    <p>When a concept is unclear, the AI Tutor gives you an explanation in plain language. You can ask follow-up questions, compare ideas, or request an example. It works best as a study companion: not a shortcut, but a way to remove friction when you are blocked.</p>
+    <h3>4. Plan the week around your exams</h3>
+    <p>The calendar brings the workflow together. Instead of guessing what to study next, you can organize sessions around exam dates, subjects, and the time you realistically have. The goal is simple: fewer scattered tools, fewer abandoned plans, more consistent progress.</p>
+    <h3>Why this matters</h3>
+    <p>A good study system should feel calm. You should know what to review, what you still do not understand, and what comes next. Lockeen is built around that feeling: structured enough to guide you, flexible enough to match how students actually study.</p>`,
+    author: 'Lockeen Team',
+    authorInitials: 'LT',
+    authorGradient: 'linear-gradient(135deg,#2F2BFF,#7C78FF)',
+    date: 'Jun 23, 2026',
+    readTime: '5 min read',
+    featured: true,
+  },
+  it: {
+    id: 1,
+    category: 'Product',
+    title: 'Come funziona Lockeen: dagli appunti al piano di studio',
+    excerpt: 'Un percorso semplice dentro Lockeen: carichi il materiale, lo trasformi in esercizio, fai domande e pianifichi la settimana senza saltare tra mille strumenti.',
+    body: `<p>Molti studenti non hanno bisogno di un'altra cartella piena di appunti. Hanno bisogno di trasformare quegli appunti in azioni concrete. Lockeen nasce da qui: un unico spazio in cui il materiale diventa flashcard, quiz, spiegazioni AI e un calendario che puoi davvero seguire.</p>
+    <h3>1. Carichi quello che hai già</h3>
+    <p>Parti dal tuo materiale reale: PDF, appunti delle lezioni, riassunti, slide o documenti. Lockeen resta vicino al modo in cui gli studenti studiano già, quindi non devi ricostruire tutto da zero.</p>
+    <h3>2. Trasformi gli appunti in pratica</h3>
+    <p>Quando il materiale è nello spazio di lavoro, puoi generare flashcard e quiz. L'obiettivo non è creare contenuti tanto per crearli. L'obiettivo è passare velocemente dalla lettura passiva al recupero attivo, perché è lì che lo studio inizia a restare.</p>
+    <h3>3. Chiedi al Tutor AI quando ti blocchi</h3>
+    <p>Se un concetto non è chiaro, il Tutor AI te lo spiega in modo semplice. Puoi fare domande di follow-up, confrontare idee o chiedere un esempio. Funziona meglio come compagno di studio: non una scorciatoia, ma un modo per togliere attrito quando sei bloccato.</p>
+    <h3>4. Pianifichi la settimana intorno agli esami</h3>
+    <p>Il calendario tiene insieme il flusso. Invece di indovinare cosa studiare dopo, puoi organizzare sessioni in base alle date degli esami, alle materie e al tempo che hai davvero. L'obiettivo è semplice: meno strumenti sparsi, meno piani abbandonati, più continuità.</p>
+    <h3>Perché conta</h3>
+    <p>Un buon sistema di studio dovrebbe farti sentire più tranquillo. Dovresti sapere cosa ripassare, cosa non hai ancora capito e qual è il prossimo passo. Lockeen è costruito intorno a questa sensazione: abbastanza strutturato da guidarti, abbastanza flessibile da seguire il modo reale in cui studi.</p>`,
+    author: 'Team Lockeen',
+    authorInitials: 'LT',
+    authorGradient: 'linear-gradient(135deg,#2F2BFF,#7C78FF)',
+    date: '23 giu 2026',
+    readTime: '5 min',
+    featured: true,
+  },
+};
+
+function applyBlogArticleOverrides(lang) {
+  const articles = window.__lockeenBlogArticles;
+  if (!Array.isArray(articles)) return;
+  const target = articles.find((article) => article?.id === 1);
+  const article = BLOG_FEATURED_ARTICLES[lang] || BLOG_FEATURED_ARTICLES.en;
+  if (!target || target.title === article.title) return;
+  Object.assign(target, article);
+  window.__lockeenBlogRenderAll?.();
+}
+
+function ensureBlogNewsletter(root, lang) {
+  const subscribeButton = Array.from(root.querySelectorAll('button')).find((button) => {
+    const text = button.textContent.trim().toLowerCase();
+    return text === 'subscribe' || text === 'iscriviti';
+  });
+  const input = subscribeButton?.parentElement?.querySelector('input[type="email"]');
+  if (!subscribeButton || !input) return;
+  const helperCopy = lang === 'it'
+    ? 'Ricevi aggiornamenti prodotto e consigli di studio. Niente spam.'
+    : 'Get product updates and study tips. No spam.';
+  if (subscribeButton.dataset.newsletterReady === 'true') {
+    const helperNode = subscribeButton.parentElement.querySelector('.newsletter-status');
+    if (helperNode && !helperNode.dataset.newsletterTouched) helperNode.textContent = helperCopy;
+    return;
+  }
+
+  const helper = document.createElement('p');
+  helper.className = 'newsletter-status text-xs leading-relaxed';
+  helper.style.cssText = 'color:rgba(255,255,255,.55);margin-top:8px;';
+  helper.textContent = helperCopy;
+  subscribeButton.parentElement.appendChild(helper);
+
+  subscribeButton.dataset.newsletterReady = 'true';
+  subscribeButton.addEventListener('click', async (event) => {
+    event.preventDefault();
+    const email = input.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      helper.textContent = lang === 'it' ? 'Inserisci prima una email valida.' : 'Enter a valid email first.';
+      helper.dataset.newsletterTouched = 'true';
+      helper.style.color = '#FCA5A5';
+      return;
+    }
+
+    const originalLabel = subscribeButton.textContent;
+    subscribeButton.disabled = true;
+    subscribeButton.textContent = lang === 'it' ? 'Iscrizione...' : 'Subscribing...';
+    helper.textContent = lang === 'it' ? 'Ti stiamo aggiungendo alla lista.' : 'Adding you to the list.';
+    helper.dataset.newsletterTouched = 'true';
+    helper.style.color = 'rgba(255,255,255,.65)';
+
+    const result = await subscribeToNewsletter({
+      email,
+      source: 'blog',
+      locale: lang,
+      page: 'blog',
+    });
+
+    subscribeButton.disabled = false;
+    subscribeButton.textContent = originalLabel;
+    helper.dataset.newsletterTouched = 'true';
+
+    if (result.error) {
+      helper.textContent = lang === 'it'
+        ? 'Non siamo riusciti a completare l’iscrizione. Riprova tra poco.'
+        : 'We could not complete the signup. Please try again in a moment.';
+      helper.style.color = '#FCA5A5';
+      return;
+    }
+
+    helper.textContent = result.data?.status === 'already_subscribed'
+      ? (lang === 'it' ? 'Sei già nella lista.' : 'You are already on the list.')
+      : (lang === 'it'
+        ? 'Iscrizione completata. Riceverai i prossimi aggiornamenti via email.'
+        : 'You are subscribed. Check your inbox for future updates.');
+    helper.style.color = '#86EFAC';
+    if (result.data?.status !== 'already_subscribed') input.value = '';
+  });
+}
+
+function ensureBlogFeaturedCtas(root, lang) {
+  const card = root.querySelector('#featured-card');
+  if (!card || card.querySelector('[data-blog-featured-ctas="true"]')) return;
+
+  const labels = lang === 'it'
+    ? { demo: 'Guarda demo', signup: 'Inizia gratis' }
+    : { demo: 'See demo', signup: 'Start free' };
+  const actionSpan = Array.from(card.querySelectorAll('span')).find((node) => {
+    const text = node.textContent.trim().toLowerCase();
+    return text === 'read article' || text === 'leggi articolo' || text === "leggi l'articolo";
+  });
+  const actionContainer = actionSpan?.parentElement || card;
+  const ctaRow = document.createElement('div');
+  ctaRow.dataset.blogFeaturedCtas = 'true';
+  ctaRow.className = 'flex flex-wrap gap-2 mt-4';
+  ctaRow.innerHTML = `
+    <a href="/?preview=analytics#product-tablet" data-blog-demo-link="true" class="inline-flex items-center justify-center rounded-full bg-white text-[#070B2D] px-4 py-2 text-sm font-semibold transition hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white/70">${labels.demo}</a>
+    <a href="#signup" data-static-auth="signup" class="inline-flex items-center justify-center rounded-full border border-white/35 text-white px-4 py-2 text-sm font-semibold transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/70">${labels.signup}</a>
+  `;
+  ctaRow.querySelector('[data-blog-demo-link]')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+  ctaRow.querySelector('[data-static-auth]')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (window.openAuth) {
+      window.openAuth('signup');
+    } else {
+      window.location.href = '/?auth=signup';
+    }
+  });
+  actionContainer.appendChild(ctaRow);
+}
+
 function replaceAboutTeam(root, pageName) {
   if (pageName !== 'about' || root.querySelector('[data-lockeen-real-team="true"]')) return;
 
@@ -464,9 +685,91 @@ function replaceAboutTeam(root, pageName) {
     </div>`;
 }
 
+function ensureCareersApplicationForm(root, lang) {
+  const form = root.querySelector('#application-form');
+  const success = root.querySelector('#application-success');
+  if (!form || !success) return;
+  form.dataset.careersLang = lang;
+  if (form.dataset.careersRealSubmit === 'true') return;
+
+  const modal = root.querySelector('#application-modal');
+  const submitButton = form.querySelector('button[type="submit"]');
+  const closeModal = () => {
+    modal?.classList.add('hidden');
+    modal?.classList.remove('flex');
+    document.body.style.overflow = '';
+  };
+  const setStatus = (message, tone = 'success') => {
+    success.textContent = message;
+    success.classList.remove('hidden', 'border-emerald-200', 'bg-emerald-50', 'text-emerald-700', 'border-red-200', 'bg-red-50', 'text-red-700');
+    success.classList.add(
+      tone === 'error' ? 'border-red-200' : 'border-emerald-200',
+      tone === 'error' ? 'bg-red-50' : 'bg-emerald-50',
+      tone === 'error' ? 'text-red-700' : 'text-emerald-700',
+    );
+  };
+
+  form.dataset.careersRealSubmit = 'true';
+  success.textContent = lang === 'it'
+    ? 'Candidatura inviata. Ti contatteremo se c’è fit.'
+    : 'Application submitted. We will reach out if there is a fit.';
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!form.reportValidity()) return;
+
+    const currentLang = form.dataset.careersLang === 'it' ? 'it' : 'en';
+    const formData = new FormData(form);
+    const originalLabel = submitButton?.textContent || '';
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = currentLang === 'it' ? 'Invio...' : 'Submitting...';
+    }
+    success.classList.add('hidden');
+
+    const result = await submitCareerApplication({
+      role: formData.get('role'),
+      desiredRole: formData.get('desired_role'),
+      firstName: formData.get('first_name'),
+      lastName: formData.get('last_name'),
+      email: formData.get('email'),
+      cv: formData.get('cv'),
+      portfolioUrl: formData.get('portfolio'),
+      note: formData.get('note'),
+      locale: currentLang,
+    });
+
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+    }
+
+    if (result.error) {
+      setStatus(currentLang === 'it'
+        ? 'Non siamo riusciti a inviare la candidatura. Controlla i campi e riprova.'
+        : 'We could not submit the application. Check the fields and try again.', 'error');
+      return;
+    }
+
+    setStatus(currentLang === 'it'
+      ? 'Candidatura inviata. Ti contatteremo se c’è fit.'
+      : 'Application submitted. We will reach out if there is a fit.');
+    form.reset();
+    setTimeout(closeModal, 1800);
+  }, true);
+}
+
 function applyStaticLanguage(root, lang, pageName) {
+  ensureStaticNavLinks(root);
   ensureStaticLanguageControls(root, lang);
   updateStaticDocumentTitle(lang, pageName);
+  if (pageName === 'blog') {
+    applyBlogArticleOverrides(lang);
+    ensureBlogFeaturedCtas(root, lang);
+    ensureBlogNewsletter(root, lang);
+  }
+  if (pageName === 'careers') ensureCareersApplicationForm(root, lang);
 
   const targetIndex = lang === 'it' ? 1 : 0;
   const lookup = new Map();
@@ -517,6 +820,8 @@ function applyStaticLanguage(root, lang, pageName) {
     const heading = root.querySelector('h1');
     if (heading && heading.textContent.trim()) heading.textContent = headingText;
   }
+
+  ensureStaticAuthLinks(root);
 }
 
 export default function StaticPage() {
@@ -545,6 +850,8 @@ export default function StaticPage() {
       try {
         Function(`
           ${oldScript.textContent}
+          if (typeof ARTICLES !== 'undefined') window.__lockeenBlogArticles = ARTICLES;
+          if (typeof renderAll !== 'undefined') window.__lockeenBlogRenderAll = renderAll;
           if (typeof openArticle !== 'undefined') window.openArticle = openArticle;
           if (typeof closeModal !== 'undefined') window.closeModal = closeModal;
           if (typeof showForm !== 'undefined') window.showForm = showForm;
@@ -569,20 +876,36 @@ export default function StaticPage() {
       window.dispatchEvent(new CustomEvent('lockeen-language', { detail: { lang: nextLang } }));
     };
 
+    const onClick = (event) => {
+      const authLink = event.target.closest('[data-static-auth]');
+      if (!authLink) return;
+      event.preventDefault();
+      const mode = authLink.dataset.staticAuth === 'signin' ? 'signin' : 'signup';
+      if (window.openAuth) {
+        window.openAuth(mode);
+      } else {
+        window.location.href = `/?auth=${mode}`;
+      }
+    };
+
     const observer = new MutationObserver(() => {
       window.requestAnimationFrame(() => applyStaticLanguage(root, activeLang, pageName));
     });
 
     root.addEventListener('change', onChange);
+    root.addEventListener('click', onClick);
     observer.observe(root, { childList: true, subtree: true });
 
     return () => {
       observer.disconnect();
       root.removeEventListener('change', onChange);
+      root.removeEventListener('click', onClick);
       document.body.style.overflow = '';
       window.openArticle = undefined;
       window.closeModal = undefined;
       window.showForm = undefined;
+      window.__lockeenBlogArticles = undefined;
+      window.__lockeenBlogRenderAll = undefined;
     };
   }, [location.pathname]);
 

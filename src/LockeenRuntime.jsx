@@ -117,9 +117,16 @@ function AuthShell() {
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const isRecoveryLink = searchParams.get('auth') === 'reset' || hashParams.get('type') === 'recovery';
+    const authIntent = searchParams.get('auth');
 
     if (isRecoveryLink) {
       setModal('reset');
+      return;
+    }
+
+    if (authIntent === 'signup' || authIntent === 'signin') {
+      setModal(authIntent);
+      window.history.replaceState({}, '', window.location.pathname || '/');
     }
   }, []);
 
