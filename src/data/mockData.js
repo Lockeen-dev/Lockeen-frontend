@@ -11,22 +11,22 @@ export const mockDashboard = {
 
 /* ===================== MY NOTES ===================== */
 export const seedNotes = [
-  { id: 1, title: 'Cellular Respiration',         subject: 'Biology',   updated: '2h ago',  pages: 12, color: '#EEF2FF', dot: 'var(--indigo)', examDate: '2026-06-15', targetGrade: 27 },
-  { id: 2, title: 'Organic Chemistry Reactions',  subject: 'Chemistry', updated: 'Yesterday', pages: 24, color: '#FDF2F8', dot: 'var(--purple)', examDate: '2026-06-20', targetGrade: 25 },
-  { id: 3, title: 'World War II Timeline',        subject: 'History',   updated: '3 days ago', pages: 18, color: '#FEF3C7', dot: '#F59E0B', examDate: '2026-07-01', targetGrade: 24 },
-  { id: 4, title: 'Calculus — Derivatives',       subject: 'Math',      updated: '1 week ago', pages: 32, color: '#ECFEFF', dot: '#06B6D4', examDate: '2026-06-10', targetGrade: 28 },
-  { id: 5, title: 'Macroeconomics Notes',         subject: 'Economics', updated: '2 weeks ago', pages: 16, color: '#DCFCE7', dot: '#10B981', examDate: '2026-07-05', targetGrade: 26 },
-  { id: 6, title: 'Shakespeare — Hamlet',         subject: 'Literature',updated: '3 weeks ago', pages: 22, color: '#FEE2E2', dot: '#EF4444', examDate: '2026-06-28', targetGrade: 24 },
+  { id: 1, title: 'Cellular Respiration',         subject: 'Biology',   updated: '2h ago',  pages: 12, color: '#C7D2FE', dot: '#818CF8', examDate: '2026-06-15', targetGrade: 27 },
+  { id: 2, title: 'Organic Chemistry Reactions',  subject: 'Chemistry', updated: 'Yesterday', pages: 24, color: '#E9D5FF', dot: '#C084FC', examDate: '2026-06-20', targetGrade: 25 },
+  { id: 3, title: 'World War II Timeline',        subject: 'History',   updated: '3 days ago', pages: 18, color: '#FDE68A', dot: '#FDE047', examDate: '2026-07-01', targetGrade: 24 },
+  { id: 4, title: 'Calculus — Derivatives',       subject: 'Math',      updated: '1 week ago', pages: 32, color: '#A5F3FC', dot: '#22D3EE', examDate: '2026-06-10', targetGrade: 28 },
+  { id: 5, title: 'Macroeconomics Notes',         subject: 'Economics', updated: '2 weeks ago', pages: 16, color: '#BBF7D0', dot: '#4ADE80', examDate: '2026-07-05', targetGrade: 26 },
+  { id: 6, title: 'Shakespeare — Hamlet',         subject: 'Literature',updated: '3 weeks ago', pages: 22, color: '#FECACA', dot: '#F87171', examDate: '2026-06-28', targetGrade: 24 },
 ];
 
 export const SUBJECT_COLORS = {
-  'Biology':    { bg:'#EEF2FF', dot:'#3730E8', text:'#3730E8', border:'#c7d0f8' },
-  'Chemistry':  { bg:'#FDF2F8', dot:'#8B5CF6', text:'#8B5CF6', border:'#e9c5f8' },
-  'History':    { bg:'#FEF3C7', dot:'#F59E0B', text:'#92400E', border:'#fcd34d' },
-  'Math':       { bg:'#ECFEFF', dot:'#06B6D4', text:'#0E7490', border:'#a5f3fc' },
-  'Economics':  { bg:'#DCFCE7', dot:'#10B981', text:'#065F46', border:'#86efac' },
-  'Finance':    { bg:'#DCFCE7', dot:'#10B981', text:'#065F46', border:'#86efac' },
-  'Literature': { bg:'#FEE2E2', dot:'#EF4444', text:'#991B1B', border:'#fca5a5' },
+  'Biology':    { bg:'#C7D2FE', dot:'#818CF8', text:'#4338CA', border:'#A5B4FC' },
+  'Chemistry':  { bg:'#E9D5FF', dot:'#C084FC', text:'#7E22CE', border:'#D8B4FE' },
+  'History':    { bg:'#FDE68A', dot:'#FDE047', text:'#92400E', border:'#FACC15' },
+  'Math':       { bg:'#A5F3FC', dot:'#22D3EE', text:'#0E7490', border:'#67E8F9' },
+  'Economics':  { bg:'#BBF7D0', dot:'#4ADE80', text:'#15803D', border:'#86EFAC' },
+  'Finance':    { bg:'#BBF7D0', dot:'#4ADE80', text:'#15803D', border:'#86EFAC' },
+  'Literature': { bg:'#FECACA', dot:'#F87171', text:'#B91C1C', border:'#FCA5A5' },
 };
 
 export const SUBJECT_COLORS_DARK = {
@@ -40,7 +40,7 @@ export const SUBJECT_COLORS_DARK = {
 };
 
 export const EXTRA_SUBJECT_COLORS = {
-  Physics: { bg: '#DBEAFE', dot: '#3B82F6', text: '#1D4ED8', border: '#BFDBFE' },
+  Physics: { bg: '#BFDBFE', dot: '#60A5FA', text: '#1D4ED8', border: '#93C5FD' },
   Other:   { bg: '#F3F4F6', dot: '#6B7280', text: '#374151', border: '#D1D5DB' },
 };
 
@@ -78,8 +78,8 @@ export function inferSubjectFromName(value) {
   return found ? found[0] : null;
 }
 
-export const PALETTE_CYCLE = ['#EEF2FF', '#FDF2F8', '#ECFEFF', '#FEF3C7', '#DBEAFE', '#EDE9FE'];
-export const DOT_CYCLE     = ['var(--indigo)', 'var(--purple)', '#06B6D4', '#F59E0B', '#3B82F6', '#7C3AED'];
+export const PALETTE_CYCLE = ['#BFDBFE', '#BAE6FD', '#99F6E4', '#A7F3D0', '#FDE68A', '#FECACA'];
+export const DOT_CYCLE     = ['#60A5FA', '#38BDF8', '#2DD4BF', '#34D399', '#FDE047', '#F87171'];
 
 export const cellularRespirationCards = [
   { q: 'What is the main purpose of cellular respiration?', a: 'To convert glucose into ATP, the usable energy currency of the cell.' },
