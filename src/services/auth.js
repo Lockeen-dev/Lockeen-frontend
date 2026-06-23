@@ -89,16 +89,21 @@ function requireSupabaseAuthMode() {
 }
 
 async function ensurePasswordRecoverySession() {
-  const { data: currentSession } = await supabase.auth.getSession();
-  if (currentSession?.session?.access_token) {
-    return ok(currentSession.session);
-  }
-
   if (typeof window === 'undefined') {
     return fail('Auth session missing. Request a new password reset email and open the latest link.', 'RECOVERY_SESSION_MISSING');
   }
 
   const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const recoveryError = url.searchParams.get('error_description') || hashParams.get('error_description');
+  const recoveryErrorCode = url.searchParams.get('error_code') || hashParams.get('error_code');
+  if (recoveryError || recoveryErrorCode) {
+    return fail(
+      recoveryError || 'This reset link is invalid or expired. Request a new password reset email and open the latest link.',
+      recoveryErrorCode || 'RECOVERY_LINK_INVALID',
+    );
+  }
+
   const code = url.searchParams.get('code');
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -108,7 +113,6 @@ async function ensurePasswordRecoverySession() {
     if (data?.session?.access_token) return ok(data.session);
   }
 
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const accessToken = hashParams.get('access_token');
   const refreshToken = hashParams.get('refresh_token');
   if (accessToken && refreshToken) {
@@ -120,6 +124,11 @@ async function ensurePasswordRecoverySession() {
       return fail(error.message, error.code || 'RECOVERY_SESSION_FAILED');
     }
     if (data?.session?.access_token) return ok(data.session);
+  }
+
+  const { data: currentSession } = await supabase.auth.getSession();
+  if (currentSession?.session?.access_token) {
+    return ok(currentSession.session);
   }
 
   return fail('Auth session missing. Request a new password reset email and open the latest link.', 'RECOVERY_SESSION_MISSING');

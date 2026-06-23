@@ -25,7 +25,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
 
   useEffect(() => {
     setMode(initialMode);
-    setError(null);
+    setError(initialMode === 'reset' ? getResetLinkError() : null);
     setNotice(null);
     setPassword('');
     setConfirmPassword('');
@@ -297,6 +297,24 @@ function formatAuthError(error, context) {
   }
 
   return error?.message || 'Unable to authenticate.';
+}
+
+function getResetLinkError() {
+  if (typeof window === 'undefined') return null;
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const description = searchParams.get('error_description') || hashParams.get('error_description');
+  const code = searchParams.get('error_code') || hashParams.get('error_code');
+
+  if (!description && !code) return null;
+
+  const normalized = `${code || ''} ${description || ''}`.toLowerCase();
+  if (normalized.includes('expired')) {
+    return 'This reset link has expired. Request a new password reset email and open the latest link.';
+  }
+
+  return description || 'This reset link is invalid. Request a new password reset email and open the latest link.';
 }
 
 const authS = {
