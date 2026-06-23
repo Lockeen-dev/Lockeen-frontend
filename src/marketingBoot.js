@@ -1,3 +1,5 @@
+import { ensureFooterLegalLinks, initCookieConsentUi } from './utils/cookieConsent';
+
 export function initMarketingDom() {
   const iconPaths = {
     zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>',
@@ -561,6 +563,7 @@ export function initMarketingDom() {
     marketingStaticText.forEach(function(item) {
       setExactText(item[0], item[1], dict[item[2]], item[2]);
     });
+    ensureFooterLegalLinks(document, lang);
 
     setExactHtml('section h2', 'Ready to transform your study experience?', dict['final.title'], 'final.title');
     setExactText('section p', 'Join thousands of students who are already achieving better grades with AI-powered learning.', dict['final.sub'], 'final.sub');
@@ -633,6 +636,7 @@ export function initMarketingDom() {
   };
   const initialLockeenLang = normalizeLockeenLang(localStorage.getItem('lockeen-lang') || 'en');
   applyLockeenLanguage(initialLockeenLang);
+  initCookieConsentUi(document);
   document.addEventListener('click', handleProductPreviewLink);
   document.addEventListener('click', handlePricingLink);
   const mobileMenuToggle = document.getElementById('mobile-menu-toggle');

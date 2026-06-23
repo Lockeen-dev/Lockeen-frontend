@@ -4,6 +4,7 @@ import { staticPages } from '../content/staticPages';
 import { submitCareerApplication } from '../services/careerApplications';
 import { subscribeToNewsletter } from '../services/newsletter';
 import { submitPartnerApplication } from '../services/partnerApplications';
+import { ensureFooterLegalLinks, initCookieConsentUi } from '../utils/cookieConsent';
 
 const pageTitles = {
   en: {
@@ -13,6 +14,7 @@ const pageTitles = {
     earn: 'Earn · Partner Program – Lockeen',
     press: 'Press – Lockeen',
     privacy: 'Privacy Policy — Lockeen',
+    'cookie-policy': 'Cookie Policy — Lockeen',
     terms: 'Terms of Service — Lockeen',
   },
   it: {
@@ -22,6 +24,7 @@ const pageTitles = {
     earn: 'Guadagna · Partner Program – Lockeen',
     press: 'Stampa – Lockeen',
     privacy: 'Privacy Policy — Lockeen',
+    'cookie-policy': 'Cookie Policy — Lockeen',
     terms: 'Termini di servizio — Lockeen',
   },
 };
@@ -116,6 +119,22 @@ const staticPageContentTranslations = {
     ['Join over 120,000 students already using Lockeen to learn faster, retain more, and stress less.', 'Unisciti a oltre 120.000 studenti che usano già Lockeen per imparare più velocemente, ricordare meglio e stressarsi meno.'],
     ["Get started — it's free", 'Inizia: è gratis'],
     ['Read the blog', 'Leggi il blog'],
+  ],
+  'cookie-policy': [
+    ['Cookie Policy', 'Cookie Policy'],
+    ['Last updated: June 23, 2026', 'Ultimo aggiornamento: 23 giugno 2026'],
+    ['This page explains how Lockeen uses cookies and similar local technologies.', 'Questa pagina spiega come Lockeen usa cookie e tecnologie locali simili.'],
+    ['We use the minimum cookies and local storage needed to run the product, keep you signed in, remember your language, and protect the service.', 'Usiamo il minimo di cookie e local storage necessario per far funzionare il prodotto, mantenere l’accesso, ricordare la lingua e proteggere il servizio.'],
+    ['Necessary cookies', 'Cookie necessari'],
+    ['These are required for authentication, security, billing return states, language preferences, and core product behavior. They cannot be disabled through Lockeen because the service would not work correctly without them.', 'Sono necessari per autenticazione, sicurezza, ritorni dal billing, preferenze lingua e funzioni essenziali del prodotto. Non possono essere disattivati da Lockeen perché senza di essi il servizio non funzionerebbe correttamente.'],
+    ['Analytics cookies', 'Cookie analytics'],
+    ['Analytics cookies are optional. If enabled, they help us understand aggregate usage and performance so we can improve Lockeen. They are not used for advertising.', 'I cookie analytics sono opzionali. Se abilitati, ci aiutano a capire utilizzo aggregato e performance per migliorare Lockeen. Non vengono usati per pubblicità.'],
+    ['Advertising cookies', 'Cookie pubblicitari'],
+    ['Lockeen does not currently use advertising cookies or third-party ad tracking cookies.', 'Lockeen al momento non usa cookie pubblicitari né cookie di tracciamento pubblicitario di terze parti.'],
+    ['Manage your preferences', 'Gestisci le preferenze'],
+    ['You can update your cookie preferences at any time from Cookie Settings in the footer.', 'Puoi aggiornare le preferenze cookie in qualsiasi momento da Impostazioni cookie nel footer.'],
+    ['Open Cookie Settings', 'Apri impostazioni cookie'],
+    ['For more information about how we process personal data, read our Privacy Policy.', 'Per maggiori informazioni su come trattiamo i dati personali, leggi la Privacy Policy.'],
   ],
   careers: [
     ["We're hiring", 'Stiamo assumendo'],
@@ -472,6 +491,115 @@ function normalizeStaticLang(lang) {
 
 function getStaticLang() {
   return normalizeStaticLang(localStorage.getItem('lockeen-lang') || 'en');
+}
+
+function buildCookiePolicyHtml() {
+  return `
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#E5E7EB]">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        <a href="/" class="flex items-center gap-3">
+          <div style="width:36px;height:36px;background:#3730E8;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+            <img src="/Lockeen-2.png" alt="Lockeen" style="width:58px;height:58px;max-width:none;" />
+          </div>
+          <span class="text-2xl font-bold" style="color:#432bff">Lockeen</span>
+        </a>
+        <div class="hidden md:flex items-center gap-8">
+          <a href="/#features" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Features</a>
+          <a href="/#product" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Product</a>
+          <a href="/#pricing" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Pricing</a>
+          <a href="/about" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">About</a>
+          <a href="/blog" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Blog</a>
+        </div>
+        <div class="hidden md:flex items-center gap-4">
+          <a href="/" data-static-auth="signin" class="px-5 py-2.5 text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">Sign In</a>
+          <a href="/" data-static-auth="signup" class="px-6 py-2.5 bg-[#2F2BFF] text-white rounded-full hover:opacity-90 transition-opacity font-medium">Start Free</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <main class="pt-20">
+    <section class="bg-white py-20">
+      <div class="max-w-3xl mx-auto px-6 lg:px-8">
+        <p class="text-sm font-semibold uppercase tracking-widest text-[#2F2BFF] mb-4">Last updated: June 23, 2026</p>
+        <h1 class="text-5xl md:text-6xl font-bold tracking-tight text-[#070B2D] mb-6">Cookie Policy</h1>
+        <p class="text-xl text-[#070B2D]/60 leading-relaxed mb-10">This page explains how Lockeen uses cookies and similar local technologies.</p>
+
+        <div class="space-y-10 text-[#070B2D]/72">
+          <section>
+            <p class="text-lg leading-relaxed">We use the minimum cookies and local storage needed to run the product, keep you signed in, remember your language, and protect the service.</p>
+          </section>
+          <section>
+            <h2 class="text-2xl font-bold text-[#070B2D] mb-3">Necessary cookies</h2>
+            <p class="leading-relaxed">These are required for authentication, security, billing return states, language preferences, and core product behavior. They cannot be disabled through Lockeen because the service would not work correctly without them.</p>
+          </section>
+          <section>
+            <h2 class="text-2xl font-bold text-[#070B2D] mb-3">Analytics cookies</h2>
+            <p class="leading-relaxed">Analytics cookies are optional. If enabled, they help us understand aggregate usage and performance so we can improve Lockeen. They are not used for advertising.</p>
+          </section>
+          <section>
+            <h2 class="text-2xl font-bold text-[#070B2D] mb-3">Advertising cookies</h2>
+            <p class="leading-relaxed">Lockeen does not currently use advertising cookies or third-party ad tracking cookies.</p>
+          </section>
+          <section>
+            <h2 class="text-2xl font-bold text-[#070B2D] mb-3">Manage your preferences</h2>
+            <p class="leading-relaxed mb-5">You can update your cookie preferences at any time from Cookie Settings in the footer.</p>
+            <button type="button" data-cookie-settings-link class="px-6 py-3 rounded-full bg-[#2F2BFF] text-white font-bold hover:opacity-90 transition-opacity">Open Cookie Settings</button>
+            <p class="leading-relaxed mt-6">For more information about how we process personal data, read our <a href="/privacy" class="text-[#2F2BFF] font-semibold hover:underline">Privacy Policy</a>.</p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="bg-[#070B2D] text-white">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8 py-16 lg:py-20">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-12 mb-16">
+        <div class="col-span-2">
+          <div class="flex items-center gap-3 mb-4">
+            <div style="width:36px;height:36px;background:#3730E8;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+              <img src="/Lockeen-2.png" alt="Lockeen logo" style="width:58px;height:58px;max-width:none;" />
+            </div>
+            <span class="text-xl text-white font-bold">Lockeen</span>
+          </div>
+          <p class="text-white/70 mb-6 max-w-xs">The AI-powered workspace for smarter studying. Learn better, achieve more.</p>
+        </div>
+        <div>
+          <h4 class="mb-4 font-semibold">Product</h4>
+          <ul class="space-y-3">
+            <li><a href="/#pricing" class="text-white/70 hover:text-white transition-colors">Pricing</a></li>
+            <li><a href="/?preview=aiTutor#product-tablet" class="text-white/70 hover:text-white transition-colors">AI Tutor</a></li>
+            <li><a href="/?preview=flashcards#product-tablet" class="text-white/70 hover:text-white transition-colors">Flashcards</a></li>
+            <li><a href="/?preview=quiz#product-tablet" class="text-white/70 hover:text-white transition-colors">Quizzes</a></li>
+            <li><a href="/?preview=analytics#product-tablet" class="text-white/70 hover:text-white transition-colors">Analytics</a></li>
+            <li><a href="/?preview=calendar#product-tablet" class="text-white/70 hover:text-white transition-colors">Calendar</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 font-semibold">Company</h4>
+          <ul class="space-y-3">
+            <li><a href="/about" class="text-white/70 hover:text-white transition-colors">About</a></li>
+            <li><a href="/blog" class="text-white/70 hover:text-white transition-colors">Blog</a></li>
+            <li><a href="/careers" class="text-white/70 hover:text-white transition-colors">Careers</a></li>
+            <li><a href="/earn" class="text-white/70 hover:text-white transition-colors">Earn</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 font-semibold">Legal</h4>
+          <ul class="space-y-3">
+            <li><a href="/privacy" class="text-white/70 hover:text-white transition-colors">Privacy</a></li>
+            <li><a href="/terms" class="text-white/70 hover:text-white transition-colors">Terms</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
+        <p class="text-white/60 text-sm">© 2026 Lockeen. All rights reserved.</p>
+        <div class="flex gap-6 text-sm">
+          <a href="/privacy" class="text-white/60 hover:text-white transition-colors">Privacy Policy</a>
+          <a href="/terms" class="text-white/60 hover:text-white transition-colors">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>`;
 }
 
 function updateStaticDocumentTitle(lang, pageName) {
@@ -968,6 +1096,7 @@ function applyStaticLanguage(root, lang, pageName) {
       earn: 'Bring Lockeen to your campus.',
       press: 'Lockeen in the news',
       privacy: 'Privacy Policy',
+      'cookie-policy': 'Cookie Policy',
       terms: 'Terms of Service',
     },
     it: {
@@ -977,6 +1106,7 @@ function applyStaticLanguage(root, lang, pageName) {
       earn: 'Porta Lockeen nel tuo campus.',
       press: 'Lockeen sulla stampa',
       privacy: 'Privacy Policy',
+      'cookie-policy': 'Cookie Policy',
       terms: 'Termini di servizio',
     },
   };
@@ -988,13 +1118,14 @@ function applyStaticLanguage(root, lang, pageName) {
   }
 
   ensureStaticAuthLinks(root);
+  ensureFooterLegalLinks(root, lang);
 }
 
 export default function StaticPage() {
   const { page } = useParams();
   const location = useLocation();
   const pageName = normalizePage(page || location.pathname.split('/').filter(Boolean)[0]);
-  const html = staticPages[pageName] || staticPages.about;
+  const html = pageName === 'cookie-policy' ? buildCookiePolicyHtml() : (staticPages[pageName] || staticPages.about);
 
   useEffect(() => {
     const lang = getStaticLang();
@@ -1031,6 +1162,7 @@ export default function StaticPage() {
 
     replaceAboutTeam(root, pageName);
     applyStaticLanguage(root, lang, pageName);
+    initCookieConsentUi(root);
 
     let activeLang = lang;
 
