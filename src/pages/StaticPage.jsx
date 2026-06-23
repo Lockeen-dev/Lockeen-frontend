@@ -484,6 +484,109 @@ function ensureStaticAuthLinks(root) {
   });
 }
 
+const BLOG_FEATURED_ARTICLES = {
+  en: {
+    id: 1,
+    category: 'Product',
+    title: 'How Lockeen works: from messy notes to a study plan',
+    excerpt: 'A simple walkthrough of the Lockeen workflow: upload your material, turn it into practice, ask questions, and plan the week without switching tools.',
+    body: `<p>Most students do not need another folder of notes. They need a way to turn those notes into action. That is the idea behind Lockeen: one place where your material becomes flashcards, quizzes, AI explanations, and a calendar you can actually follow.</p>
+    <h3>1. Upload what you already have</h3>
+    <p>You start with your real study material: PDFs, lecture notes, summaries, slides, or documents. Lockeen keeps the workflow close to what students already do, so there is no need to rebuild your system from scratch.</p>
+    <h3>2. Turn notes into practice</h3>
+    <p>Once your material is inside the workspace, you can generate flashcards and quizzes from it. The point is not to create content for the sake of it. The point is to move quickly from passive reading to active recall, because that is where learning starts to stick.</p>
+    <h3>3. Ask the AI Tutor when you get stuck</h3>
+    <p>When a concept is unclear, the AI Tutor gives you an explanation in plain language. You can ask follow-up questions, compare ideas, or request an example. It works best as a study companion: not a shortcut, but a way to remove friction when you are blocked.</p>
+    <h3>4. Plan the week around your exams</h3>
+    <p>The calendar brings the workflow together. Instead of guessing what to study next, you can organize sessions around exam dates, subjects, and the time you realistically have. The goal is simple: fewer scattered tools, fewer abandoned plans, more consistent progress.</p>
+    <h3>Why this matters</h3>
+    <p>A good study system should feel calm. You should know what to review, what you still do not understand, and what comes next. Lockeen is built around that feeling: structured enough to guide you, flexible enough to match how students actually study.</p>`,
+    author: 'Lockeen Team',
+    authorInitials: 'LT',
+    authorGradient: 'linear-gradient(135deg,#2F2BFF,#7C78FF)',
+    date: 'Jun 23, 2026',
+    readTime: '5 min read',
+    featured: true,
+  },
+  it: {
+    id: 1,
+    category: 'Product',
+    title: 'Come funziona Lockeen: dagli appunti al piano di studio',
+    excerpt: 'Un percorso semplice dentro Lockeen: carichi il materiale, lo trasformi in esercizio, fai domande e pianifichi la settimana senza saltare tra mille strumenti.',
+    body: `<p>Molti studenti non hanno bisogno di un'altra cartella piena di appunti. Hanno bisogno di trasformare quegli appunti in azioni concrete. Lockeen nasce da qui: un unico spazio in cui il materiale diventa flashcard, quiz, spiegazioni AI e un calendario che puoi davvero seguire.</p>
+    <h3>1. Carichi quello che hai già</h3>
+    <p>Parti dal tuo materiale reale: PDF, appunti delle lezioni, riassunti, slide o documenti. Lockeen resta vicino al modo in cui gli studenti studiano già, quindi non devi ricostruire tutto da zero.</p>
+    <h3>2. Trasformi gli appunti in pratica</h3>
+    <p>Quando il materiale è nello spazio di lavoro, puoi generare flashcard e quiz. L'obiettivo non è creare contenuti tanto per crearli. L'obiettivo è passare velocemente dalla lettura passiva al recupero attivo, perché è lì che lo studio inizia a restare.</p>
+    <h3>3. Chiedi al Tutor AI quando ti blocchi</h3>
+    <p>Se un concetto non è chiaro, il Tutor AI te lo spiega in modo semplice. Puoi fare domande di follow-up, confrontare idee o chiedere un esempio. Funziona meglio come compagno di studio: non una scorciatoia, ma un modo per togliere attrito quando sei bloccato.</p>
+    <h3>4. Pianifichi la settimana intorno agli esami</h3>
+    <p>Il calendario tiene insieme il flusso. Invece di indovinare cosa studiare dopo, puoi organizzare sessioni in base alle date degli esami, alle materie e al tempo che hai davvero. L'obiettivo è semplice: meno strumenti sparsi, meno piani abbandonati, più continuità.</p>
+    <h3>Perché conta</h3>
+    <p>Un buon sistema di studio dovrebbe farti sentire più tranquillo. Dovresti sapere cosa ripassare, cosa non hai ancora capito e qual è il prossimo passo. Lockeen è costruito intorno a questa sensazione: abbastanza strutturato da guidarti, abbastanza flessibile da seguire il modo reale in cui studi.</p>`,
+    author: 'Team Lockeen',
+    authorInitials: 'LT',
+    authorGradient: 'linear-gradient(135deg,#2F2BFF,#7C78FF)',
+    date: '23 giu 2026',
+    readTime: '5 min',
+    featured: true,
+  },
+};
+
+function applyBlogArticleOverrides(lang) {
+  const articles = window.__lockeenBlogArticles;
+  if (!Array.isArray(articles)) return;
+  const target = articles.find((article) => article?.id === 1);
+  const article = BLOG_FEATURED_ARTICLES[lang] || BLOG_FEATURED_ARTICLES.en;
+  if (!target || target.title === article.title) return;
+  Object.assign(target, article);
+  window.__lockeenBlogRenderAll?.();
+}
+
+function ensureBlogNewsletter(root, lang) {
+  const subscribeButton = Array.from(root.querySelectorAll('button')).find((button) => {
+    const text = button.textContent.trim().toLowerCase();
+    return text === 'subscribe' || text === 'iscriviti';
+  });
+  const input = subscribeButton?.parentElement?.querySelector('input[type="email"]');
+  if (!subscribeButton || !input) return;
+  const helperCopy = lang === 'it'
+    ? 'La newsletter non è ancora collegata. Se lasci la mail, per ora la salviamo solo su questo dispositivo.'
+    : 'Newsletter signup is not live yet. Leave your email and we will store it on this device for now.';
+  if (subscribeButton.dataset.newsletterReady === 'true') {
+    const helperNode = subscribeButton.parentElement.querySelector('.newsletter-status');
+    if (helperNode && !helperNode.dataset.newsletterTouched) helperNode.textContent = helperCopy;
+    return;
+  }
+
+  const helper = document.createElement('p');
+  helper.className = 'newsletter-status text-xs leading-relaxed';
+  helper.style.cssText = 'color:rgba(255,255,255,.55);margin-top:8px;';
+  helper.textContent = helperCopy;
+  subscribeButton.parentElement.appendChild(helper);
+
+  subscribeButton.dataset.newsletterReady = 'true';
+  subscribeButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    const email = input.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      helper.textContent = lang === 'it' ? 'Inserisci prima una email valida.' : 'Enter a valid email first.';
+      helper.dataset.newsletterTouched = 'true';
+      helper.style.color = '#FCA5A5';
+      return;
+    }
+    const stored = JSON.parse(localStorage.getItem('lockeen-newsletter-interest') || '[]');
+    if (!stored.includes(email)) stored.push(email);
+    localStorage.setItem('lockeen-newsletter-interest', JSON.stringify(stored));
+    helper.textContent = lang === 'it'
+      ? 'Salvata localmente per ora. Collegheremo una raccolta email reale prima del lancio.'
+      : 'Saved locally for now. We will connect real email collection before launch.';
+    helper.dataset.newsletterTouched = 'true';
+    helper.style.color = '#86EFAC';
+    input.value = '';
+  });
+}
+
 function replaceAboutTeam(root, pageName) {
   if (pageName !== 'about' || root.querySelector('[data-lockeen-real-team="true"]')) return;
 
@@ -522,6 +625,10 @@ function applyStaticLanguage(root, lang, pageName) {
   ensureStaticNavLinks(root);
   ensureStaticLanguageControls(root, lang);
   updateStaticDocumentTitle(lang, pageName);
+  if (pageName === 'blog') {
+    applyBlogArticleOverrides(lang);
+    ensureBlogNewsletter(root, lang);
+  }
 
   const targetIndex = lang === 'it' ? 1 : 0;
   const lookup = new Map();
@@ -602,6 +709,8 @@ export default function StaticPage() {
       try {
         Function(`
           ${oldScript.textContent}
+          if (typeof ARTICLES !== 'undefined') window.__lockeenBlogArticles = ARTICLES;
+          if (typeof renderAll !== 'undefined') window.__lockeenBlogRenderAll = renderAll;
           if (typeof openArticle !== 'undefined') window.openArticle = openArticle;
           if (typeof closeModal !== 'undefined') window.closeModal = closeModal;
           if (typeof showForm !== 'undefined') window.showForm = showForm;
@@ -654,6 +763,8 @@ export default function StaticPage() {
       window.openArticle = undefined;
       window.closeModal = undefined;
       window.showForm = undefined;
+      window.__lockeenBlogArticles = undefined;
+      window.__lockeenBlogRenderAll = undefined;
     };
   }, [location.pathname]);
 
