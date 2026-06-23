@@ -430,6 +430,60 @@ function ensureStaticLanguageControls(root, lang) {
   });
 }
 
+function ensureStaticNavLinks(root) {
+  const desktopNav = root.querySelector('nav .hidden.md\\:flex.items-center.gap-8');
+  const mobileMenu = root.querySelector('#mob-menu');
+  const navLinks = [
+    { href: '/#features', label: 'Features' },
+    { href: '/#product', label: 'Product' },
+    { href: '/#pricing', label: 'Pricing' },
+    { href: '/about', label: 'About' },
+    { href: '/blog', label: 'Blog' },
+  ];
+
+  if (desktopNav && desktopNav.dataset.staticNavReady !== 'true') {
+    desktopNav.innerHTML = navLinks.map(({ href, label }) => (
+      `<a href="${href}" class="text-[#070B2D]/70 hover:text-[#070B2D] transition-colors">${label}</a>`
+    )).join('');
+    desktopNav.dataset.staticNavReady = 'true';
+  }
+
+  if (mobileMenu && mobileMenu.dataset.staticNavReady !== 'true') {
+    const authLink = mobileMenu.querySelector('[data-static-auth="signup"]')?.outerHTML
+      || '<a href="#signup" data-static-auth="signup" class="block mt-4 px-6 py-2.5 bg-[#2F2BFF] text-white rounded-full text-center font-medium">Start Free</a>';
+    mobileMenu.innerHTML = `${navLinks.map(({ href, label }) => (
+      `<a href="${href}" class="block text-[#070B2D]/70">${label}</a>`
+    )).join('')}${authLink}`;
+    mobileMenu.dataset.staticNavReady = 'true';
+  }
+}
+
+function ensureStaticAuthLinks(root) {
+  root.querySelectorAll('a').forEach((anchor) => {
+    const text = anchor.textContent.trim().replace(/\s+/g, ' ').toLowerCase();
+    const href = anchor.getAttribute('href') || '';
+    const isSignIn = text === 'sign in' || text === 'accedi';
+    const isStartFree =
+      text === 'start free'
+      || text === 'inizia gratis'
+      || text === 'start for free'
+      || text === 'get started — it\'s free'
+      || text === 'get started - it\'s free'
+      || text === 'inizia: è gratis';
+
+    if (isSignIn) {
+      anchor.setAttribute('href', '#signin');
+      anchor.dataset.staticAuth = 'signin';
+      return;
+    }
+
+    if (isStartFree && (href === '/' || href === '#signup' || href === '')) {
+      anchor.setAttribute('href', '#signup');
+      anchor.dataset.staticAuth = 'signup';
+    }
+  });
+}
+
 function replaceAboutTeam(root, pageName) {
   if (pageName !== 'about' || root.querySelector('[data-lockeen-real-team="true"]')) return;
 
@@ -465,6 +519,7 @@ function replaceAboutTeam(root, pageName) {
 }
 
 function applyStaticLanguage(root, lang, pageName) {
+  ensureStaticNavLinks(root);
   ensureStaticLanguageControls(root, lang);
   updateStaticDocumentTitle(lang, pageName);
 
@@ -517,6 +572,8 @@ function applyStaticLanguage(root, lang, pageName) {
     const heading = root.querySelector('h1');
     if (heading && heading.textContent.trim()) heading.textContent = headingText;
   }
+
+  ensureStaticAuthLinks(root);
 }
 
 export default function StaticPage() {
@@ -569,16 +626,30 @@ export default function StaticPage() {
       window.dispatchEvent(new CustomEvent('lockeen-language', { detail: { lang: nextLang } }));
     };
 
+    const onClick = (event) => {
+      const authLink = event.target.closest('[data-static-auth]');
+      if (!authLink) return;
+      event.preventDefault();
+      const mode = authLink.dataset.staticAuth === 'signin' ? 'signin' : 'signup';
+      if (window.openAuth) {
+        window.openAuth(mode);
+      } else {
+        window.location.href = `/?auth=${mode}`;
+      }
+    };
+
     const observer = new MutationObserver(() => {
       window.requestAnimationFrame(() => applyStaticLanguage(root, activeLang, pageName));
     });
 
     root.addEventListener('change', onChange);
+    root.addEventListener('click', onClick);
     observer.observe(root, { childList: true, subtree: true });
 
     return () => {
       observer.disconnect();
       root.removeEventListener('change', onChange);
+      root.removeEventListener('click', onClick);
       document.body.style.overflow = '';
       window.openArticle = undefined;
       window.closeModal = undefined;
