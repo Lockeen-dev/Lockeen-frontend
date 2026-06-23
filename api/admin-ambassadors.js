@@ -437,6 +437,45 @@ async function deactivateAmbassador(admin, actor, body) {
   return { data };
 }
 
+async function reactivateAmbassador(admin, actor, body) {
+  const ambassadorId = cleanText(body.ambassadorId, 80);
+  const reason = cleanText(body.reason, 500) || 'manual_admin_reactivate';
+  if (!ambassadorId) {
+    return { error: { code: 'AMBASSADOR_ID_REQUIRED', message: 'Ambassador ID is required.' } };
+  }
+
+  const { data: ambassador, error: ambassadorError } = await admin
+    .from('ambassadors')
+    .select('*')
+    .eq('id', ambassadorId)
+    .single();
+
+  if (ambassadorError || !ambassador?.id) {
+    return { error: { code: 'AMBASSADOR_NOT_FOUND', message: ambassadorError?.message || 'Ambassador not found.' } };
+  }
+
+  const { data, error } = await admin
+    .from('ambassadors')
+    .update({
+      status: 'active',
+      metadata: {
+        ...(ambassador.metadata || {}),
+        reactivatedBy: actor.id,
+        reactivatedAt: new Date().toISOString(),
+        reactivatedReason: reason,
+      },
+    })
+    .eq('id', ambassador.id)
+    .select('*')
+    .single();
+
+  if (error) {
+    return { error: { code: 'AMBASSADOR_REACTIVATE_FAILED', message: error.message } };
+  }
+
+  return { data };
+}
+
 export default async function handler(req, res) {
   const authResult = await requireAdminUser(req);
   if (authResult.error) {
@@ -462,6 +501,7 @@ export default async function handler(req, res) {
       else if (action === 'create_ambassador') result = await createAmbassadorByEmail(admin, authResult.data.user, body);
       else if (action === 'pay_ambassador') result = await payAmbassador(admin, authResult.data.user, body);
       else if (action === 'deactivate_ambassador') result = await deactivateAmbassador(admin, authResult.data.user, body);
+      else if (action === 'reactivate_ambassador') result = await reactivateAmbassador(admin, authResult.data.user, body);
       else result = { error: { code: 'UNKNOWN_ACTION', message: 'Unknown admin action.' } };
 
       if (result.error) return json(res, 400, { error: result.error });

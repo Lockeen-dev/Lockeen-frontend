@@ -640,6 +640,7 @@ function EarnView({ user, lang = 'en' }) {
   const [adminData, setAdminData] = React.useState(null);
   const [notice, setNotice] = React.useState(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [copiedLink, setCopiedLink] = React.useState(false);
   const [form, setForm] = React.useState({
     firstName: user?.name?.split(' ')?.[0] || '',
     lastName: user?.name?.split(' ')?.slice(1).join(' ') || '',
@@ -670,6 +671,7 @@ function EarnView({ user, lang = 'en' }) {
     approved: 'Approvato',
     link: 'Link personale',
     copyLink: 'Copia link',
+    linkCopied: 'Link copiato',
     referrals: 'Iscritti dal link',
     active: 'Pro attivi',
     available: 'Saldo disponibile',
@@ -689,6 +691,7 @@ function EarnView({ user, lang = 'en' }) {
     approved: 'Approved',
     link: 'Personal link',
     copyLink: 'Copy link',
+    linkCopied: 'Link copied',
     referrals: 'Link signups',
     active: 'Active Pro',
     available: 'Available balance',
@@ -752,6 +755,29 @@ function EarnView({ user, lang = 'en' }) {
     setSubmitting(false);
   }
 
+  async function copyReferralLink() {
+    if (!referralLink) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(referralLink);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = referralLink;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopiedLink(true);
+      window.setTimeout(() => setCopiedLink(false), 1800);
+    } catch {
+      setNotice({ type: 'error', text: lang === 'it' ? 'Non sono riuscito a copiare il link.' : 'Could not copy the link.' });
+    }
+  }
+
   const ambassador = data?.ambassador;
   const application = data?.application;
   const summary = data?.summary || {};
@@ -803,10 +829,10 @@ function EarnView({ user, lang = 'en' }) {
               </div>
               <button
                 type="button"
-                onClick={() => navigator.clipboard?.writeText(referralLink)}
-                style={accountS.primaryBtn}
+                onClick={copyReferralLink}
+                style={copiedLink ? accountS.currentBtn : accountS.primaryBtn}
               >
-                {copy.copyLink}
+                {copiedLink ? copy.linkCopied : copy.copyLink}
               </button>
             </div>
             <div style={{ marginTop: 14, padding: '13px 14px', borderRadius: 12, background: '#EEF2FF', color: 'var(--indigo)', fontWeight: 900, wordBreak: 'break-all', fontSize: 13 }}>
@@ -1008,6 +1034,14 @@ function EarnView({ user, lang = 'en' }) {
                           style={amb.status === 'active' ? accountS.dangerBtn : accountS.disabledBtn}
                         >
                           Disattiva ambassador
+                        </button>
+                        <button
+                          type="button"
+                          disabled={submitting || amb.status !== 'paused'}
+                          onClick={() => runAdmin({ action: 'reactivate_ambassador', ambassadorId: amb.id, reason: 'manual_admin_reactivate' })}
+                          style={amb.status === 'paused' ? accountS.primaryBtn : accountS.disabledBtn}
+                        >
+                          Riattiva ambassador
                         </button>
                       </div>
                     </details>
