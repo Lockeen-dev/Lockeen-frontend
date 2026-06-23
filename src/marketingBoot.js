@@ -179,7 +179,7 @@ export function initMarketingDom() {
   };
   const LOCKEEN_I18N = {
     en: {
-      'nav.features':'Features', 'nav.product':'Product', 'nav.pricing':'Pricing', 'nav.calendar':'Calendar',
+      'nav.features':'Features', 'nav.product':'Product', 'nav.pricing':'Pricing', 'nav.about':'About', 'nav.blog':'Blog', 'nav.calendar':'Calendar',
       'auth.signIn':'Sign In', 'auth.startFree':'Start Free',
       'hero.badge':'Powered by Advanced AI',
       'hero.title':'The AI Workspace for<br /><span class="gradient-text">Smarter Studying</span>',
@@ -205,7 +205,7 @@ export function initMarketingDom() {
       'app.dashboard':'Dashboard', 'app.myExams':'My Exams', 'app.flashcards':'Flashcards', 'app.quiz':'Quiz', 'app.aiTutor':'AI Tutor', 'app.analytics':'Analytics', 'app.calendar':'Calendar', 'app.weeklyGoal':'Weekly Goal',
     },
     it: {
-      'nav.features':'Funzioni', 'nav.product':'Prodotto', 'nav.pricing':'Prezzi', 'nav.calendar':'Calendario',
+      'nav.features':'Funzioni', 'nav.product':'Prodotto', 'nav.pricing':'Prezzi', 'nav.about':'Chi siamo', 'nav.blog':'Blog', 'nav.calendar':'Calendario',
       'auth.signIn':'Accedi', 'auth.startFree':'Inizia gratis',
       'hero.badge':'Potente AI per studiare meglio',
       'hero.title':'Lo spazio AI per<br /><span class="gradient-text">studiare meglio</span>',
