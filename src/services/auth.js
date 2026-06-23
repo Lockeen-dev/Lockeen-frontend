@@ -10,7 +10,6 @@ import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 
 const listeners = new Set();
 const AUTH_RETURN_VIEW_KEY = 'lockeen-auth-return-view';
-const OAUTH_RELOAD_KEY = 'lockeen-oauth-reload';
 
 function ok(data) {
   return { data: structuredClone(data), error: null };
@@ -123,18 +122,6 @@ function cleanAuthCallbackFromUrl() {
   window.history.replaceState({}, '', `${url.pathname}${url.search}`);
 }
 
-function reloadAfterOAuthCallback() {
-  if (typeof window === 'undefined') return;
-  if (sessionStorage.getItem(OAUTH_RELOAD_KEY) === 'done') return;
-  sessionStorage.setItem(OAUTH_RELOAD_KEY, 'done');
-  const url = new URL(window.location.href);
-  url.searchParams.delete('code');
-  url.searchParams.delete('auth');
-  url.searchParams.set('oauth_ready', '1');
-  url.searchParams.set('v', String(Date.now()));
-  window.location.replace(`${url.pathname}${url.search}`);
-}
-
 function rememberReturnView() {
   if (typeof window === 'undefined') return;
   const params = new URLSearchParams(window.location.search);
@@ -206,18 +193,18 @@ export async function restoreSession() {
 
     const authCode = readAuthCodeFromUrl();
     if (authCode) {
-      const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+      const { data: codeData, error } = await supabase.auth.exchangeCodeForSession(authCode);
       cleanAuthCallbackFromUrl();
       if (error) return fail(error.message, error.code || 'OAUTH_SESSION_FAILED');
-      reloadAfterOAuthCallback();
+      if (codeData?.session?.user) return ok(createSupabaseSession(codeData.session));
     }
 
     const oauthTokens = readOAuthTokensFromUrl();
     if (oauthTokens) {
-      const { error } = await supabase.auth.setSession(oauthTokens);
+      const { data: tokenData, error } = await supabase.auth.setSession(oauthTokens);
       cleanAuthCallbackFromUrl();
       if (error) return fail(error.message, error.code || 'OAUTH_SESSION_FAILED');
-      reloadAfterOAuthCallback();
+      if (tokenData?.session?.user) return ok(createSupabaseSession(tokenData.session));
     }
 
     const { data, error, timedOut } = await withTimeout(
@@ -352,7 +339,6 @@ export async function signInWithGoogle() {
     if (modeError) return modeError;
 
     rememberReturnView();
-    if (typeof window !== 'undefined') sessionStorage.removeItem(OAUTH_RELOAD_KEY);
     const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/?auth=oauth&v=${Date.now()}` : undefined;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
