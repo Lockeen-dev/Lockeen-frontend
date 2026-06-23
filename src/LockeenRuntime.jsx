@@ -6,7 +6,9 @@ import Dashboard from './components/Dashboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { normalizeLang, tt } from './lib/i18n';
 import { isFreePlan } from './lib/planLimits';
+import { attributeReferral } from './services/ambassadors';
 import { openBillingPortal, startCheckout } from './services/billing';
+import { captureReferralFromUrl, clearStoredReferral, readStoredReferral } from './utils/referralTracking';
 
 const BILLING_INTENT_STORAGE_KEY = 'lockeen-billing-intent';
 const BILLING_INTENT_VERSION = 2;
@@ -114,6 +116,7 @@ function AuthShell() {
   }, []);
 
   useEffect(() => {
+    captureReferralFromUrl();
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const isRecoveryLink = searchParams.get('auth') === 'reset' || hashParams.get('type') === 'recovery';
@@ -129,6 +132,26 @@ function AuthShell() {
       window.history.replaceState({}, '', window.location.pathname || '/');
     }
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const storedReferral = readStoredReferral();
+    if (!storedReferral?.referralCode) return;
+
+    let cancelled = false;
+    async function attributeStoredReferral() {
+      const result = await attributeReferral(storedReferral);
+      if (cancelled) return;
+      if (!result.error || result.error.code === 'REFERRAL_NOT_FOUND') {
+        clearStoredReferral();
+      }
+    }
+
+    attributeStoredReferral();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     if (authEvent === 'PASSWORD_RECOVERY') {

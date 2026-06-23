@@ -6,6 +6,12 @@ import { formatLimit, getPlanLimits, getUserPlanTier, isFreePlan } from '../lib/
 import useIsMobile from '../lib/useIsMobile';
 import { useAuth } from '../context/AuthContext';
 import { getAiTutorUsage } from '../services/ai';
+import {
+  getAmbassadorAdmin,
+  getAmbassadorDashboard,
+  runAmbassadorAdminAction,
+  submitLoggedAmbassadorApplication,
+} from '../services/ambassadors';
 import { openBillingPortal, startCheckout } from '../services/billing';
 import LanguageSelect from './LanguageSelect';
 
@@ -617,183 +623,346 @@ const accountS = {
   currentBtn: { padding:'9px 13px', borderRadius:10, border:'none', background:'#DCFCE7', color:'#166534', fontWeight:800, fontSize:12 },
 };
 
-/* ============ EARN / AMBASSADOR VIEW ============ */
-function EarnView() {
-  const isMobile = useIsMobile();
-  const [feed, setFeed] = React.useState([
-    { name: 'Martia R.', time: 'ora',      amt: '+€2' },
-    { name: 'Luca B.',   time: '2 min fa', amt: '+€2' },
-    { name: 'Sara F.',   time: '5 min fa', amt: '+€2' },
-  ]);
-  const [showForm, setShowForm] = React.useState(false);
-  const [email, setEmail] = React.useState('');
-  const [submitted, setSubmitted] = React.useState(false);
+function euro(cents = 0) {
+  return `€${(Number(cents || 0) / 100).toFixed(2)}`;
+}
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!email) return;
-    setSubmitted(true);
+function formatDate(value) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
+}
+
+/* ============ EARN / AMBASSADOR VIEW ============ */
+function EarnView({ user, lang = 'en' }) {
+  const isMobile = useIsMobile();
+  const [loading, setLoading] = React.useState(true);
+  const [data, setData] = React.useState(null);
+  const [adminData, setAdminData] = React.useState(null);
+  const [notice, setNotice] = React.useState(null);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [form, setForm] = React.useState({
+    firstName: user?.name?.split(' ')?.[0] || '',
+    lastName: user?.name?.split(' ')?.slice(1).join(' ') || '',
+    email: user?.email || '',
+    university: '',
+    studyField: '',
+    studyYear: '',
+    cityCountry: '',
+    communityReach: '',
+    motivation: '',
+  });
+
+  const copy = lang === 'it' ? {
+    title: 'Ambassador dashboard',
+    subtitle: 'Candidati, ottieni un link personale e monitora iscritti, Pro attivi e saldo maturato.',
+    applyTitle: 'Richiedi accesso Ambassador',
+    applySub: 'Il programma è approvato manualmente: dopo la call, se c’è fit, ti attiviamo link e dashboard.',
+    pendingTitle: 'Candidatura ricevuta',
+    pendingSub: 'La richiesta è in review. Quando viene approvata, qui comparirà il tuo link personale.',
+    approved: 'Approvato',
+    link: 'Link personale',
+    copyLink: 'Copia link',
+    referrals: 'Iscritti dal link',
+    active: 'Pro attivi',
+    available: 'Saldo disponibile',
+    pending: 'Saldo pending',
+    paid: 'Già pagato',
+    threshold: 'Payout manuale sbloccato a €20.',
+    submit: 'Invia candidatura',
+    admin: 'Admin ambassador',
+    noRows: 'Nessun dato ancora.',
+  } : {
+    title: 'Ambassador dashboard',
+    subtitle: 'Apply, get a personal link, and track signups, active Pro users, and earned balance.',
+    applyTitle: 'Request Ambassador access',
+    applySub: 'The program is manually approved: after the call, if there is fit, we activate your link and dashboard.',
+    pendingTitle: 'Application received',
+    pendingSub: 'Your request is under review. Once approved, your personal link will appear here.',
+    approved: 'Approved',
+    link: 'Personal link',
+    copyLink: 'Copy link',
+    referrals: 'Link signups',
+    active: 'Active Pro',
+    available: 'Available balance',
+    pending: 'Pending balance',
+    paid: 'Paid out',
+    threshold: 'Manual payout unlocks at €20.',
+    submit: 'Submit application',
+    admin: 'Ambassador admin',
+    noRows: 'No data yet.',
   };
 
   const card = {
     background: 'var(--surface)',
-    borderRadius: 20,
+    borderRadius: 18,
     border: '1px solid var(--border)',
-    padding: '24px',
-    boxShadow: '0 4px 24px rgba(55,48,232,.08)',
+    padding: isMobile ? 16 : 20,
+    boxShadow: '0 14px 34px -28px rgba(15,16,53,.4)',
   };
 
-  const steps = [
-    { n: '01', title: 'Richiedi accesso', desc: 'Inserisci la tua email, ti inviamo un link personale tracciato. Ci vogliono 2 minuti.' },
-    { n: '02', title: 'Condividi all\'università', desc: 'Gruppo WhatsApp del corso, chat universitaria, passaparola in biblioteca. Funziona tutto.' },
-    { n: '03', title: 'Guadagna €2 per studente', desc: 'Per ogni studente che si iscrive con il tuo link ottieni €2 al mese. Ogni mese. Payout da €20.' },
-  ];
+  async function load() {
+    setLoading(true);
+    const result = await getAmbassadorDashboard();
+    if (result.error) setNotice({ type: 'error', text: result.error.message });
+    else setData(result.data);
 
-  const strategies = [
-    { emoji: '💬', range: '€80–200/mese', title: 'Un messaggio nel gruppo WhatsApp', desc: '"Sto usando Lockeen per prepararmi all\'esame — se vi iscrivete con il mio link ci andiamo entrambi avanti." Un messaggio in un gruppo da 200. Fine.', stat: '1 messaggio → 97 iscritti' },
-    { emoji: '🎤', range: '€200–500/mese', title: 'L\'annuncio del rappresentante', desc: 'Hai 5 minuti prima della lezione. Dici che Lockeen ti ha salvato la sessione e condividi il link nella chat del corso. Chi ti conosce si fida. Conversione altissima.', stat: '3 corsi coperti → 248 iscritti' },
-    { emoji: '📖', range: '€20–80/mese',  title: 'Passaparola in sala studio', desc: 'Stai studiando, un compagno ti chiede come fai a ricordare tutto. Gli mostri Lockeen sul telefono e gli mandi il link. Niente di più naturale.', stat: 'Solo passaparola → 42 iscritti' },
-    { emoji: '📱', range: '€40–150/mese', title: 'Instagram stories', desc: 'Uno screenshot della tua streak, "questo mi sta salvando la sessione" in storia. Non ti servono 10k follower — bastano i tuoi compagni di corso.', stat: '2 storie → 73 iscritti' },
-  ];
+    if (user?.isAdmin) {
+      const adminResult = await getAmbassadorAdmin();
+      if (adminResult.error) setNotice({ type: 'error', text: adminResult.error.message });
+      else setAdminData(adminResult.data);
+    }
+    setLoading(false);
+  }
+
+  React.useEffect(() => {
+    load();
+  }, [user?.id, user?.isAdmin]);
+
+  async function submitApplication(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    setNotice(null);
+    const result = await submitLoggedAmbassadorApplication({ ...form, locale: lang });
+    if (result.error) setNotice({ type: 'error', text: result.error.message });
+    else {
+      setNotice({ type: 'success', text: lang === 'it' ? 'Candidatura inviata.' : 'Application submitted.' });
+      await load();
+    }
+    setSubmitting(false);
+  }
+
+  async function runAdmin(action) {
+    setSubmitting(true);
+    setNotice(null);
+    const result = await runAmbassadorAdminAction(action);
+    if (result.error) setNotice({ type: 'error', text: result.error.message });
+    else {
+      setNotice({ type: 'success', text: lang === 'it' ? 'Aggiornato.' : 'Updated.' });
+      setAdminData(result.data);
+      await load();
+    }
+    setSubmitting(false);
+  }
+
+  const ambassador = data?.ambassador;
+  const application = data?.application;
+  const summary = data?.summary || {};
+  const referralLink = ambassador?.referral_code
+    ? `${window.location.origin}/?ref=${ambassador.referral_code}`
+    : '';
+  const activeReferrals = (data?.referrals || []).filter((item) => ['paid', 'active'].includes(item.status)).length;
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      {/* Hero */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 32, alignItems: 'center', marginBottom: 56 }}>
+    <div style={{ maxWidth: 1040, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ ...card, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr .8fr', gap: 18, alignItems: 'center', background: 'linear-gradient(135deg,#F7F8FF,#FFFFFF)' }}>
         <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: '#ECFDF5', border: '1px solid #86EFAC', borderRadius: 999, marginBottom: 20 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#065F46' }}>Lockeen Ambassador Program</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 999, background: '#ECFDF5', color: '#047857', fontSize: 12, fontWeight: 900, marginBottom: 12 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 99, background: '#10B981' }} />
+            Lockeen Ambassador Program
           </div>
-          <h1 style={{ fontSize: isMobile ? 26 : 34, fontWeight: 800, color: 'var(--ink)', lineHeight: 1.15, marginBottom: 16 }}>
-            Condividi Lockeen.<br />Guadagna <span style={{ color: 'var(--indigo)' }}>€2 per ogni studente.</span>
-          </h1>
-          <p style={{ fontSize: 15, color: 'var(--gray)', lineHeight: 1.7, marginBottom: 28, maxWidth: 420 }}>
-            Gli Ambassador sono studenti che portano Lockeen alla propria università e guadagnano €2 per ogni compagno che si iscrive. Per sempre. Una community che cresce insieme.
-          </p>
-          {!showForm && !submitted && (
-            <button onClick={() => setShowForm(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '14px 28px', background: 'var(--indigo)', color: '#fff', borderRadius: 14, fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer' }}>
-              Diventa Ambassador →
-            </button>
-          )}
-          {showForm && !submitted && (
-            <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="la.tua@email.com"
-                style={{ flex: 1, minWidth: 200, padding: '13px 16px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--input-bg)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
-              />
-              <button type="submit" style={{ padding: '13px 24px', background: 'var(--indigo)', color: '#fff', borderRadius: 12, fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}>
-                Richiedi accesso
-              </button>
-            </form>
-          )}
-          {submitted && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', background: '#ECFDF5', border: '1px solid #86EFAC', borderRadius: 14 }}>
-              <span style={{ fontSize: 20 }}>🎉</span>
+          <h1 style={{ margin: 0, fontSize: isMobile ? 26 : 34, lineHeight: 1.08, color: 'var(--ink)', letterSpacing: '-.04em', fontWeight: 900 }}>{copy.title}</h1>
+          <p style={{ margin: '10px 0 0', color: 'var(--gray)', fontSize: 14, lineHeight: 1.6, maxWidth: 620 }}>{copy.subtitle}</p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <StatCard label={copy.available} value={euro(summary.available)} />
+          <StatCard label={copy.referrals} value={data?.referrals?.length || 0} />
+        </div>
+      </div>
+
+      {notice && (
+        <div style={{ ...accountS.notice, ...(notice.type === 'success' ? accountS.noticeSuccess : accountS.noticeError) }}>
+          {notice.text}
+        </div>
+      )}
+
+      {loading && <div style={card}>Loading...</div>}
+
+      {!loading && ambassador && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4,1fr)', gap: 12 }}>
+            <StatCard label={copy.referrals} value={data.referrals?.length || 0} />
+            <StatCard label={copy.active} value={activeReferrals} />
+            <StatCard label={copy.pending} value={euro(summary.pending)} />
+            <StatCard label={copy.paid} value={euro(summary.paid)} />
+          </div>
+
+          <div style={card}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
               <div>
-                <div style={{ fontWeight: 700, color: '#065F46', fontSize: 14 }}>Richiesta inviata!</div>
-                <div style={{ color: '#065F46', fontSize: 13, opacity: .8 }}>Ti mandiamo il link entro 24h.</div>
+                <div style={earnS.kicker}>{copy.approved}</div>
+                <h2 style={earnS.h2}>{copy.link}</h2>
+                <p style={earnS.muted}>{copy.threshold}</p>
               </div>
+              <button
+                type="button"
+                onClick={() => navigator.clipboard?.writeText(referralLink)}
+                style={accountS.primaryBtn}
+              >
+                {copy.copyLink}
+              </button>
+            </div>
+            <div style={{ marginTop: 14, padding: '13px 14px', borderRadius: 12, background: '#EEF2FF', color: 'var(--indigo)', fontWeight: 900, wordBreak: 'break-all', fontSize: 13 }}>
+              {referralLink}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
+            <DataPanel title="Referral">
+              {(data.referrals || []).length === 0 && <Empty text={copy.noRows} />}
+              {(data.referrals || []).slice(0, 8).map((item) => (
+                <Row key={item.id} left={item.referred_email_masked || 'student'} sub={formatDate(item.created_at)} right={item.status} />
+              ))}
+            </DataPanel>
+            <DataPanel title="Commissioni">
+              {(data.commissions || []).length === 0 && <Empty text={copy.noRows} />}
+              {(data.commissions || []).slice(0, 8).map((item) => (
+                <Row key={item.id} left={euro(item.amount_cents)} sub={formatDate(item.created_at)} right={item.status} />
+              ))}
+            </DataPanel>
+          </div>
+        </>
+      )}
+
+      {!loading && !ambassador && application && (
+        <div style={card}>
+          <div style={earnS.kicker}>{application.status}</div>
+          <h2 style={earnS.h2}>{copy.pendingTitle}</h2>
+          <p style={earnS.muted}>{copy.pendingSub}</p>
+        </div>
+      )}
+
+      {!loading && !ambassador && !application && (
+        <form onSubmit={submitApplication} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <h2 style={earnS.h2}>{copy.applyTitle}</h2>
+            <p style={earnS.muted}>{copy.applySub}</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap: 12 }}>
+            <Field label="Nome *" value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} required />
+            <Field label="Cognome *" value={form.lastName} onChange={(v) => setForm({ ...form, lastName: v })} required />
+            <Field label="Email *" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} required />
+            <Field label="Università *" value={form.university} onChange={(v) => setForm({ ...form, university: v })} required />
+            <Field label="Cosa studi *" value={form.studyField} onChange={(v) => setForm({ ...form, studyField: v })} required />
+            <Field label="Anno" value={form.studyYear} onChange={(v) => setForm({ ...form, studyYear: v })} />
+            <Field label="Città / Paese" value={form.cityCountry} onChange={(v) => setForm({ ...form, cityCountry: v })} />
+            <Field label="Community / reach" value={form.communityReach} onChange={(v) => setForm({ ...form, communityReach: v })} />
+          </div>
+          <label style={accountS.label}>
+            Motivazione
+            <textarea value={form.motivation} onChange={(e) => setForm({ ...form, motivation: e.target.value })} rows={4} style={{ ...accountS.input, paddingTop: 10, resize: 'vertical' }} />
+          </label>
+          <button type="submit" disabled={submitting} style={{ ...accountS.primaryBtn, alignSelf: 'flex-start', ...(submitting ? accountS.primaryBtnDisabled : null) }}>
+            {copy.submit}
+          </button>
+        </form>
+      )}
+
+      {user?.isAdmin && (
+        <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <div style={earnS.kicker}>Admin</div>
+            <h2 style={earnS.h2}>{copy.admin}</h2>
+          </div>
+          {!adminData && <Empty text="Admin data loading..." />}
+          {adminData && (
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
+              <DataPanel title="Candidature">
+                {(adminData.applications || []).slice(0, 12).map((app) => (
+                  <div key={app.id} style={earnS.adminRow}>
+                    <div>
+                      <div style={earnS.rowTitle}>{app.first_name} {app.last_name}</div>
+                      <div style={earnS.rowSub}>{app.email} · {app.university} · {app.status}</div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={submitting || app.status === 'approved'}
+                      onClick={() => runAdmin({ action: 'approve_application', applicationId: app.id })}
+                      style={app.status === 'approved' ? accountS.currentBtn : accountS.primaryBtn}
+                    >
+                      Approva
+                    </button>
+                  </div>
+                ))}
+              </DataPanel>
+              <DataPanel title="Payout manuali">
+                {(adminData.ambassadors || []).map((amb) => {
+                  const s = adminData.summaries?.[amb.id] || {};
+                  return (
+                    <div key={amb.id} style={earnS.adminRow}>
+                      <div>
+                        <div style={earnS.rowTitle}>{amb.first_name} {amb.last_name}</div>
+                        <div style={earnS.rowSub}>{amb.referral_code} · disponibile {euro(s.available)}</div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={submitting || Number(s.available || 0) < Number(s.threshold || 2000)}
+                        onClick={() => runAdmin({ action: 'pay_ambassador', ambassadorId: amb.id, method: 'manual_bank' })}
+                        style={Number(s.available || 0) >= Number(s.threshold || 2000) ? accountS.primaryBtn : accountS.disabledBtn}
+                      >
+                        Segna pagato
+                      </button>
+                    </div>
+                  );
+                })}
+              </DataPanel>
             </div>
           )}
         </div>
-
-        {/* Earnings card mockup */}
-        <div style={{ ...card, position: 'relative' }}>
-          <div style={{ position: 'absolute', top: -14, right: 20, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 600, color: 'var(--ink)', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-            💸 €2 per studente, ogni mese
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--gray)', marginBottom: 4 }}>I tuoi guadagni</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 40, fontWeight: 800, color: 'var(--ink)' }}>€1.150</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#10B981', background: '#ECFDF5', padding: '2px 8px', borderRadius: 999 }}>+ €12 ora</span>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--gray)', marginBottom: 20 }}>questo mese · 575 studenti attivi</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-            {feed.map((f, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{f.name}</span>
-                  <span style={{ fontSize: 12, color: 'var(--gray)', marginLeft: 8 }}>{f.time}</span>
-                </div>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#10B981' }}>{f.amt}</span>
-              </div>
-            ))}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: 'var(--gray)' }}>altri 572 questo mese</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#10B981' }}>+€1.144</span>
-            </div>
-          </div>
-          <div style={{ marginTop: 16, padding: '10px 14px', background: 'var(--lavender)', borderRadius: 10, fontSize: 12, color: 'var(--indigo)', fontWeight: 500, textAlign: 'center' }}>
-            🔄 Ricorrente finché restano iscritti
-          </div>
-        </div>
-      </div>
-
-      {/* How it works */}
-      <div style={{ marginBottom: 52 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gray)', marginBottom: 8 }}>Come funziona</div>
-          <h2 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, color: 'var(--ink)' }}>Tre passi. Zero complicazioni.</h2>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 16 }}>
-          {steps.map(s => (
-            <div key={s.n} style={{ ...card, padding: '28px 24px' }}>
-              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--border)', marginBottom: 16, lineHeight: 1 }}>{s.n}</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>{s.title}</div>
-              <div style={{ fontSize: 13, color: 'var(--gray)', lineHeight: 1.65 }}>{s.desc}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Real strategies */}
-      <div style={{ marginBottom: 40 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gray)', marginBottom: 8 }}>Strategie reali</div>
-          <h2 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, color: 'var(--ink)', marginBottom: 8 }}>Come gli Ambassador guadagnano migliaia di €</h2>
-          <p style={{ fontSize: 14, color: 'var(--gray)' }}>Niente ads, follower o skill di marketing. Queste sono le strategie che funzionano davvero.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
-          {strategies.map((s, i) => (
-            <div key={i} style={{ ...card, padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                <span style={{ fontSize: 22 }}>{s.emoji}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', background: 'var(--lavender)', color: 'var(--indigo)', borderRadius: 999 }}>{s.range}</span>
-              </div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>{s.title}</div>
-              <div style={{ fontSize: 13, color: 'var(--gray)', lineHeight: 1.65, marginBottom: 16 }}>{s.desc}</div>
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, fontSize: 12, color: 'var(--gray)', fontWeight: 500 }}>{s.stat}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Bottom CTA banner */}
-      <div style={{ borderRadius: 24, background: 'linear-gradient(135deg, #070B2D 0%, #1a1060 60%, #2F2BFF 100%)', padding: isMobile ? '40px 24px' : '56px 64px', textAlign: 'center', position: 'relative', overflow: 'hidden', marginTop: 8 }}>
-        <div style={{ position: 'absolute', top: 0, right: 0, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,120,255,.3), transparent)', transform: 'translate(30%,-30%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(47,43,255,.25), transparent)', transform: 'translate(-30%,30%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative' }}>
-          <h2 style={{ fontSize: isMobile ? 22 : 30, fontWeight: 800, color: '#fff', marginBottom: 12, lineHeight: 1.25 }}>
-            La tua università ha bisogno<br />di un Lockeen Ambassador.
-          </h2>
-          <p style={{ fontSize: 15, color: 'rgba(255,255,255,.65)', marginBottom: 32, maxWidth: 460, margin: '0 auto 32px' }}>
-            Entra nella community, ottieni il tuo link e inizia a guadagnare portando Lockeen ai tuoi compagni.
-          </p>
-          <button
-            onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '15px 32px', background: '#fff', color: '#2F2BFF', borderRadius: 14, fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', boxShadow: '0 4px 20px rgba(47,43,255,.3)' }}
-          >
-            Diventa Ambassador →
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
+
+function Field({ label, value, onChange, type = 'text', required = false }) {
+  return (
+    <label style={accountS.label}>
+      {label}
+      <input type={type} required={required} value={value} onChange={(e) => onChange(e.target.value)} style={accountS.input} />
+    </label>
+  );
+}
+
+function StatCard({ label, value }) {
+  return (
+    <div style={{ padding: 16, borderRadius: 14, border: '1px solid var(--border)', background: 'rgba(255,255,255,.82)' }}>
+      <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)', lineHeight: 1 }}>{value}</div>
+      <div style={{ marginTop: 6, fontSize: 11, fontWeight: 900, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{label}</div>
+    </div>
+  );
+}
+
+function DataPanel({ title, children }) {
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 16, background: 'var(--surface)', overflow: 'hidden' }}>
+      <div style={{ padding: '13px 15px', borderBottom: '1px solid var(--border)', fontWeight: 900, color: 'var(--ink)' }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>{children}</div>
+    </div>
+  );
+}
+
+function Row({ left, sub, right }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '12px 15px', borderBottom: '1px solid var(--border)' }}>
+      <div>
+        <div style={earnS.rowTitle}>{left}</div>
+        <div style={earnS.rowSub}>{sub}</div>
+      </div>
+      <span style={{ alignSelf: 'center', padding: '5px 8px', borderRadius: 999, background: '#EEF2FF', color: 'var(--indigo)', fontSize: 11, fontWeight: 900 }}>{right}</span>
+    </div>
+  );
+}
+
+function Empty({ text }) {
+  return <div style={{ padding: 15, color: 'var(--gray)', fontSize: 13, fontWeight: 800 }}>{text}</div>;
+}
+
+const earnS = {
+  kicker: { fontSize: 11, fontWeight: 900, color: 'var(--indigo)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 },
+  h2: { margin: 0, fontSize: 19, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-.02em' },
+  muted: { margin: '6px 0 0', color: 'var(--gray)', fontSize: 13, lineHeight: 1.55 },
+  rowTitle: { fontSize: 13, fontWeight: 900, color: 'var(--ink)' },
+  rowSub: { marginTop: 3, fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
+  adminRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, borderBottom: '1px solid var(--border)' },
+};
 
 export { AccountView, EarnView };

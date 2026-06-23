@@ -48,6 +48,7 @@ function mapSupabaseUser(user) {
     ? user.identities.map((identity) => String(identity?.provider || '').toLowerCase()).filter(Boolean)
     : [];
   const authProvider = authProviders[0] || String(appMetadata.provider || 'email').toLowerCase();
+  const adminEmails = new Set(['support.lockeen@gmail.com']);
   const name =
     metadata.full_name ||
     metadata.name ||
@@ -61,6 +62,7 @@ function mapSupabaseUser(user) {
     language: metadata.language || 'en',
     timezone: metadata.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome',
     planTier: appMetadata.plan_tier || appMetadata.plan || appMetadata.subscription_plan || 'free',
+    isAdmin: Boolean(appMetadata.is_admin || appMetadata.admin || appMetadata.lockeen_role === 'admin' || appMetadata.role === 'admin' || adminEmails.has(String(user.email || '').toLowerCase())),
     provider: 'supabase',
     authProvider,
     authProviders,

@@ -1,5 +1,6 @@
 import { isMockAuthMode } from '../lib/authClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
+import { readStoredReferral } from '../utils/referralTracking';
 
 function fail(message, code = 'BILLING_ERROR') {
   return { data: null, error: { code, message } };
@@ -37,6 +38,7 @@ export async function startCheckout({ billingPeriod = 'monthly' } = {}) {
     },
     body: JSON.stringify({
       billingPeriod: billingPeriod === 'yearly' ? 'yearly' : 'monthly',
+      referralCode: readStoredReferral()?.referralCode || null,
     }),
   });
 

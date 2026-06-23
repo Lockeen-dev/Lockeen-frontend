@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { BarChart3, BookOpen, CalendarIcon, Layers, MsgCircle, SidebarPanel, Sparkles, ZapSolid } from '../lib/icons';
+import { BarChart3, BookOpen, CalendarIcon, Coins, Layers, MsgCircle, SidebarPanel, Sparkles, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
 
 /* ===================== SIDEBAR ===================== */
@@ -12,6 +12,7 @@ export default function Sidebar({ tab, setTab, lang = 'en', collapsed = false, o
     { id: 'tutor',     label: tt(lang, 'aiTutor'),  Icon: MsgCircle },
     { id: 'analytics', label: tt(lang, 'analytics'), Icon: BarChart3 },
     { id: 'calendar',  label: tt(lang, 'calendar'),  Icon: CalendarIcon },
+    { id: 'earn',      label: tt(lang, 'earn'),      Icon: Coins },
   ];
   return (
     <aside style={{ ...sideS.wrap, ...(collapsed ? sideS.wrapCollapsed : null) }}>

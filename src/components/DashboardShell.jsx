@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { BarChart3, Bell, BookOpen, CalendarIcon, Layers, LogOut, Pencil, Sparkles, ZapSolid } from '../lib/icons';
+import { BarChart3, Bell, BookOpen, CalendarIcon, Coins, Layers, LogOut, Pencil, Sparkles, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import LanguageSelect from './LanguageSelect';
 import Sidebar from './Sidebar';
@@ -164,6 +164,9 @@ function ProfileMenu({ user, lang, profileRef, showProfileMenu, setShowProfileMe
           </div>
           <button onClick={() => { setTab('account'); setShowProfileMenu(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
             <Pencil size={15} /> {tt(lang, 'accountSettings')}
+          </button>
+          <button onClick={() => { setTab('earn'); setShowProfileMenu(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
+            <Coins size={15} /> {tt(lang, 'earn')}
           </button>
           <button onClick={handleLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
             <LogOut size={15} /> {tt(lang, 'signOut')}
