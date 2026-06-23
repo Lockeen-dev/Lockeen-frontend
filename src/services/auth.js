@@ -88,6 +88,52 @@ function requireSupabaseAuthMode() {
   return null;
 }
 
+async function ensurePasswordRecoverySession() {
+  if (typeof window === 'undefined') {
+    return fail('Auth session missing. Request a new password reset email and open the latest link.', 'RECOVERY_SESSION_MISSING');
+  }
+
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const recoveryError = url.searchParams.get('error_description') || hashParams.get('error_description');
+  const recoveryErrorCode = url.searchParams.get('error_code') || hashParams.get('error_code');
+  if (recoveryError || recoveryErrorCode) {
+    return fail(
+      recoveryError || 'This reset link is invalid or expired. Request a new password reset email and open the latest link.',
+      recoveryErrorCode || 'RECOVERY_LINK_INVALID',
+    );
+  }
+
+  const code = url.searchParams.get('code');
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      return fail(error.message, error.code || 'RECOVERY_SESSION_FAILED');
+    }
+    if (data?.session?.access_token) return ok(data.session);
+  }
+
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+  if (accessToken && refreshToken) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error) {
+      return fail(error.message, error.code || 'RECOVERY_SESSION_FAILED');
+    }
+    if (data?.session?.access_token) return ok(data.session);
+  }
+
+  const { data: currentSession } = await supabase.auth.getSession();
+  if (currentSession?.session?.access_token) {
+    return ok(currentSession.session);
+  }
+
+  return fail('Auth session missing. Request a new password reset email and open the latest link.', 'RECOVERY_SESSION_MISSING');
+}
+
 export async function restoreSession() {
   if (!isMockAuthMode()) {
     const modeError = requireSupabaseAuthMode();
@@ -315,7 +361,7 @@ export async function requestPasswordReset(input = {}) {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
 
-    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/?auth=reset` : undefined;
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,
     });
@@ -344,9 +390,20 @@ export async function updatePassword(input = {}) {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
 
-    const { data, error } = await supabase.auth.updateUser({
-      password: input.password,
-    });
+    const recoverySession = await withTimeout(
+      ensurePasswordRecoverySession(),
+      7000,
+      fail('Password reset session timed out. Request a new reset email and try again.', 'RECOVERY_SESSION_TIMEOUT'),
+    );
+    if (recoverySession.error) return recoverySession;
+
+    const { data, error } = await withTimeout(
+      supabase.auth.updateUser({
+        password: input.password,
+      }),
+      7000,
+      { data: null, error: { message: 'Password update timed out. Please try again.', code: 'PASSWORD_UPDATE_TIMEOUT' } },
+    );
 
     if (error) return fail(error.message, error.code || 'PASSWORD_UPDATE_FAILED');
 

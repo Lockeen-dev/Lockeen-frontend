@@ -204,12 +204,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const updatePassword = useCallback(async (input) => {
-    setState((current) => ({
-      ...current,
-      status: 'loading',
-      error: null,
-    }));
-
     const result = await updatePasswordService(input);
 
     if (result.error) {
