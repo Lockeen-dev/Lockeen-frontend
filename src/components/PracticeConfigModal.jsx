@@ -19,16 +19,16 @@ function PracticeConfigModal({ config, onClose, onStart, lang = 'en' }) {
   });
   const modes = [
     {
-      id: 'quiz',
-      title: tt(lang, 'quiz'),
-      sub: isIt ? 'Domande pronte sull’esame selezionato.' : 'Questions ready for the selected exam.',
-      Icon: Sparkles,
-    },
-    {
       id: 'flashcards',
       title: tt(lang, 'flashcards'),
       sub: isIt ? 'Ripassa le carte generate dai materiali.' : 'Review cards generated from your materials.',
       Icon: Layers,
+    },
+    {
+      id: 'quiz',
+      title: tt(lang, 'quiz'),
+      sub: isIt ? 'Domande pronte sull’esame selezionato.' : 'Questions ready for the selected exam.',
+      Icon: Sparkles,
     },
   ];
 
@@ -53,7 +53,7 @@ function PracticeConfigModal({ config, onClose, onStart, lang = 'en' }) {
                 onClick={() => startMode(id)}
                 style={practiceS.modeCard}
               >
-                <span style={{ ...practiceS.modeIcon, color: 'var(--indigo)', background: '#EEF2FF' }}><ModeIcon size={26} /></span>
+                <span style={{ ...practiceS.modeIcon, color: 'var(--indigo)', background: '#EEF2FF' }}><ModeIcon size={28} /></span>
                 <span style={practiceS.modeCopy}>
                   <span style={practiceS.modeTitle}>{title}</span>
                   <span style={practiceS.modeSub}>{sub}</span>
@@ -75,13 +75,13 @@ const practiceS = {
   kicker: { color: 'var(--indigo)', fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 14 },
   title: { margin: 0, color: 'var(--ink)', fontSize: 25, lineHeight: 1, fontWeight: 900, letterSpacing: '-0.04em' },
   subtitle: { margin: '16px 0 20px', color: '#6B7280', fontSize: 15, lineHeight: 1.35, fontWeight: 600 },
-  modeGrid: { display: 'grid', gridTemplateColumns: '1fr', gap: 12 },
-  modeCard: { minHeight: 98, border: '1.5px solid #E5E7EB', borderRadius: 20, background: '#fff', padding: 18, textAlign: 'left', cursor: 'pointer', display: 'grid', gridTemplateColumns: '52px minmax(0, 1fr) 38px', alignItems: 'center', gap: 14, boxShadow: '0 14px 34px rgba(15,16,53,.06)' },
-  modeIcon: { width: 44, height: 44, borderRadius: 14, display: 'grid', placeItems: 'center' },
+  modeGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 },
+  modeCard: { position: 'relative', minHeight: 162, border: '1.5px solid #E5E7EB', borderRadius: 20, background: '#fff', padding: 18, textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, boxShadow: '0 14px 34px rgba(15,16,53,.06)' },
+  modeIcon: { width: 50, height: 50, borderRadius: 16, display: 'grid', placeItems: 'center' },
   modeCopy: { display: 'grid', gap: 7, minWidth: 0 },
   modeTitle: { color: 'var(--ink)', fontSize: 19, fontWeight: 900, lineHeight: 1 },
   modeSub: { color: '#6B7280', fontSize: 13, fontWeight: 800, lineHeight: 1.35 },
-  modeArrow: { width: 38, height: 38, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
+  modeArrow: { position: 'absolute', right: 14, top: 14, width: 34, height: 34, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
 };
 
 export default PracticeConfigModal;
