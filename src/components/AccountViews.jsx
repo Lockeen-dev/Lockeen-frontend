@@ -161,14 +161,14 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
     window.location.href = result.data.url;
   };
 
-  const Row = ({ icon, title, sub, action, danger }) => (
-    <div style={accountS.row}>
+  const Row = ({ icon, title, sub, action }) => (
+    <div style={{ ...accountS.row, ...(isMobile ? accountS.rowMobile : null) }}>
       <div style={accountS.rowIcon}>{icon}</div>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={accountS.rowTitle}>{title}</div>
         {sub && <div style={accountS.rowSub}>{sub}</div>}
       </div>
-      {action && <div style={{ flexShrink:0 }}>{action}</div>}
+      {action && <div style={isMobile ? accountS.rowActionMobile : accountS.rowAction}>{action}</div>}
     </div>
   );
 
@@ -286,9 +286,9 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
             </div>
           </div>
           <div style={accountS.divider} />
-          <div style={accountS.editBlock}>
+          <div style={{ ...accountS.editBlock, ...(isMobile ? accountS.editBlockMobile : null) }}>
             <div style={accountS.rowIcon}>{isGoogleOnly ? <Google size={18} /> : <MsgCircle size={18} />}</div>
-            <div style={{ flex:1, minWidth:220 }}>
+            <div style={{ flex:1, minWidth:0 }}>
               <div style={accountS.rowTitle}>{copy.email}</div>
               <div style={accountS.rowSub}>{email || copy.emailUnavailable} · {authMethodLabel}</div>
             </div>
@@ -600,10 +600,14 @@ const accountS = {
   planTitle: { margin:0, fontSize:18, fontWeight:800, color:'var(--ink)' },
   planText: { margin:'4px 0 0', color:'var(--gray)', fontSize:13 },
   row: { display:'flex', alignItems:'center', gap:12, padding:'15px 18px' },
+  rowMobile: { alignItems:'flex-start', flexWrap:'wrap', padding:'16px 16px' },
+  rowAction: { flexShrink:0 },
+  rowActionMobile: { width:'100%', display:'flex', justifyContent:'flex-end', paddingLeft:46 },
   rowIcon: { width:34, height:34, borderRadius:12, background:'var(--sidebar-bg)', color:'var(--indigo)', display:'grid', placeItems:'center', flexShrink:0 },
   rowTitle: { fontSize:14, fontWeight:800, color:'var(--ink)' },
   rowSub: { fontSize:12, color:'var(--gray)', marginTop:2, lineHeight:1.45 },
   editBlock: { display:'flex', alignItems:'flex-end', gap:12, padding:'15px 18px', flexWrap:'wrap' },
+  editBlockMobile: { alignItems:'flex-start', padding:'16px 16px' },
   formGrid: { flex:1, minWidth:240, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px, 1fr))', gap:12 },
   profileActions: { display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', justifyContent:'flex-end' },
   label: { display:'flex', flexDirection:'column', gap:7, fontSize:12, fontWeight:800, color:'var(--gray)' },

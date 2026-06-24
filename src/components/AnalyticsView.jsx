@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-import { Clock, Flame, Trend, Trophy } from '../lib/icons';
+import { BookOpen, Clock, Flame, Trend, Trophy } from '../lib/icons';
 import { formatExamDate, getSubjectPalette } from '../data/mockData';
 import { getExamPalette } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
@@ -251,6 +251,26 @@ function KpiStat({ label, displayValue, Icon, tint, col }) {
       </div>
       <div style={{ fontSize: 30, fontWeight: 900, color: col, letterSpacing: '-0.03em', lineHeight: 1 }}>{displayValue}</div>
       <div style={{ fontSize: 13, color: col, opacity: 0.7, marginTop: 8, fontWeight: 800 }}>{label}</div>
+    </div>
+  );
+}
+
+function AnalyticsEmptyState({ lang, setTab }) {
+  const isIt = lang === 'it';
+  return (
+    <div style={analS.emptyState}>
+      <div style={analS.emptyIcon}><BookOpen size={22} /></div>
+      <div>
+        <h4 style={analS.emptyTitle}>{tt(lang, 'noExamsYet')}</h4>
+        <p style={analS.emptyText}>
+          {isIt
+            ? 'Crea il primo esame e completa qualche quiz o flashcard: le analytics inizieranno a riempirsi automaticamente.'
+            : 'Create your first exam and complete a quiz or flashcard session: analytics will start filling in automatically.'}
+        </p>
+      </div>
+      <button type="button" style={analS.emptyButton} onClick={() => setTab('notes')}>
+        {tt(lang, 'goToMyExams')}
+      </button>
     </div>
   );
 }
@@ -506,7 +526,7 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
         </div>
         <div style={analS.gradeList}>
           {trackedNotes.length === 0 ? (
-            <div style={{ padding: 24, color: 'var(--gray)', fontWeight: 700 }}>{tt(lang, 'noExamsYet')}</div>
+            <AnalyticsEmptyState lang={lang} setTab={setTab} />
           ) : trackedNotes.map(note => (
             <GradePredictorCard
               key={note.id}
@@ -538,8 +558,10 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuizF
   const hasProgress = predictionPct != null;
   const progressPct = hasProgress ? predictionPct : targetPct;
   const deltaDisplay = prediction.delta == null ? '—' : prediction.delta > 0 ? `+${prediction.delta.toFixed(1)}` : prediction.delta.toFixed(1);
-  const practiceLabel = prediction.status === 'on-track' ? tt(lang, 'keepGoing') : tt(lang, 'startPractice');
+  const hasChapters = (note.chapters || []).length > 0;
+  const practiceLabel = !hasChapters ? tt(lang, 'addMaterialShort') : prediction.status === 'on-track' ? tt(lang, 'keepGoing') : tt(lang, 'startPractice');
   const openPractice = () => {
+    if (!hasChapters) return;
     if (openQuizForExam && note.id) {
       openQuizForExam(note.id);
       return;
@@ -574,7 +596,15 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuizF
         <div style={analS.gradeHelper}>{prediction.helper}</div>
       </div>
       <div style={{ ...analS.gradeDelta, color: prediction.delta == null ? '#F97316' : statusStyle.color }}>{deltaDisplay}</div>
-      <button style={{ ...analS.practiceBtn, ...(isMobile ? { justifySelf: 'stretch' } : null) }} onClick={openPractice}>{practiceLabel}</button>
+      <button
+        type="button"
+        disabled={!hasChapters}
+        title={hasChapters ? practiceLabel : tt(lang, 'addMaterialForQuickQuiz')}
+        style={{ ...analS.practiceBtn, ...(!hasChapters ? analS.practiceBtnDisabled : null), ...(isMobile ? { justifySelf: 'stretch', width: '100%' } : null) }}
+        onClick={openPractice}
+      >
+        {practiceLabel}
+      </button>
     </div>
   );
 }
@@ -631,7 +661,13 @@ const analS = {
   predictionMarker: { position: 'absolute', top: -4, width: 3, height: 16, borderRadius: 999, transform: 'translateX(-50%)' },
   gradeHelper: { color: 'var(--gray)', fontSize: 13, fontWeight: 900, lineHeight: 1.35 },
   gradeDelta: { justifySelf: 'center', fontSize: 18, fontWeight: 900, lineHeight: 1 },
-  practiceBtn: { justifySelf: 'end', width: 128, maxWidth: '100%', padding: '11px 12px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
+  practiceBtn: { justifySelf: 'end', minWidth: 128, maxWidth: '100%', padding: '11px 12px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer' },
+  practiceBtnDisabled: { background: '#F1F5F9', borderColor: '#E2E8F0', color: '#94A3B8', cursor: 'not-allowed', boxShadow: 'none' },
+  emptyState: { display:'grid', justifyItems:'center', gap:12, padding:'34px 20px', textAlign:'center', color:'var(--gray)' },
+  emptyIcon: { width:54, height:54, borderRadius:18, display:'grid', placeItems:'center', background:'var(--lavender)', color:'var(--indigo)' },
+  emptyTitle: { margin:0, fontSize:18, fontWeight:900, color:'var(--ink)', letterSpacing:0 },
+  emptyText: { margin:0, maxWidth:430, fontSize:14, lineHeight:1.45, fontWeight:650 },
+  emptyButton: { marginTop:2, border:'none', borderRadius:14, background:'var(--indigo)', color:'#fff', padding:'12px 16px', fontWeight:900, cursor:'pointer' },
 };
 
 export { AnalyticsView, GradePredictorCard };

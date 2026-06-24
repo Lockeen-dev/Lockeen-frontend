@@ -1,141 +1,67 @@
 import React from 'react';
 
-import { Layers, Sparkles, XMark } from '../lib/icons';
+import { ArrowRight, Layers, Sparkles, XMark } from '../lib/icons';
 import { tt } from '../lib/i18n';
 
-function SectionLabel({ children, compact = false }) {
-  return <div style={{ ...practiceS.sectionLabel, ...(compact ? { marginBottom: 0 } : null) }}>{children}</div>;
-}
-
-function PracticeConfigModal({ config, onChange, onClose, onStart, lang = 'en' }) {
-  const { exam, mode, scopeId, difficulty, count, timerOn = true, timerSecs = 30 } = config;
+function PracticeConfigModal({ config, onClose, onStart, lang = 'en' }) {
+  const { exam } = config;
   const chapters = exam.chapters || [];
-  const setField = (key, value) => onChange({ ...config, [key]: value });
-  const difficultySelection = Array.isArray(config.difficulties) && config.difficulties.length
-    ? config.difficulties
-    : [difficulty || 'medium'];
-  const toggleDifficulty = (id) => {
-    const set = new Set(difficultySelection);
-    if (set.has(id) && set.size > 1) set.delete(id);
-    else set.add(id);
-    const next = difficulties.map((item) => item.id).filter((item) => set.has(item));
-    onChange({ ...config, difficulty: next[0] || 'medium', difficulties: next });
-  };
-  const scopeOptions = [
-    { id: 'all', label: tt(lang, 'wholeExam') },
-    ...chapters.map((chapter) => ({
-      id: chapter.id,
-      label: chapter.title || chapter.name || tt(lang, 'chapter'),
-    })),
-  ];
+  const isIt = lang === 'it';
+  const startMode = (mode) => onStart({
+    ...config,
+    mode,
+    scopeId: 'all',
+    difficulty: 'medium',
+    difficulties: ['easy', 'medium', 'hard'],
+    count: mode === 'quiz' ? 10 : 20,
+    timerOn: true,
+    timerSecs: 30,
+  });
   const modes = [
-    { id: 'quiz', title: tt(lang, 'quiz'), sub: tt(lang, 'questionsTimer'), Icon: Sparkles },
-    { id: 'flashcards', title: tt(lang, 'flashcards'), sub: tt(lang, 'reviewPractice'), Icon: Layers },
+    {
+      id: 'flashcards',
+      title: tt(lang, 'flashcards'),
+      sub: isIt ? 'Ripassa le carte generate dai materiali.' : 'Review cards generated from your materials.',
+      Icon: Layers,
+    },
+    {
+      id: 'quiz',
+      title: tt(lang, 'quiz'),
+      sub: isIt ? 'Domande pronte sull’esame selezionato.' : 'Questions ready for the selected exam.',
+      Icon: Sparkles,
+    },
   ];
-  const difficulties = [
-    { id: 'easy', title: tt(lang, 'easy'), sub: tt(lang, 'warmUp') },
-    { id: 'medium', title: tt(lang, 'medium'), sub: tt(lang, 'balanced') },
-    { id: 'hard', title: tt(lang, 'hard'), sub: tt(lang, 'examMode') },
-  ];
-  const counts = mode === 'quiz' ? [5, 10, 15, 20] : [10, 20, 30, 50];
-  const timerOptions = [15, 30, 60, 90];
 
   return (
     <div style={practiceS.overlay} role="dialog" aria-modal="true" aria-label={tt(lang, 'configurePractice')}>
       <div style={practiceS.modal}>
         <button type="button" onClick={onClose} style={practiceS.close} aria-label={tt(lang, 'close')}><XMark size={24} /></button>
-        <div style={practiceS.kicker}>{tt(lang, 'configurePractice')}</div>
+        <div style={practiceS.kicker}>{isIt ? 'Scegli pratica' : 'Choose practice'}</div>
         <h2 style={practiceS.title}>{exam.name}</h2>
-        <p style={practiceS.subtitle}>{tt(lang, 'predictionBased')}</p>
+        <p style={practiceS.subtitle}>
+          {isIt
+            ? `Vai direttamente a quiz o flashcard per questo esame. ${chapters.length ? `${chapters.length} ${chapters.length === 1 ? 'capitolo disponibile' : 'capitoli disponibili'}.` : ''}`
+            : `Jump straight into quiz or flashcards for this exam. ${chapters.length ? `${chapters.length} ${chapters.length === 1 ? 'chapter' : 'chapters'} available.` : ''}`}
+        </p>
 
         <div style={practiceS.modeGrid}>
           {modes.map(({ id, title, sub, Icon: ModeIcon }) => {
-            const active = mode === id;
             return (
               <button
                 key={id}
                 type="button"
-                onClick={() => onChange({ ...config, mode: id, count: id === 'quiz' ? Math.min(count || 10, 20) : Math.max(count || 10, 10) })}
-                style={{ ...practiceS.modeCard, ...(active ? practiceS.modeCardActive : null) }}
+                onClick={() => startMode(id)}
+                style={practiceS.modeCard}
               >
-                <span style={{ ...practiceS.modeIcon, color: 'var(--indigo)', background: '#EEF2FF' }}><ModeIcon size={26} /></span>
-                <span style={practiceS.modeTitle}>{title}</span>
-                <span style={practiceS.modeSub}>{sub}</span>
+                <span style={{ ...practiceS.modeIcon, color: 'var(--indigo)', background: '#EEF2FF' }}><ModeIcon size={28} /></span>
+                <span style={practiceS.modeCopy}>
+                  <span style={practiceS.modeTitle}>{title}</span>
+                  <span style={practiceS.modeSub}>{sub}</span>
+                </span>
+                <span style={practiceS.modeArrow}><ArrowRight size={20} /></span>
               </button>
             );
           })}
-        </div>
-
-        <div style={practiceS.divider} />
-        <SectionLabel>{tt(lang, 'scope')}</SectionLabel>
-        <div style={practiceS.scopeRow}>
-          {scopeOptions.map((option) => {
-            const active = String(scopeId) === String(option.id);
-            return (
-              <button key={option.id} type="button" onClick={() => setField('scopeId', option.id)} style={{ ...practiceS.scopePill, ...(active ? practiceS.scopePillActive : null) }}>
-                <span>{option.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={practiceS.divider} />
-        <SectionLabel>{tt(lang, 'difficulty')}</SectionLabel>
-        <div style={practiceS.difficultyGrid}>
-          {difficulties.map((option) => {
-            const active = difficultySelection.includes(option.id);
-            return (
-              <button key={option.id} type="button" onClick={() => toggleDifficulty(option.id)} style={{ ...practiceS.difficultyCard, ...(active ? practiceS.difficultyCardActive : null) }}>
-                <span style={practiceS.diffTitle}>{option.title}</span>
-                <span style={practiceS.diffSub}>{option.sub}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={practiceS.divider} />
-        <SectionLabel>{mode === 'flashcards' ? tt(lang, 'cards') : tt(lang, 'questions')}</SectionLabel>
-        <div style={practiceS.countGrid}>
-          {counts.map((value) => {
-            const active = count === value;
-            return (
-              <button key={value} type="button" onClick={() => setField('count', value)} style={{ ...practiceS.countButton, ...(active ? practiceS.countButtonActive : null) }}>
-                {value}
-              </button>
-            );
-          })}
-        </div>
-
-        {mode === 'quiz' && (
-          <>
-            <div style={practiceS.divider} />
-            <div style={practiceS.timerHead}>
-              <div>
-                <SectionLabel compact>{tt(lang, 'timer')}</SectionLabel>
-                <div style={practiceS.timerSub}>{tt(lang, 'secondsPerQuestion')}</div>
-              </div>
-              <button type="button" onClick={() => setField('timerOn', !timerOn)} style={{ ...practiceS.timerSwitch, ...(timerOn ? practiceS.timerSwitchOn : null) }} aria-pressed={timerOn}>
-                <span style={{ ...practiceS.timerKnob, transform: timerOn ? 'translateX(34px)' : 'translateX(0)' }} />
-              </button>
-            </div>
-            {timerOn && (
-              <div style={practiceS.timerGrid}>
-                {timerOptions.map((value) => {
-                  const active = Number(timerSecs) === value;
-                  return (
-                    <button key={value} type="button" onClick={() => setField('timerSecs', value)} style={{ ...practiceS.countButton, ...(active ? practiceS.countButtonActive : null) }}>
-                      {value}s
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
-
-        <div style={practiceS.actions}>
-          <button type="button" onClick={onClose} style={practiceS.cancelBtn}>{tt(lang, 'cancel')}</button>
-          <button type="button" onClick={() => onStart(config)} style={practiceS.startBtn}>{tt(lang, 'startPractice')}</button>
         </div>
       </div>
     </div>
@@ -150,35 +76,12 @@ const practiceS = {
   title: { margin: 0, color: 'var(--ink)', fontSize: 25, lineHeight: 1, fontWeight: 900, letterSpacing: '-0.04em' },
   subtitle: { margin: '16px 0 20px', color: '#6B7280', fontSize: 15, lineHeight: 1.35, fontWeight: 600 },
   modeGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 },
-  modeCard: { minHeight: 122, border: '1.5px solid #E5E7EB', borderRadius: 18, background: '#fff', padding: 18, textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 9 },
-  modeCardActive: { border: '2px solid var(--indigo)', background: '#EEF2FF' },
-  modeIcon: { width: 44, height: 44, borderRadius: 14, display: 'grid', placeItems: 'center' },
+  modeCard: { position: 'relative', minHeight: 162, border: '1.5px solid #E5E7EB', borderRadius: 20, background: '#fff', padding: 18, textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, boxShadow: '0 14px 34px rgba(15,16,53,.06)' },
+  modeIcon: { width: 50, height: 50, borderRadius: 16, display: 'grid', placeItems: 'center' },
+  modeCopy: { display: 'grid', gap: 7, minWidth: 0 },
   modeTitle: { color: 'var(--ink)', fontSize: 19, fontWeight: 900, lineHeight: 1 },
-  modeSub: { color: '#6B7280', fontSize: 13, fontWeight: 800 },
-  divider: { height: 1, background: '#E5E7EB', margin: '18px 0 15px' },
-  sectionLabel: { color: '#6B7280', fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 10 },
-  scopeRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  scopePill: { minHeight: 40, borderRadius: 999, border: '1.5px solid #E5E7EB', background: '#fff', padding: '0 13px', color: '#6B7280', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 900, cursor: 'pointer' },
-  scopePillActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)' },
-  countBadge: { minWidth: 24, height: 24, borderRadius: 999, background: '#F1F5F9', color: '#6B7280', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 900, padding: '0 7px' },
-  countBadgeActive: { background: 'var(--indigo)', color: '#fff' },
-  difficultyGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 },
-  difficultyCard: { minHeight: 68, borderRadius: 16, border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', gap: 5, padding: 12 },
-  difficultyCardActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)' },
-  diffTitle: { color: 'inherit', fontSize: 17, fontWeight: 900, lineHeight: 1 },
-  diffSub: { color: 'inherit', fontSize: 12, fontWeight: 900, opacity: .86 },
-  countGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 9 },
-  timerGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 9 },
-  timerHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  timerSub: { marginTop: 8, color: '#6B7280', fontSize: 14, fontWeight: 900 },
-  timerSwitch: { position: 'relative', width: 64, height: 34, borderRadius: 999, border: '1px solid #D1D5DB', background: '#E5E7EB', padding: 2, cursor: 'pointer', transition: 'background .15s, border-color .15s', flexShrink: 0 },
-  timerSwitchOn: { background: 'var(--indigo)', borderColor: 'var(--indigo)' },
-  timerKnob: { position: 'absolute', left: 3, top: 3, width: 26, height: 26, borderRadius: 999, background: '#fff', boxShadow: '0 1px 4px rgba(15,23,42,.2)', transition: 'transform .15s ease' },
-  countButton: { height: 46, borderRadius: 14, border: '1.5px solid #E5E7EB', background: '#fff', color: '#A1A6B5', fontSize: 17, fontWeight: 900, cursor: 'pointer' },
-  countButtonActive: { border: '2px solid var(--indigo)', background: '#EEF2FF', color: 'var(--indigo)', boxShadow: 'none' },
-  actions: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 18 },
-  cancelBtn: { height: 50, borderRadius: 16, border: '1px solid #E5E7EB', background: '#F8FAFC', color: '#6B7280', fontSize: 15, fontWeight: 900, cursor: 'pointer' },
-  startBtn: { height: 50, borderRadius: 16, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer' },
+  modeSub: { color: '#6B7280', fontSize: 13, fontWeight: 800, lineHeight: 1.35 },
+  modeArrow: { position: 'absolute', right: 14, top: 14, width: 34, height: 34, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
 };
 
 export default PracticeConfigModal;

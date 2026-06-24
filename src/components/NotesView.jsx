@@ -701,6 +701,7 @@ function NotesView({ user, exams, lang = 'en', setExams, activeId, setActiveId, 
         {!loading && !loadError && filtered.map((x) => {
           const palette = getExamPalette(x, darkMode);
           const countdown = x.date ? getExamCountdown(x.date) : null;
+          const hasChapters = (x.chapters || []).length > 0;
           return (
             <div key={x.id} style={notesS.card}>
               <div style={{ ...notesS.cover, background: palette.bg }}>
@@ -763,8 +764,13 @@ function NotesView({ user, exams, lang = 'en', setExams, activeId, setActiveId, 
                   <button style={notesS.primarySmall} onClick={() => setActiveId(x.id)}>
                     <LockeenLogo size={16} /> {tt(lang, 'openExam')}
                   </button>
-                  <button style={notesS.ghostSmall} onClick={() => onOpenQuizForExam && onOpenQuizForExam(x.id)}>
-                    <Sparkles size={14} /> {tt(lang, 'quickQuiz')}
+                  <button
+                    style={hasChapters ? notesS.ghostSmall : notesS.ghostSmallDisabled}
+                    disabled={!hasChapters}
+                    title={hasChapters ? tt(lang, 'quickQuiz') : tt(lang, 'addMaterialForQuickQuiz')}
+                    onClick={() => hasChapters && onOpenQuizForExam && onOpenQuizForExam(x.id)}
+                  >
+                    <Sparkles size={14} /> {hasChapters ? tt(lang, 'quickQuiz') : tt(lang, 'addMaterialShort')}
                   </button>
                 </div>
               </div>
@@ -3181,6 +3187,7 @@ const notesS = {
   actions: { display: 'flex', gap: 8 },
   primarySmall: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 10px', borderRadius: 10, background: 'var(--indigo)', color: '#fff', fontWeight: 600, fontSize: 12 },
   ghostSmall:   { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 10px', borderRadius: 10, background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border)', fontWeight: 600, fontSize: 12 },
+  ghostSmallDisabled: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 10px', borderRadius: 10, background: '#F1F5F9', color: '#94A3B8', border: '1px solid #E2E8F0', fontWeight: 700, fontSize: 12, cursor: 'not-allowed' },
 };
 
 export { NotesView, PDFModal, ExamDetail };

@@ -585,6 +585,11 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const openQuizForExam = (examId) => {
     const exam = exams.find((item) => String(item.id) === String(examId));
     if (!exam) return;
+    if ((exam.chapters || []).length === 0) {
+      setActiveExamId(exam.id);
+      setTab('notes');
+      return;
+    }
     setPracticeConfig({
       exam,
       mode: 'quiz',
@@ -600,6 +605,11 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const startQuickQuizForExam = (examId) => {
     const exam = exams.find((item) => String(item.id) === String(examId));
     if (!exam) return;
+    if ((exam.chapters || []).length === 0) {
+      setActiveExamId(exam.id);
+      setTab('notes');
+      return;
+    }
     setQuizDeck({
       _examId: exam.id,
       _examColor: exam.color || null,
@@ -617,7 +627,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         count: 10,
         timerOn: true,
         timerSecs: 30,
-        autoStart: true,
+        autoStart: false,
       },
       questions: [],
     });
@@ -673,7 +683,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         _examDot: exam.dot || null,
         _meta: practicePayload,
       });
-      setFlashLanding(false);
+      setFlashLanding(true);
       setTab('flashcards');
       return;
     }
@@ -682,7 +692,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       _examId: exam.id,
       _examColor: exam.color || null,
       _examDot: exam.dot || null,
-      _practiceConfig: { ...practicePayload, autoStart: true },
+      _practiceConfig: { ...practicePayload, autoStart: false },
       questions: [],
     });
     setTab('quiz');

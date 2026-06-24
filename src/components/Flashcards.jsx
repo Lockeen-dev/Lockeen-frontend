@@ -376,7 +376,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
   };
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:28, maxWidth:860 }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:28, maxWidth: exams.length === 0 ? 600 : 860, margin: exams.length === 0 ? '0 auto' : 0 }}>
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
