@@ -6,18 +6,22 @@ export const SUBJECT_EMOJI = {
 };
 
 export const EXAM_COLOR_PALETTE = [
-  { name: 'Sapphire', bg: '#EEF4FF', dot: '#3157E8', text: '#203B9A', border: '#BFD0FF' },
-  { name: 'Amethyst', bg: '#F3EEFF', dot: '#7A3FF2', text: '#5426B8', border: '#D7C8FF' },
-  { name: 'Aqua', bg: '#E8FAFF', dot: '#0E92B5', text: '#075E78', border: '#B7EAF4' },
-  { name: 'Jade', bg: '#EAFBF4', dot: '#07845F', text: '#075F46', border: '#B7E8D5' },
-  { name: 'Forest', bg: '#EFF8E8', dot: '#4D8F10', text: '#315F0D', border: '#CEE8B7' },
-  { name: 'Gold', bg: '#FFF7DF', dot: '#B97800', text: '#765000', border: '#F2D99A' },
-  { name: 'Coral', bg: '#FFF0EA', dot: '#E15A2A', text: '#9A3519', border: '#F6C4B1' },
-  { name: 'Ruby', bg: '#FFF0F3', dot: '#CF244F', text: '#8F1837', border: '#F3BCCB' },
-  { name: 'Plum', bg: '#F9EDFF', dot: '#B62DCC', text: '#7B1C8D', border: '#E9BDF2' },
-  { name: 'Graphite', bg: '#F4F6FA', dot: '#475569', text: '#263241', border: '#CBD3DF' },
-  { name: 'Copper', bg: '#FFF4E8', dot: '#C86418', text: '#82400F', border: '#EEC6A2' },
-  { name: 'Mint', bg: '#EAFBF8', dot: '#0A8F86', text: '#075F59', border: '#B8E8E1' },
+  { name: 'Soft Blue', bg: '#BFDBFE', dot: '#60A5FA', text: '#1D4ED8', border: '#93C5FD' },
+  { name: 'Sky', bg: '#BAE6FD', dot: '#38BDF8', text: '#0369A1', border: '#7DD3FC' },
+  { name: 'Aqua', bg: '#99F6E4', dot: '#2DD4BF', text: '#0F766E', border: '#5EEAD4' },
+  { name: 'Mint', bg: '#A7F3D0', dot: '#34D399', text: '#047857', border: '#6EE7B7' },
+  { name: 'Fresh Lime', bg: '#D9F99D', dot: '#A3E635', text: '#4D7C0F', border: '#BEF264' },
+  { name: 'Bright Yellow', bg: '#FDE68A', dot: '#FDE047', text: '#92400E', border: '#FACC15' },
+  { name: 'Peach', bg: '#FED7AA', dot: '#FDBA74', text: '#9A3412', border: '#FB923C' },
+  { name: 'Coral Rose', bg: '#FECDD3', dot: '#FB7185', text: '#BE123C', border: '#FDA4AF' },
+  { name: 'Pink', bg: '#FBCFE8', dot: '#F472B6', text: '#BE185D', border: '#F9A8D4' },
+  { name: 'Orchid', bg: '#F5D0FE', dot: '#E879F9', text: '#A21CAF', border: '#F0ABFC' },
+  { name: 'Lavender', bg: '#E9D5FF', dot: '#C084FC', text: '#7E22CE', border: '#D8B4FE' },
+  { name: 'Violet', bg: '#DDD6FE', dot: '#A78BFA', text: '#6D28D9', border: '#C4B5FD' },
+  { name: 'Periwinkle', bg: '#C7D2FE', dot: '#818CF8', text: '#4338CA', border: '#A5B4FC' },
+  { name: 'Cyan', bg: '#A5F3FC', dot: '#22D3EE', text: '#0E7490', border: '#67E8F9' },
+  { name: 'Green', bg: '#BBF7D0', dot: '#4ADE80', text: '#15803D', border: '#86EFAC' },
+  { name: 'Soft Red', bg: '#FECACA', dot: '#F87171', text: '#B91C1C', border: '#FCA5A5' },
 ];
 
 export function getExamEmoji(exam) {
@@ -31,10 +35,10 @@ export function getExamPalette(exam = {}, darkMode = false) {
   if (exam.dot || exam.color) {
     const dot = exam.dot || '#4F46E5';
     return {
-      bg: exam.color || `${dot}16`,
+      bg: exam.color || `${dot}24`,
       dot,
       text: exam.text || dot,
-      border: exam.border || `${dot}40`,
+      border: exam.border || `${dot}55`,
     };
   }
   return getSubjectPalette(exam.subject, exam, darkMode);
