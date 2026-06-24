@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, XMark } from '../lib/icons';
+import { BookOpen, Check, ChevronLeft, ChevronRight, Plus, XMark } from '../lib/icons';
 import { getExamEmoji, getExamPalette, SubjectIcon } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { getSubjectPalette } from '../data/mockData';
@@ -187,6 +187,24 @@ function FlashResultScreen({ percent, correct, total, palette, title, subject, s
         </div>
       </div>
     </>
+  );
+}
+
+function EmptyFlashcardState({ lang, setTab }) {
+  const isIt = lang === 'it';
+  return (
+    <div style={flashS.emptyState}>
+      <div style={flashS.emptyIcon}><BookOpen size={24} /></div>
+      <h3 style={flashS.emptyTitle}>{tt(lang, 'noExamsYet')}</h3>
+      <p style={flashS.emptyText}>
+        {isIt
+          ? 'Crea il primo esame e carica il materiale: troverai qui le flashcard appena saranno pronte.'
+          : 'Create your first exam and upload material: your flashcards will appear here as soon as they are ready.'}
+      </p>
+      <button type="button" onClick={() => setTab('notes')} style={flashS.emptyCta}>
+        <Plus size={18} /> {tt(lang, 'newExam')}
+      </button>
+    </div>
   );
 }
 
@@ -380,6 +398,8 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
           </div>
         </div>
       )}
+
+      {exams.length === 0 && <EmptyFlashcardState lang={lang} setTab={setTab} />}
 
       {/* Exam selector */}
       {exams.length > 0 && (
@@ -825,4 +845,9 @@ const flashS = {
   tryAgainBtn: { padding: '12px 18px', borderRadius: 999, color: '#fff', fontWeight: 600 },
   backBtn: { padding: '12px 18px', borderRadius: 999, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 },
   emptyWrap: { maxWidth: 480, minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
+  emptyState: { minHeight: 360, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '34px 24px', borderRadius: 22, border: '1.5px dashed var(--border)', background: 'linear-gradient(180deg, #FAFBFF 0%, #FFFFFF 100%)', textAlign: 'center', boxShadow: '0 18px 40px -34px rgba(15,16,53,.35)' },
+  emptyIcon: { width: 58, height: 58, borderRadius: 18, background: 'var(--lavender)', color: 'var(--indigo)', display: 'grid', placeItems: 'center' },
+  emptyTitle: { margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-.02em' },
+  emptyText: { margin: 0, maxWidth: 390, color: 'var(--gray)', fontSize: 15, fontWeight: 650, lineHeight: 1.5 },
+  emptyCta: { marginTop: 4, minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '0 20px', borderRadius: 16, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 14px 28px -20px rgba(55,48,232,.8)' },
 };
