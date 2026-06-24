@@ -585,6 +585,11 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const openQuizForExam = (examId) => {
     const exam = exams.find((item) => String(item.id) === String(examId));
     if (!exam) return;
+    if ((exam.chapters || []).length === 0) {
+      setActiveExamId(exam.id);
+      setTab('notes');
+      return;
+    }
     setPracticeConfig({
       exam,
       mode: 'quiz',
@@ -600,6 +605,11 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const startQuickQuizForExam = (examId) => {
     const exam = exams.find((item) => String(item.id) === String(examId));
     if (!exam) return;
+    if ((exam.chapters || []).length === 0) {
+      setActiveExamId(exam.id);
+      setTab('notes');
+      return;
+    }
     setQuizDeck({
       _examId: exam.id,
       _examColor: exam.color || null,
