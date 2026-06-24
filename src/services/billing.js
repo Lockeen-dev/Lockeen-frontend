@@ -1,5 +1,6 @@
 import { isMockAuthMode } from '../lib/authClient';
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
+import { readStoredReferral } from '../utils/referralTracking';
 
 function fail(message, code = 'BILLING_ERROR') {
   return { data: null, error: { code, message } };
@@ -37,6 +38,7 @@ export async function startCheckout({ billingPeriod = 'monthly' } = {}) {
     },
     body: JSON.stringify({
       billingPeriod: billingPeriod === 'yearly' ? 'yearly' : 'monthly',
+      referralCode: readStoredReferral()?.referralCode || null,
     }),
   });
 
@@ -55,6 +57,38 @@ export async function startCheckout({ billingPeriod = 'monthly' } = {}) {
   }
 
   return ok({ url: payload.url });
+}
+
+export async function reconcileCheckoutSession(sessionId) {
+  if (!sessionId) return ok({ skipped: true });
+
+  const tokenResult = await getAccessToken();
+  if (tokenResult.error) return tokenResult;
+
+  const response = await fetch('/api/reconcile-checkout-session', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tokenResult.data}`,
+    },
+    body: JSON.stringify({ sessionId }),
+  });
+
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
+  }
+
+  if (!response.ok) {
+    return fail(
+      payload?.error?.message || 'Could not sync checkout status.',
+      payload?.error?.code || 'CHECKOUT_RECONCILE_FAILED',
+    );
+  }
+
+  return ok(payload.data || { skipped: Boolean(payload.skipped) });
 }
 
 export async function openBillingPortal() {

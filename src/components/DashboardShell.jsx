@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { BarChart3, Bell, BookOpen, CalendarIcon, Layers, LogOut, Pencil, Sparkles, ZapSolid } from '../lib/icons';
+import { BarChart3, Bell, BookOpen, CalendarIcon, Coins, Layers, LogOut, Pencil, Sparkles, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import LanguageSelect from './LanguageSelect';
 import Sidebar from './Sidebar';
@@ -63,6 +63,15 @@ export function DashboardHeader({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <LanguageSelect lang={lang} onChange={onLangChange} compact />
+          {user?.isAdmin && !isMobile && (
+            <button
+              type="button"
+              onClick={() => setTab('earn')}
+              style={shellS.adminAmbassadorBtn}
+            >
+              <Coins size={15} /> Ambassador
+            </button>
+          )}
           {!isMobile && (
             <div ref={notifRef} style={{ position: 'relative' }}>
               <button
@@ -162,6 +171,9 @@ function ProfileMenu({ user, lang, profileRef, showProfileMenu, setShowProfileMe
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{user.name || 'Alex'}</div>
             <div style={{ fontSize: 11, color: 'var(--gray)', marginTop: 2 }}>{user.email || 'alex@lockeen.com'}</div>
           </div>
+          <button onClick={() => { setTab('earn'); setShowProfileMenu(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
+            <Coins size={15} /> Ambassador
+          </button>
           <button onClick={() => { setTab('account'); setShowProfileMenu(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>
             <Pencil size={15} /> {tt(lang, 'accountSettings')}
           </button>
@@ -202,6 +214,7 @@ export const shellS = {
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   brand: { fontSize: 18, fontWeight: 800, color: 'var(--indigo)' },
   iconBtn: { width: 38, height: 38, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
+  adminAmbassadorBtn: { height: 38, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '0 13px', borderRadius: 10, background: 'rgba(55,48,232,.08)', border: '1px solid rgba(55,48,232,.18)', color: 'var(--indigo)', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
   outerCard: { width: '100%', maxWidth: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
   grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 132px)', width: '100%', minWidth: 0 },

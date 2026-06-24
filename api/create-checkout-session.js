@@ -1,5 +1,13 @@
 import { getJsonBody, getOrigin, getStripe, json, requireAuthenticatedUser } from './_billing-utils.js';
 
+function normalizeReferralCode(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '')
+    .slice(0, 60);
+}
+
 function getPriceId(billingPeriod) {
   if (billingPeriod === 'yearly') return process.env.STRIPE_PRO_YEARLY_PRICE_ID;
   if (billingPeriod === 'monthly') return process.env.STRIPE_PRO_MONTHLY_PRICE_ID;
@@ -26,6 +34,7 @@ export default async function handler(req, res) {
 
   const body = getJsonBody(req);
   const billingPeriod = body.billingPeriod === 'yearly' ? 'yearly' : 'monthly';
+  const referralCode = normalizeReferralCode(body.referralCode);
   const priceId = getPriceId(billingPeriod);
 
   if (!priceId) {
@@ -48,12 +57,14 @@ export default async function handler(req, res) {
         supabase_user_id: user.id,
         plan_tier: 'pro',
         billing_period: billingPeriod,
+        referral_code: referralCode || undefined,
       },
       subscription_data: {
         metadata: {
           supabase_user_id: user.id,
           plan_tier: 'pro',
           billing_period: billingPeriod,
+          referral_code: referralCode || undefined,
         },
       },
       success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,

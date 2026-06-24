@@ -12,6 +12,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/auth/callback" element={<LandingPage />} />
         {staticPageNames.map((page) => (
           <Route key={page} path={'/' + page} element={<StaticPage />} />
         ))}

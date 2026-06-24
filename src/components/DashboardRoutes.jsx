@@ -79,7 +79,7 @@ export function DashboardRoutes({
           {tab === 'tutor'     && <TutorView user={user} lang={lang} />}
           {tab === 'analytics' && <AnalyticsView weekData={weekData} studySessions={studySessions} calEvents={calEvents} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuizForExam={openQuizForExam} lang={lang} />}
           {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} exams={exams} onStudySessionsChanged={onStudySessionsChanged} lang={lang} />}
-          {tab === 'earn'      && <EarnView lang={lang} />}
+          {tab === 'earn'      && <EarnView user={user} lang={lang} />}
           {tab === 'account'   && <AccountView user={user} lang={lang} onLangChange={onLangChange} onLogout={handleLogout} />}
         </motion.div>
       </AnimatePresence>

@@ -140,7 +140,10 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const [tab, setTab] = useState(() => {
     if (typeof window === 'undefined') return 'dashboard';
     const params = new URLSearchParams(window.location.search);
-    return params.has('checkout') || params.get('view') === 'account' ? 'account' : 'dashboard';
+    const view = params.get('view');
+    if (params.has('checkout') || view === 'account') return 'account';
+    if (view === 'earn' || view === 'ambassador') return 'earn';
+    return 'dashboard';
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isMobile = useIsMobile();
@@ -154,6 +157,16 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notifRef = useRef(null);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    function onDashboardView(event) {
+      const view = event.detail?.view;
+      if (view === 'earn' || view === 'ambassador') setTab('earn');
+      if (view === 'account') setTab('account');
+    }
+    window.addEventListener('lockeen-dashboard-view', onDashboardView);
+    return () => window.removeEventListener('lockeen-dashboard-view', onDashboardView);
+  }, []);
 
   useEffect(() => {
     function closePanel(e) {
@@ -684,7 +697,10 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
 
   const handleLogout = async () => {
     const result = await signOut();
-    if (!result.error) onLogout && onLogout();
+    if (!result.error) {
+      onLogout && onLogout();
+      window.location.replace(`/?signed_out=1&v=${Date.now()}`);
+    }
   };
 
   return (

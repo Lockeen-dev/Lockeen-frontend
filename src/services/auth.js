@@ -9,6 +9,9 @@ import {
 import { requireSupabaseClient, supabase } from '../lib/supabaseClient';
 
 const listeners = new Set();
+const AUTH_RETURN_VIEW_KEY = 'lockeen-auth-return-view';
+const OAUTH_RETURN_PATH = '/auth/callback';
+const OAUTH_STARTED_KEY = 'lockeen-oauth-started';
 
 function ok(data) {
   return { data: structuredClone(data), error: null };
@@ -48,6 +51,7 @@ function mapSupabaseUser(user) {
     ? user.identities.map((identity) => String(identity?.provider || '').toLowerCase()).filter(Boolean)
     : [];
   const authProvider = authProviders[0] || String(appMetadata.provider || 'email').toLowerCase();
+  const adminEmails = new Set(['support.lockeen@gmail.com']);
   const name =
     metadata.full_name ||
     metadata.name ||
@@ -61,6 +65,7 @@ function mapSupabaseUser(user) {
     language: metadata.language || 'en',
     timezone: metadata.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome',
     planTier: appMetadata.plan_tier || appMetadata.plan || appMetadata.subscription_plan || 'free',
+    isAdmin: Boolean(appMetadata.is_admin || appMetadata.admin || appMetadata.lockeen_role === 'admin' || appMetadata.role === 'admin' || adminEmails.has(String(user.email || '').toLowerCase())),
     provider: 'supabase',
     authProvider,
     authProviders,
@@ -81,6 +86,84 @@ function createSupabaseSession(session) {
 
 function normalizeEmail(email = '') {
   return String(email).trim().toLowerCase();
+}
+
+function readAuthCodeFromUrl() {
+  if (typeof window === 'undefined') return null;
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const isRecovery = url.searchParams.get('auth') === 'reset' || hashParams.get('type') === 'recovery';
+  if (isRecovery) return null;
+  return url.searchParams.get('code');
+}
+
+function readOAuthTokensFromUrl() {
+  if (typeof window === 'undefined') return null;
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const isRecovery = url.searchParams.get('auth') === 'reset' || hashParams.get('type') === 'recovery';
+  if (isRecovery) return null;
+
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+  if (!accessToken || !refreshToken) return null;
+
+  return {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  };
+}
+
+function cleanAuthCallbackFromUrl(pathname = null) {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  const hasAuthCallback = url.searchParams.has('code') || window.location.hash;
+  if (!hasAuthCallback) return;
+  url.searchParams.delete('code');
+  url.searchParams.delete('auth');
+  url.searchParams.delete('v');
+  const nextPathname = pathname || url.pathname || '/';
+  window.history.replaceState({}, '', `${nextPathname}${url.search}`);
+}
+
+function rememberReturnView() {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(window.location.search);
+  const view = params.get('view');
+  if (view) localStorage.setItem(AUTH_RETURN_VIEW_KEY, view);
+}
+
+function rememberOAuthStart(redirectTo) {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(OAUTH_STARTED_KEY, JSON.stringify({
+    origin: window.location.origin,
+    redirectTo,
+    at: Date.now(),
+  }));
+}
+
+function clearOAuthStart() {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(OAUTH_STARTED_KEY);
+}
+
+async function createFreshSupabaseSession(session) {
+  if (!session?.user) return createSupabaseSession(session);
+
+  const freshUserResult = await withTimeout(
+    supabase.auth.getUser(),
+    3500,
+    { data: null, error: null, timedOut: true },
+  );
+
+  if (!freshUserResult?.error && freshUserResult?.data?.user) {
+    return createSupabaseSession({
+      ...session,
+      user: freshUserResult.data.user,
+    });
+  }
+
+  return createSupabaseSession(session);
 }
 
 function requireSupabaseAuthMode() {
@@ -145,6 +228,24 @@ export async function restoreSession() {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
 
+    const authCode = readAuthCodeFromUrl();
+    if (authCode) {
+      const { data: codeData, error } = await supabase.auth.exchangeCodeForSession(authCode);
+      cleanAuthCallbackFromUrl('/');
+      clearOAuthStart();
+      if (error) return fail(error.message, error.code || 'OAUTH_SESSION_FAILED');
+      if (codeData?.session?.user) return ok(await createFreshSupabaseSession(codeData.session));
+    }
+
+    const oauthTokens = readOAuthTokensFromUrl();
+    if (oauthTokens) {
+      const { data: tokenData, error } = await supabase.auth.setSession(oauthTokens);
+      cleanAuthCallbackFromUrl('/');
+      clearOAuthStart();
+      if (error) return fail(error.message, error.code || 'OAUTH_SESSION_FAILED');
+      if (tokenData?.session?.user) return ok(await createFreshSupabaseSession(tokenData.session));
+    }
+
     const { data, error, timedOut } = await withTimeout(
       supabase.auth.getSession(),
       4500,
@@ -163,20 +264,7 @@ export async function restoreSession() {
       return ok(createSupabaseSession(data.session));
     }
 
-    const freshUserResult = await withTimeout(
-      supabase.auth.getUser(),
-      3500,
-      { data: null, error: null, timedOut: true },
-    );
-
-    if (!freshUserResult?.error && freshUserResult?.data?.user) {
-      return ok(createSupabaseSession({
-        ...data.session,
-        user: freshUserResult.data.user,
-      }));
-    }
-
-    return ok(createSupabaseSession(data.session));
+    return ok(await createFreshSupabaseSession(data.session));
   }
 
   const session = readMockSession();
@@ -276,11 +364,14 @@ export async function signInWithGoogle() {
     const modeError = requireSupabaseAuthMode();
     if (modeError) return modeError;
 
-    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    rememberReturnView();
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}${OAUTH_RETURN_PATH}?auth=oauth&v=${Date.now()}` : undefined;
+    rememberOAuthStart(redirectTo);
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo,
+        skipBrowserRedirect: true,
         queryParams: {
           access_type: 'offline',
           prompt: 'select_account',
@@ -289,6 +380,9 @@ export async function signInWithGoogle() {
     });
 
     if (error) return fail(error.message, error.code || 'GOOGLE_SIGN_IN_FAILED');
+    if (data?.url && typeof window !== 'undefined') {
+      window.location.assign(data.url);
+    }
 
     return ok({
       provider: 'google',
