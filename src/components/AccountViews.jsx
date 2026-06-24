@@ -83,6 +83,9 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
       showNotice('success', copy.checkoutSuccess);
       const sessionId = params.get('session_id');
       reconcileCheckoutSession(sessionId)
+        .then((result) => {
+          if (result.error) showNotice('error', result.error.message);
+        })
         .finally(() => window.setTimeout(() => refreshSession(), 900));
     }
     if (checkout === 'cancelled') showNotice('error', copy.checkoutCancelled);
