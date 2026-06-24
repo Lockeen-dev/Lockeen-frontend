@@ -42,15 +42,31 @@ function subscriptionMetadata(subscription) {
   };
 }
 
-async function handleCheckoutCompleted(session) {
+async function getLatestInvoiceForSubscription(stripe, subscriptionId) {
+  if (!stripe || !subscriptionId) return null;
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ['latest_invoice'],
+    });
+    const latestInvoice = subscription?.latest_invoice;
+    if (!latestInvoice) return null;
+    if (typeof latestInvoice === 'string') return stripe.invoices.retrieve(latestInvoice);
+    return latestInvoice;
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function handleCheckoutCompleted(session, stripe) {
   const userId = session?.metadata?.supabase_user_id || session?.client_reference_id;
   if (!userId) return { skipped: true, reason: 'missing_user_id' };
 
+  const subscriptionId = asId(session.subscription);
   const billingResult = await updateUserBillingMetadata(userId, {
     plan_tier: 'pro',
     subscription_plan: 'pro',
     stripe_customer_id: asId(session.customer),
-    stripe_subscription_id: asId(session.subscription),
+    stripe_subscription_id: subscriptionId,
     stripe_checkout_session_id: session.id || null,
     stripe_subscription_status: 'checkout_completed',
     stripe_billing_period: session.metadata?.billing_period || null,
@@ -64,12 +80,20 @@ async function handleCheckoutCompleted(session) {
     source: 'stripe_checkout_session',
   });
 
-  return markReferralPaid({
+  const paidResult = await markReferralPaid({
     userId,
-    subscriptionId: asId(session.subscription),
+    subscriptionId,
     subscriptionStatus: 'checkout_completed',
     paidAt: new Date().toISOString(),
   });
+  if (paidResult?.error) return paidResult;
+
+  const latestInvoice = await getLatestInvoiceForSubscription(stripe, subscriptionId);
+  if (latestInvoice && Number(latestInvoice.amount_paid || 0) > 0) {
+    return handleInvoicePaid(latestInvoice, stripe);
+  }
+
+  return paidResult;
 }
 
 async function handleSubscriptionEvent(subscription) {
@@ -286,7 +310,7 @@ export default async function handler(req, res) {
 
   try {
     if (event.type === 'checkout.session.completed') {
-      const result = await handleCheckoutCompleted(event.data.object);
+      const result = await handleCheckoutCompleted(event.data.object, stripe);
       if (result?.error) return json(res, 500, { error: result.error });
     }
 

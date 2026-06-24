@@ -12,7 +12,7 @@ import {
   runAmbassadorAdminAction,
   submitLoggedAmbassadorApplication,
 } from '../services/ambassadors';
-import { openBillingPortal, startCheckout } from '../services/billing';
+import { openBillingPortal, reconcileCheckoutSession, startCheckout } from '../services/billing';
 import LanguageSelect from './LanguageSelect';
 
 const BILLING_PRICE_COPY = {
@@ -81,7 +81,9 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
 
     if (checkout === 'success') {
       showNotice('success', copy.checkoutSuccess);
-      window.setTimeout(() => refreshSession(), 1200);
+      const sessionId = params.get('session_id');
+      reconcileCheckoutSession(sessionId)
+        .finally(() => window.setTimeout(() => refreshSession(), 900));
     }
     if (checkout === 'cancelled') showNotice('error', copy.checkoutCancelled);
 
