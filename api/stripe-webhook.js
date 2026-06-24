@@ -17,6 +17,18 @@ function toUnix(value) {
   return Number.isFinite(Number(value)) ? Number(value) : null;
 }
 
+function addMonths(date, months) {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + months;
+  const day = date.getUTCDate();
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(day, lastDay)));
+}
+
+function dateOnly(date) {
+  return date.toISOString().slice(0, 10);
+}
+
 function getPlanTierFromSubscription(subscription) {
   const status = subscription?.status;
   return status === 'active' || status === 'trialing' ? 'pro' : 'free';
@@ -125,6 +137,95 @@ function invoicePeriodEnd(invoice) {
   return unix ? new Date(Number(unix) * 1000).toISOString().slice(0, 10) : null;
 }
 
+function getInvoiceBillingPeriod(invoice, subscription) {
+  return (
+    invoice?.metadata?.billing_period ||
+    subscription?.metadata?.billing_period ||
+    invoice?.parent?.subscription_details?.metadata?.billing_period ||
+    null
+  );
+}
+
+function buildCommissionRows({ invoice, subscription, ambassador, referral, userId, subscriptionId }) {
+  const billingPeriod = getInvoiceBillingPeriod(invoice, subscription);
+  const baseAmount = ambassador.commission_cents || 200;
+  const currency = String(invoice.currency || 'eur').toLowerCase();
+  const periodStart = new Date(`${invoicePeriodStart(invoice)}T00:00:00.000Z`);
+  const periodEnd = invoicePeriodEnd(invoice);
+  const common = {
+    ambassador_id: ambassador.id,
+    referral_id: referral.id,
+    referred_user_id: userId,
+    stripe_subscription_id: subscriptionId,
+    amount_cents: baseAmount,
+    currency,
+  };
+
+  if (billingPeriod !== 'yearly') {
+    return [{
+      ...common,
+      stripe_invoice_id: invoice.id,
+      period_start: dateOnly(periodStart),
+      period_end: periodEnd,
+      status: 'available',
+      available_at: new Date().toISOString(),
+      metadata: {
+        invoiceAmountPaid: invoice.amount_paid,
+        invoiceHostedUrl: invoice.hosted_invoice_url || null,
+        billingPeriod: billingPeriod || 'monthly',
+        accrualMonth: 1,
+        accrualMonths: 1,
+        sourceStripeInvoiceId: invoice.id,
+      },
+    }];
+  }
+
+  return Array.from({ length: 12 }, (_, index) => {
+    const monthStart = addMonths(periodStart, index);
+    const monthEnd = index === 11 && periodEnd ? new Date(`${periodEnd}T00:00:00.000Z`) : addMonths(periodStart, index + 1);
+    return {
+      ...common,
+      stripe_invoice_id: `${invoice.id}:m${String(index + 1).padStart(2, '0')}`,
+      period_start: dateOnly(monthStart),
+      period_end: dateOnly(monthEnd),
+      status: index === 0 ? 'available' : 'pending',
+      available_at: (index === 0 ? new Date() : monthStart).toISOString(),
+      metadata: {
+        invoiceAmountPaid: invoice.amount_paid,
+        invoiceHostedUrl: invoice.hosted_invoice_url || null,
+        billingPeriod: 'yearly',
+        accrualMonth: index + 1,
+        accrualMonths: 12,
+        sourceStripeInvoiceId: invoice.id,
+      },
+    };
+  });
+}
+
+async function reverseReferralCommissions(admin, referralId, statuses, reason) {
+  if (!admin || !referralId) return;
+  await admin
+    .from('ambassador_commissions')
+    .update({
+      status: 'reversed',
+      metadata: { reversedReason: reason },
+    })
+    .eq('referral_id', referralId)
+    .in('status', statuses);
+}
+
+async function reverseInvoiceCommissions(admin, invoiceId, reason) {
+  if (!admin || !invoiceId) return;
+  await admin
+    .from('ambassador_commissions')
+    .update({
+      status: 'reversed',
+      metadata: { reversedReason: reason, sourceStripeInvoiceId: invoiceId },
+    })
+    .or(`stripe_invoice_id.eq.${invoiceId},stripe_invoice_id.like.${invoiceId}:%`)
+    .in('status', ['pending', 'available']);
+}
+
 async function markReferralPaid({ userId, subscriptionId, subscriptionStatus = 'active', paidAt }) {
   if (!userId) return { skipped: true, reason: 'missing_user_id' };
   const admin = getSupabaseAdmin();
@@ -152,6 +253,11 @@ async function markReferralPaid({ userId, subscriptionId, subscriptionStatus = '
     .eq('id', referral.id);
 
   if (updateError) return { error: { code: 'REFERRAL_UPDATE_FAILED', message: updateError.message } };
+
+  if (subscriptionStatus === 'deleted' || subscriptionStatus === 'canceled') {
+    await reverseReferralCommissions(admin, referral.id, ['pending'], 'subscription_cancelled_before_accrual');
+  }
+
   return { data: referral };
 }
 
@@ -251,31 +357,37 @@ async function handleInvoicePaid(invoice, stripe) {
     return { error: { code: 'AMBASSADOR_LOOKUP_FAILED', message: ambassadorError?.message || 'Ambassador not found.' } };
   }
 
+  const commissionRows = buildCommissionRows({
+    invoice,
+    subscription,
+    ambassador,
+    referral: paidResult.data,
+    userId,
+    subscriptionId,
+  });
+
   const { error: commissionError } = await admin
     .from('ambassador_commissions')
-    .insert([{
-      ambassador_id: ambassador.id,
-      referral_id: paidResult.data.id,
-      referred_user_id: userId,
-      stripe_subscription_id: subscriptionId,
-      stripe_invoice_id: invoice.id,
-      amount_cents: ambassador.commission_cents || 200,
-      currency: String(invoice.currency || 'eur').toLowerCase(),
-      period_start: invoicePeriodStart(invoice),
-      period_end: invoicePeriodEnd(invoice),
-      status: 'available',
-      available_at: new Date().toISOString(),
-      metadata: {
-        invoiceAmountPaid: invoice.amount_paid,
-        invoiceHostedUrl: invoice.hosted_invoice_url || null,
-      },
-    }]);
+    .insert(commissionRows);
 
   if (commissionError && commissionError.code !== '23505') {
     return { error: { code: 'COMMISSION_CREATE_FAILED', message: commissionError.message } };
   }
 
   return { data: { referralId: paidResult.data.id, commissionCreated: commissionError?.code !== '23505' } };
+}
+
+async function handleChargeRefunded(charge) {
+  const invoiceId = asId(charge?.invoice);
+  if (!invoiceId || Number(charge?.amount_refunded || 0) <= 0) {
+    return { skipped: true, reason: 'missing_refunded_invoice' };
+  }
+
+  const admin = getSupabaseAdmin();
+  if (!admin) return { skipped: true, reason: 'supabase_admin_missing' };
+
+  await reverseInvoiceCommissions(admin, invoiceId, 'stripe_refund_before_payout');
+  return { data: { invoiceId } };
 }
 
 export default async function handler(req, res) {
@@ -325,6 +437,11 @@ export default async function handler(req, res) {
 
     if (event.type === 'invoice.paid') {
       const result = await handleInvoicePaid(event.data.object, stripe);
+      if (result?.error) return json(res, 500, { error: result.error });
+    }
+
+    if (event.type === 'charge.refunded') {
+      const result = await handleChargeRefunded(event.data.object);
       if (result?.error) return json(res, 500, { error: result.error });
     }
 

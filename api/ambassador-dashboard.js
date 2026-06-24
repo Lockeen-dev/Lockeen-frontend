@@ -1,5 +1,5 @@
 import { json, requireAuthenticatedUser } from './_billing-utils.js';
-import { getAdminClient, maskEmail, summarizeMoney } from './_ambassador-utils.js';
+import { getAdminClient, maskEmail, releaseDueCommissions, summarizeMoney } from './_ambassador-utils.js';
 
 async function claimPendingInvite(admin, user) {
   const email = String(user.email || '').trim().toLowerCase();
@@ -107,6 +107,8 @@ export default async function handler(req, res) {
       summary: summarizeMoney([], []),
     });
   }
+
+  await releaseDueCommissions(admin, ambassador.id);
 
   const [{ data: referrals, error: referralsError }, { data: commissions, error: commissionsError }, { data: payouts, error: payoutsError }] = await Promise.all([
     admin

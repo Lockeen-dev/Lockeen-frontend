@@ -7,6 +7,7 @@ import {
   makeReferralCode,
   normalizeReferralCode,
   readJson,
+  releaseDueCommissions,
   requireAdminUser,
   summarizeMoney,
 } from './_ambassador-utils.js';
@@ -35,6 +36,8 @@ async function uniqueReferralCode(admin, base) {
 }
 
 async function getAdminPayload(admin) {
+  await releaseDueCommissions(admin);
+
   const [{ data: applications, error: applicationsError }, { data: ambassadors, error: ambassadorsError }, { data: payouts, error: payoutsError }, { data: invites, error: invitesError }] = await Promise.all([
     admin
       .from('partner_applications')

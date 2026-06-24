@@ -107,3 +107,59 @@ export function summarizeMoney(commissions = [], payouts = [], payoutThresholdCe
     threshold,
   };
 }
+
+export async function releaseDueCommissions(admin, ambassadorId = null) {
+  if (!admin) return;
+
+  let query = admin
+    .from('ambassador_commissions')
+    .select('id, ambassador_id, referral_id')
+    .eq('status', 'pending')
+    .lte('available_at', new Date().toISOString())
+    .limit(300);
+
+  if (ambassadorId) query = query.eq('ambassador_id', ambassadorId);
+
+  const { data: commissions, error } = await query;
+  if (error || !commissions?.length) return;
+
+  const referralIds = [...new Set(commissions.map((item) => item.referral_id).filter(Boolean))];
+  const { data: referrals, error: referralsError } = await admin
+    .from('referrals')
+    .select('id, status, subscription_status')
+    .in('id', referralIds);
+  if (referralsError) return;
+
+  const referralById = new Map((referrals || []).map((item) => [item.id, item]));
+  const availableIds = [];
+  const reversedIds = [];
+
+  commissions.forEach((commission) => {
+    const referral = referralById.get(commission.referral_id);
+    const activeReferral = ['paid', 'active'].includes(referral?.status);
+    const cancelledSubscription = ['deleted', 'canceled', 'cancelled'].includes(referral?.subscription_status);
+    if (activeReferral && !cancelledSubscription) availableIds.push(commission.id);
+    else reversedIds.push(commission.id);
+  });
+
+  await Promise.all([
+    availableIds.length
+      ? admin
+        .from('ambassador_commissions')
+        .update({
+          status: 'available',
+          available_at: new Date().toISOString(),
+        })
+        .in('id', availableIds)
+      : Promise.resolve(),
+    reversedIds.length
+      ? admin
+        .from('ambassador_commissions')
+        .update({
+          status: 'reversed',
+          metadata: { reversedReason: 'referral_not_active_when_due' },
+        })
+        .in('id', reversedIds)
+      : Promise.resolve(),
+  ]);
+}
