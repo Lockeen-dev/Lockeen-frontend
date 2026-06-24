@@ -283,15 +283,40 @@ function Sidebar({ activeView, onSelect, t }) {
   );
 }
 
+function MobilePreviewNav({ activeView, onSelect, t }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto border-b border-[#E4E7F0] bg-white px-3 py-2 md:hidden" style={{ scrollbarWidth: 'none' }}>
+      {getNavItems(t).map(({ id, icon: Icon, label }) => {
+        const active = activeView === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onSelect(id)}
+            className={
+              active
+                ? 'inline-flex h-10 shrink-0 items-center gap-2 rounded-full bg-[#332BFF] px-3 text-xs font-extrabold text-white shadow-[0_10px_22px_rgba(51,43,255,0.22)]'
+                : 'inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-[#E4E7F0] bg-[#F8F9FE] px-3 text-xs font-extrabold text-[#697287]'
+            }
+          >
+            <Icon size={15} strokeWidth={2.4} />
+            <span>{label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function BrowserChrome() {
   return (
-    <div className="flex h-14 items-center border-b border-[#E4E7F0] bg-[#F3F4F8] px-4 sm:px-6">
+    <div className="flex h-12 items-center border-b border-[#E4E7F0] bg-[#F3F4F8] px-3 sm:h-14 sm:px-6">
       <div className="flex gap-2">
         <span className="h-3 w-3 rounded-full bg-[#FF6159]" />
         <span className="h-3 w-3 rounded-full bg-[#FFC447]" />
         <span className="h-3 w-3 rounded-full bg-[#4CCB5A]" />
       </div>
-      <div className="mx-auto rounded-full bg-[#E7E9EF] px-5 py-1.5 text-xs font-semibold text-[#A1A7B5]">
+      <div className="mx-auto rounded-full bg-[#E7E9EF] px-3 py-1.5 text-[10px] font-semibold text-[#A1A7B5] sm:px-5 sm:text-xs">
         app.lockeen.app
       </div>
     </div>
@@ -302,15 +327,15 @@ function ScreenShell({ title, subtitle, children }) {
   return (
     <motion.main
       key={title}
-      className="min-w-0 flex-1 overflow-hidden p-5 sm:p-8 lg:p-10"
+      className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8 lg:p-10"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
     >
-      <div className="mb-6">
-        <h2 className="text-2xl font-extrabold tracking-normal text-[#12142F] sm:text-3xl">{title}</h2>
-        <p className="mt-2 text-sm font-medium text-[#9AA1B2] sm:text-base">{subtitle}</p>
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-xl font-extrabold tracking-normal text-[#12142F] sm:text-3xl">{title}</h2>
+        <p className="mt-1.5 text-xs font-semibold leading-relaxed text-[#7B8296] sm:text-base">{subtitle}</p>
       </div>
       {children}
     </motion.main>
@@ -634,8 +659,39 @@ function TutorScreen({ t }) {
 
   return (
     <ScreenShell title={t.tutor.title} subtitle={t.tutor.subtitle}>
-      <section className="grid min-h-[360px] grid-cols-[180px_1fr] overflow-hidden rounded-[20px] border border-[#E5E8F5] bg-white">
-        <aside className="border-r border-[#E5E8F5] bg-[#FBFCFF] p-4">
+      <section className="min-h-[360px] overflow-hidden rounded-[20px] border border-[#E5E8F5] bg-white md:grid md:grid-cols-[180px_1fr]">
+        <div className="md:hidden">
+          <div className="flex items-center gap-3 border-b border-[#E5E8F5] bg-[#FBFCFF] p-4">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[15px] bg-[#6D48F2] text-white">
+              <MessageSquare size={22} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-xl font-extrabold leading-tight text-[#11132D]">{t.tutor.title}</h3>
+              <p className="mt-1 text-xs font-bold text-[#737B90]">● {it ? 'Online · Lockeen AI' : 'Online · Lockeen AI'}</p>
+            </div>
+          </div>
+          <div className="space-y-3 p-4">
+            <div className="ml-auto max-w-[88%] rounded-[18px] rounded-br-[6px] bg-[#332BFF] p-3 text-sm font-extrabold leading-snug text-white">
+              {t.tutor.prompt}
+            </div>
+            <div className="max-w-[92%] rounded-[18px] rounded-bl-[6px] bg-[#F3F5FF] p-3 text-sm font-semibold leading-relaxed text-[#252940]">
+              {t.tutor.answer}
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              {(it ? ['Semplifica', 'Fammi un quiz'] : ['Simplify it', 'Quiz me']).map((label) => (
+                <button key={label} className="rounded-[13px] border border-[#E4E7F2] bg-white px-3 py-2 text-xs font-extrabold text-[#332BFF]">
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="m-4 mt-0 flex items-center gap-2 rounded-[16px] border border-[#E4E7F2] bg-white px-3 py-2.5 text-xs font-bold text-[#9AA1B2] shadow-[0_10px_28px_-24px_rgba(15,16,53,.4)]">
+            <Paperclip size={17} />
+            <span className="min-w-0 flex-1 truncate">{t.tutor.input}</span>
+            <button className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-[#332BFF] text-white"><Send size={16} /></button>
+          </div>
+        </div>
+        <aside className="hidden border-r border-[#E5E8F5] bg-[#FBFCFF] p-4 md:block">
           <button className="mb-4 h-11 w-full rounded-[13px] bg-[#332BFF] text-sm font-extrabold text-white">+ {it ? 'Nuova chat' : 'New chat'}</button>
           <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-[#9AA1B2]">Recent</p>
           <div className="space-y-2">
@@ -647,7 +703,7 @@ function TutorScreen({ t }) {
             ))}
           </div>
         </aside>
-        <div className="flex min-w-0 flex-col p-5">
+        <div className="hidden min-w-0 flex-col p-5 md:flex">
           <div className="flex items-center gap-3 border-b border-[#E5E8F5] pb-4">
             <div className="grid h-12 w-12 place-items-center rounded-[14px] bg-[#6D48F2] text-white">
               <MessageSquare size={22} />
@@ -749,7 +805,7 @@ function AnalyticsScreen({ t }) {
       </div>
       <h3 className="mt-6 text-2xl font-extrabold text-[#11132D]">{it ? 'Predizione voto' : 'Grade Predictor'}</h3>
       <div className="mt-3 rounded-[18px] border border-[#E6E9F3] bg-white p-4">
-        <div className="grid grid-cols-[1fr_auto_auto_1.4fr] items-center gap-4">
+        <div className="grid grid-cols-2 items-center gap-4 sm:grid-cols-[1fr_auto_auto_1.4fr]">
           <div>
             <p className="text-base font-extrabold text-[#12142F]">Biologia</p>
             <p className="text-xs font-bold text-[#7B8296]">24 Jun 2026 · {it ? 'Alta confidenza' : 'High confidence'}</p>
@@ -794,7 +850,32 @@ function CalendarScreen({ t }) {
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] overflow-hidden rounded-[18px] border border-[#E2E5EF]">
+        <div className="space-y-3 md:hidden">
+          {days.slice(0, 5).map((day, dayIndex) => {
+            const dayEvents = events.filter((item) => item.day === dayIndex);
+            return (
+              <article key={day} className="rounded-[16px] border border-[#E2E5EF] bg-[#FAFBFF] p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <strong className="text-sm font-extrabold text-[#11132D]">{day}</strong>
+                  <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold text-[#737B90]">{dayEvents.length || 0} {it ? 'attività' : 'tasks'}</span>
+                </div>
+                <div className="space-y-2">
+                  {dayEvents.length ? dayEvents.map((event, index) => (
+                    <div key={`${event.title}-${index}`} className="rounded-[13px] border-l-4 px-3 py-2 text-xs font-extrabold" style={{ background: event.bg, borderColor: event.color, color: event.color }}>
+                      <span className="mr-2 text-[11px] opacity-70">{hours[event.row] || '9:00'}</span>
+                      {event.title}
+                    </div>
+                  )) : (
+                    <div className="rounded-[13px] border border-dashed border-[#DDE2EF] bg-white px-3 py-3 text-xs font-bold text-[#9AA1B2]">
+                      {it ? 'Spazio libero per recupero o ripasso.' : 'Open space for recovery or review.'}
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <div className="hidden grid-cols-[64px_repeat(7,minmax(0,1fr))] overflow-hidden rounded-[18px] border border-[#E2E5EF] md:grid">
           <div className="bg-[#F7F8FC]" />
           {days.map((day) => (
             <div key={day} className="border-l border-[#E2E5EF] bg-[#F7F8FC] p-3 text-center text-xs font-extrabold text-[#737B90]">{day}</div>
@@ -877,7 +958,8 @@ function DashboardPreview({ t }) {
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-white/60 to-transparent" />
       <BrowserChrome />
-      <div className="flex h-[calc(100%-3.5rem)]">
+      <MobilePreviewNav activeView={activeView} onSelect={handleSelect} t={t} />
+      <div className="flex h-[calc(100%-6.5rem)] md:h-[calc(100%-3.5rem)]">
         <Sidebar activeView={activeView} onSelect={handleSelect} t={t} />
         <PreviewContent activeView={activeView} t={t} />
       </div>
@@ -892,22 +974,26 @@ export default function ProductScrollPreview() {
   useEffect(() => {
     if (window.location.hash !== '#product-tablet') return;
     window.setTimeout(() => {
-      document.getElementById('product-tablet')?.scrollIntoView({ block: 'center' });
+      const isMobile = window.matchMedia('(max-width: 767px)').matches;
+      const target = isMobile
+        ? document.getElementById('product') || document.getElementById('product-tablet')
+        : document.getElementById('product-tablet');
+      target?.scrollIntoView({ block: isMobile ? 'start' : 'center' });
     }, 80);
   }, []);
 
   return (
     <ContainerScroll
       titleComponent={
-        <div className="mx-auto max-w-3xl px-6">
-          <h2 className="text-4xl font-bold tracking-normal text-[#080A2B] md:text-5xl lg:text-6xl" style={{ lineHeight: 1.08 }}>
+        <div className="mx-auto max-w-3xl px-4 md:px-6">
+          <h2 className="text-3xl font-bold tracking-normal text-[#080A2B] md:text-5xl lg:text-6xl" style={{ lineHeight: 1.08 }}>
             {t.title}
             <br />
             <span className="bg-gradient-to-r from-[#332BFF] to-[#8B5CF6] bg-clip-text text-transparent">
               {t.highlight}
             </span>
           </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-lg font-medium text-[#62677A] md:text-xl">
+          <p className="mx-auto mt-4 max-w-2xl text-base font-medium leading-relaxed text-[#62677A] md:mt-5 md:text-xl">
             {t.subtitle}
           </p>
         </div>

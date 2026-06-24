@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, Clock, XMark } from '../lib/icons';
+import { BookOpen, Check, Clock, Plus, XMark } from '../lib/icons';
 import { getExamEmoji, getExamPalette } from '../lib/examUi';
 import { getSubjectPalette } from '../data/mockData';
 import { getQuiz, listQuizzes, submitQuizAttempt } from '../services/quiz';
@@ -57,6 +57,24 @@ function isReliableMaterialQuiz(quiz) {
 const DIFFICULTY_IDS = ['easy', 'medium', 'hard', 'extreme'];
 const DIFFICULTY_LABELS = { easy: 'easy', medium: 'medium', hard: 'hard', extreme: 'extreme' };
 const DIFFICULTY_COLORS = { easy: '#10B981', medium: '#F59E0B', hard: '#EF4444', extreme: '#64748B' };
+
+function EmptyPracticeState({ lang, setTab }) {
+  const isIt = lang === 'it';
+  return (
+    <div style={quizS.emptyState}>
+      <div style={quizS.emptyIcon}><BookOpen size={24} /></div>
+      <h3 style={quizS.emptyTitle}>{tt(lang, 'noExamsYet')}</h3>
+      <p style={quizS.emptyText}>
+        {isIt
+          ? 'Crea il primo esame e carica il materiale: Lockeen preparerà quiz e flashcard da lì.'
+          : 'Create your first exam and upload material: Lockeen will prepare quizzes and flashcards from there.'}
+      </p>
+      <button type="button" onClick={() => setTab('notes')} style={quizS.emptyCta}>
+        <Plus size={18} /> {tt(lang, 'newExam')}
+      </button>
+    </div>
+  );
+}
 
 function normalizeDifficultySelection(value) {
   const raw = Array.isArray(value) ? value : (value ? [value] : DIFFICULTY_IDS);
@@ -546,6 +564,11 @@ const quizS = {
   resultActions: { display: 'flex', gap: 10, marginTop: 10 },
   tryAgainBtn: { padding: '12px 18px', borderRadius: 999, color: '#fff', fontWeight: 600 },
   backBtn: { padding: '12px 18px', borderRadius: 999, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 },
+  emptyState: { minHeight: 360, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '34px 24px', borderRadius: 22, border: '1.5px dashed var(--border)', background: 'linear-gradient(180deg, #FAFBFF 0%, #FFFFFF 100%)', textAlign: 'center', boxShadow: '0 18px 40px -34px rgba(15,16,53,.35)' },
+  emptyIcon: { width: 58, height: 58, borderRadius: 18, background: 'var(--lavender)', color: 'var(--indigo)', display: 'grid', placeItems: 'center' },
+  emptyTitle: { margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-.02em' },
+  emptyText: { margin: 0, maxWidth: 380, color: 'var(--gray)', fontSize: 15, fontWeight: 650, lineHeight: 1.5 },
+  emptyCta: { marginTop: 4, minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '0 20px', borderRadius: 16, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 14px 28px -20px rgba(55,48,232,.8)' },
 };
 
 export function QuizReview({ run, onBack, darkMode, lang = 'en' }) {
@@ -902,8 +925,10 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         </div>
       )}
 
+      {exams.length === 0 && <EmptyPracticeState lang={lang} setTab={setTab} />}
+
       {/* Config card */}
-      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:22, overflow:'hidden', boxShadow:'0 2px 16px rgba(0,0,0,.04)', marginBottom:14 }}>
+      {exams.length > 0 && <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:22, overflow:'hidden', boxShadow:'0 2px 16px rgba(0,0,0,.04)', marginBottom:14 }}>
 
         {/* 1 — Exam */}
         <div style={{ padding:'20px 22px' }}>
@@ -1036,16 +1061,16 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             </div>
           </>
         )}
-      </div>
+      </div>}
 
       {/* Start button */}
-      <button onClick={() => startQuiz({ _autoStart:true, _difficulties:selectedDiffs, _timerOn:timerOn, _timerSecs:timerSecs })} disabled={maxQ === 0 || loadingQuizzes}
+      {exams.length > 0 && <button onClick={() => startQuiz({ _autoStart:true, _difficulties:selectedDiffs, _timerOn:timerOn, _timerSecs:timerSecs })} disabled={maxQ === 0 || loadingQuizzes}
         style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 && !loadingQuizzes ? `linear-gradient(135deg, ${selectedPalette.dot} 0%, ${selectedPalette.dot}cc 100%)` : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 && !loadingQuizzes ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 && !loadingQuizzes ? `0 4px 16px ${selectedPalette.dot}35` : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
         onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.9'; }}
         onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}>
         {loadingQuizzes ? tt(lang, 'loading') : maxQ > 0 ? tt(lang, 'startQuizCta', { title: focusTitle }) : waitingForPractice ? tt(lang, 'generatingQuiz') : tt(lang, 'quizPreparing')}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-      </button>
+      </button>}
 
       {/* Past quiz runs */}
       {filteredRuns.length > 0 && (

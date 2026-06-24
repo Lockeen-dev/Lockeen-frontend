@@ -327,7 +327,7 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
             icon={<span style={{ fontSize:20 }}>{accountLang.flag}</span>}
             title={`${accountLang.flag} ${accountLang.label}`}
             sub={copy.languageSub}
-            action={<LanguageSelect lang={lang} onChange={handleLanguageChange} compact />}
+            action={<LanguageSelect lang={lang} onChange={handleLanguageChange} compact preferredPlacement="top" />}
           />
         </div>
       </section>
