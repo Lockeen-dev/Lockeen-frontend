@@ -640,6 +640,7 @@ function ensureStaticLanguageControls(root, lang) {
 function ensureStaticNavLinks(root) {
   const desktopNav = root.querySelector('nav .hidden.md\\:flex.items-center.gap-8');
   const mobileMenu = root.querySelector('#mob-menu');
+  const mobileToggle = root.querySelector('#mob-toggle');
   const navLinks = [
     { href: '/#features', label: 'Features' },
     { href: '/#product', label: 'Product' },
@@ -662,6 +663,12 @@ function ensureStaticNavLinks(root) {
       `<a href="${href}" class="block text-[#070B2D]/70">${label}</a>`
     )).join('')}${authLink}`;
     mobileMenu.dataset.staticNavReady = 'true';
+  }
+
+  if (mobileToggle) {
+    mobileToggle.setAttribute('aria-label', 'Menu');
+    mobileToggle.setAttribute('aria-controls', 'mob-menu');
+    mobileToggle.setAttribute('aria-expanded', mobileMenu && !mobileMenu.classList.contains('hidden') ? 'true' : 'false');
   }
 }
 
@@ -1176,6 +1183,15 @@ export default function StaticPage() {
     };
 
     const onClick = (event) => {
+      const mobileToggle = event.target.closest('#mob-toggle');
+      if (mobileToggle) {
+        window.requestAnimationFrame(() => {
+          const mobileMenu = root.querySelector('#mob-menu');
+          mobileToggle.setAttribute('aria-expanded', mobileMenu && !mobileMenu.classList.contains('hidden') ? 'true' : 'false');
+        });
+        return;
+      }
+
       const authLink = event.target.closest('[data-static-auth]');
       if (!authLink) return;
       event.preventDefault();
