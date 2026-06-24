@@ -608,8 +608,11 @@ export function initMarketingDom() {
     window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`);
     window.dispatchEvent(new CustomEvent('lockeen-product-preview', { detail: { view: previewView } }));
     window.setTimeout(function() {
-      const target = document.getElementById('product-tablet') || document.getElementById('product');
-      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const isMobile = window.matchMedia('(max-width: 767px)').matches;
+      const target = isMobile
+        ? document.getElementById('product') || document.getElementById('product-tablet')
+        : document.getElementById('product-tablet') || document.getElementById('product');
+      target?.scrollIntoView({ behavior: 'smooth', block: isMobile ? 'start' : 'center' });
       if (link.dataset.cleanDemoUrl === 'true') {
         window.history.replaceState({}, '', '/');
       }

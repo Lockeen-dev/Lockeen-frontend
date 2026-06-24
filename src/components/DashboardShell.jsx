@@ -16,17 +16,18 @@ export function BottomNav({ tab, setTab, lang = 'en' }) {
   ];
 
   return (
-    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'rgba(255,255,255,.96)', borderTop: '1px solid var(--border)', display: 'flex', gap: 2, padding: '6px 6px calc(6px + env(safe-area-inset-bottom, 0px))', boxShadow: '0 -16px 40px -28px rgba(15,16,53,.45)', backdropFilter: 'blur(16px)' }}>
+    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'rgba(255,255,255,.96)', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 2, padding: '7px 7px calc(7px + env(safe-area-inset-bottom, 0px))', boxShadow: '0 -16px 40px -28px rgba(15,16,53,.45)', backdropFilter: 'blur(16px)' }}>
       {items.map(({ id, label, Icon: I }) => {
         const active = id === tab;
         return (
           <button
             key={id}
             onClick={() => setTab(id)}
-            style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, border: 'none', borderRadius: 14, background: active ? 'var(--lavender)' : 'transparent', padding: '7px 0 6px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor: 'pointer', minHeight: 58 }}
+            style={{ position: 'relative', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, border: 'none', borderRadius: 16, background: active ? 'var(--lavender)' : 'transparent', padding: '7px 2px 6px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor: 'pointer', minHeight: 60, WebkitTapHighlightColor: 'transparent' }}
+            aria-current={active ? 'page' : undefined}
           >
-            <I size={19} />
-            <span style={{ fontSize: 10, fontWeight: 800, lineHeight: 1, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+            <I size={active ? 20 : 19} strokeWidth={active ? 2.6 : 2.2} />
+            <span style={{ fontSize: 9.5, fontWeight: 900, lineHeight: 1, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
           </button>
         );
       })}
@@ -200,7 +201,7 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
     >
       <div style={{ ...shellS.grid, gridTemplateColumns: isMobile ? '1fr' : sidebarCollapsed ? '64px 1fr' : '220px 1fr', transition: 'grid-template-columns .2s ease' }}>
         {!isMobile && <Sidebar tab={tab} setTab={setTab} lang={lang} collapsed={sidebarCollapsed} onToggleCollapsed={onToggleCollapsed} />}
-        <div style={{ ...shellS.main, padding: isMobile ? '16px 14px' : '32px clamp(28px, 3vw, 56px)', overflow: 'hidden' }}>
+        <div style={{ ...shellS.main, padding: isMobile ? '16px 14px calc(18px + env(safe-area-inset-bottom, 0px))' : '32px clamp(28px, 3vw, 56px)', overflow: 'hidden' }}>
           {children}
         </div>
       </div>
