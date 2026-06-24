@@ -685,7 +685,7 @@ function EarnView({ user, lang = 'en' }) {
     available: 'Saldo disponibile',
     pending: 'Saldo pending',
     paid: 'Già pagato',
-    threshold: 'Payout manuale sbloccato a €20.',
+    threshold: 'Payout manuale sbloccato a {amount}.',
     submit: 'Invia candidatura',
     admin: 'Admin ambassador',
     noRows: 'Nessun dato ancora.',
@@ -708,7 +708,7 @@ function EarnView({ user, lang = 'en' }) {
     available: 'Available balance',
     pending: 'Pending balance',
     paid: 'Paid out',
-    threshold: 'Manual payout unlocks at €20.',
+    threshold: 'Manual payout unlocks at {amount}.',
     submit: 'Submit application',
     admin: 'Ambassador admin',
     noRows: 'No data yet.',
@@ -796,6 +796,7 @@ function EarnView({ user, lang = 'en' }) {
     ? `${window.location.origin}/?ref=${ambassador.referral_code}`
     : '';
   const ambassadorStatus = ambassador?.status || 'active';
+  const thresholdCopy = copy.threshold.replace('{amount}', euro(summary.threshold || ambassador?.payout_threshold_cents || 2000));
   const activeReferrals = (data?.referrals || []).filter((item) => ['paid', 'active'].includes(item.status)).length;
 
   return (
@@ -839,7 +840,7 @@ function EarnView({ user, lang = 'en' }) {
                   {ambassadorStatus === 'paused' ? copy.pausedStatus : copy.liveStatus}
                 </div>
                 <h2 style={earnS.h2}>{copy.link}</h2>
-                <p style={earnS.muted}>{ambassadorStatus === 'paused' ? copy.pausedNote : copy.threshold}</p>
+                <p style={earnS.muted}>{ambassadorStatus === 'paused' ? copy.pausedNote : thresholdCopy}</p>
               </div>
               <button
                 type="button"
@@ -1007,6 +1008,7 @@ function EarnView({ user, lang = 'en' }) {
               <DataPanel title="Payout manuali">
                 {(adminData.ambassadors || []).map((amb) => {
                   const s = adminData.summaries?.[amb.id] || {};
+                  const payoutThreshold = Number(s.threshold || amb.payout_threshold_cents || 2000);
                   return (
                     <details key={amb.id} style={earnS.adminDetails}>
                       <summary style={earnS.adminSummary}>
@@ -1028,16 +1030,16 @@ function EarnView({ user, lang = 'en' }) {
                           ['Disponibile', euro(s.available)],
                           ['Pending', euro(s.pending)],
                           ['Pagato', euro(s.paid)],
-                          ['Soglia payout', euro(s.threshold || amb.payout_threshold_cents)],
+                          ['Soglia payout', euro(payoutThreshold)],
                           ['Approvato', formatDate(amb.approved_at)],
                         ]}
                       />
                       <div style={earnS.adminActions}>
                         <button
                           type="button"
-                          disabled={submitting || Number(s.available || 0) < Number(s.threshold || 2000)}
+                          disabled={submitting || Number(s.available || 0) < payoutThreshold}
                           onClick={() => runAdmin({ action: 'pay_ambassador', ambassadorId: amb.id, method: 'manual_bank' })}
-                          style={Number(s.available || 0) >= Number(s.threshold || 2000) ? accountS.primaryBtn : accountS.disabledBtn}
+                          style={Number(s.available || 0) >= payoutThreshold ? accountS.primaryBtn : accountS.disabledBtn}
                         >
                           Segna pagato
                         </button>

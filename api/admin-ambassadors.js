@@ -89,7 +89,7 @@ async function getAdminPayload(admin) {
     const ownPayouts = (payouts || []).filter((item) => item.ambassador_id === ambassador.id);
     const ownReferrals = referrals.filter((item) => item.ambassador_id === ambassador.id);
     return [ambassador.id, {
-      ...summarizeMoney(ownCommissions, ownPayouts),
+      ...summarizeMoney(ownCommissions, ownPayouts, ambassador.payout_threshold_cents),
       referrals: ownReferrals.length,
       activeReferrals: ownReferrals.filter((item) => ['paid', 'active'].includes(item.status)).length,
     }];

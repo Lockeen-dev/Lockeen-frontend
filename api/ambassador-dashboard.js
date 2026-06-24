@@ -146,6 +146,6 @@ export default async function handler(req, res) {
     referrals: safeReferrals,
     commissions: commissions || [],
     payouts: payouts || [],
-    summary: summarizeMoney(commissions || [], payouts || []),
+    summary: summarizeMoney(commissions || [], payouts || [], ambassador.payout_threshold_cents),
   });
 }

@@ -84,7 +84,8 @@ export function maskEmail(email = '') {
   return `${name.slice(0, 2)}***@${domain}`;
 }
 
-export function summarizeMoney(commissions = [], payouts = []) {
+export function summarizeMoney(commissions = [], payouts = [], payoutThresholdCents = PAYOUT_THRESHOLD_CENTS) {
+  const threshold = Number(payoutThresholdCents || PAYOUT_THRESHOLD_CENTS);
   const totals = commissions.reduce((acc, item) => {
     const amount = Number(item.amount_cents || 0);
     acc.lifetime += amount;
@@ -102,7 +103,7 @@ export function summarizeMoney(commissions = [], payouts = []) {
   return {
     ...totals,
     requested,
-    payoutReady: totals.available >= PAYOUT_THRESHOLD_CENTS,
-    threshold: PAYOUT_THRESHOLD_CENTS,
+    payoutReady: totals.available >= threshold,
+    threshold,
   };
 }
