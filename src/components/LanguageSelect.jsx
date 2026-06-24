@@ -2,7 +2,7 @@ import React from 'react';
 
 import { LANG_OPTIONS } from '../lib/i18n';
 
-function LanguageSelect({ lang, onChange, compact = false }) {
+function LanguageSelect({ lang, onChange, compact = false, preferredPlacement = 'auto' }) {
   const [open, setOpen] = React.useState(false);
   const [menuPlacement, setMenuPlacement] = React.useState('bottom');
   const ref = React.useRef(null);
@@ -19,6 +19,11 @@ function LanguageSelect({ lang, onChange, compact = false }) {
     if (!open || !ref.current) return;
 
     const updatePlacement = () => {
+      if (preferredPlacement === 'top' || preferredPlacement === 'bottom') {
+        setMenuPlacement(preferredPlacement);
+        return;
+      }
+
       const rect = ref.current.getBoundingClientRect();
       const menuHeight = LANG_OPTIONS.length * 42 + 12;
       const spaceBelow = window.innerHeight - rect.bottom;
@@ -33,7 +38,7 @@ function LanguageSelect({ lang, onChange, compact = false }) {
       window.removeEventListener('resize', updatePlacement);
       window.removeEventListener('scroll', updatePlacement, true);
     };
-  }, [open]);
+  }, [open, preferredPlacement]);
 
   return (
     <div ref={ref} translate="no" style={{ position:'relative', display:'inline-block' }}>
