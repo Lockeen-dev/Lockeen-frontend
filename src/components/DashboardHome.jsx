@@ -214,6 +214,7 @@ function DashboardHome({
             s={s}
             loading={loading}
             latestActivity={latestActivity}
+            totalExams={totalExams}
             setTab={setTab}
             scoreFromActivity={scoreFromActivity}
             activityCopy={activityCopy}

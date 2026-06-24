@@ -803,7 +803,19 @@ export default function TutorView({ user, lang = 'en' }) {
           <button type="button" onClick={() => fileRef.current.click()} title={tt(lang, 'attachFile')} aria-label={tt(lang, 'attachFile')} style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray)', display: 'grid', placeItems: 'center' }}>
             <Paperclip size={16} />
           </button>
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={tt(lang, 'askAnything')} style={tutorS.composerInput} />
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            placeholder={tt(lang, 'askAnything')}
+            rows={1}
+            style={tutorS.composerInput}
+          />
           <button type="submit" disabled={typing} style={{ ...tutorS.sendBtn, opacity: typing ? .6 : 1, cursor: typing ? 'not-allowed' : 'pointer' }} aria-label={tt(lang, 'send')}><Send size={16} /></button>
           </div>
         </form>
@@ -902,9 +914,9 @@ const tutorS = {
   suggestRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' },
   suggestChip: { padding: '8px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12 },
   errorBox: { marginBottom: 8, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600 },
-  composer: { display: 'flex', flexDirection: 'column', gap: 10, padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 },
-  composerRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%' },
-  composerInput: { flex: 1, border: 'none', outline: 'none', padding: '10px 12px', fontSize: 14, background: 'transparent', color: 'var(--ink)' },
+  composer: { display: 'flex', flexDirection: 'column', gap: 10, padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 16px 34px -30px rgba(15,16,53,.45)' },
+  composerRow: { display: 'flex', alignItems: 'flex-end', gap: 8, width: '100%' },
+  composerInput: { flex: 1, minWidth: 0, minHeight: 40, maxHeight: 118, border: 'none', outline: 'none', padding: '10px 8px', fontSize: 16, lineHeight: 1.35, background: 'transparent', color: 'var(--ink)', resize: 'none', overflowY: 'auto', fontFamily: 'inherit' },
   sendBtn: { width: 40, height: 40, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
   attachmentTray: { width: '100%', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '4px 4px 0' },
   composerImageAttachment: { position: 'relative', width: 64, height: 64, borderRadius: 14, border: '1px solid var(--border)', background: '#fff', boxShadow: '0 8px 20px rgba(15,23,42,.1)', overflow: 'visible' },

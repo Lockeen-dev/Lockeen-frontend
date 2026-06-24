@@ -127,7 +127,8 @@ export function TodaySchedule({ s, todayEvents, completedToday, totalToday, isEv
   );
 }
 
-export function RecentActivity({ s, loading, latestActivity, setTab, scoreFromActivity, activityCopy, relativeTime, lang = 'en' }) {
+export function RecentActivity({ s, loading, latestActivity, totalExams = 0, setTab, scoreFromActivity, activityCopy, relativeTime, lang = 'en' }) {
+  const hasNoExams = Number(totalExams || 0) === 0;
   return (
     <section style={s.panel}>
       <div style={s.panelHead}>
@@ -137,7 +138,11 @@ export function RecentActivity({ s, loading, latestActivity, setTab, scoreFromAc
       {loading ? (
         <EmptyState s={s} title={tt(lang, 'loading')} text={tt(lang, 'readingDashboardData')} />
       ) : latestActivity.length === 0 ? (
-        <EmptyState s={s} title={tt(lang, 'noRecentPractice')} text={tt(lang, 'recentPracticeHint')} />
+        <div style={s.recoEmpty}>
+          <strong>{tt(lang, hasNoExams ? 'noExamsYet' : 'noRecentPractice')}</strong>
+          <span>{tt(lang, hasNoExams ? 'createFirstExam' : 'recentPracticeHint')}</span>
+          {hasNoExams && <button style={s.outlineButton} onClick={() => setTab('notes')}>{tt(lang, 'newExam')}</button>}
+        </div>
       ) : (
         <div style={s.activityList}>
           {latestActivity.map((activity) => {
@@ -186,6 +191,7 @@ export function QuickActionsPanel({ s, nextExam, startExamQuiz, setTab, onStartT
 }
 
 export function RecommendationsPanel({ s, recommendations, totalExams, daysUntil, formatDate, lang, startExamQuiz, onOpenExam, setTab }) {
+  const hasNoExams = Number(totalExams || 0) === 0;
   return (
     <section style={s.panel}>
       <div style={s.panelHead}>
@@ -194,9 +200,9 @@ export function RecommendationsPanel({ s, recommendations, totalExams, daysUntil
       </div>
       {recommendations.length === 0 ? (
         <div style={s.recoEmpty}>
-          <strong>{tt(lang, 'noRecommendedQuiz')}</strong>
-          <span>{tt(lang, 'recommendedHint')}</span>
-          <button style={s.outlineButton} onClick={() => setTab('notes')}>{tt(lang, 'goToMyExams')}</button>
+          <strong>{tt(lang, hasNoExams ? 'noExamsYet' : 'noRecommendedQuiz')}</strong>
+          <span>{tt(lang, hasNoExams ? 'createFirstExam' : 'recommendedHint')}</span>
+          <button style={s.outlineButton} onClick={() => setTab('notes')}>{tt(lang, hasNoExams ? 'newExam' : 'goToMyExams')}</button>
         </div>
       ) : (
         <div style={s.recoList}>
