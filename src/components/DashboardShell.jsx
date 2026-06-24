@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { BarChart3, Bell, BookOpen, CalendarIcon, Coins, Layers, LogOut, Pencil, Sparkles, ZapSolid } from '../lib/icons';
+import { Bell, BookOpen, CalendarIcon, Coins, Layers, LogOut, MsgCircle, Pencil, Sparkles, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import LanguageSelect from './LanguageSelect';
 import Sidebar from './Sidebar';
@@ -12,7 +12,7 @@ export function BottomNav({ tab, setTab, lang = 'en' }) {
     { id: 'calendar', label: tt(lang, 'calendar'), Icon: CalendarIcon },
     { id: 'flashcards', label: tt(lang, 'flash'), Icon: Layers },
     { id: 'quiz', label: tt(lang, 'quiz'), Icon: Sparkles },
-    { id: 'analytics', label: tt(lang, 'stats'), Icon: BarChart3 },
+    { id: 'tutor', label: tt(lang, 'aiTutor'), Icon: MsgCircle },
   ];
 
   return (
