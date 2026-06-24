@@ -659,8 +659,39 @@ function TutorScreen({ t }) {
 
   return (
     <ScreenShell title={t.tutor.title} subtitle={t.tutor.subtitle}>
-      <section className="grid min-h-[360px] grid-cols-[180px_1fr] overflow-hidden rounded-[20px] border border-[#E5E8F5] bg-white">
-        <aside className="border-r border-[#E5E8F5] bg-[#FBFCFF] p-4">
+      <section className="min-h-[360px] overflow-hidden rounded-[20px] border border-[#E5E8F5] bg-white md:grid md:grid-cols-[180px_1fr]">
+        <div className="md:hidden">
+          <div className="flex items-center gap-3 border-b border-[#E5E8F5] bg-[#FBFCFF] p-4">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[15px] bg-[#6D48F2] text-white">
+              <MessageSquare size={22} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-xl font-extrabold leading-tight text-[#11132D]">{t.tutor.title}</h3>
+              <p className="mt-1 text-xs font-bold text-[#737B90]">● {it ? 'Online · Lockeen AI' : 'Online · Lockeen AI'}</p>
+            </div>
+          </div>
+          <div className="space-y-3 p-4">
+            <div className="ml-auto max-w-[88%] rounded-[18px] rounded-br-[6px] bg-[#332BFF] p-3 text-sm font-extrabold leading-snug text-white">
+              {t.tutor.prompt}
+            </div>
+            <div className="max-w-[92%] rounded-[18px] rounded-bl-[6px] bg-[#F3F5FF] p-3 text-sm font-semibold leading-relaxed text-[#252940]">
+              {t.tutor.answer}
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              {(it ? ['Semplifica', 'Fammi un quiz'] : ['Simplify it', 'Quiz me']).map((label) => (
+                <button key={label} className="rounded-[13px] border border-[#E4E7F2] bg-white px-3 py-2 text-xs font-extrabold text-[#332BFF]">
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="m-4 mt-0 flex items-center gap-2 rounded-[16px] border border-[#E4E7F2] bg-white px-3 py-2.5 text-xs font-bold text-[#9AA1B2] shadow-[0_10px_28px_-24px_rgba(15,16,53,.4)]">
+            <Paperclip size={17} />
+            <span className="min-w-0 flex-1 truncate">{t.tutor.input}</span>
+            <button className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-[#332BFF] text-white"><Send size={16} /></button>
+          </div>
+        </div>
+        <aside className="hidden border-r border-[#E5E8F5] bg-[#FBFCFF] p-4 md:block">
           <button className="mb-4 h-11 w-full rounded-[13px] bg-[#332BFF] text-sm font-extrabold text-white">+ {it ? 'Nuova chat' : 'New chat'}</button>
           <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-[#9AA1B2]">Recent</p>
           <div className="space-y-2">
@@ -672,7 +703,7 @@ function TutorScreen({ t }) {
             ))}
           </div>
         </aside>
-        <div className="flex min-w-0 flex-col p-5">
+        <div className="hidden min-w-0 flex-col p-5 md:flex">
           <div className="flex items-center gap-3 border-b border-[#E5E8F5] pb-4">
             <div className="grid h-12 w-12 place-items-center rounded-[14px] bg-[#6D48F2] text-white">
               <MessageSquare size={22} />
