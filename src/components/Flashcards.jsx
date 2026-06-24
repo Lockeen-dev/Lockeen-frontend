@@ -5,6 +5,7 @@ import useIsMobile from '../lib/useIsMobile';
 import { getSubjectPalette } from '../data/mockData';
 import { createFlashcard, deleteFlashcard, listFlashcards, submitFlashcardReview, updateFlashcard } from '../services/flashcards';
 import { localeFor, tt } from '../lib/i18n';
+import { PracticeBackgroundFrame, usePracticeBackground } from './common/PracticeBackground';
 
 function FlashStyles() {
   return (
@@ -622,6 +623,7 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
   const resultSavedRef = useRef(false);
   const [cardKey, setCardKey] = useState(0);
   const [cardDir, setCardDir] = useState(1); // 1=forward, -1=back
+  const [practiceBackground, setPracticeBackground] = usePracticeBackground();
 
   const answeredCount = answered.filter((v) => v !== undefined).length;
   const allAnswered = answeredCount >= total;
@@ -682,12 +684,14 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
 
   if (!total) {
     return (
-      <div style={flashS.emptyWrap}>
-        <div style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</div>
-        <h2 style={flashS.resultTitle}>{tt(lang, 'noFlashcardsYet')}</h2>
-        <p style={flashS.resultSub}>{title}</p>
-        <button onClick={() => setTab('notes')} style={flashS.backBtn}>{tt(lang, 'backToStudy')}</button>
-      </div>
+      <PracticeBackgroundFrame background={practiceBackground} onBackgroundChange={setPracticeBackground}>
+        <div style={flashS.emptyWrap}>
+          <div style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</div>
+          <h2 style={flashS.resultTitle}>{tt(lang, 'noFlashcardsYet')}</h2>
+          <p style={flashS.resultSub}>{title}</p>
+          <button onClick={() => setTab('notes')} style={flashS.backBtn}>{tt(lang, 'backToStudy')}</button>
+        </div>
+      </PracticeBackgroundFrame>
     );
   }
 
@@ -726,87 +730,91 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
   if (done) {
     const percent = Math.round((correct / total) * 100);
     return (
-      <FlashResultScreen
-        percent={percent} correct={correct} total={total}
-        palette={palette} title={title} subject={subject}
-        subjectStyle={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}
-        saveError={saveError}
-        saved={saved}
-        onReset={reset}
-        onBack={() => onBackToLanding ? onBackToLanding() : setTab('notes')}
-        lang={lang}
-      />
+      <PracticeBackgroundFrame background={practiceBackground} onBackgroundChange={setPracticeBackground}>
+        <FlashResultScreen
+          percent={percent} correct={correct} total={total}
+          palette={palette} title={title} subject={subject}
+          subjectStyle={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}
+          saveError={saveError}
+          saved={saved}
+          onReset={reset}
+          onBack={() => onBackToLanding ? onBackToLanding() : setTab('notes')}
+          lang={lang}
+        />
+      </PracticeBackgroundFrame>
     );
   }
 
   return (
     <>
       <FlashStyles />
-      <div style={flashS.wrap}>
-        <div style={flashS.headerRow}>
-          <div style={flashS.headerLeft}>
-            <span style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
-            <span style={flashS.deckTitle}>{title}</span>
-          </div>
-          <span style={flashS.correctCount}>{tt(lang, 'flashKnownCount', { correct, total })}</span>
-        </div>
-
-        <div style={flashS.progressTrack}>
-          <div style={{ ...flashS.progressFill, width: `${progress}%`, background: palette.dot }} />
-        </div>
-
-        <div key={cardKey} style={{ animation: `${cardDir >= 0 ? 'fSlideIn' : 'fSlideBack'} .26s cubic-bezier(.22,1,.36,1)` }}>
-          <button
-            type="button"
-            onClick={() => { if (!isAnswered) setFlipped((v) => !v); }}
-            style={flashS.cardStage}
-          >
-            <div style={{ ...flashS.cardInner, transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
-              <div style={flashS.cardFront}>
-                <span style={flashS.faceLabel}>{tt(lang, 'question')}</span>
-                <div style={flashS.questionText}>{current.q}</div>
-                <span style={flashS.cardHint}>{tt(lang, 'tapRevealAnswer')}</span>
-              </div>
-              <div style={{ ...flashS.cardBack, background: palette.bg, borderColor: palette.border }}>
-                <span style={{ ...flashS.faceLabel, color: palette.text }}>{tt(lang, 'answer')}</span>
-                <div style={{ ...flashS.answerText, color: palette.text }}>{current.a}</div>
-              </div>
+      <PracticeBackgroundFrame background={practiceBackground} onBackgroundChange={setPracticeBackground}>
+        <div style={flashS.wrap}>
+          <div style={flashS.headerRow}>
+            <div style={flashS.headerLeft}>
+              <span style={{ ...flashS.subjectChip, background: palette.bg, color: palette.text, borderColor: palette.border }}>{subject}</span>
+              <span style={flashS.deckTitle}>{title}</span>
             </div>
+            <span style={flashS.correctCount}>{tt(lang, 'flashKnownCount', { correct, total })}</span>
+          </div>
+
+          <div style={flashS.progressTrack}>
+            <div style={{ ...flashS.progressFill, width: `${progress}%`, background: palette.dot }} />
+          </div>
+
+          <div key={cardKey} style={{ animation: `${cardDir >= 0 ? 'fSlideIn' : 'fSlideBack'} .26s cubic-bezier(.22,1,.36,1)` }}>
+            <button
+              type="button"
+              onClick={() => { if (!isAnswered) setFlipped((v) => !v); }}
+              style={flashS.cardStage}
+            >
+              <div style={{ ...flashS.cardInner, transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
+                <div style={flashS.cardFront}>
+                  <span style={flashS.faceLabel}>{tt(lang, 'question')}</span>
+                  <div style={flashS.questionText}>{current.q}</div>
+                  <span style={flashS.cardHint}>{tt(lang, 'tapRevealAnswer')}</span>
+                </div>
+                <div style={{ ...flashS.cardBack, background: palette.bg, borderColor: palette.border }}>
+                  <span style={{ ...flashS.faceLabel, color: palette.text }}>{tt(lang, 'answer')}</span>
+                  <div style={{ ...flashS.answerText, color: palette.text }}>{current.a}</div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div style={{ ...flashS.answerRow, opacity: flipped && !isAnswered ? 1 : 0, pointerEvents: flipped && !isAnswered ? 'auto' : 'none' }}>
+            <button onClick={() => handleAnswer(false)} style={flashS.dontKnowBtn}>
+              <XMark size={16} /> {tt(lang, 'stillLearning')}
+            </button>
+            <button onClick={() => handleAnswer(true)} style={flashS.knewBtn}>
+              <Check size={16} /> {tt(lang, 'known')}
+            </button>
+          </div>
+
+          <div style={flashS.navRow}>
+            <button onClick={() => goTo(idx - 1)} disabled={idx === 0} style={{ ...flashS.navBtn, ...(idx === 0 ? flashS.navBtnDisabled : null) }}>
+              <ChevronLeft size={16} />
+            </button>
+            <span style={flashS.navLabel}>{idx + 1} / {total}</span>
+            <button onClick={() => goTo(idx + 1)} disabled={idx === total - 1 || !isAnswered} style={{ ...flashS.navBtn, ...(idx === total - 1 || !isAnswered ? flashS.navBtnDisabled : null) }}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          {!allAnswered && (
+            <p style={{ textAlign:'center', fontSize:12, color:'var(--gray)', margin:0 }}>
+              {tt(lang, 'answerEveryCard', { answered: answeredCount, total })}
+            </p>
+          )}
+
+          <button
+            onClick={() => setDone(true)}
+            disabled={!allAnswered}
+            style={{ width:'100%', borderRadius:14, padding:'14px 16px', fontWeight:700, fontSize:15, border:'none', cursor: allAnswered ? 'pointer' : 'not-allowed', background: allAnswered ? `linear-gradient(135deg, ${palette.dot} 0%, ${palette.dot}cc 100%)` : 'var(--border)', color: allAnswered ? '#fff' : 'var(--gray)', opacity: allAnswered ? 1 : 0.5, transition:'all .2s', boxShadow: allAnswered ? `0 4px 14px ${palette.dot}44` : 'none' }}>
+            {allAnswered ? `✓ ${tt(lang, 'complete')}` : tt(lang, 'completeAnswers', { answered: answeredCount, total })}
           </button>
         </div>
-
-      <div style={{ ...flashS.answerRow, opacity: flipped && !isAnswered ? 1 : 0, pointerEvents: flipped && !isAnswered ? 'auto' : 'none' }}>
-        <button onClick={() => handleAnswer(false)} style={flashS.dontKnowBtn}>
-          <XMark size={16} /> {tt(lang, 'stillLearning')}
-        </button>
-        <button onClick={() => handleAnswer(true)} style={flashS.knewBtn}>
-          <Check size={16} /> {tt(lang, 'known')}
-        </button>
-      </div>
-
-      <div style={flashS.navRow}>
-        <button onClick={() => goTo(idx - 1)} disabled={idx === 0} style={{ ...flashS.navBtn, ...(idx === 0 ? flashS.navBtnDisabled : null) }}>
-          <ChevronLeft size={16} />
-        </button>
-        <span style={flashS.navLabel}>{idx + 1} / {total}</span>
-        <button onClick={() => goTo(idx + 1)} disabled={idx === total - 1 || !isAnswered} style={{ ...flashS.navBtn, ...(idx === total - 1 || !isAnswered ? flashS.navBtnDisabled : null) }}>
-          <ChevronRight size={16} />
-        </button>
-      </div>
-
-      {!allAnswered && (
-        <p style={{ textAlign:'center', fontSize:12, color:'var(--gray)', margin:0 }}>
-          {tt(lang, 'answerEveryCard', { answered: answeredCount, total })}
-        </p>
-      )}
-
-      <button
-        onClick={() => setDone(true)}
-        disabled={!allAnswered}
-        style={{ width:'100%', borderRadius:14, padding:'14px 16px', fontWeight:700, fontSize:15, border:'none', cursor: allAnswered ? 'pointer' : 'not-allowed', background: allAnswered ? `linear-gradient(135deg, ${palette.dot} 0%, ${palette.dot}cc 100%)` : 'var(--border)', color: allAnswered ? '#fff' : 'var(--gray)', opacity: allAnswered ? 1 : 0.5, transition:'all .2s', boxShadow: allAnswered ? `0 4px 14px ${palette.dot}44` : 'none' }}>
-        {allAnswered ? `✓ ${tt(lang, 'complete')}` : tt(lang, 'completeAnswers', { answered: answeredCount, total })}
-      </button>
-    </div>
+      </PracticeBackgroundFrame>
     </>
   );
 }
