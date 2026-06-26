@@ -1104,7 +1104,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
   const divider = { height:1, background:'var(--border)', margin:'0' };
 
   return (
-    <div style={{ width:'100%', maxWidth: 1120, margin: '0 auto', display:'flex', flexDirection:'column', gap:24 }}>
+    <div style={{ width:'100%', maxWidth: exams.length === 0 ? 600 : 1120, margin: '0 auto', display:'flex', flexDirection:'column', gap:24 }}>
 
       {/* Page header */}
       <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between' }}>
