@@ -306,6 +306,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
   const paletteForEvent = (event) => resolveEventPalette(eventWithExamPalette(event));
   const subjectOptions = useMemo(() => buildSubjectOptionsFromContext(exams, events), [exams, events]);
   const getVisibleDayEvents = (key) => (events[key] || []).map((event, index) => ({ event, index })).filter(({ event }) => activeCats.has(event.cat));
+
   const resolveEventIndex = (key, eventOrIdx) => {
     const dayEvents = events[key] || [];
     if (typeof eventOrIdx === 'number' && Number.isInteger(eventOrIdx) && eventOrIdx >= 0) {
@@ -904,6 +905,20 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
   const [reorderDragIdx, setReorderDragIdx] = useState(null);
   const [reorderOverIdx, setReorderOverIdx] = useState(null);
 
+  useEffect(() => {
+    if (!isMobile || (!modalKey && !editEv && !dayDetailKey)) return undefined;
+    const previousBodyOverflowX = document.body.style.overflowX;
+    const previousHtmlOverflowX = document.documentElement.style.overflowX;
+    document.body.style.overflowX = 'hidden';
+    document.documentElement.style.overflowX = 'hidden';
+    window.scrollTo({ left: 0, top: window.scrollY });
+    return () => {
+      document.body.style.overflowX = previousBodyOverflowX;
+      document.documentElement.style.overflowX = previousHtmlOverflowX;
+      window.scrollTo({ left: 0, top: window.scrollY });
+    };
+  }, [dayDetailKey, editEv, isMobile, modalKey]);
+
   const openEditEvent = (key, idx) => {
     const ev = (events[key] || [])[idx];
     if (!ev) return;
@@ -1480,15 +1495,15 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
       <div style={{ ...calS.overlay, ...(isMobile ? calS.mobileOverlay : null) }} onClick={closeModal}>
         <div style={{ ...calS.modal, ...(isMobile ? calS.mobileModal : null) }} onClick={e => e.stopPropagation()}>
           {isMobile && <div style={calS.sheetHandle} />}
-          <h3 style={calS.modalTitle}>{tt(lang, 'addActivity')} · {fmtModalDate(modalKey)}</h3>
+          <h3 style={{ ...calS.modalTitle, ...(isMobile ? calS.mobileModalTitle : null) }}>{tt(lang, 'addActivity')} · {fmtModalDate(modalKey)}</h3>
           <div style={calS.modalField}>
             <label style={calS.modalLabel}>{tt(lang, 'activityTitle')}</label>
             <input value={modalName} onChange={e => setModalName(e.target.value)} onKeyDown={e => e.key==='Enter' && addEvent()}
               placeholder={tt(lang, 'activityPlaceholder')} style={calS.modalInput} autoFocus />
           </div>
           <div style={{ display:'flex', flexDirection:isMobile ? 'column' : 'row', gap:12, marginBottom:16 }}>
-            <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'startTime')}</label><input type="time" value={modalTime} onChange={e => setModalTime(e.target.value)} style={calS.modalInput} /></div>
-            <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'duration')}</label>
+            <div style={{ flex:1, minWidth:0 }}><label style={calS.modalLabel}>{tt(lang, 'startTime')}</label><input type="time" value={modalTime} onChange={e => setModalTime(e.target.value)} style={calS.modalInput} /></div>
+            <div style={{ flex:1, minWidth:0 }}><label style={calS.modalLabel}>{tt(lang, 'duration')}</label>
               <select value={modalDur} onChange={e => setModalDur(e.target.value)} style={calS.modalInput}>
                 {['15m','30m','45m','1h','1h30m','2h','3h','Custom'].map(d => <option key={d} value={d}>{d}</option>)}
               </select>
@@ -1510,10 +1525,10 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
           </div>
           <div style={{ marginBottom:16 }}>
             <label style={calS.modalLabel}>{tt(lang, 'category')}</label>
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
+            <div style={{ ...calS.modalChipRow, ...(isMobile ? calS.mobileModalChipRow : null) }}>
               {LIFE_CATS.map(c => (
                 <button key={c.id} onClick={() => { setSelCat(c.id); if(c.id!=='study') setSelNoteId(null); }}
-                  style={{ ...calS.catChip, background:selCat===c.id?c.color:c.bg, color:selCat===c.id?'#fff':c.text, border:`1.5px solid ${c.color}` }}>
+                  style={{ ...calS.catChip, ...(isMobile ? calS.mobileModalChip : null), background:selCat===c.id?c.color:c.bg, color:selCat===c.id?'#fff':c.text, border:`1.5px solid ${c.color}` }}>
                   <span style={{ ...calS.catDot, background:selCat===c.id?'#fff':c.color }} />{tt(lang, c.id)}
                 </button>
               ))}
@@ -1522,11 +1537,11 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
           {selCat === 'study' && (
             <div style={{ marginBottom:16 }}>
               <label style={calS.modalLabel}>{tt(lang, 'whichSubject')}</label>
-              <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
+              <div style={{ ...calS.modalChipRow, ...(isMobile ? calS.mobileModalChipRow : null) }}>
                 {subjectOptions.length > 0
                   ? subjectOptions.map((info) => (
                     <button key={`${info.noteId}-${info.subject}`} onClick={() => selectSubject(info.subject)}
-                      style={{ ...calS.catChip, background:selNoteId===info.noteId?info.color:info.bg, color:selNoteId===info.noteId?'#fff':info.text, border:`1.5px solid ${info.color}` }}>
+                      style={{ ...calS.catChip, ...(isMobile ? calS.mobileModalChip : null), background:selNoteId===info.noteId?info.color:info.bg, color:selNoteId===info.noteId?'#fff':info.text, border:`1.5px solid ${info.color}` }}>
                       {info.subject}
                     </button>
                   ))
@@ -1562,7 +1577,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
         <div style={{ ...calS.modal, maxHeight:isMobile ? '92dvh' : '88vh', overflowY:'auto', ...(isMobile ? calS.mobileModal : null) }} onClick={e => e.stopPropagation()}>
           {isMobile && <div style={calS.sheetHandle} />}
           <div style={{ display:'flex', flexDirection:isMobile ? 'column' : 'row', alignItems:isMobile ? 'flex-start' : 'center', justifyContent:'space-between', gap:isMobile ? 10 : 0, marginBottom:18 }}>
-            <h3 style={{ ...calS.modalTitle, margin:0 }}>{tt(lang, 'editActivity')} · {fmtModalDate(editEv.key)}</h3>
+            <h3 style={{ ...calS.modalTitle, ...(isMobile ? calS.mobileModalTitle : null), margin:0 }}>{tt(lang, 'editActivity')} · {fmtModalDate(editEv.key)}</h3>
             <label style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:12, color:'var(--gray)', cursor:'pointer', userSelect:'none' }}>
               <input type="checkbox" checked={f.completed} onChange={e => upd({ completed: e.target.checked })} />
               {tt(lang, 'completed')}
@@ -1573,8 +1588,8 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
             <input value={f.name} onChange={e => upd({ name: e.target.value })} readOnly={isPlannerEvent} style={{ ...calS.modalInput, ...(isPlannerEvent ? { background:'var(--sidebar-bg)', color:'var(--gray)' } : null) }} />
           </div>
           <div style={{ display:'flex', flexDirection:isMobile ? 'column' : 'row', gap:12, marginBottom:16 }}>
-            <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'startTime')}</label><input type="time" value={f.time} onChange={e => upd({ time: e.target.value })} style={calS.modalInput} /></div>
-            <div style={{ flex:1 }}><label style={calS.modalLabel}>{tt(lang, 'duration')}</label>
+            <div style={{ flex:1, minWidth:0 }}><label style={calS.modalLabel}>{tt(lang, 'startTime')}</label><input type="time" value={f.time} onChange={e => upd({ time: e.target.value })} style={calS.modalInput} /></div>
+            <div style={{ flex:1, minWidth:0 }}><label style={calS.modalLabel}>{tt(lang, 'duration')}</label>
               <select value={f.dur} onChange={e => upd({ dur: e.target.value })} style={calS.modalInput}>
                 {['15m','30m','45m','1h','1h30m','2h','3h'].map(d => <option key={d} value={d}>{d}</option>)}
               </select>
@@ -1591,10 +1606,10 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
                 <span>{currentEvent.examId ? 'Exam linked' : 'No exam link'}</span>
               </div>
               <label style={calS.modalLabel}>Study plan activity</label>
-              <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
+              <div style={{ ...calS.modalChipRow, ...(isMobile ? calS.mobileModalChipRow : null) }}>
                 {Object.entries(STUDY_PLAN_TYPE_LABELS).filter(([value]) => value !== 'buffer').map(([value, label]) => (
                   <button key={value} onClick={() => upd({ studyType: value })}
-                    style={{ ...calS.catChip, background:f.studyType===value?'var(--indigo)':'var(--lavender)', color:f.studyType===value?'#fff':'var(--indigo)', border:'1.5px solid var(--indigo)' }}>
+                    style={{ ...calS.catChip, ...(isMobile ? calS.mobileModalChip : null), background:f.studyType===value?'var(--indigo)':'var(--lavender)', color:f.studyType===value?'#fff':'var(--indigo)', border:'1.5px solid var(--indigo)' }}>
                     {label}
                   </button>
                 ))}
@@ -1631,10 +1646,10 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
             <>
               <div style={{ marginBottom:16 }}>
                 <label style={calS.modalLabel}>{tt(lang, 'category')}</label>
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
+                <div style={{ ...calS.modalChipRow, ...(isMobile ? calS.mobileModalChipRow : null) }}>
                   {LIFE_CATS.map(c => (
                     <button key={c.id} onClick={() => upd({ cat: c.id, noteId: c.id !== 'study' ? null : f.noteId })}
-                      style={{ ...calS.catChip, background:f.cat===c.id?c.color:c.bg, color:f.cat===c.id?'#fff':c.text, border:`1.5px solid ${c.color}` }}>
+                      style={{ ...calS.catChip, ...(isMobile ? calS.mobileModalChip : null), background:f.cat===c.id?c.color:c.bg, color:f.cat===c.id?'#fff':c.text, border:`1.5px solid ${c.color}` }}>
                       <span style={{ ...calS.catDot, background:f.cat===c.id?'#fff':c.color }} />{tt(lang, c.id)}
                     </button>
                   ))}
@@ -1643,11 +1658,11 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
               {f.cat === 'study' && (
                 <div style={{ marginBottom:16 }}>
                   <label style={calS.modalLabel}>{tt(lang, 'whichSubject')}</label>
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
+                <div style={{ ...calS.modalChipRow, ...(isMobile ? calS.mobileModalChipRow : null) }}>
                     {subjectOptions.length > 0
                       ? subjectOptions.map((subjectInfo) => (
                         <button key={`${subjectInfo.noteId}-${subjectInfo.subject}`} onClick={() => upd({ noteId: f.noteId === subjectInfo.noteId ? null : subjectInfo.noteId })}
-                          style={{ ...calS.catChip, background:f.noteId===subjectInfo.noteId?subjectInfo.color:subjectInfo.bg, color:f.noteId===subjectInfo.noteId?'#fff':subjectInfo.text, border:`1.5px solid ${subjectInfo.color}` }}>
+                          style={{ ...calS.catChip, ...(isMobile ? calS.mobileModalChip : null), background:f.noteId===subjectInfo.noteId?subjectInfo.color:subjectInfo.bg, color:f.noteId===subjectInfo.noteId?'#fff':subjectInfo.text, border:`1.5px solid ${subjectInfo.color}` }}>
                           {subjectInfo.subject}
                         </button>
                       ))
@@ -1948,15 +1963,19 @@ const calS = {
   balanceGrid: { display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:10 },
   mobileBalanceGrid: { gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:8 },
   balanceCard: { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:14 },
-  overlay: { position:'fixed', inset:0, background:'rgba(15,16,53,.4)', display:'grid', placeItems:'center', zIndex:100 },
-  mobileOverlay: { placeItems:'end center', padding:'0 10px' },
-  modal: { background:'var(--surface)', borderRadius:20, padding:28, width:'100%', maxWidth:480, boxShadow:'0 20px 60px -10px rgba(15,16,53,.2)' },
-  mobileModal: { maxWidth:'none', borderRadius:'24px 24px 0 0', padding:'12px 18px calc(18px + env(safe-area-inset-bottom, 0px))', maxHeight:'92dvh', overflowY:'auto' },
+  overlay: { position:'fixed', inset:0, background:'rgba(15,16,53,.4)', display:'grid', placeItems:'center', zIndex:2600, overflow:'hidden' },
+  mobileOverlay: { placeItems:'end center', padding:'0', overflowX:'hidden' },
+  modal: { background:'var(--surface)', borderRadius:20, padding:28, width:'100%', maxWidth:480, boxShadow:'0 20px 60px -10px rgba(15,16,53,.2)', boxSizing:'border-box', overflowX:'hidden' },
+  mobileModal: { width:'100%', maxWidth:'100%', borderRadius:'24px 24px 0 0', padding:'12px 16px calc(18px + env(safe-area-inset-bottom, 0px))', maxHeight:'92dvh', overflowY:'auto', overflowX:'hidden', overscrollBehavior:'contain' },
   sheetHandle: { width:42, height:4, borderRadius:999, background:'#D1D5DB', margin:'0 auto 14px' },
   modalTitle: { margin:'0 0 20px', fontSize:16, fontWeight:700, color:'var(--ink)' },
+  mobileModalTitle: { fontSize:18, lineHeight:1.25, overflowWrap:'anywhere' },
   modalField: { marginBottom:16 },
   modalLabel: { display:'block', fontSize:12, fontWeight:700, color:'var(--ink)', marginBottom:8 },
   modalInput: { width:'100%', padding:'10px 12px', border:'1px solid var(--border)', borderRadius:10, fontSize:14, color:'var(--ink)', background:'var(--surface)', outline:'none', boxSizing:'border-box' },
+  modalChipRow: { display:'flex', gap:8, flexWrap:'wrap', marginTop:8, maxWidth:'100%' },
+  mobileModalChipRow: { display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:8 },
+  mobileModalChip: { width:'100%', minWidth:0, justifyContent:'center', overflow:'hidden', textOverflow:'ellipsis' },
   realSourceBox: { margin:'0 0 12px', padding:'11px 13px', borderRadius:12, border:'1px solid var(--border)', background:'var(--sidebar-bg)', color:'var(--ink)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, fontSize:12, fontWeight:800 },
   cancelBtn: { padding:'10px 20px', borderRadius:999, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:600, fontSize:14, cursor:'pointer' },
   saveBtn: { padding:'10px 20px', borderRadius:999, border:'none', background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:14, cursor:'pointer' },
