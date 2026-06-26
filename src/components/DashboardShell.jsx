@@ -231,7 +231,7 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
 }
 
 export const shellS = {
-  wrap: { minHeight: '100vh', width: '100%', margin: '0 auto', padding: '22px clamp(24px, 3vw, 48px) 38px', boxSizing: 'border-box', overflowX: 'hidden', background: '#fff' },
+  wrap: { minHeight: '100vh', width: '100%', maxWidth: '100%', margin: '0 auto', padding: '22px clamp(24px, 3vw, 48px) 38px', boxSizing: 'border-box', overflowX: 'hidden', background: '#fff' },
   header: { position: 'relative', marginBottom: 18, padding: '4px 4px 12px' },
   headerRule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: '#E8EBF4', borderRadius: 999 },
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 52 },
