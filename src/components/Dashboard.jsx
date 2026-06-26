@@ -698,7 +698,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         _meta: practicePayload,
         _practiceConfig: { ...practicePayload, autoStart: true },
       });
-      setFlashLanding(false);
+      setFlashLanding(true);
       setTab('flashcards');
       return;
     }

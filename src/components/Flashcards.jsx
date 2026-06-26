@@ -270,6 +270,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, onOpenExam, se
   const manageFormRef = useRef(null);
   const setupRef = useRef(null);
   const loadCardsSeqRef = useRef(0);
+  const autoStartRef = useRef(false);
   const selectedExam = exams.find(e => e.id === selectedExamId);
   const selectedPalette = selectedExam ? getExamPalette(selectedExam, darkMode) : getSubjectPalette('', {}, darkMode);
 
@@ -306,6 +307,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, onOpenExam, se
 
   useEffect(() => {
     if (!deck?._practiceConfig) return;
+    autoStartRef.current = false;
     setSelectedExamId(deck._examId ?? deck._practiceConfig.examId ?? exams[0]?.id ?? null);
     setSelectedChapterId(deck._practiceConfig.chapterId || 'all');
     setNumCards(deck._practiceConfig.count || 10);
@@ -321,7 +323,11 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, onOpenExam, se
 
   const cardsBelongToSelectedExam = selectedExamId && String(cardsExamId) === String(selectedExamId);
   const selectedExamCards = cardsBelongToSelectedExam ? cards : [];
-  const playableCards = selectedExamCards.filter(isPlayableFlashcard);
+  const deckFallbackCards = deck?._practiceConfig?.source === 'analytics-grade-predictor' &&
+    String(deck?._examId ?? deck?._practiceConfig?.examId) === String(selectedExamId)
+    ? (deck.cards || []).map(normalizeFlashcard)
+    : [];
+  const playableCards = (selectedExamCards.length ? selectedExamCards : deckFallbackCards).filter(isPlayableFlashcard);
   const getCardsForChapter = (chapter) => {
     const serviceCards = playableCards.filter((card) => String(card.chapterId) === String(chapter.id));
     if (cardsLoaded && !cardsError) return serviceCards;
@@ -475,6 +481,15 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, onOpenExam, se
       },
     });
   };
+
+  useEffect(() => {
+    const shouldAutoStart =
+      deck?._practiceConfig?.source === 'analytics-grade-predictor' &&
+      deck._practiceConfig.autoStart === true;
+    if (!shouldAutoStart || autoStartRef.current || loadingCards || !cardsLoaded || !maxCards) return;
+    autoStartRef.current = true;
+    startConfiguredDeck('new');
+  }, [deck, loadingCards, cardsLoaded, maxCards]);
 
   const submitCardForm = async (event) => {
     event.preventDefault();
