@@ -114,6 +114,11 @@ const expectedTables = [
     operations: ['select', 'insert', 'update', 'delete'],
   },
   {
+    table: 'tutor_folders',
+    ownerColumn: 'user_id',
+    operations: ['select', 'insert', 'update', 'delete'],
+  },
+  {
     table: 'ai_usage',
     ownerColumn: 'user_id',
     operations: ['select'],

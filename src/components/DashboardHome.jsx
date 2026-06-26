@@ -4,11 +4,9 @@ import useIsMobile from '../lib/useIsMobile';
 import { getDashboardSummary } from '../services/dashboard';
 import { applyExamPaletteToEvent, dayKey } from './calendarData';
 import {
-  AssistantPanel,
   DashboardHero,
   QuickActionsPanel,
   RecentActivity,
-  RecommendationsPanel,
   TodaySchedule,
 } from './DashboardHomeSections';
 
@@ -23,12 +21,6 @@ function parseDate(value) {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDate(value, lang = 'en') {
-  const date = parseDate(value);
-  if (!date) return 'No date';
-  return date.toLocaleDateString(lang === 'it' ? 'it-IT' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function daysUntil(value) {
@@ -67,10 +59,6 @@ function activityCopy(activity) {
   if (activity.type === 'note') return 'Note updated';
   if (activity.type === 'flashcard') return 'Flashcard created';
   return 'Activity';
-}
-
-function normalizeText(value) {
-  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 function DashboardHome({
@@ -135,7 +123,7 @@ function DashboardHome({
     });
   }, [allExams]);
 
-  const nextExam = summary?.nextExam || upcoming[0] || null;
+  const nextExam = summary?.nextExam || upcoming[0] || allExams[0] || null;
   const isEventDone = (event) => !!event.completed;
   const completedToday = todayEvents.filter((event, index) => isEventDone(event, index)).length;
   const totalToday = todayEvents.length || 0;
@@ -144,25 +132,9 @@ function DashboardHome({
   const latestActivity = (summary?.latestActivity || []).filter((activity) => (
     activity.type === 'quiz_attempt' || activity.type === 'flashcard_review'
   ));
-  const totalExams = Number(summary?.totalExams ?? allExams.length) || 0;
+  const totalExams = Math.max(Number(summary?.totalExams) || 0, allExams.length || 0);
   const heroProgress = totalToday ? Math.round((completedToday / totalToday) * 100) : 0;
   const heroProgressText = totalToday ? `${completedToday}/${totalToday}` : '0/0';
-  const todayStudyRecommendations = todayEvents
-    .filter((event) => event.cat === 'study' || event.noteSubject || event.noteId)
-    .map((event) => {
-      const eventText = normalizeText([event.name, event.noteSubject].filter(Boolean).join(' '));
-      const matchedExam = allExams.find((exam) => {
-        const examName = normalizeText(exam.name);
-        const examSubject = normalizeText(exam.subject);
-        return (examSubject && eventText.includes(examSubject)) || (examName && eventText.includes(examName)) || (examSubject && normalizeText(event.noteSubject).includes(examSubject));
-      });
-      return matchedExam ? { exam: matchedExam, source: 'today', event } : null;
-    })
-    .filter(Boolean);
-  const upcomingRecommendations = upcoming
-    .filter((exam) => !todayStudyRecommendations.some((item) => String(item.exam.id) === String(exam.id)))
-    .map((exam) => ({ exam, source: 'upcoming', event: null }));
-  const recommendations = [...todayStudyRecommendations, ...upcomingRecommendations].slice(0, 2);
   const heroDate = new Date().toLocaleDateString(lang === 'it' ? 'it-IT' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
 
   function toggleEventDone(event, index) {
@@ -179,65 +151,48 @@ function DashboardHome({
 
   return (
     <div style={s.wrap}>
-      <DashboardHero
-        s={s}
-        isMobile={isMobile}
-        heroDate={heroDate}
-        user={user}
-        totalToday={totalToday}
-        completedToday={completedToday}
-        nextEvent={nextEvent}
-        nextExam={nextExam}
-        nextExamDays={nextExamDays}
-        startExamQuiz={startExamQuiz}
-        setTab={setTab}
-        onOpenExam={onOpenExam}
-        heroProgress={heroProgress}
-        heroProgressText={heroProgressText}
-        lang={lang}
-      />
+      <div style={{ ...s.topRow, gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 2.25fr) minmax(340px, 1fr)' }}>
+        <DashboardHero
+          s={s}
+          isMobile={isMobile}
+          heroDate={heroDate}
+          user={user}
+          totalToday={totalToday}
+          completedToday={completedToday}
+          nextEvent={nextEvent}
+          nextExam={nextExam}
+          nextExamDays={nextExamDays}
+          setTab={setTab}
+          heroProgress={heroProgress}
+          heroProgressText={heroProgressText}
+          lang={lang}
+        />
+        <QuickActionsPanel s={s} nextExam={nextExam} startExamQuiz={startExamQuiz} setTab={setTab} onStartTimer={onStartTimer} lang={lang} />
+      </div>
 
       {error && <div style={s.error}>{error}</div>}
 
-      <div style={{ ...s.grid, gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.45fr) minmax(320px, .9fr)' }}>
-        <div style={s.stack}>
-          <TodaySchedule
-            s={s}
-            todayEvents={todayEvents}
-            completedToday={completedToday}
-            totalToday={totalToday}
-            isEventDone={isEventDone}
-            toggleEventDone={toggleEventDone}
-            lang={lang}
-          />
-          <RecentActivity
-            s={s}
-            loading={loading}
-            latestActivity={latestActivity}
-            totalExams={totalExams}
-            setTab={setTab}
-            scoreFromActivity={scoreFromActivity}
-            activityCopy={activityCopy}
-            relativeTime={relativeTime}
-            lang={lang}
-          />
-        </div>
-
-        <aside style={s.stack}>
-          <QuickActionsPanel s={s} nextExam={nextExam} startExamQuiz={startExamQuiz} setTab={setTab} onStartTimer={onStartTimer} lang={lang} />
-          <RecommendationsPanel
-            s={s}
-            recommendations={recommendations}
-            totalExams={totalExams}
-            daysUntil={daysUntil}
-            formatDate={formatDate}
-            lang={lang}
-            startExamQuiz={startExamQuiz}
-            onOpenExam={onOpenExam}
-            setTab={setTab}
-          />
-          <AssistantPanel s={s} setTab={setTab} lang={lang} />
-        </aside>
+      <div style={s.stack}>
+        <TodaySchedule
+          s={s}
+          todayEvents={todayEvents}
+          completedToday={completedToday}
+          totalToday={totalToday}
+          isEventDone={isEventDone}
+          toggleEventDone={toggleEventDone}
+          lang={lang}
+        />
+        <RecentActivity
+          s={s}
+          loading={loading}
+          latestActivity={latestActivity}
+          totalExams={totalExams}
+          setTab={setTab}
+          scoreFromActivity={scoreFromActivity}
+          activityCopy={activityCopy}
+          relativeTime={relativeTime}
+          lang={lang}
+        />
       </div>
     </div>
   );
@@ -245,45 +200,49 @@ function DashboardHome({
 
 const s = {
   wrap: { width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'hidden' },
-  hero: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, marginBottom: 22, borderRadius: 22, background: 'linear-gradient(135deg,#352FE5 0%,#7C5CF3 100%)', color: '#fff', boxShadow: '0 20px 50px -28px rgba(55,48,232,.7)' },
+  topRow: { display: 'grid', gap: 16, alignItems: 'stretch', marginBottom: 18 },
+  hero: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, borderRadius: 18, background: 'linear-gradient(135deg,#352FE5 0%,#7C5CF3 100%)', color: '#fff', boxShadow: '0 18px 46px -30px rgba(55,48,232,.72)' },
   heroText: { minWidth: 0, flex: 1 },
   kicker: { fontSize: 12, fontWeight: 800, letterSpacing: '.08em', color: 'rgba(255,255,255,.72)', marginBottom: 8 },
-  heroTitle: { margin: 0, fontSize: 'clamp(28px, 3vw, 36px)', lineHeight: 1.05, letterSpacing: 0, fontWeight: 850 },
-  heroSub: { margin: '12px 0 0', color: 'rgba(255,255,255,.86)', fontSize: 16, lineHeight: 1.45, maxWidth: 720 },
-  heroActions: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 20 },
-  heroButton: { border: 'none', borderRadius: 12, background: '#fff', color: '#3730E8', padding: '12px 18px', fontWeight: 850, cursor: 'pointer', boxShadow: '0 10px 24px -18px rgba(0,0,0,.45)' },
-  heroPill: { display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,.24)', borderRadius: 999, color: '#fff', background: 'rgba(255,255,255,.12)', padding: '10px 14px', fontWeight: 750, cursor: 'pointer', maxWidth: '100%' },
-  progressRing: { position: 'relative', width: 108, height: 108, flex: '0 0 auto', display: 'grid', placeItems: 'center', borderRadius: 999 },
-  progressArc: { position: 'absolute', inset: 0, borderRadius: 999, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.18)' },
-  progressInner: { position: 'relative', zIndex: 1, width: 76, height: 76, borderRadius: 999, background: 'rgba(69,55,225,.48)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 0 0 10px rgba(124,92,243,.36)' },
-  progressValue: { color: '#fff', fontSize: 22, fontWeight: 900, lineHeight: 1 },
+  heroTitle: { margin: 0, fontSize: 'clamp(28px, 3vw, 34px)', lineHeight: 1.05, letterSpacing: 0, fontWeight: 850 },
+  heroSub: { margin: '8px 0 0', color: 'rgba(255,255,255,.9)', fontSize: 15, lineHeight: 1.45, maxWidth: 720, fontWeight: 650 },
+  heroActions: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 18 },
+  heroButton: { border: 'none', borderRadius: 10, background: '#fff', color: '#3730E8', padding: '11px 17px', fontWeight: 850, cursor: 'pointer', boxShadow: '0 10px 24px -18px rgba(0,0,0,.45)' },
+  heroPill: { display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,.24)', borderRadius: 999, color: '#fff', background: 'rgba(255,255,255,.12)', padding: '9px 13px', fontWeight: 750, maxWidth: '100%' },
+  progressRing: { position: 'relative', width: 94, height: 94, flex: '0 0 auto', display: 'grid', placeItems: 'center', borderRadius: 999 },
+  progressSvg: { position: 'absolute', inset: 0, width: '100%', height: '100%', transform: 'rotate(-90deg)', filter: 'drop-shadow(0 8px 18px rgba(15,16,53,.16))' },
+  progressTrack: { fill: 'none', stroke: 'rgba(255,255,255,.22)', strokeWidth: 8 },
+  progressArc: { fill: 'none', stroke: '#FFFFFF', strokeWidth: 8, strokeLinecap: 'round', transition: 'stroke-dashoffset .28s ease' },
+  progressInner: { position: 'relative', zIndex: 1, width: 62, height: 62, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff' },
+  progressValue: { color: '#fff', fontSize: 20, fontWeight: 900, lineHeight: 1 },
   progressLabel: { marginTop: 4, color: 'rgba(255,255,255,.82)', fontSize: 10, fontWeight: 900, letterSpacing: '.06em' },
-  grid: { display: 'grid', gap: 22, alignItems: 'start' },
-  stack: { display: 'grid', gap: 22, minWidth: 0 },
-  panel: { background: '#fff', border: '1px solid #E7E9F2', borderRadius: 20, padding: 22, boxShadow: '0 18px 44px -36px rgba(15,16,53,.32)', minWidth: 0 },
-  panelHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 },
-  panelTitle: { margin: 0, color: '#171733', fontSize: 18, fontWeight: 850, letterSpacing: 0 },
+  grid: { display: 'grid', gap: 18, alignItems: 'start' },
+  stack: { display: 'grid', gap: 18, minWidth: 0 },
+  panel: { background: '#fff', border: '1px solid #E7E9F2', borderRadius: 18, padding: 18, boxShadow: '0 16px 42px -36px rgba(15,16,53,.28)', minWidth: 0 },
+  quickPanel: { height: '100%' },
+  panelHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 },
+  panelTitle: { margin: 0, color: '#171733', fontSize: 16, fontWeight: 850, letterSpacing: 0 },
   countBadge: { borderRadius: 999, background: '#EEF2FF', color: '#3730E8', padding: '6px 10px', fontSize: 12, fontWeight: 850, whiteSpace: 'nowrap' },
-  scheduleList: { display: 'grid', gap: 10 },
-  scheduleItem: { display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: 'none', borderRadius: 14, padding: '12px 14px', cursor: 'pointer', textAlign: 'left', minWidth: 0 },
+  scheduleList: { display: 'grid', gap: 8 },
+  scheduleItem: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: 'none', borderRadius: 12, padding: '10px 12px', cursor: 'pointer', textAlign: 'left', minWidth: 0 },
   itemAccent: { alignSelf: 'stretch', width: 4, borderRadius: 999, flex: '0 0 auto' },
   itemTime: { width: 54, color: '#8B90A3', fontSize: 13, fontWeight: 800, flex: '0 0 auto' },
   itemMain: { flex: 1, minWidth: 0, color: '#171733', display: 'grid', gap: 4, alignContent: 'center' },
   itemTitle: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14, lineHeight: 1.25 },
   itemMeta: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#8B90A3', fontSize: 12, lineHeight: 1.2, fontWeight: 700 },
   checkBox: { width: 24, height: 24, borderRadius: 8, border: '2px solid #DDE1EF', display: 'grid', placeItems: 'center', flex: '0 0 auto' },
-  quickGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 16 },
-  quickAction: { minHeight: 100, border: '1px solid #E7E9F2', borderRadius: 14, background: '#fff', padding: 16, display: 'grid', justifyItems: 'start', alignContent: 'space-between', color: '#171733', cursor: 'pointer', textAlign: 'left' },
-  iconTile: { width: 42, height: 42, borderRadius: 13, display: 'inline-grid', placeItems: 'center', flex: '0 0 auto' },
-  activityList: { display: 'grid', gap: 10 },
-  activityItem: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, padding: '5px 0' },
-  activityIcon: { width: 38, height: 38, borderRadius: 12, display: 'inline-grid', placeItems: 'center', flex: '0 0 auto' },
+  quickGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 9, marginTop: 12 },
+  quickAction: { minHeight: 78, border: '1px solid #E7E9F2', borderRadius: 13, background: '#fff', padding: 12, display: 'grid', justifyItems: 'start', alignContent: 'space-between', color: '#171733', cursor: 'pointer', textAlign: 'left' },
+  iconTile: { width: 34, height: 34, borderRadius: 11, display: 'inline-grid', placeItems: 'center', flex: '0 0 auto' },
+  activityList: { display: 'grid', gap: 9 },
+  activityItem: { display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, padding: '4px 0' },
+  activityIcon: { width: 36, height: 36, borderRadius: 11, display: 'inline-grid', placeItems: 'center', flex: '0 0 auto' },
   activityText: { flex: 1, minWidth: 0, display: 'grid', gap: 2, color: '#171733' },
   activityTitle: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14, lineHeight: 1.3, fontWeight: 850 },
   activityMeta: { color: '#777C90', fontSize: 12, lineHeight: 1.2, fontWeight: 650 },
   scoreBadge: { borderRadius: 999, padding: '4px 9px', fontSize: 12, fontWeight: 850, flex: '0 0 auto' },
   recoList: { display: 'grid', gap: 14 },
-  recoCard: { border: '1px solid #D8DCFF', borderRadius: 16, padding: 18 },
+  recoCard: { border: '1px solid #D8DCFF', borderRadius: 16, padding: 16 },
   recoTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 },
   recoTag: { border: '1px solid #D8DCFF', borderRadius: 999, background: '#fff', color: '#3730E8', padding: '5px 10px', fontSize: 12, fontWeight: 850 },
   recoEyebrow: { margin: '0 0 6px', color: '#6D5DF6', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.05em' },

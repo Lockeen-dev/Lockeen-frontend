@@ -240,11 +240,24 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       nextHistory[historyKey] = [...(nextHistory[historyKey] || []), review.score];
       const exam = examsSource.find((item) => String(item.id) === String(review.examId));
       const chapter = exam?.chapters?.find((item) => String(item.id) === String(review.chapterId));
+      const reviewCards = (review.answers || [])
+        .map((answer) => ({
+          id: answer.flashcardId || null,
+          front: answer.front || '',
+          back: answer.back || '',
+          q: answer.front || '',
+          a: answer.back || '',
+        }))
+        .filter((card) => card.front && card.back);
       nextDecks.push({
         noteId: review.chapterId || review.noteId || review.examId,
         subject: exam?.subject || 'Study',
         title: chapter?.title || exam?.name || 'Flashcards',
-        cards: [],
+        cards: reviewCards,
+        answers: review.answers || [],
+        rawScore: review.rawScore,
+        total: review.total,
+        knownCount: review.knownCount,
         _meta: {
           examId: review.examId,
           chapterId: review.chapterId,
@@ -782,7 +795,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
           weekData={analyticsWeekData}
         />
       </DashboardCard>
-      {!isMobile && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
+      {!isMobile && tab !== 'tutor' && <StudyTimer onSessionSaved={handleSessionSaved} startTrigger={timerTrigger} />}
       <PlannerOverlay plannerOpen={plannerOpen} setPlannerOpen={setPlannerOpen} setPlannerNoteId={setPlannerNoteId} handlePlanAdded={handlePlanAdded} handlePlanCleared={handlePlanCleared} calEvents={calEvents} exams={exams} quizRuns={quizRuns} lang={lang} />
       {practiceConfig && (
         <PracticeConfigModal

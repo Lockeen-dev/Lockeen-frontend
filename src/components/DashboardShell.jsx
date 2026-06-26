@@ -54,7 +54,7 @@ export function DashboardHeader({
   setTab,
 }) {
   return (
-    <header style={{ ...shellS.header, padding: isMobile ? '0 12px 12px' : 0 }}>
+    <header style={{ ...shellS.header, padding: isMobile ? '0 12px 12px' : shellS.header.padding }}>
       <div style={shellS.headerInner}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 36, height: 36, background: '#3730E8', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -109,6 +109,7 @@ export function DashboardHeader({
           />
         </div>
       </div>
+      {!isMobile && <div style={shellS.headerRule} />}
     </header>
   );
 }
@@ -188,20 +189,40 @@ function ProfileMenu({ user, lang, profileRef, showProfileMenu, setShowProfileMe
 }
 
 export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, children, onToggleCollapsed }) {
+  const tutorLocked = tab === 'tutor';
+  const gridHeight = tutorLocked
+    ? isMobile
+      ? 'calc(100dvh - 154px - env(safe-area-inset-bottom, 0px))'
+      : 'calc(100dvh - 150px)'
+    : undefined;
+  const mainPadding = tutorLocked
+    ? isMobile
+      ? '14px 12px calc(12px + env(safe-area-inset-bottom, 0px))'
+      : '24px clamp(24px, 2.8vw, 48px) 24px'
+    : isMobile
+      ? '16px 14px calc(18px + env(safe-area-inset-bottom, 0px))'
+      : '30px clamp(28px, 3vw, 56px) 42px';
+
   return (
     <div
       className="outerCard"
       style={{
         ...shellS.outerCard,
-        background: '#fff',
-        boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)',
-        borderRadius: isMobile ? 0 : 24,
-        border: isMobile ? 'none' : '2px solid var(--indigo)',
+        background: 'transparent',
+        boxShadow: 'none',
+        borderRadius: 0,
+        border: 'none',
       }}
     >
-      <div style={{ ...shellS.grid, gridTemplateColumns: isMobile ? '1fr' : sidebarCollapsed ? '64px 1fr' : '220px 1fr', transition: 'grid-template-columns .2s ease' }}>
+      <div style={{
+        ...shellS.grid,
+        gridTemplateColumns: isMobile ? '1fr' : sidebarCollapsed ? '64px 1fr' : '220px 1fr',
+        minHeight: tutorLocked ? 'auto' : shellS.grid.minHeight,
+        height: gridHeight,
+        transition: 'grid-template-columns .2s ease',
+      }}>
         {!isMobile && <Sidebar tab={tab} setTab={setTab} lang={lang} collapsed={sidebarCollapsed} onToggleCollapsed={onToggleCollapsed} />}
-        <div style={{ ...shellS.main, padding: isMobile ? '16px 14px calc(18px + env(safe-area-inset-bottom, 0px))' : '32px clamp(28px, 3vw, 56px)', overflow: 'hidden' }}>
+        <div style={{ ...shellS.main, height: tutorLocked ? '100%' : undefined, padding: mainPadding, overflow: 'hidden' }}>
           {children}
         </div>
       </div>
@@ -210,14 +231,15 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
 }
 
 export const shellS = {
-  wrap: { minHeight: '100vh', width: '100%', margin: '0 auto', padding: '24px clamp(18px, 2.4vw, 40px) 40px', boxSizing: 'border-box', overflowX: 'hidden' },
-  header: { marginBottom: 20 },
-  headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  wrap: { minHeight: '100vh', width: '100%', margin: '0 auto', padding: '22px clamp(24px, 3vw, 48px) 38px', boxSizing: 'border-box', overflowX: 'hidden', background: '#fff' },
+  header: { position: 'relative', marginBottom: 18, padding: '4px 4px 12px' },
+  headerRule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: '#E8EBF4', borderRadius: 999 },
+  headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 52 },
   brand: { fontSize: 18, fontWeight: 800, color: 'var(--indigo)' },
   iconBtn: { width: 38, height: 38, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
   adminAmbassadorBtn: { height: 38, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '0 13px', borderRadius: 10, background: 'rgba(55,48,232,.08)', border: '1px solid rgba(55,48,232,.18)', color: 'var(--indigo)', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
-  outerCard: { width: '100%', maxWidth: '100%', border: '2px solid var(--indigo)', borderRadius: 24, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 30px 60px -30px rgba(55,48,232,.25)' },
-  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 132px)', width: '100%', minWidth: 0 },
-  main: { padding: '32px clamp(28px, 3vw, 56px)', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box' },
+  outerCard: { width: '100%', maxWidth: '100%', border: 'none', borderRadius: 0, background: 'transparent', overflow: 'visible', boxShadow: 'none' },
+  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 108px)', width: '100%', minWidth: 0, gap: 14 },
+  main: { padding: '30px clamp(28px, 3vw, 56px) 42px', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box', background: '#fff' },
 };
