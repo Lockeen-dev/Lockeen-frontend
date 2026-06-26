@@ -69,19 +69,19 @@ function PracticeConfigModal({ config, onClose, onStart, lang = 'en' }) {
 }
 
 const practiceS = {
-  overlay: { position: 'fixed', inset: 0, zIndex: 5000, background: 'rgba(15,16,53,.42)', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', padding: 18 },
-  modal: { position: 'relative', width: 'min(660px, 96vw)', maxHeight: '90vh', overflowY: 'auto', background: '#fff', border: '1px solid #DDE1EA', borderRadius: 24, boxShadow: '0 28px 80px rgba(15,16,53,.28)', padding: '26px 26px 24px', boxSizing: 'border-box' },
-  close: { position: 'absolute', top: 18, right: 18, width: 38, height: 38, borderRadius: 999, border: '1px solid #E5E7EB', background: '#fff', color: '#6B7280', display: 'grid', placeItems: 'center', cursor: 'pointer' },
+  overlay: { position: 'fixed', inset: 0, zIndex: 5000, background: 'rgba(23,18,56,.34)', backdropFilter: 'blur(10px)', WebkitBackdropFilter:'blur(10px)', display: 'grid', placeItems: 'center', padding: 18 },
+  modal: { position: 'relative', width: 'min(660px, 96vw)', maxHeight: '90vh', overflowY: 'auto', background: 'var(--clay-surface)', border: '1px solid rgba(255,255,255,.74)', borderRadius: 30, boxShadow: 'var(--clay-shadow)', padding: '26px 26px 24px', boxSizing: 'border-box' },
+  close: { position: 'absolute', top: 18, right: 18, width: 38, height: 38, borderRadius: 999, border: '1px solid rgba(255,255,255,.74)', background: 'linear-gradient(145deg,#FFFFFF,#F2ECFF)', color: '#6B7280', display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow:'var(--clay-shadow-sm)' },
   kicker: { color: 'var(--indigo)', fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 14 },
   title: { margin: 0, color: 'var(--ink)', fontSize: 25, lineHeight: 1, fontWeight: 900, letterSpacing: '-0.04em' },
   subtitle: { margin: '16px 0 20px', color: '#6B7280', fontSize: 15, lineHeight: 1.35, fontWeight: 600 },
   modeGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 },
-  modeCard: { position: 'relative', minHeight: 162, border: '1.5px solid #E5E7EB', borderRadius: 20, background: '#fff', padding: 18, textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, boxShadow: '0 14px 34px rgba(15,16,53,.06)' },
+  modeCard: { position: 'relative', minHeight: 162, border: '1px solid rgba(255,255,255,.74)', borderRadius: 24, background: 'linear-gradient(145deg,#FFFFFF,#F4EEFF)', padding: 18, textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, boxShadow: 'var(--clay-shadow-sm)' },
   modeIcon: { width: 50, height: 50, borderRadius: 16, display: 'grid', placeItems: 'center' },
   modeCopy: { display: 'grid', gap: 7, minWidth: 0 },
   modeTitle: { color: 'var(--ink)', fontSize: 19, fontWeight: 900, lineHeight: 1 },
   modeSub: { color: '#6B7280', fontSize: 13, fontWeight: 800, lineHeight: 1.35 },
-  modeArrow: { position: 'absolute', right: 14, top: 14, width: 34, height: 34, borderRadius: 12, background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center' },
+  modeArrow: { position: 'absolute', right: 14, top: 14, width: 34, height: 34, borderRadius: 14, background: 'linear-gradient(145deg,var(--indigo),var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', boxShadow:'10px 12px 22px -14px rgba(76,59,255,.72)' },
 };
 
 export default PracticeConfigModal;

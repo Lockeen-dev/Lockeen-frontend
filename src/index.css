@@ -3,29 +3,36 @@
 @tailwind utilities;
 
   :root {
-    --indigo:#3730E8;
-    --indigo-2:#5B53F0;
-    --purple:#8B5CF6;
-    --ink:#0F1035;
-    --gray:#6B7280;
-    --gray-2:#9CA3AF;
-    --border:#E5E7EB;
-    --sidebar-bg:#F8F9FF;
-    --lavender:#EEF2FF;
-    --pink:#FDF2F8;
-    --mint:#ECFEFF;
-    --teal:#E0F7FA;
-    --surface:#ffffff;
+    --indigo:#4C3BFF;
+    --indigo-2:#7668FF;
+    --purple:#A678FF;
+    --ink:#171238;
+    --gray:#726E86;
+    --gray-2:#A7A1B8;
+    --border:#E7E0F4;
+    --sidebar-bg:#F6F1FF;
+    --lavender:#EFE9FF;
+    --pink:#FFF0F7;
+    --mint:#EDFFF7;
+    --teal:#EAFBFF;
+    --surface:#FFFDFB;
     --input-bg:#ffffff;
-    --bubble-ai-bg:#F4F6FF;
-    --assistant-bg:#F6F8FF;
-    --assistant-icon-bg:#E0EAFF;
-    --bigcard-bio:linear-gradient(180deg,#EEF2FF 0%,#FFFFFF 100%);
-    --bigcard-chem:linear-gradient(180deg,#FDF2F8 0%,#FFFFFF 100%);
+    --bubble-ai-bg:#F4F0FF;
+    --assistant-bg:#F9F4FF;
+    --assistant-icon-bg:#E7E0FF;
+    --bigcard-bio:linear-gradient(180deg,#F0ECFF 0%,#FFFDFB 100%);
+    --bigcard-chem:linear-gradient(180deg,#FFF0F7 0%,#FFFDFB 100%);
     --msg-warn-bg:#FEF3C7; --msg-warn-border:#fcd34d; --msg-warn-text:#92400E;
     --msg-almost-bg:#EEF2FF; --msg-almost-border:var(--indigo); --msg-almost-text:var(--indigo);
     --msg-good-bg:#DCFCE7; --msg-good-border:#86efac; --msg-good-text:#166534;
-    --chart-track:#F4F5FF;
+    --chart-track:#ECE6F8;
+    --clay-page:radial-gradient(circle at 12% 8%, rgba(255,214,231,.78) 0, transparent 30%), radial-gradient(circle at 88% 0%, rgba(203,246,255,.84) 0, transparent 28%), linear-gradient(145deg,#FFF8FB 0%,#F4F0FF 47%,#EEF9FF 100%);
+    --clay-surface:linear-gradient(145deg, rgba(255,255,255,.96), rgba(250,245,255,.92));
+    --clay-tint:linear-gradient(145deg, rgba(255,255,255,.78), rgba(240,232,255,.9));
+    --clay-shadow:18px 22px 44px rgba(91,74,148,.16), -10px -10px 28px rgba(255,255,255,.86);
+    --clay-shadow-sm:10px 12px 26px rgba(91,74,148,.13), -6px -6px 18px rgba(255,255,255,.82);
+    --clay-pressed:inset 7px 7px 16px rgba(91,74,148,.12), inset -6px -6px 14px rgba(255,255,255,.82);
+    --clay-highlight:inset 0 1px 0 rgba(255,255,255,.86);
   }
   *, *::before, *::after { box-sizing: border-box; }
   html, body {
@@ -34,8 +41,19 @@
     margin: 0;
     font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     color: #070B2D;
-    background:#ffffff;
+    background:#F8F3FF;
+    background-image:var(--clay-page);
+    background-attachment: fixed;
     overflow-x: hidden;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  button {
+    touch-action: manipulation;
   }
   #root,
   .page,
@@ -51,6 +69,13 @@
     overflow-x: hidden;
     overscroll-behavior-x: none;
     touch-action: pan-y;
+    background: transparent !important;
+  }
+  .outerCard,
+  .lockeen-clay-surface {
+    background: var(--clay-surface);
+    border: 1px solid rgba(255,255,255,.76);
+    box-shadow: var(--clay-shadow), var(--clay-highlight);
   }
   @supports (overflow: clip) {
     html,

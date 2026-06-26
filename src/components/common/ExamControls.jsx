@@ -125,7 +125,7 @@ const gradeS = {
   sectionTitle: { margin: 0, fontSize: 16, fontWeight: 750, color: 'var(--ink)' },
   sectionSub: { margin: '4px 0 0', fontSize: 13, color: 'var(--gray)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 },
-  card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 18, boxShadow: '0 10px 28px -26px rgba(15,16,53,.28)' },
+  card: { background: 'var(--clay-surface)', border: '1px solid rgba(255,255,255,.74)', borderRadius: 24, padding: 18, boxShadow: 'var(--clay-shadow-sm)' },
   cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 18 },
   noteName: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--ink)', minWidth: 0 },
   noteDot: { width: 8, height: 8, borderRadius: 999, flexShrink: 0, opacity: .85 },
@@ -153,7 +153,7 @@ const gradeS = {
   msgWarn: { background: 'var(--sidebar-bg)', borderColor: 'var(--border)', color: 'var(--ink)' },
   msgAlmost: { background: 'var(--sidebar-bg)', borderColor: 'var(--border)', color: 'var(--ink)' },
   msgGood: { background: 'var(--sidebar-bg)', borderColor: 'var(--border)', color: 'var(--ink)' },
-  quizBtn: { width: '100%', marginTop: 8, padding: '10px 12px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 12, fontWeight: 700 },
+  quizBtn: { width: '100%', marginTop: 8, padding: '10px 12px', borderRadius: 14, background: 'linear-gradient(145deg,#FFFFFF,#F2ECFF)', border: '1px solid rgba(255,255,255,.74)', color: 'var(--ink)', fontSize: 12, fontWeight: 800, boxShadow:'var(--clay-shadow-sm)' },
 };
 
 export { GradeValue, PRIORITY_OPTIONS, getPriorityMeta, PrioritySelector, EmojiPickerButton, gradeS };

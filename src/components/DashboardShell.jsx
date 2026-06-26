@@ -17,14 +17,14 @@ export function BottomNav({ tab, setTab, lang = 'en' }) {
   ];
 
   return (
-    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'rgba(255,255,255,.96)', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 1, padding: '6px 6px calc(6px + env(safe-area-inset-bottom, 0px))', boxShadow: '0 -16px 40px -28px rgba(15,16,53,.45)', backdropFilter: 'blur(16px)' }}>
+    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'rgba(255,253,251,.86)', borderTop: '1px solid rgba(255,255,255,.82)', display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 1, padding: '6px 6px calc(6px + env(safe-area-inset-bottom, 0px))', boxShadow: '0 -18px 44px -24px rgba(91,74,148,.34), inset 0 1px 0 rgba(255,255,255,.9)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
       {items.map(({ id, label, Icon: I }) => {
         const active = id === tab;
         return (
           <button
             key={id}
             onClick={() => setTab(id)}
-            style={{ position: 'relative', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, border: 'none', borderRadius: 14, background: active ? 'var(--lavender)' : 'transparent', padding: '7px 1px 6px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor: 'pointer', minHeight: 58, WebkitTapHighlightColor: 'transparent' }}
+            style={{ position: 'relative', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, border: 'none', borderRadius: 16, background: active ? 'linear-gradient(145deg,#FFFFFF,#ECE7FF)' : 'transparent', padding: '7px 1px 6px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor: 'pointer', minHeight: 58, boxShadow: active ? 'var(--clay-shadow-sm)' : 'none', WebkitTapHighlightColor: 'transparent' }}
             aria-current={active ? 'page' : undefined}
           >
             <I size={active ? 19 : 18} strokeWidth={active ? 2.6 : 2.2} />
@@ -58,7 +58,7 @@ export function DashboardHeader({
     <header style={{ ...shellS.header, padding: isMobile ? '0 12px 12px' : shellS.header.padding }}>
       <div style={shellS.headerInner}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, background: '#3730E8', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 38, height: 38, background: 'linear-gradient(145deg,var(--indigo),var(--purple))', borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '10px 12px 24px rgba(76,59,255,.22), inset 0 1px 0 rgba(255,255,255,.28)' }}>
             <img src="/Lockeen-2.png" alt="Lockeen logo" style={{ width: 58, height: 58, maxWidth: 'none' }} />
           </div>
           <span style={shellS.brand}>Lockeen</span>
@@ -232,15 +232,15 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
 }
 
 export const shellS = {
-  wrap: { minHeight: '100vh', width: '100%', maxWidth: '100%', margin: '0 auto', padding: '22px clamp(24px, 3vw, 48px) 38px', boxSizing: 'border-box', overflowX: 'hidden', background: '#fff' },
+  wrap: { minHeight: '100vh', width: '100%', maxWidth: '100%', margin: '0 auto', padding: '22px clamp(24px, 3vw, 48px) 38px', boxSizing: 'border-box', overflowX: 'hidden', background: 'transparent' },
   header: { position: 'relative', marginBottom: 18, padding: '4px 4px 12px' },
   headerRule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: '#E8EBF4', borderRadius: 999 },
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 52 },
   brand: { fontSize: 18, fontWeight: 800, color: 'var(--indigo)' },
-  iconBtn: { width: 38, height: 38, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
-  adminAmbassadorBtn: { height: 38, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '0 13px', borderRadius: 10, background: 'rgba(55,48,232,.08)', border: '1px solid rgba(55,48,232,.18)', color: 'var(--indigo)', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
-  avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
+  iconBtn: { width: 38, height: 38, borderRadius: 14, background: 'var(--clay-surface)', border: '1px solid rgba(255,255,255,.72)', color: 'var(--ink)', display: 'grid', placeItems: 'center', boxShadow: 'var(--clay-shadow-sm)' },
+  adminAmbassadorBtn: { height: 38, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '0 13px', borderRadius: 14, background: 'var(--clay-tint)', border: '1px solid rgba(255,255,255,.72)', color: 'var(--indigo)', fontWeight: 800, fontSize: 13, cursor: 'pointer', boxShadow: 'var(--clay-shadow-sm)' },
+  avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(145deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14, boxShadow: '10px 12px 24px rgba(76,59,255,.2), inset 0 1px 0 rgba(255,255,255,.28)' },
   outerCard: { width: '100%', maxWidth: '100%', border: 'none', borderRadius: 0, background: 'transparent', overflow: 'visible', boxShadow: 'none' },
   grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 108px)', width: '100%', minWidth: 0, gap: 14 },
-  main: { padding: '30px clamp(28px, 3vw, 56px) 42px', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box', background: '#fff' },
+  main: { padding: '30px clamp(28px, 3vw, 56px) 42px', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box', background: 'transparent' },
 };

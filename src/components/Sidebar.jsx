@@ -67,16 +67,16 @@ export default function Sidebar({ tab, setTab, lang = 'en', collapsed = false, o
 }
 
 const sideS = {
-  wrap: { position: 'relative', background: '#FBFCFF', border: '1px solid #E8EBF4', borderRadius: 22, padding: '52px 16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'visible', transition: 'width .2s ease, padding .2s ease', boxShadow: '0 18px 48px -42px rgba(15,16,53,.34)' },
+  wrap: { position: 'relative', background: 'var(--clay-surface)', border: '1px solid rgba(255,255,255,.74)', borderRadius: 28, padding: '52px 16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'visible', transition: 'width .2s ease, padding .2s ease', boxShadow: 'var(--clay-shadow), var(--clay-highlight)' },
   wrapCollapsed: { padding: '52px 8px 20px', alignItems: 'center' },
   topRow: { position: 'absolute', top: 14, right: 10, zIndex: 20, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 0 },
-  collapseBtn: { width: 30, height: 30, borderRadius: 10, border: '1px solid #DDE1EF', background: '#fff', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: '0 8px 22px -16px rgba(55,48,232,.55)' },
+  collapseBtn: { width: 30, height: 30, borderRadius: 12, border: '1px solid rgba(255,255,255,.76)', background: 'linear-gradient(145deg,#FFFFFF,#F0EAFF)', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: 'var(--clay-shadow-sm)' },
   nav: { display: 'flex', flexDirection: 'column', gap: 6 },
   navCollapsed: { alignItems: 'center' },
   item: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 14, color: 'var(--gray)', fontWeight: 600, fontSize: 14, textAlign: 'left', cursor: 'pointer', border: 'none' },
   itemCollapsed: { width: 42, height: 42, justifyContent: 'center', padding: 0, borderRadius: 14, gap: 0 },
-  itemActiveBg: { position: 'absolute', inset: 0, borderRadius: 14, background: 'var(--indigo)', boxShadow: '0 8px 22px -10px rgba(55,48,232,.6)' },
-  goalCard: { background: 'var(--lavender)', borderRadius: 16, padding: 16, marginTop: 24 },
+  itemActiveBg: { position: 'absolute', inset: 0, borderRadius: 16, background: 'linear-gradient(145deg,var(--indigo),var(--purple))', boxShadow: '10px 14px 26px -14px rgba(76,59,255,.72), inset 0 1px 0 rgba(255,255,255,.24)' },
+  goalCard: { background: 'linear-gradient(145deg,#FFFFFF,#EFE9FF)', border: '1px solid rgba(255,255,255,.72)', borderRadius: 20, padding: 16, marginTop: 24, boxShadow: 'var(--clay-shadow-sm)' },
   goalLabel: { fontSize: 12, color: 'var(--gray)', fontWeight: 600 },
   goalValue: { fontSize: 26, fontWeight: 800, color: 'var(--indigo)', marginTop: 4, marginBottom: 10, letterSpacing: '-0.02em' },
   goalBarTrack: { height: 6, background: '#E5E7FF', borderRadius: 999, overflow: 'hidden' },
