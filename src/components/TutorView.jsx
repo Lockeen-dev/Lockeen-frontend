@@ -584,7 +584,7 @@ export default function TutorView({ user, lang = 'en' }) {
     generationAbortRef.current?.abort?.();
   }, []);
   useEffect(() => { endRef.current?.scrollTo({ top: endRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, activeTyping]);
-  useEffect(() => { if (!isMobile) setHistoryOpen(true); else setHistoryOpen(false); }, [isMobile]);
+  useEffect(() => { setHistoryOpen(false); }, [isMobile]);
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key !== 'Escape') return;
@@ -945,7 +945,7 @@ export default function TutorView({ user, lang = 'en' }) {
     if (folderPersistence === 'local' && targetFolderId) {
       setSessionFolders(prev => ({ ...prev, [result.data.id]: activeFolderId }));
     }
-    if (isMobile) setHistoryOpen(false);
+    setHistoryOpen(false);
     focusComposer();
   };
 
@@ -953,7 +953,7 @@ export default function TutorView({ user, lang = 'en' }) {
     setActiveId(s.id);
     setMsgs(s.msgs?.length ? s.msgs : initialTutorMsgs(lang));
     setFiles([]);
-    if (isMobile) setHistoryOpen(false);
+    setHistoryOpen(false);
     focusComposer();
   };
 
