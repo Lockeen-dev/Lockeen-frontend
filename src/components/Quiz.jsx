@@ -4,6 +4,7 @@ import { getExamEmoji, getExamPalette } from '../lib/examUi';
 import { getSubjectPalette } from '../data/mockData';
 import { getQuiz, listQuizzes, submitQuizAttempt } from '../services/quiz';
 import { tt } from '../lib/i18n';
+import useIsMobile from '../lib/useIsMobile';
 
 function QuizStyles() {
   return (
@@ -33,8 +34,13 @@ function QuizStyles() {
         outline-offset: 3px;
       }
       @media (max-width: 640px) {
+        .quiz-exam-rail {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
         .quiz-exam-pill {
-          flex: 1 1 calc(50% - 8px);
+          width: 100%;
           justify-content: center;
           min-width: 0;
         }
@@ -632,6 +638,7 @@ const quizS = {
   emptyCta: { marginTop: 4, minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '0 20px', borderRadius: 16, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 14px 28px -20px rgba(55,48,232,.8)' },
   chapterEmptyState: { width:'min(760px, 100%)', minHeight: 360, margin:'0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '34px 24px', borderRadius: 22, border: '1.5px dashed var(--border)', background: 'linear-gradient(180deg, #FAFBFF 0%, #FFFFFF 100%)', textAlign: 'center', boxShadow: '0 18px 40px -34px rgba(15,16,53,.35)' },
   examRail: { display:'flex', flexWrap:'wrap', gap:12, padding:'2px 0 4px' },
+  examRailMobile: { display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:12, padding:'2px 0 4px' },
   examPill: { minHeight:52, display:'inline-flex', alignItems:'center', gap:11, padding:'0 20px', borderRadius:17, border:'1.5px solid var(--border)', fontSize:15, fontWeight:950, cursor:'pointer', transition:'transform .15s ease, box-shadow .15s ease, border-color .15s ease', letterSpacing:'-.01em' },
   examEmoji: { width:28, height:28, borderRadius:10, display:'inline-grid', placeItems:'center', fontSize:18, background:'rgba(255,255,255,.5)' },
   setupCard: { padding:18, borderRadius:22, border:'1px solid var(--border)', background:'linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%)', boxShadow:'0 22px 54px -42px rgba(15,16,53,.38)', display:'grid', gap:16 },
@@ -716,6 +723,7 @@ export function QuizReview({ run, onBack, darkMode, lang = 'en' }) {
 }
 
 export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenExam, darkMode, lang = 'en' }) {
+  const isMobile = useIsMobile();
   const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? exams[0]?.id ?? null);
   const [selectedChapterId, setSelectedChapterId] = useState(deck?._practiceConfig?.chapterId ?? 'all');
   const [numQ, setNumQ] = useState(deck?._practiceConfig?.count ?? 10);
@@ -1133,7 +1141,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
       {exams.length > 0 && (
         <section>
           <div style={secLabel}>{tt(lang, 'chooseExam')}</div>
-          <div style={quizS.examRail}>
+          <div className="quiz-exam-rail" style={isMobile ? quizS.examRailMobile : quizS.examRail}>
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
               const pal = getExamPalette(exam, darkMode);
