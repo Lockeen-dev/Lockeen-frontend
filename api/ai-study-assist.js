@@ -280,11 +280,22 @@ function normalizeTutorAttachments(attachments = []) {
   return { summary, images };
 }
 
-function buildTutorSystemText({ mode, depth }) {
+function getTutorStyleInstruction(style) {
+  const styles = {
+    expert: 'Tutor style: rigorous professor. Explain precisely, structure the reasoning, define terms, and close with the highest-yield exam takeaway.',
+    socratic: 'Tutor style: Socratic coach. Guide the student with short questions, hints, and checkpoints before giving full answers. Do not dump the solution immediately unless requested.',
+    exam: 'Tutor style: exam coach. Be practical, prioritize what earns points, show answer structure, common traps, and fast revision strategy.',
+  };
+  return styles[style] || styles.expert;
+}
+
+function buildTutorSystemText({ mode, depth, tutorStyle }) {
   return [
     'You are Lockeen AI, a high-quality private tutor for students.',
     'Tone: clear, direct, encouraging, mature, never childish, never generic.',
     'Use Markdown for readable educational answers.',
+    '',
+    getTutorStyleInstruction(tutorStyle),
     '',
     `Selected response mode: ${mode}.`,
     `Depth: ${depth}. If quick, keep it very short. If deep, expand progressively. Otherwise default concise.`,
@@ -317,7 +328,9 @@ function buildTutorSystemText({ mode, depth }) {
     'Do not add "Quick check" sections or callouts unless the user explicitly asks for a quiz/check.',
     '',
     'Personalization:',
-    '- Use current subject, exam goals, preferred depth, weak topics, previous chat, and uploaded note context when provided.',
+    '- Use current subject, exam goals, preferred depth, weak topics, previous chat, uploaded note context, and studyContext when provided.',
+    '- studyContext contains the student’s real Lockeen exams, chapters, notes, and material snippets. Use it as the primary source when relevant.',
+    '- If studyContext is missing, empty, or insufficient, say what information you need instead of inventing facts.',
     '- Use attached image or text content when provided.',
     '- If an attachment is metadata_only, say you can use filename context only; do not pretend to read it.',
     '- If user says they are confused, simplify and build from intuition first.',
@@ -337,7 +350,8 @@ async function callOpenAI({ kind, prompt, context }) {
 
   const mode = inferResponseMode(prompt, kind);
   const depth = inferDepth(prompt);
-  const systemText = buildTutorSystemText({ mode, depth });
+  const tutorStyle = context?.tutorStyle || context?.tutorMode || 'expert';
+  const systemText = buildTutorSystemText({ mode, depth, tutorStyle });
   const { summary: attachments, images } = normalizeTutorAttachments(context?.attachments);
   const safeContext = { ...(context || {}), attachments };
   const userContent = [

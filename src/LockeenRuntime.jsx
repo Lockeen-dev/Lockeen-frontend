@@ -76,7 +76,7 @@ function withBillingTimeout(promise, timeoutMessage) {
 
 /* ===================== ROOT APP ===================== */
 function AuthShell() {
-  const { user, status, error: authError, authEvent, isAuthenticated, isLoading, refreshSession } = useAuth();
+  const { user, status, error: authError, authEvent, isAuthenticated, isLoading, refreshSession, updateProfile } = useAuth();
   const [modal, setModal] = useState(null);
   const [pendingBillingIntent, setPendingBillingIntent] = useState(() => parseStoredBillingIntent());
   const [billingAction, setBillingAction] = useState(null);
@@ -236,11 +236,19 @@ function AuthShell() {
     else localStorage.setItem('lockeen-lang', next);
   }, [isAuthenticated, lang, user?.language]);
 
-  function changeLang(next) {
+  async function changeLang(next) {
     const safe = normalizeLang(next);
     setLang(safe);
     if (window.setLockeenLanguage) window.setLockeenLanguage(safe);
     else localStorage.setItem('lockeen-lang', safe);
+
+    if (isAuthenticated && user?.language !== safe) {
+      await updateProfile({
+        name: user?.name || user?.email?.split('@')?.[0] || 'Student',
+        language: safe,
+        timezone: user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome',
+      });
+    }
   }
 
   const handleAuth = () => {

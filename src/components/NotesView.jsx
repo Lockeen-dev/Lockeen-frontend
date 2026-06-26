@@ -450,6 +450,29 @@ function NotesView({ user, exams, lang = 'en', setExams, activeId, setActiveId, 
     zIndex:3,
   });
 
+  const priorityCoverStyle = (priority) => ({
+    position:'absolute',
+    top:12,
+    left:12,
+    zIndex:3,
+    display:'inline-flex',
+    alignItems:'center',
+    gap:6,
+    maxWidth:'calc(100% - 128px)',
+    overflow:'hidden',
+    padding:'6px 10px',
+    borderRadius:10,
+    background:'rgba(255,255,255,0.9)',
+    border:`1px solid ${priority.border}`,
+    color:priority.color,
+    boxShadow:'0 10px 22px -18px rgba(15,16,53,.45)',
+    backdropFilter:'blur(10px)',
+    WebkitBackdropFilter:'blur(10px)',
+    fontSize:11,
+    fontWeight:800,
+    lineHeight:1.3,
+  });
+
   const handleCreateExam = async (exam) => {
     setActionError(null);
     if (!exam?.name?.trim()) {
@@ -701,10 +724,15 @@ function NotesView({ user, exams, lang = 'en', setExams, activeId, setActiveId, 
         {!loading && !loadError && filtered.map((x) => {
           const palette = getExamPalette(x, darkMode);
           const countdown = x.date ? getExamCountdown(x.date) : null;
+          const priority = getPriorityMeta(x.priority || 3);
           const hasChapters = (x.chapters || []).length > 0;
           return (
             <div key={x.id} style={notesS.card}>
-              <div style={{ ...notesS.cover, background: palette.bg }}>
+              <div style={{ ...notesS.cover, position:'relative', background: palette.bg }}>
+                <span style={priorityCoverStyle(priority)}>
+                  <span style={{ width:6, height:6, borderRadius:'50%', background:priority.color, flexShrink:0 }} />
+                  <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{priority.label}</span>
+                </span>
                 <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-58%)', zIndex:2 }}>
                   <button
                     type="button"
@@ -730,15 +758,6 @@ function NotesView({ user, exams, lang = 'en', setExams, activeId, setActiveId, 
                     <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{formatExamDate(x.date)}{x.time ? ` · ${x.time}` : ''}</span>
                   </div>
                 )}
-                {(() => {
-                  const p = getPriorityMeta(x.priority || 3);
-                  return (
-                    <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 9px', borderRadius:999, background:p.bg, border:`1px solid ${p.border}`, marginBottom:8 }}>
-                      <span style={{ width:6, height:6, borderRadius:'50%', background:p.color, flexShrink:0 }} />
-                      <span style={{ fontSize:10, fontWeight:800, color:p.color, lineHeight:1 }}>{p.label}</span>
-                    </div>
-                  );
-                })()}
                 <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, marginBottom:4 }}>
                   <h3 style={{ ...notesS.title, margin:0, flex:1 }}>{x.name}</h3>
                   <div style={{ display:'flex', gap:4, flexShrink:0 }}>

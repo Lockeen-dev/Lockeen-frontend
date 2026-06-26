@@ -11,6 +11,37 @@ function QuizStyles() {
       @keyframes qSlideIn { from { opacity:0; transform:translateX(22px); } to { opacity:1; transform:translateX(0); } }
       @keyframes qShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(7px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(3px)} }
       @keyframes qFadeUp { from { opacity:0; transform:translateY(18px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+      @media (hover:hover) {
+        .quiz-exam-pill:hover,
+        .quiz-scope-chip:hover,
+        .quiz-count-btn:hover,
+        .quiz-chapter-card:hover {
+          transform: translateY(-1px);
+        }
+      }
+      .quiz-exam-pill:active,
+      .quiz-scope-chip:active,
+      .quiz-count-btn:active,
+      .quiz-chapter-card:active {
+        transform: translateY(0) scale(.99);
+      }
+      .quiz-exam-pill:focus-visible,
+      .quiz-scope-chip:focus-visible,
+      .quiz-count-btn:focus-visible,
+      .quiz-chapter-card:focus-visible {
+        outline: 3px solid rgba(55,48,232,.22);
+        outline-offset: 3px;
+      }
+      @media (max-width: 640px) {
+        .quiz-exam-pill {
+          flex: 1 1 calc(50% - 8px);
+          justify-content: center;
+          min-width: 0;
+        }
+        .quiz-launch-actions {
+          grid-template-columns: 1fr !important;
+        }
+      }
     `}</style>
   );
 }
@@ -71,6 +102,24 @@ function EmptyPracticeState({ lang, setTab }) {
       </p>
       <button type="button" onClick={() => setTab('notes')} style={quizS.emptyCta}>
         <Plus size={18} /> {tt(lang, 'newExam')}
+      </button>
+    </div>
+  );
+}
+
+function EmptyQuizMaterialState({ lang, onNewChapter }) {
+  const isIt = lang === 'it';
+  return (
+    <div style={quizS.chapterEmptyState}>
+      <div style={quizS.emptyIcon}><BookOpen size={24} /></div>
+      <h3 style={quizS.emptyTitle}>{tt(lang, 'noQuizYet')}</h3>
+      <p style={quizS.emptyText}>
+        {isIt
+          ? 'Aggiungi un capitolo e carica il materiale: i quiz appariranno qui appena saranno pronti.'
+          : 'Add a chapter and upload material: quizzes will appear here as soon as they are ready.'}
+      </p>
+      <button type="button" onClick={onNewChapter} style={quizS.emptyCta}>
+        <Plus size={18} /> {isIt ? 'Nuovo capitolo' : 'New Chapter'}
       </button>
     </div>
   );
@@ -186,6 +235,18 @@ function selectRotatingQuestions(questions = [], count = 10, quizRuns = []) {
     [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
   }
   return shuffled.slice(0, count);
+}
+
+function getQuestionProgressId(question = {}, index = 0) {
+  if (question.id || question.questionId) return `id:${question.id || question.questionId}`;
+  return questionMemoryKey(question) || `index:${index}`;
+}
+
+function getQuizMasteryTone(score, hasEnoughCoverage = true) {
+  if (!hasEnoughCoverage) return { label: null, color: '#64748B', bg: '#F8FAFC', border: '#E2E8F0' };
+  if (score >= 80) return { label: `${score}%`, color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' };
+  if (score >= 60) return { label: `${score}%`, color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' };
+  return { label: `${score}%`, color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5' };
 }
 
 function QuizResultScreen({ percent, correct, total, palette, resultTitle, subject, subjectStyle, attemptError, attemptSaved, onRestart, onBack, lang = 'en' }) {
@@ -569,6 +630,39 @@ const quizS = {
   emptyTitle: { margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-.02em' },
   emptyText: { margin: 0, maxWidth: 380, color: 'var(--gray)', fontSize: 15, fontWeight: 650, lineHeight: 1.5 },
   emptyCta: { marginTop: 4, minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '0 20px', borderRadius: 16, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 14px 28px -20px rgba(55,48,232,.8)' },
+  chapterEmptyState: { width:'min(760px, 100%)', minHeight: 360, margin:'0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '34px 24px', borderRadius: 22, border: '1.5px dashed var(--border)', background: 'linear-gradient(180deg, #FAFBFF 0%, #FFFFFF 100%)', textAlign: 'center', boxShadow: '0 18px 40px -34px rgba(15,16,53,.35)' },
+  examRail: { display:'flex', flexWrap:'wrap', gap:12, padding:'2px 0 4px' },
+  examPill: { minHeight:52, display:'inline-flex', alignItems:'center', gap:11, padding:'0 20px', borderRadius:17, border:'1.5px solid var(--border)', fontSize:15, fontWeight:950, cursor:'pointer', transition:'transform .15s ease, box-shadow .15s ease, border-color .15s ease', letterSpacing:'-.01em' },
+  examEmoji: { width:28, height:28, borderRadius:10, display:'inline-grid', placeItems:'center', fontSize:18, background:'rgba(255,255,255,.5)' },
+  setupCard: { padding:18, borderRadius:22, border:'1px solid var(--border)', background:'linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%)', boxShadow:'0 22px 54px -42px rgba(15,16,53,.38)', display:'grid', gap:16 },
+  launcherHeader: { display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:18, flexWrap:'wrap' },
+  launcherEyebrow: { marginBottom:6, color:'var(--gray)', fontSize:11, fontWeight:900, textTransform:'uppercase', letterSpacing:'.1em' },
+  launcherTitle: { margin:0, color:'var(--ink)', fontSize:22, fontWeight:950, letterSpacing:'-.03em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  launcherSub: { margin:'6px 0 0', color:'var(--gray)', fontSize:13, fontWeight:700, lineHeight:1.45 },
+  launcherStats: { display:'flex', alignItems:'center', justifyContent:'flex-end', flexWrap:'wrap', gap:8, maxWidth:520 },
+  launcherStat: { minHeight:34, display:'inline-flex', alignItems:'center', gap:5, borderRadius:999, padding:'0 11px', fontSize:12, fontWeight:850, whiteSpace:'nowrap' },
+  launcherActions: { display:'grid', gridTemplateColumns:'minmax(0, 1fr)', gap:10 },
+  primaryStartBtn: { width:'100%', minHeight:52, borderRadius:16, color:'#fff', fontWeight:900, fontSize:16, cursor:'pointer', border:'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s, transform .15s' },
+  scopeRow: { display:'flex', flexWrap:'wrap', gap:8 },
+  scopeChip: { minHeight:40, maxWidth:'100%', display:'inline-flex', alignItems:'center', gap:8, padding:'0 13px', borderRadius:14, border:'1.5px solid var(--border)', fontSize:13, fontWeight:850, transition:'all .15s', cursor:'pointer' },
+  scopeTitle: { overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  scopeCount: { minWidth:22, height:22, borderRadius:999, display:'inline-grid', placeItems:'center', padding:'0 6px', fontSize:11, fontWeight:900 },
+  chapterGrid: { display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:14 },
+  chapterCard: { minHeight:176, padding:16, borderRadius:22, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--ink)', cursor:'pointer', textAlign:'left', display:'flex', flexDirection:'column', gap:14, transition:'transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease' },
+  chapterTop: { display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12 },
+  chapterIdentity: { display:'flex', alignItems:'center', gap:12, minWidth:0 },
+  chapterIcon: { width:46, height:46, borderRadius:15, display:'grid', placeItems:'center', fontSize:24, flexShrink:0 },
+  chapterTitle: { margin:0, color:'var(--ink)', fontSize:16, fontWeight:950, letterSpacing:'-.02em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  chapterMeta: { margin:'4px 0 0', color:'var(--gray)', fontSize:12, fontWeight:800 },
+  masteryPill: { minHeight:34, display:'inline-flex', alignItems:'center', justifyContent:'center', borderRadius:999, padding:'0 12px', fontSize:13, fontWeight:950, whiteSpace:'nowrap', border:'1px solid transparent' },
+  chapterProgressTrack: { height:7, borderRadius:999, background:'#EEF2F7', overflow:'hidden' },
+  chapterProgressFill: { height:'100%', borderRadius:999, transition:'width .25s ease' },
+  chapterStats: { display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:8 },
+  chapterStat: { minHeight:44, borderRadius:14, background:'#F8FAFC', border:'1px solid #E2E8F0', padding:'7px 8px', display:'grid', alignContent:'center', gap:2 },
+  chapterStatValue: { color:'var(--ink)', fontSize:14, fontWeight:950, lineHeight:1 },
+  chapterStatLabel: { color:'var(--gray)', fontSize:10, fontWeight:850, textTransform:'uppercase', letterSpacing:'.04em', lineHeight:1.1 },
+  chapterHint: { margin:0, color:'var(--gray)', fontSize:12, fontWeight:750, lineHeight:1.35 },
+  missedStartBtn: { width:'100%', minHeight:52, borderRadius:16, border:'1.5px solid #FCA5A5', background:'#FEF2F2', color:'#DC2626', fontWeight:900, fontSize:15, cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:8 },
 };
 
 export function QuizReview({ run, onBack, darkMode, lang = 'en' }) {
@@ -621,7 +715,7 @@ export function QuizReview({ run, onBack, darkMode, lang = 'en' }) {
   );
 }
 
-export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMode, lang = 'en' }) {
+export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenExam, darkMode, lang = 'en' }) {
   const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? exams[0]?.id ?? null);
   const [selectedChapterId, setSelectedChapterId] = useState(deck?._practiceConfig?.chapterId ?? 'all');
   const [numQ, setNumQ] = useState(deck?._practiceConfig?.count ?? 10);
@@ -632,8 +726,10 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   const autoStartedRef = React.useRef(false);
   const [reviewRun, setReviewRun] = useState(null);
   const [serviceQuizzes, setServiceQuizzes] = useState([]);
+  const [quizzesExamId, setQuizzesExamId] = useState(null);
   const [loadingQuizzes, setLoadingQuizzes] = useState(false);
   const [quizError, setQuizError] = useState('');
+  const loadQuizzesSeqRef = useRef(0);
 
   const selectedExam = exams.find(e => e.id === selectedExamId);
   const selectedPalette = selectedExam ? getExamPalette(selectedExam, darkMode) : getSubjectPalette('', {}, darkMode);
@@ -651,13 +747,16 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   }, [deck, exams]);
 
   useEffect(() => {
-    let cancelled = false;
     async function loadQuizzes() {
       if (!selectedExamId || activeDeck) return;
+      const requestId = loadQuizzesSeqRef.current + 1;
+      loadQuizzesSeqRef.current = requestId;
+      setQuizzesExamId(selectedExamId);
+      setServiceQuizzes([]);
       setLoadingQuizzes(true);
       setQuizError('');
       const result = await listQuizzes({ examId: selectedExamId });
-      if (cancelled) return;
+      if (loadQuizzesSeqRef.current !== requestId) return;
       if (result.error) {
         setQuizError(result.error.message || 'Could not load quizzes.');
         setServiceQuizzes([]);
@@ -667,17 +766,20 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
       setLoadingQuizzes(false);
     }
     loadQuizzes();
-    return () => { cancelled = true; };
   }, [selectedExamId, activeDeck]);
+
+  const validServiceQuizzes = React.useMemo(() => (
+    quizzesExamId && selectedExamId && String(quizzesExamId) === String(selectedExamId) ? serviceQuizzes : []
+  ), [quizzesExamId, selectedExamId, serviceQuizzes]);
 
   const scopedQuizzes = React.useMemo(() => {
     const predictorPractice = deck?._practiceConfig?.source === 'analytics-grade-predictor';
     const quizzes = predictorPractice
-      ? serviceQuizzes.filter(isReliableMaterialQuiz)
-      : serviceQuizzes;
+      ? validServiceQuizzes.filter(isReliableMaterialQuiz)
+      : validServiceQuizzes;
     if (selectedChapterId === 'all') return quizzes;
     return quizzes.filter((quiz) => String(quiz.chapterId) === String(selectedChapterId));
-  }, [deck?._practiceConfig?.source, selectedChapterId, serviceQuizzes]);
+  }, [deck?._practiceConfig?.source, selectedChapterId, validServiceQuizzes]);
 
   const allAvailableQuestions = React.useMemo(() => {
     const serviceQuestions = scopedQuizzes.flatMap(quiz => quiz.questions || []);
@@ -700,7 +802,92 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   }, [deck?._practiceConfig?.source, selectedDiffs, selectedExam, selectedChapterId, scopedQuizzes]);
 
   const maxQ = availableQuestions.length;
-  const effectiveNumQ = Math.min(numQ, maxQ || 1);
+  const getScopeQuizStats = (sourceQuestions = [], scopeChapterId = selectedChapterId) => {
+    const questionEntries = sourceQuestions.map((question, index) => ({
+      question,
+      id: getQuestionProgressId(question, index),
+      key: questionMemoryKey(question),
+    }));
+    const sourceIds = new Set(questionEntries.map((entry) => entry.id));
+    const sourceKeys = new Set(questionEntries.map((entry) => entry.key).filter(Boolean));
+    const latestById = new Map();
+    const relevantRuns = [...(quizRuns || [])]
+      .filter((run) => {
+        const sameExam = !selectedExamId || !run?.examId || String(run.examId) === String(selectedExamId);
+        const sameChapter = scopeChapterId === 'all' || !run?.chapterId || run.chapterId === 'all' || String(run.chapterId) === String(scopeChapterId);
+        return sameExam && sameChapter;
+      })
+      .sort((a, b) => Number(new Date(a.completedAt || a.createdAt || a.ts || 0)) - Number(new Date(b.completedAt || b.createdAt || b.ts || 0)));
+
+    relevantRuns.forEach((run) => {
+      const answerDetails = Array.isArray(run?.answerDetails) ? run.answerDetails : [];
+      const rawAnswers = Array.isArray(run?.answers) ? run.answers : [];
+      const runQuestions = Array.isArray(run?.questions) ? run.questions.map(normalizeQuestion) : [];
+      const entries = answerDetails.length ? answerDetails : rawAnswers;
+
+      entries.forEach((answer, index) => {
+        const runQuestion = runQuestions[index] || {};
+        const answerObject = answer && typeof answer === 'object' && !Array.isArray(answer) ? answer : {};
+        const id = answerObject.questionId ? `id:${answerObject.questionId}` : getQuestionProgressId(runQuestion, index);
+        const key = answerObject.questionKey || questionMemoryKey(runQuestion);
+        const selected = Number(answerObject.selected ?? answerObject.answer ?? answer);
+        const correct = Number(answerObject.correct ?? runQuestion.correct);
+        const isCorrect = typeof answerObject.isCorrect === 'boolean'
+          ? answerObject.isCorrect
+          : Number.isFinite(selected) && Number.isFinite(correct) && selected === correct;
+        if (sourceIds.has(id)) latestById.set(id, isCorrect);
+        else if (key && sourceKeys.has(key)) latestById.set(key, isCorrect);
+      });
+    });
+
+    const seenKeys = new Set(latestById.keys());
+    const isSeen = (entry) => seenKeys.has(entry.id) || (entry.key && seenKeys.has(entry.key));
+    const isMissed = (entry) => latestById.get(entry.id) === false || (entry.key && latestById.get(entry.key) === false);
+    const isKnown = (entry) => latestById.get(entry.id) === true || (entry.key && latestById.get(entry.key) === true);
+    const unseenQuestions = questionEntries.filter((entry) => !isSeen(entry)).map((entry) => entry.question);
+    const missedQuestions = questionEntries.filter(isMissed).map((entry) => entry.question);
+
+    return {
+      total: sourceQuestions.length,
+      seen: questionEntries.filter(isSeen).length,
+      unseen: unseenQuestions.length,
+      missed: missedQuestions.length,
+      known: questionEntries.filter(isKnown).length,
+      unseenQuestions,
+      missedQuestions,
+    };
+  };
+  const getQuestionsForChapter = (chapterId, difficulties = selectedDiffs) => {
+    if (!selectedExam) return [];
+    if (chapterId === 'all') {
+      const serviceQuestions = getPlayableQuestions(validServiceQuizzes.flatMap((quiz) => quiz.questions || []), difficulties);
+      if (serviceQuestions.length > 0) return serviceQuestions;
+      return getPlayableQuestions(selectedExam.chapters.flatMap((chapter) => chapter.questions || []), difficulties);
+    }
+    const chapterQuizzes = validServiceQuizzes.filter((quiz) => String(quiz.chapterId) === String(chapterId));
+    const serviceQuestions = getPlayableQuestions(chapterQuizzes.flatMap((quiz) => quiz.questions || []), difficulties);
+    if (serviceQuestions.length > 0) return serviceQuestions;
+    const chapter = selectedExam.chapters.find((candidate) => String(candidate.id) === String(chapterId));
+    return getPlayableQuestions(chapter?.questions || [], difficulties);
+  };
+  const scopeStats = getScopeQuizStats(availableQuestions, selectedChapterId);
+  const chapterMastery = React.useMemo(() => {
+    if (!selectedExam?.chapters?.length) return [];
+    return selectedExam.chapters.map((chapter) => {
+      const questions = getQuestionsForChapter(chapter.id);
+      const stats = getScopeQuizStats(questions, chapter.id);
+      const score = stats.seen > 0 ? Math.round((stats.known / stats.seen) * 100) : 0;
+      const coverage = stats.total > 0 ? Math.round((stats.seen / stats.total) * 100) : 0;
+      const enoughCoverage = stats.total > 0 && stats.seen >= Math.min(stats.total, Math.max(5, Math.ceil(stats.total * 0.35)));
+      const tone = getQuizMasteryTone(score, enoughCoverage);
+      return { chapter, questions, stats, score, coverage, enoughCoverage, tone };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedExam, selectedExamId, selectedChapterId, selectedDiffs, validServiceQuizzes, quizRuns]);
+  const primaryQuestions = scopeStats.unseenQuestions.length ? scopeStats.unseenQuestions : availableQuestions;
+  const primaryMaxQ = primaryQuestions.length;
+  const effectiveNumQ = Math.min(numQ, primaryMaxQ || maxQ || 1);
+  const missedEffectiveQ = Math.min(numQ, scopeStats.missedQuestions.length);
   const focusedFromNotes = deck?._practiceConfig?.source === 'study-material';
   const waitingForPractice = focusedFromNotes && !loadingQuizzes && maxQ === 0;
 
@@ -727,11 +914,11 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   const countQuestionsForChapter = (chapterId) => {
     if (!selectedExam) return 0;
     if (chapterId === 'all') {
-      const serviceCount = countQuestionsInQuizzes(serviceQuizzes);
+      const serviceCount = countQuestionsInQuizzes(validServiceQuizzes);
       if (serviceCount > 0) return serviceCount;
       return getPlayableQuestions(selectedExam.chapters.flatMap(c => c.questions || [])).length;
     }
-    const chapterQuizzes = serviceQuizzes.filter((quiz) => String(quiz.chapterId) === String(chapterId));
+    const chapterQuizzes = validServiceQuizzes.filter((quiz) => String(quiz.chapterId) === String(chapterId));
     const serviceCount = countQuestionsInQuizzes(chapterQuizzes);
     if (serviceCount > 0) return serviceCount;
     const ch = selectedExam.chapters.find(c => c.id === chapterId);
@@ -805,9 +992,18 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
     const fallbackQs = chapterId === 'all'
       ? (exam?.chapters || []).flatMap(c => c.questions || [])
       : (exam?.chapters.find(c => c.id === chapterId)?.questions || []);
-    const qs = serviceQuestions.length
+    let qs = serviceQuestions.length
       ? serviceQuestions
       : getPlayableQuestions(fallbackQs, overrides._difficulties || selectedDiffs);
+    if (overrides.studyMode === 'missed') {
+      const missedKeys = new Set(scopeStats.missedQuestions.map((question, index) => getQuestionProgressId(question, index)));
+      const missedMemoryKeys = new Set(scopeStats.missedQuestions.map(questionMemoryKey));
+      qs = qs.filter((question, index) => missedKeys.has(getQuestionProgressId(question, index)) || missedMemoryKeys.has(questionMemoryKey(question)));
+    } else if (overrides.studyMode === 'new' && scopeStats.unseenQuestions.length) {
+      const unseenKeys = new Set(scopeStats.unseenQuestions.map((question, index) => getQuestionProgressId(question, index)));
+      const unseenMemoryKeys = new Set(scopeStats.unseenQuestions.map(questionMemoryKey));
+      qs = qs.filter((question, index) => unseenKeys.has(getQuestionProgressId(question, index)) || unseenMemoryKeys.has(questionMemoryKey(question)));
+    }
     if (overrides.requireServiceQuiz && !qs.length) {
       setQuizError(tt(lang, 'materialQuestionsMissing', { difficulty: difficultySummary }));
       return;
@@ -860,6 +1056,13 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   };
 
   const filteredRuns = quizRuns.filter(r => String(r.examId) === String(selectedExamId));
+  const openSelectedExamForChapter = () => {
+    if (selectedExam?.id && typeof onOpenExam === 'function') {
+      onOpenExam(selectedExam.id);
+      return;
+    }
+    setTab('notes');
+  };
 
   if (reviewRun) {
     return <QuizReview run={reviewRun} onBack={() => setReviewRun(null)} darkMode={darkMode} lang={lang} />;
@@ -897,26 +1100,26 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
   ];
   const visibleDiffs = focusedFromNotes ? DIFF.filter((diff) => diff.id !== 'extreme') : DIFF;
 
-  const secLabel = { fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.1em', color:'var(--gray-2)', marginBottom:10 };
+  const secLabel = { fontSize:11, fontWeight:900, textTransform:'uppercase', letterSpacing:'.1em', color:'var(--gray)', marginBottom:12 };
   const divider = { height:1, background:'var(--border)', margin:'0' };
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto' }}>
+    <div style={{ width:'100%', maxWidth: 1120, margin: '0 auto', display:'flex', flexDirection:'column', gap:24 }}>
 
       {/* Page header */}
-      <div style={{ marginBottom:24, display:'flex', alignItems:'flex-end', justifyContent:'space-between' }}>
+      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between' }}>
         <div>
           <h2 style={{ margin:'0 0 3px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>
             {focusedFromNotes ? `${tt(lang, 'quiz')} · ${focusTitle}` : tt(lang, 'quiz')}
           </h2>
           <p style={{ margin:0, fontSize:13, color:'var(--gray)' }}>
-            {selectedExam ? `${selectedExam.name} · ${focusScopeLabel} · ${loadingQuizzes ? tt(lang, 'loading') : maxQ > 0 ? tt(lang, 'selectedQuestions', { count: effectiveNumQ, total: maxQ }) : tt(lang, 'generatingQuiz')}` : tt(lang, 'configurePractice')}
+            {tt(lang, 'configurePractice')}
           </p>
         </div>
       </div>
-      {quizError && <p style={{ margin:'0 0 12px', color:'#DC2626', fontSize:13 }}>{quizError}</p>}
+      {quizError && <p style={{ margin:0, color:'#DC2626', fontSize:13 }}>{quizError}</p>}
       {focusedFromNotes && (
-        <div style={{ margin:'0 0 14px', padding:'14px 16px', borderRadius:16, border:`1.5px solid ${selectedPalette.dot}33`, background:selectedPalette.bg, color:selectedPalette.text }}>
+        <div style={{ padding:'14px 16px', borderRadius:16, border:`1.5px solid ${selectedPalette.dot}33`, background:selectedPalette.bg, color:selectedPalette.text }}>
           <div style={{ fontSize:12, fontWeight:900, textTransform:'uppercase', letterSpacing:'.08em', opacity:.75 }}>{tt(lang, 'selectedScope', { scope: focusScopeLabel })}</div>
           <div style={{ marginTop:4, fontSize:16, fontWeight:900 }}>{focusTitle}</div>
           <div style={{ marginTop:3, fontSize:12, fontWeight:700, opacity:.75 }}>
@@ -927,43 +1130,47 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
 
       {exams.length === 0 && <EmptyPracticeState lang={lang} setTab={setTab} />}
 
-      {/* Config card */}
-      {exams.length > 0 && <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:22, overflow:'hidden', boxShadow:'0 2px 16px rgba(0,0,0,.04)', marginBottom:14 }}>
-
-        {/* 1 — Exam */}
-        <div style={{ padding:'20px 22px' }}>
-          <div style={secLabel}>{tt(lang, 'examName')}</div>
-          <div style={{ display:'flex', gap:8, overflowX:'auto', scrollbarWidth:'none', paddingBottom:2, WebkitOverflowScrolling:'touch' }}>
+      {exams.length > 0 && (
+        <section>
+          <div style={secLabel}>{tt(lang, 'chooseExam')}</div>
+          <div style={quizS.examRail}>
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
               const pal = getExamPalette(exam, darkMode);
               const emoji = getExamEmoji(exam);
               return (
-                <button key={exam.id} onClick={() => { setSelectedExamId(exam.id); setSelectedChapterId('all'); }}
-                  style={{ flexShrink:0, display:'inline-flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.bg : 'var(--surface)', color: active ? pal.text : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s', whiteSpace:'nowrap' }}>
-                  <span style={{ fontSize:13 }}>{emoji}</span>
+                <button key={exam.id} type="button" className="quiz-exam-pill" onClick={() => { setSelectedExamId(exam.id); setSelectedChapterId('all'); }}
+                  style={{ ...quizS.examPill, borderColor: active ? pal.dot : 'var(--border)', background: active ? pal.dot : 'var(--surface)', color: active ? '#fff' : 'var(--ink)', boxShadow: active ? `0 18px 32px -22px ${pal.dot}` : '0 10px 24px -24px rgba(15,16,53,.45)' }}>
+                  <span style={quizS.examEmoji}>{emoji}</span>
                   {exam.name}
                 </button>
               );
             })}
           </div>
-        </div>
+        </section>
+      )}
+
+      {selectedExam && maxQ === 0 && (
+        <EmptyQuizMaterialState lang={lang} onNewChapter={openSelectedExamForChapter} />
+      )}
+
+      {/* Config card */}
+      {selectedExam && maxQ > 0 && <div style={quizS.setupCard}>
 
         {/* 2 — Chapter */}
         {selectedExam && (
           <>
-            <div style={divider} />
-            <div style={{ padding:'20px 22px' }}>
+            <div>
               <div style={secLabel}>{tt(lang, 'chapter')}</div>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+              <div style={quizS.scopeRow}>
                 {[{ id:'all', title:tt(lang, 'wholeExam') }, ...selectedExam.chapters.map(ch => ({ id:ch.id, title:ch.title }))].map(ch => {
                   const active = selectedChapterId === ch.id;
                   const qCount = countQuestionsForChapter(ch.id);
                   return (
-                    <button key={ch.id} onClick={() => setSelectedChapterId(ch.id)}
-                      style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'7px 13px', borderRadius:999, border:`1.5px solid ${active ? selectedPalette.dot : 'var(--border)'}`, background: active ? selectedPalette.bg : 'var(--surface)', color: active ? selectedPalette.text : 'var(--gray)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
-                      {ch.title}
-                      <span style={{ background: active ? selectedPalette.dot : 'var(--border)', color: active ? '#fff' : 'var(--gray)', fontSize:10, fontWeight:800, borderRadius:999, padding:'1px 6px', lineHeight:1.5 }}>
+                    <button key={ch.id} type="button" className="quiz-scope-chip" onClick={() => setSelectedChapterId(ch.id)}
+                      style={{ ...quizS.scopeChip, borderColor: active ? selectedPalette.dot : 'var(--border)', background: active ? selectedPalette.bg : 'var(--surface)', color: active ? selectedPalette.text : 'var(--ink)' }}>
+                      <span style={quizS.scopeTitle}>{ch.title}</span>
+                      <span style={{ ...quizS.scopeCount, background: active ? selectedPalette.dot : '#EEF2FF', color: active ? '#fff' : 'var(--gray)' }}>
                         {qCount}
                       </span>
                     </button>
@@ -974,21 +1181,53 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
           </>
         )}
 
+        {maxQ > 0 && (
+          <>
+            <div style={divider} />
+            <div style={quizS.launcherHeader}>
+              <div style={{ minWidth:0 }}>
+                <div style={quizS.launcherEyebrow}>{lang === 'it' ? 'Sessione pronta' : 'Session ready'}</div>
+                <h3 style={quizS.launcherTitle}>{focusTitle}</h3>
+                <p style={quizS.launcherSub}>
+                  {scopeStats.unseen > 0
+                    ? (lang === 'it'
+                      ? `${scopeStats.unseen} domande nuove su ${scopeStats.total}. La prossima sessione parte da quelle che non hai ancora visto.`
+                      : `${scopeStats.unseen} new questions out of ${scopeStats.total}. The next session starts from what you have not seen yet.`)
+                    : (lang === 'it'
+                      ? 'Hai già visto tutte le domande disponibili. Consolida il capitolo o ripassa solo gli errori.'
+                      : 'You have seen every available question. Consolidate the chapter or review only mistakes.')}
+                </p>
+              </div>
+              <div style={quizS.launcherStats}>
+                <span style={{ ...quizS.launcherStat, background:'#ECFDF5', color:'#047857' }}>
+                  <strong>{scopeStats.unseen}</strong>{lang === 'it' ? ' mai viste' : ' unseen'}
+                </span>
+                <span style={{ ...quizS.launcherStat, background:'#EEF2FF', color:'#3730E8' }}>
+                  <strong>{scopeStats.seen}/{scopeStats.total}</strong>{lang === 'it' ? ' già viste' : ' seen'}
+                </span>
+                <span style={{ ...quizS.launcherStat, background:'#FEF2F2', color:'#B91C1C' }}>
+                  <strong>{scopeStats.missed}</strong>{lang === 'it' ? ' errori' : ' missed'}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* 3 — Question count */}
         {maxQ > 0 && (
           <>
             <div style={divider} />
-            <div style={{ padding:'20px 22px' }}>
+            <div>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                <div style={secLabel}>{tt(lang, 'questions')}</div>
-                <span style={{ fontSize:12, color:'var(--gray)', fontWeight:500 }}>{tt(lang, 'availableQuestions', { count: maxQ })}</span>
+                <div style={secLabel}>{lang === 'it' ? 'Quanto allenarti' : 'Session size'}</div>
+                <span style={{ fontSize:12, color:'var(--gray)', fontWeight:650 }}>{lang === 'it' ? `${maxQ} disponibili` : `${maxQ} available`}</span>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:`repeat(${visibleDiffs.length},1fr)`, gap:8 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:8 }}>
                 {[5,10,15,20].map(n => {
                   const disabled = n > maxQ;
                   const active = numQ === n && !disabled;
                   return (
-                    <button key={n} onClick={() => !disabled && setNumQ(n)} disabled={disabled}
+                    <button key={n} className="quiz-count-btn" onClick={() => !disabled && setNumQ(n)} disabled={disabled}
                       style={{ padding:'12px 4px', borderRadius:12, border:`1.5px solid ${active ? selectedPalette.dot : 'var(--border)'}`, background: active ? selectedPalette.bg : 'var(--surface)', fontWeight:800, fontSize:18, color: active ? selectedPalette.text : disabled ? 'var(--border)' : 'var(--gray)', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                       {n}
                       <span style={{ fontSize:9, fontWeight:600, color: active ? selectedPalette.text : 'var(--gray-2)', opacity: disabled ? 0 : 0.7 }}>{tt(lang, 'questions')}</span>
@@ -1004,10 +1243,10 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         {maxQ > 0 && (
           <>
             <div style={divider} />
-            <div style={{ padding:'20px 22px' }}>
+            <div>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                <div style={secLabel}>{tt(lang, 'questionDifficulty')}</div>
-                <span style={{ fontSize:11, color:'var(--gray)', fontStyle:'italic' }}>{difficultySummary}</span>
+                <div style={secLabel}>{lang === 'it' ? 'Tipo di domande' : 'Question type'}</div>
+                <span style={{ fontSize:11, color:'var(--gray)', fontWeight:700 }}>{difficultySummary}</span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
                 {visibleDiffs.map(d => (
@@ -1030,10 +1269,10 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
         {maxQ > 0 && (
           <>
             <div style={divider} />
-            <div style={{ padding:'20px 22px' }}>
+            <div>
               <div style={quizS.timerCard}>
                 <div style={quizS.timerTop}>
-                  <span style={quizS.timerLabel}><Clock size={16} /> {tt(lang, 'timerPerQuestion')}</span>
+                  <span style={quizS.timerLabel}><Clock size={16} /> {lang === 'it' ? 'Timer opzionale' : 'Optional timer'}</span>
                   <button onClick={() => setTimerOn((v) => !v)} style={{ ...quizS.toggle, background: timerOn ? selectedPalette.dot : '#CBD5E1' }}>
                     <span style={{ ...quizS.toggleKnob, ...(timerOn ? quizS.toggleKnobOn : null) }} />
                   </button>
@@ -1061,20 +1300,109 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, darkMod
             </div>
           </>
         )}
+
+        {maxQ > 0 && (
+          <>
+            <div style={divider} />
+            <div
+              className="quiz-launch-actions"
+              style={{
+                ...quizS.launcherActions,
+                gridTemplateColumns: scopeStats.missed > 0 ? 'minmax(0, 1fr) minmax(220px, .48fr)' : 'minmax(0, 1fr)',
+              }}
+            >
+              <button
+                onClick={() => startQuiz({ _autoStart:true, _difficulties:selectedDiffs, _timerOn:timerOn, _timerSecs:timerSecs, studyMode:'new' })}
+                disabled={maxQ === 0}
+                style={{
+                  ...quizS.primaryStartBtn,
+                  background: `linear-gradient(135deg, ${selectedPalette.dot} 0%, ${selectedPalette.dot}cc 100%)`,
+                  boxShadow: `0 14px 26px -20px ${selectedPalette.dot}`,
+                }}
+                onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.92'; }}
+                onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}
+              >
+                {scopeStats.unseen > 0
+                  ? (lang === 'it' ? `Inizia ${effectiveNumQ} domande nuove` : `Start ${effectiveNumQ} new questions`)
+                  : (lang === 'it' ? `Ripassa ${effectiveNumQ} domande` : `Review ${effectiveNumQ} questions`)}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </button>
+              {scopeStats.missed > 0 && (
+                <button type="button" onClick={() => startQuiz({ _autoStart:true, _difficulties:selectedDiffs, _timerOn:timerOn, _timerSecs:timerSecs, studyMode:'missed', numQ: missedEffectiveQ })} style={quizS.missedStartBtn}>
+                  {lang === 'it' ? `Rifai ${missedEffectiveQ} errori` : `Retry ${missedEffectiveQ} missed`}
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>}
 
-      {/* Start button */}
-      {exams.length > 0 && <button onClick={() => startQuiz({ _autoStart:true, _difficulties:selectedDiffs, _timerOn:timerOn, _timerSecs:timerSecs })} disabled={maxQ === 0 || loadingQuizzes}
-        style={{ width:'100%', borderRadius:16, padding:'16px', background: maxQ > 0 && !loadingQuizzes ? `linear-gradient(135deg, ${selectedPalette.dot} 0%, ${selectedPalette.dot}cc 100%)` : '#CBD5E1', color:'#fff', fontWeight:800, fontSize:16, cursor: maxQ > 0 && !loadingQuizzes ? 'pointer' : 'not-allowed', border:'none', boxShadow: maxQ > 0 && !loadingQuizzes ? `0 4px 16px ${selectedPalette.dot}35` : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'opacity .15s' }}
-        onMouseEnter={e => { if (maxQ > 0) e.currentTarget.style.opacity='.9'; }}
-        onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}>
-        {loadingQuizzes ? tt(lang, 'loading') : maxQ > 0 ? tt(lang, 'startQuizCta', { title: focusTitle }) : waitingForPractice ? tt(lang, 'generatingQuiz') : tt(lang, 'quizPreparing')}
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-      </button>}
+      {selectedExam && chapterMastery.length > 0 && (
+        <section>
+          <div style={secLabel}>{tt(lang, 'chapters')} — {selectedExam.name}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:14 }}>
+            {chapterMastery.map(({ chapter, stats, score, coverage, enoughCoverage, tone }) => {
+              const active = String(selectedChapterId) === String(chapter.id);
+              const questionsLabel = stats.total === 1
+                ? (lang === 'it' ? '1 domanda' : '1 question')
+                : (lang === 'it' ? `${stats.total} domande` : `${stats.total} questions`);
+              const masteryLabel = tone.label || `${stats.seen}/${stats.total || 0}`;
+              const progressWidth = enoughCoverage ? Math.max(4, score) : Math.max(4, coverage);
+              const disabled = stats.total === 0;
+              return (
+                <button
+                  key={chapter.id}
+                  type="button"
+                  className="quiz-chapter-card"
+                  onClick={() => setSelectedChapterId(chapter.id)}
+                  style={{
+                    minHeight:164,
+                    display:'grid',
+                    alignContent:'space-between',
+                    gap:14,
+                    padding:14,
+                    borderRadius:18,
+                    border:`1.5px solid ${active ? selectedPalette.dot : 'var(--border)'}`,
+                    borderTop:`5px solid ${stats.total ? selectedPalette.dot : `${selectedPalette.dot}44`}`,
+                    background:'var(--surface)',
+                    color:'var(--ink)',
+                    cursor:'pointer',
+                    textAlign:'left',
+                    boxShadow:active ? `0 18px 38px -34px ${selectedPalette.dot}` : '0 18px 38px -34px rgba(15,16,53,.30)',
+                    transition:'transform .15s ease, box-shadow .15s ease, border-color .15s ease',
+                    opacity: disabled ? .72 : 1,
+                  }}
+                >
+                  <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+                    <span style={{ width:42, height:42, borderRadius:12, display:'grid', placeItems:'center', flexShrink:0, fontSize:22, background:selectedPalette.bg, border:`1.5px solid ${selectedPalette.dot}33` }}>
+                        {getExamEmoji(selectedExam)}
+                    </span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <h3 style={{ margin:0, color:'var(--ink)', fontSize:14, fontWeight:850, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{chapter.title}</h3>
+                      <p style={{ margin:'4px 0 0', color:'var(--gray)', fontSize:12, fontWeight:650 }}>{questionsLabel}</p>
+                    </div>
+                    <span style={{ fontSize:12, fontWeight:850, color:selectedPalette.text, background:selectedPalette.bg, padding:'4px 8px', borderRadius:999 }}>
+                      {masteryLabel}
+                    </span>
+                  </div>
+                  <div style={{ height:4, borderRadius:999, background:'var(--border)', overflow:'hidden' }}>
+                    <div style={{ width:`${Math.min(100, progressWidth)}%`, height:'100%', borderRadius:999, background:selectedPalette.dot }} />
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:8, color:'var(--gray)', fontSize:11, fontWeight:850 }}>
+                    <span>{stats.unseen} {lang === 'it' ? 'mai viste' : 'unseen'}</span>
+                    <span>{stats.seen}/{stats.total} {lang === 'it' ? 'viste' : 'seen'}</span>
+                    <span style={{ color:stats.missed ? '#DC2626' : 'var(--gray)' }}>{stats.missed} {lang === 'it' ? 'errori' : 'missed'}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Past quiz runs */}
       {filteredRuns.length > 0 && (
-        <div style={{ maxWidth: 580, margin: '32px auto 0' }}>
+        <div style={{ maxWidth: 760, width:'100%', margin: '8px auto 0' }}>
           <div style={{ height: 1, background: 'var(--border)', marginBottom: 24 }} />
           <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{tt(lang, 'previousQuizzes')}</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

@@ -43,16 +43,17 @@ export function DashboardHero({
   nextEvent,
   nextExam,
   nextExamDays,
-  startExamQuiz,
   setTab,
-  onOpenExam,
   heroProgress,
   heroProgressText,
   lang = 'en',
 }) {
   const remainingToday = Math.max(0, totalToday - completedToday);
+  const ringRadius = 44;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringOffset = ringCircumference - (Math.max(0, Math.min(100, heroProgress)) / 100) * ringCircumference;
   return (
-    <section style={{ ...s.hero, padding: isMobile ? 22 : 32 }}>
+    <section style={{ ...s.hero, padding: isMobile ? 22 : 26 }}>
       <div style={s.heroText}>
         <div style={s.kicker}>{heroDate}</div>
         <h1 style={s.heroTitle}>{tt(lang, 'goodMorning')}, {user.name || 'Alex'}</h1>
@@ -64,18 +65,30 @@ export function DashboardHero({
               : tt(lang, 'createExamsMaterials')}
         </p>
         <div style={s.heroActions}>
-          <button style={s.heroButton} onClick={() => nextExam ? startExamQuiz(nextExam) : setTab('notes')}>
+          <button style={s.heroButton} onClick={() => nextExam ? setTab('quiz') : setTab('notes')}>
             {nextExam ? tt(lang, 'startPractice') : tt(lang, 'createExam')}
           </button>
           {nextExam && (
-            <button style={s.heroPill} onClick={() => onOpenExam ? onOpenExam(nextExam.id) : setTab('notes')}>
+            <span style={s.heroPill}>
               <Clock size={15} /> {nextExam.name}{nextExamDays !== null ? ` · ${tt(lang, 'daysShort', { count: nextExamDays })}` : ''}
-            </button>
+            </span>
           )}
         </div>
       </div>
       <div style={s.progressRing} aria-label={tt(lang, 'todayProgressAria', { progress: heroProgressText })}>
-        <div style={{ ...s.progressArc, background: `conic-gradient(#fff ${heroProgress * 3.6}deg, rgba(255,255,255,.25) 0deg)` }} />
+        <svg style={s.progressSvg} viewBox="0 0 100 100" aria-hidden="true">
+          <circle style={s.progressTrack} cx="50" cy="50" r={ringRadius} />
+          <circle
+            style={{
+              ...s.progressArc,
+              strokeDasharray: ringCircumference,
+              strokeDashoffset: ringOffset,
+            }}
+            cx="50"
+            cy="50"
+            r={ringRadius}
+          />
+        </svg>
         <div style={s.progressInner}>
           <strong style={s.progressValue}>{heroProgressText}</strong>
           <span style={s.progressLabel}>{tt(lang, 'today').toUpperCase()}</span>
@@ -177,13 +190,14 @@ function QuickAction({ s, icon, label, onClick }) {
 }
 
 export function QuickActionsPanel({ s, nextExam, startExamQuiz, setTab, onStartTimer, lang = 'en' }) {
+  const flashLabel = lang === 'it' ? 'Nuova flashcard' : 'New flashcard';
   return (
-    <section style={s.panel}>
+    <section style={{ ...s.panel, ...(s.quickPanel || {}) }}>
       <h2 style={s.panelTitle}>{tt(lang, 'quickActions')}</h2>
       <div style={s.quickGrid}>
-        <QuickAction s={s} icon={<Sparkles size={20} />} label={tt(lang, 'newQuiz')} onClick={() => nextExam ? startExamQuiz(nextExam) : setTab('quiz')} />
+        <QuickAction s={s} icon={<Sparkles size={20} />} label={tt(lang, 'newQuiz')} onClick={() => setTab('quiz')} />
         <QuickAction s={s} icon={<FileText size={20} />} label={tt(lang, 'uploadNotes')} onClick={() => setTab('notes')} />
-        <QuickAction s={s} icon={<Layers size={20} />} label={tt(lang, 'flashcards')} onClick={() => setTab('flashcards')} />
+        <QuickAction s={s} icon={<Layers size={20} />} label={flashLabel} onClick={() => setTab('flashcards')} />
         <QuickAction s={s} icon={<Clock size={20} />} label={tt(lang, 'startTimer')} onClick={() => onStartTimer && onStartTimer(25)} />
       </div>
     </section>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-import { ChevronDown, Coins, EyeOff, FileText, Google, LogOut, MsgCircle, Pencil, Trophy } from '../lib/icons';
+import { Coins, EyeOff, FileText, Google, LogOut, MsgCircle, Pencil, Trophy } from '../lib/icons';
 import { LANG_OPTIONS } from '../lib/i18n';
 import { formatLimit, getPlanLimits, getUserPlanTier, isFreePlan } from '../lib/planLimits';
 import useIsMobile from '../lib/useIsMobile';
@@ -257,7 +257,20 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
       <section style={accountS.section}>
         <h3 style={accountS.sectionTitle}>{copy.bills}</h3>
         <div style={accountS.card}>
-          <Row icon={<FileText size={18} />} title={copy.payments} sub={copy.paymentsSub} action={<ChevronDown size={18} color="var(--gray)" />} />
+          <Row
+            icon={<FileText size={18} />}
+            title={copy.payments}
+            sub={freePlan ? copy.paymentsSubFree : copy.paymentsSubPro}
+            action={
+              <button
+                onClick={freePlan ? handleUpgrade : handleManageBilling}
+                disabled={saving === 'checkout' || saving === 'portal'}
+                style={saving === 'checkout' || saving === 'portal' ? accountS.disabledBtn : accountS.ghostBtn}
+              >
+                {saving === 'checkout' ? copy.openingCheckout : saving === 'portal' ? copy.openingPortal : (freePlan ? copy.upgradeToPro : copy.openStripe)}
+              </button>
+            }
+          />
           <div style={accountS.divider} />
           <Row icon={<Coins size={18} />} title={copy.billingMethod} sub={freePlan ? copy.billingMethodSubFree : copy.billingMethodSubPro} action={<button onClick={freePlan ? handleUpgrade : handleManageBilling} disabled={saving === 'checkout' || saving === 'portal'} style={saving === 'checkout' || saving === 'portal' ? accountS.disabledBtn : accountS.ghostBtn}>{saving === 'checkout' ? copy.openingCheckout : saving === 'portal' ? copy.openingPortal : (freePlan ? copy.upgradeToPro : copy.manage)}</button>} />
         </div>
@@ -306,17 +319,24 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
 
       <section style={accountS.section}>
         <h3 style={accountS.sectionTitle}>{copy.activeDevices}</h3>
-        <div style={accountS.card}>
-          <div style={{ marginBottom:12 }}>
-            <div style={accountS.rowTitle}>{copy.activeDevicesTitle}</div>
-            <div style={accountS.rowSub}>{copy.activeDevicesSub}</div>
+        <div style={accountS.devicesCard}>
+          <div style={accountS.devicesHeader}>
+            <div>
+              <div style={accountS.devicesEyebrow}>{copy.activeDevicesTitle}</div>
+              <p style={accountS.devicesCopy}>{copy.activeDevicesSub}</p>
+            </div>
+            <span style={accountS.devicesPill}>{copy.currentOnly}</span>
           </div>
-          <Row
-            icon={<span style={{ width:10, height:10, borderRadius:999, background:'#10B981', display:'block' }} />}
-            title={deviceLabel}
-            sub={copy.currentDeviceSub}
-            action={<button style={accountS.currentBtn}>{copy.current}</button>}
-          />
+          <div style={accountS.deviceRow}>
+            <div style={accountS.deviceStatusIcon}>
+              <span style={accountS.deviceStatusDot} />
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={accountS.rowTitle}>{deviceLabel}</div>
+              <div style={accountS.rowSub}>{copy.currentDeviceSub}</div>
+            </div>
+            <span style={accountS.currentBtn}>{copy.current}</span>
+          </div>
         </div>
       </section>
 
@@ -389,7 +409,7 @@ function formatAccountError(error, copy) {
     return copy.billingCustomerMissing;
   }
   if (code.includes('stripe_portal_failed') || message.includes('billing portal')) {
-    return copy.billingPortalError;
+    return error?.message || copy.billingPortalError;
   }
   return error?.message || copy.saveError;
 }
@@ -432,11 +452,13 @@ const accountCopy = {
     reactivate: 'Reactivate',
     bills: 'Bills',
     payments: 'Payments',
-    paymentsSub: 'See payments and receipts',
+    paymentsSubFree: 'Payments and receipts appear after your first Pro subscription.',
+    paymentsSubPro: 'Open Stripe to view payments and receipts.',
     billingMethod: 'Billing method',
     billingMethodSubFree: 'No active payment method on Free plan',
     billingMethodSubPro: 'Managed securely in Stripe.',
     manage: 'Manage',
+    openStripe: 'Open Stripe',
     profile: 'Profile',
     name: 'Name',
     timezone: 'Timezone',
@@ -468,9 +490,10 @@ const accountCopy = {
     managedByGoogle: 'Google',
     activeDevices: 'Active devices',
     activeDevicesTitle: 'Current session',
-    activeDevicesSub: 'Device management will be connected after account security settings are expanded.',
+    activeDevicesSub: 'Showing the browser session currently using Lockeen. Device history and revoke controls will come with advanced account security.',
     currentDeviceSub: 'Current browser session',
     current: 'Current',
+    currentOnly: 'Current only',
     language: 'Language',
     languageSub: 'This setting changes the Lockeen interface language.',
     billingCycle: 'Billing cycle',
@@ -519,11 +542,13 @@ const accountCopy = {
     reactivate: 'Riattiva',
     bills: 'Fatture',
     payments: 'Pagamenti',
-    paymentsSub: 'Vedi pagamenti e ricevute',
+    paymentsSubFree: 'Pagamenti e ricevute appariranno dopo il primo abbonamento Pro.',
+    paymentsSubPro: 'Apri Stripe per vedere pagamenti e ricevute.',
     billingMethod: 'Metodo di pagamento',
     billingMethodSubFree: 'Nessun metodo di pagamento attivo sul piano Free',
     billingMethodSubPro: 'Gestito in modo sicuro da Stripe.',
     manage: 'Gestisci',
+    openStripe: 'Apri Stripe',
     profile: 'Profilo',
     name: 'Nome',
     timezone: 'Fuso orario',
@@ -555,9 +580,10 @@ const accountCopy = {
     managedByGoogle: 'Google',
     activeDevices: 'Dispositivi attivi',
     activeDevicesTitle: 'Sessione corrente',
-    activeDevicesSub: 'La gestione dispositivi verrà collegata quando espandiamo la sicurezza account.',
+    activeDevicesSub: 'Mostriamo la sessione browser che sta usando Lockeen ora. Storico dispositivi e revoca sessioni arriveranno con la sicurezza account avanzata.',
     currentDeviceSub: 'Sessione browser corrente',
     current: 'Corrente',
+    currentOnly: 'Solo corrente',
     language: 'Lingua',
     languageSub: 'Questa impostazione cambia la lingua dell’interfaccia Lockeen.',
     billingCycle: 'Periodo fatturazione',
@@ -606,6 +632,14 @@ const accountS = {
   rowIcon: { width:34, height:34, borderRadius:12, background:'var(--sidebar-bg)', color:'var(--indigo)', display:'grid', placeItems:'center', flexShrink:0 },
   rowTitle: { fontSize:14, fontWeight:800, color:'var(--ink)' },
   rowSub: { fontSize:12, color:'var(--gray)', marginTop:2, lineHeight:1.45 },
+  devicesCard: { display:'flex', flexDirection:'column', gap:14, padding:18, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, boxShadow:'0 12px 30px -26px rgba(15,16,53,.35)' },
+  devicesHeader: { display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:14, paddingBottom:14, borderBottom:'1px solid var(--border)', flexWrap:'wrap' },
+  devicesEyebrow: { fontSize:11, fontWeight:900, color:'var(--gray)', textTransform:'uppercase', letterSpacing:'.05em' },
+  devicesCopy: { margin:'5px 0 0', color:'var(--gray)', fontSize:12, lineHeight:1.5, maxWidth:680 },
+  devicesPill: { display:'inline-flex', alignItems:'center', minHeight:30, padding:'0 10px', borderRadius:999, background:'#EEF2FF', color:'var(--indigo)', fontSize:11, fontWeight:900, whiteSpace:'nowrap' },
+  deviceRow: { display:'flex', alignItems:'center', gap:12, padding:'2px 0' },
+  deviceStatusIcon: { width:34, height:34, borderRadius:12, background:'#ECFDF5', display:'grid', placeItems:'center', flexShrink:0 },
+  deviceStatusDot: { width:10, height:10, borderRadius:999, background:'#10B981', display:'block' },
   editBlock: { display:'flex', alignItems:'flex-end', gap:12, padding:'15px 18px', flexWrap:'wrap' },
   editBlockMobile: { alignItems:'flex-start', padding:'16px 16px' },
   formGrid: { flex:1, minWidth:240, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px, 1fr))', gap:12 },

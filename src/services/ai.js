@@ -11,10 +11,13 @@ function fail(message, code = 'AI_ERROR') {
   return { data: null, error: { code, message } };
 }
 
-function timeoutSignal(ms) {
+function timeoutSignal(ms, externalSignal) {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), ms);
-  return { controller, timeoutId };
+  const abortFromExternal = () => controller.abort();
+  if (externalSignal?.aborted) controller.abort();
+  else externalSignal?.addEventListener?.('abort', abortFromExternal, { once: true });
+  return { controller, timeoutId, abortFromExternal };
 }
 
 function fallbackText(kind, prompt) {
@@ -49,7 +52,7 @@ function fallbackText(kind, prompt) {
   ].filter(Boolean).join('\n');
 }
 
-async function requestAi({ kind = 'tutor', prompt, context = {} }) {
+async function requestAi({ kind = 'tutor', prompt, context = {}, signal } = {}) {
   if (!prompt?.trim()) {
     return fail('Prompt is required.', 'VALIDATION_ERROR');
   }
@@ -73,7 +76,7 @@ async function requestAi({ kind = 'tutor', prompt, context = {} }) {
   }
 
   let response;
-  const { controller, timeoutId } = timeoutSignal(AI_REQUEST_TIMEOUT_MS);
+  const { controller, timeoutId, abortFromExternal } = timeoutSignal(AI_REQUEST_TIMEOUT_MS, signal);
   try {
     response = await fetch('/api/ai-study-assist', {
       signal: controller.signal,
@@ -91,6 +94,7 @@ async function requestAi({ kind = 'tutor', prompt, context = {} }) {
     );
   } finally {
     window.clearTimeout(timeoutId);
+    signal?.removeEventListener?.('abort', abortFromExternal);
   }
 
   const isJson = response.headers.get('content-type')?.includes('application/json');

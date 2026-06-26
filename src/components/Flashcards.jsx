@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, Check, ChevronLeft, ChevronRight, Plus, XMark } from '../lib/icons';
+import { BookOpen, Check, ChevronLeft, ChevronRight, Pencil, Play, Plus, Trash2, XMark } from '../lib/icons';
 import { getExamEmoji, getExamPalette, SubjectIcon } from '../lib/examUi';
 import useIsMobile from '../lib/useIsMobile';
 import { getSubjectPalette } from '../data/mockData';
@@ -12,6 +12,47 @@ function FlashStyles() {
       @keyframes fSlideIn  { from { opacity:0; transform:translateX(18px);  } to { opacity:1; transform:translateX(0); } }
       @keyframes fSlideBack { from { opacity:0; transform:translateX(-18px); } to { opacity:1; transform:translateX(0); } }
       @keyframes fFadeUp   { from { opacity:0; transform:translateY(16px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+      .flash-interactive { will-change: transform; }
+      @media (hover:hover) {
+        .flash-exam-pill:hover,
+        .flash-scope-chip:hover,
+        .flash-count-btn:hover,
+        .flash-chapter-card:hover {
+          transform: translateY(-1px);
+        }
+        .flash-primary-cta:hover {
+          transform: translateY(-1px);
+          filter: saturate(1.05);
+        }
+      }
+      .flash-exam-pill:active,
+      .flash-scope-chip:active,
+      .flash-count-btn:active,
+      .flash-primary-cta:active,
+      .flash-chapter-card:active {
+        transform: translateY(0) scale(.99);
+      }
+      .flash-exam-pill:focus-visible,
+      .flash-scope-chip:focus-visible,
+      .flash-count-btn:focus-visible,
+      .flash-primary-cta:focus-visible {
+        outline: 3px solid rgba(55,48,232,.22);
+        outline-offset: 3px;
+      }
+      @media (max-width: 640px) {
+        .flash-exam-pill {
+          flex: 1 1 calc(50% - 8px);
+          justify-content: center;
+          min-width: 0;
+        }
+        .flash-launcher-stat {
+          flex: 1 1 100%;
+          justify-content: center;
+        }
+        .flash-launch-actions {
+          grid-template-columns: 1fr !important;
+        }
+      }
     `}</style>
   );
 }
@@ -70,10 +111,8 @@ function isPlayableFlashcard(card = {}) {
   const back = cleanFlashcardText(card.back || card.a);
   const visibleTexts = [front, back, card.topic];
   return (
-    front.length >= 8 &&
-    front.length <= 150 &&
-    back.length >= 16 &&
-    back.length <= 560 &&
+    front.length > 0 &&
+    back.length > 0 &&
     front.toLowerCase() !== back.toLowerCase() &&
     !isGenericFlashcardFront(front) &&
     !visibleTexts.some(hasBadFlashcardReference) &&
@@ -208,17 +247,24 @@ function EmptyFlashcardState({ lang, setTab }) {
   );
 }
 
-export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMode, exams = [], lang = 'en' }) {
+export function FlashcardLanding({ deck, recentDecks, onOpenDeck, onOpenExam, setTab, darkMode, exams = [], lang = 'en' }) {
   const isMobile = useIsMobile();
   const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? deck?._practiceConfig?.examId ?? exams[0]?.id ?? null);
   const [selectedChapterId, setSelectedChapterId] = useState(deck?._practiceConfig?.chapterId ?? 'all');
   const [numCards, setNumCards] = useState(deck?._practiceConfig?.count ?? 10);
   const [cards, setCards] = useState([]);
+  const [cardsExamId, setCardsExamId] = useState(null);
   const [loadingCards, setLoadingCards] = useState(false);
   const [cardsLoaded, setCardsLoaded] = useState(false);
   const [cardsError, setCardsError] = useState('');
   const [form, setForm] = useState({ chapterId: '', front: '', back: '' });
   const [editingId, setEditingId] = useState(null);
+  const [managedChapterId, setManagedChapterId] = useState(null);
+  const [reviewSession, setReviewSession] = useState(null);
+  const [expandedReviewCard, setExpandedReviewCard] = useState(null);
+  const manageFormRef = useRef(null);
+  const setupRef = useRef(null);
+  const loadCardsSeqRef = useRef(0);
   const selectedExam = exams.find(e => e.id === selectedExamId);
   const selectedPalette = selectedExam ? getExamPalette(selectedExam, darkMode) : getSubjectPalette('', {}, darkMode);
 
@@ -229,10 +275,15 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
 
   const loadCards = async (examId = selectedExamId) => {
     if (!examId) return;
+    const requestId = loadCardsSeqRef.current + 1;
+    loadCardsSeqRef.current = requestId;
+    setCardsExamId(examId);
+    setCards([]);
     setLoadingCards(true);
     setCardsLoaded(false);
     setCardsError('');
     const result = await listFlashcards({ examId });
+    if (loadCardsSeqRef.current !== requestId) return;
     if (result.error) {
       setCardsError(result.error.message || tt(lang, 'couldNotLoadFlashcards'));
       setCards([]);
@@ -259,10 +310,13 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
     const firstChapterId = selectedExam?.chapters?.[0]?.id || '';
     setForm({ chapterId: firstChapterId, front: '', back: '' });
     setEditingId(null);
+    setManagedChapterId(null);
     if (!deck?._practiceConfig) setSelectedChapterId('all');
   }, [selectedExamId, selectedExam]);
 
-  const playableCards = cards.filter(isPlayableFlashcard);
+  const cardsBelongToSelectedExam = selectedExamId && String(cardsExamId) === String(selectedExamId);
+  const selectedExamCards = cardsBelongToSelectedExam ? cards : [];
+  const playableCards = selectedExamCards.filter(isPlayableFlashcard);
   const getCardsForChapter = (chapter) => {
     const serviceCards = playableCards.filter((card) => String(card.chapterId) === String(chapter.id));
     if (cardsLoaded && !cardsError) return serviceCards;
@@ -273,7 +327,6 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
     ? playableCards
     : playableCards.filter((card) => String(card.chapterId) === String(selectedChapterId));
   const maxCards = availableCards.length;
-  const effectiveCards = Math.min(numCards, maxCards || 1);
   const focusedFromNotes = deck?._practiceConfig?.source === 'study-material';
   const waitingForPractice = focusedFromNotes && !loadingCards && maxCards === 0;
   useEffect(() => {
@@ -305,15 +358,98 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
     if (chapterId === 'all') return playableCards.length;
     return playableCards.filter((card) => String(card.chapterId) === String(chapterId)).length;
   };
-  const startConfiguredDeck = () => {
+  const getCardProgressId = (card = {}, index = 0) => {
+    const id = card.id || card.flashcardId || card.cardId;
+    return id ? String(id) : getFlashcardRotationId(card, index);
+  };
+  const getScopePracticeStats = (sourceCards = []) => {
+    const cardEntries = sourceCards.map((card, index) => ({ card, id: getCardProgressId(card, index) }));
+    const sourceIds = new Set(cardEntries.map((entry) => entry.id));
+    const latestKnownById = new Map();
+    const orderedReviews = [...recentDecks].sort((a, b) => Number(a?.ts || 0) - Number(b?.ts || 0));
+
+    orderedReviews.forEach((review) => {
+      const answers = Array.isArray(review?.answers) ? review.answers : [];
+      if (answers.length) {
+        answers.forEach((answer) => {
+          const answerId = answer?.flashcardId || answer?.id || answer?.cardId;
+          if (!answerId || !sourceIds.has(String(answerId))) return;
+          latestKnownById.set(String(answerId), answer.known === true);
+        });
+        return;
+      }
+
+      if (Array.isArray(review?.cards)) {
+        review.cards.forEach((card, index) => {
+          const cardId = getCardProgressId(card, index);
+          if (!sourceIds.has(cardId) || typeof card.known !== 'boolean') return;
+          latestKnownById.set(cardId, card.known === true);
+        });
+      }
+    });
+
+    const seenIds = new Set(latestKnownById.keys());
+    const missedIds = new Set([...latestKnownById.entries()].filter(([, known]) => !known).map(([id]) => id));
+    const knownIds = new Set([...latestKnownById.entries()].filter(([, known]) => known).map(([id]) => id));
+    const unseenCards = cardEntries.filter((entry) => !seenIds.has(entry.id)).map((entry) => entry.card);
+    const missedCards = cardEntries.filter((entry) => missedIds.has(entry.id)).map((entry) => entry.card);
+
+    return {
+      total: sourceCards.length,
+      seen: seenIds.size,
+      unseen: unseenCards.length,
+      missed: missedCards.length,
+      known: knownIds.size,
+      unseenCards,
+      missedCards,
+    };
+  };
+  const getChapterProgress = (chapter, rawCount) => {
+    const stats = getScopePracticeStats(playableCardsForChapter(chapter.id));
+    if (!stats.seen || !rawCount) return null;
+    const coverage = Math.min(100, Math.round((stats.seen / rawCount) * 100));
+    const score = Math.max(0, Math.min(100, Math.round((stats.known / stats.seen) * 100)));
+    const reliableThreshold = Math.min(rawCount, Math.max(5, Math.ceil(rawCount * 0.4)));
+    const reliable = stats.seen >= reliableThreshold;
+    const tone = reliable ? fmtScore(score) : { label: `${Math.min(stats.seen, rawCount)}/${rawCount}`, color: '#64748B', bg: '#F1F5F9' };
+    return {
+      score,
+      coverage,
+      reliable,
+      label: tone.label,
+      color: tone.color,
+      bg: tone.bg,
+      detail: reliable
+        ? (lang === 'it' ? 'Mastery pesata' : 'Weighted mastery')
+        : (lang === 'it' ? 'Carte viste' : 'Cards seen'),
+    };
+  };
+  const scopeStats = getScopePracticeStats(availableCards);
+  const primaryPracticeCards = scopeStats.unseenCards.length ? scopeStats.unseenCards : availableCards;
+  const primaryMaxCards = primaryPracticeCards.length;
+  const effectiveCards = Math.min(numCards, primaryMaxCards || maxCards || 1);
+  const missedEffectiveCards = Math.min(numCards, scopeStats.missedCards.length);
+  const studyTargetTitle = selectedChapter?.title || selectedExam?.name || 'Flashcards';
+  const primaryStudyLabel = scopeStats.unseen > 0
+    ? (lang === 'it'
+      ? `Inizia ${effectiveCards} nuove`
+      : `Start ${effectiveCards} new`)
+    : (lang === 'it'
+      ? `Ripassa ${effectiveCards} carte`
+      : `Review ${effectiveCards} cards`);
+  const startConfiguredDeck = (mode = 'new') => {
     if (!selectedExam || !maxCards) return;
     const chapter = selectedChapterId === 'all' ? null : selectedExam.chapters.find((item) => String(item.id) === String(selectedChapterId));
+    const pool = mode === 'missed' ? scopeStats.missedCards : primaryPracticeCards;
+    const count = Math.min(numCards, pool.length || 1);
+    if (!pool.length) return;
     const rotationKey = [
       selectedExam.id,
       chapter?.id || 'all',
       deck?._practiceConfig?.sourceMaterialId || deck?._practiceConfig?.noteId || 'all-materials',
+      mode,
     ].map(String).join(':');
-    const sessionCards = selectRotatingFlashcards(availableCards, effectiveCards, rotationKey);
+    const sessionCards = selectRotatingFlashcards(pool, count, rotationKey);
     onOpenDeck({
       noteId: chapter?.id || selectedExam.id,
       subject: selectedExam.subject,
@@ -329,7 +465,8 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
         examDot: selectedExam.dot || null,
         chapterId: chapter?.id || 'all',
         chapterName: chapter?.title || tt(lang, 'wholeExam'),
-        numCards: effectiveCards,
+        numCards: count,
+        studyMode: mode,
       },
     });
   };
@@ -363,6 +500,9 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
       front: card.front || card.q || '',
       back: card.back || card.a || '',
     });
+    requestAnimationFrame(() => {
+      manageFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   const removeCard = async (id) => {
@@ -375,234 +515,425 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, setTab, darkMo
     await loadCards(selectedExamId);
   };
 
+  const rawCardsForChapter = (chapterId) => cards.filter((card) => String(card.chapterId) === String(chapterId));
+  const playableCardsForChapter = (chapterId) => playableCards.filter((card) => String(card.chapterId) === String(chapterId));
+  const managedChapter = selectedExam?.chapters?.find((chapter) => String(chapter.id) === String(managedChapterId));
+  const managedCards = managedChapter ? rawCardsForChapter(managedChapter.id) : [];
+
+  const openManageChapter = (chapter) => {
+    setManagedChapterId(chapter.id);
+    setEditingId(null);
+    setForm({ chapterId: chapter.id, front: '', back: '' });
+  };
+
+  const closeManageChapter = () => {
+    setManagedChapterId(null);
+    setEditingId(null);
+    setForm((current) => ({ ...current, front: '', back: '' }));
+  };
+
+  const buildReviewCards = (recent, sourceCards = cards) => {
+    const reviewAnswers = Array.isArray(recent?.answers) ? recent.answers : [];
+    if (Array.isArray(recent?.cards) && recent.cards.length) {
+      return recent.cards.map((card, index) => ({
+        ...normalizeFlashcard(card),
+        known: reviewAnswers[index]?.known,
+      })).filter((card) => cleanFlashcardText(card.front || card.q) && cleanFlashcardText(card.back || card.a));
+    }
+    return reviewAnswers
+      .map((answer) => {
+        const source = sourceCards.find((card) => String(card.id) === String(answer.flashcardId));
+        const card = normalizeFlashcard(source || answer);
+        return {
+          ...card,
+          front: card.front || answer.front || '',
+          back: card.back || answer.back || '',
+          known: answer.known,
+        };
+      })
+      .filter((card) => cleanFlashcardText(card.front || card.q) && cleanFlashcardText(card.back || card.a));
+  };
+  const openRecentReview = async (recent) => {
+    const reviewExamId = recent?._meta?.examId || recent?._examId || null;
+    let sourceCards = cards;
+    if (reviewExamId && String(reviewExamId) !== String(selectedExamId)) {
+      const result = await listFlashcards({ examId: reviewExamId });
+      sourceCards = result.error ? [] : (result.data || []).map(normalizeFlashcard);
+      setSelectedExamId(reviewExamId);
+    }
+    const reviewCards = buildReviewCards(recent, sourceCards);
+    setExpandedReviewCard(null);
+    setReviewSession({ ...recent, cards: reviewCards });
+  };
+  const startReviewDeck = (session, missedOnly = false) => {
+    const sessionCards = (session?.cards || [])
+      .filter((card) => !missedOnly || card.known === false)
+      .map(({ known, ...card }) => card);
+    if (!sessionCards.length) return;
+    onOpenDeck({
+      ...session,
+      title: missedOnly
+        ? (lang === 'it' ? `Errori · ${session.title}` : `Missed · ${session.title}`)
+        : session.title,
+      cards: sessionCards,
+      _meta: {
+        ...(session._meta || {}),
+        reviewMode: missedOnly ? 'missed' : 'session',
+      },
+    });
+  };
+  const openSelectedExamForChapter = () => {
+    if (selectedExam?.id && typeof onOpenExam === 'function') {
+      onOpenExam(selectedExam.id);
+      return;
+    }
+    setTab('notes');
+  };
+
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:28, maxWidth: exams.length === 0 ? 600 : 860, margin: exams.length === 0 ? '0 auto' : 0 }}>
-
-      {/* Header */}
-      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
-        <div>
-          <h2 style={{ margin:'0 0 4px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>
-            {focusedFromNotes ? `${tt(lang, 'flashcards')} · ${focusTitle}` : tt(lang, 'flashcards')}
-          </h2>
-          <p style={{ margin:0, color:'var(--gray)', fontSize:14 }}>
-            {selectedExam ? `${selectedExam.name} · ${focusScopeLabel}` : tt(lang, 'flashSub')}
-          </p>
-        </div>
-      </div>
-      {focusedFromNotes && (
-        <div style={{ padding:'14px 16px', borderRadius:16, border:`1.5px solid ${selectedPalette.dot}33`, background:selectedPalette.bg, color:selectedPalette.text }}>
-          <div style={{ fontSize:12, fontWeight:900, textTransform:'uppercase', letterSpacing:'.08em', opacity:.75 }}>{tt(lang, 'selectedScope', { scope: focusScopeLabel })}</div>
-          <div style={{ marginTop:4, fontSize:16, fontWeight:900 }}>{focusTitle}</div>
-          <div style={{ marginTop:3, fontSize:12, fontWeight:700, opacity:.75 }}>
-            {loadingCards ? tt(lang, 'loadingFlashcards') : maxCards > 0 ? tt(lang, 'flashcardsReady', { count: maxCards }) : tt(lang, 'generatingFlashcardsBackground')}
+    <>
+      <FlashStyles />
+      <div style={{ display:'flex', flexDirection:'column', gap:24, width:'100%', maxWidth: exams.length === 0 ? 600 : 1120, margin:'0 auto' }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+          <div>
+            <h2 style={{ margin:'0 0 4px', fontSize:22, fontWeight:850, color:'var(--ink)', letterSpacing:'-.02em' }}>
+              {focusedFromNotes ? `${tt(lang, 'flashcards')} · ${focusTitle}` : tt(lang, 'flashcards')}
+            </h2>
+            <p style={{ margin:0, color:'var(--gray)', fontSize:14, fontWeight:650 }}>{tt(lang, 'flashSub')}</p>
           </div>
         </div>
-      )}
 
-      {exams.length === 0 && <EmptyFlashcardState lang={lang} setTab={setTab} />}
-
-      {/* Exam selector */}
-      {exams.length > 0 && (
-        <div>
-          <div style={sL}>{tt(lang, 'chooseExam')}</div>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-            {exams.map(exam => {
-              const active = exam.id === selectedExamId;
-              const pal = getExamPalette(exam, darkMode);
-              const emoji = getExamEmoji(exam);
-              return (
-                <button key={exam.id} onClick={() => { setSelectedExamId(exam.id); setSelectedChapterId('all'); }}
-                  style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:999, border:`1.5px solid ${active ? pal.dot : 'var(--border)'}`, background: active ? pal.dot : 'var(--surface)', color: active ? '#fff' : 'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer', transition:'all .15s' }}>
-                  <span style={{ fontSize:14 }}>{emoji}</span>
-                  {exam.name}
-                </button>
-              );
-            })}
+        {focusedFromNotes && (
+          <div style={{ padding:'14px 16px', borderRadius:16, border:`1.5px solid ${selectedPalette.dot}33`, background:selectedPalette.bg, color:selectedPalette.text }}>
+            <div style={{ fontSize:12, fontWeight:900, textTransform:'uppercase', letterSpacing:'.08em', opacity:.75 }}>{tt(lang, 'selectedScope', { scope: focusScopeLabel })}</div>
+            <div style={{ marginTop:4, fontSize:16, fontWeight:900 }}>{focusTitle}</div>
+            <div style={{ marginTop:3, fontSize:12, fontWeight:700, opacity:.75 }}>
+              {loadingCards ? tt(lang, 'loadingFlashcards') : maxCards > 0 ? tt(lang, 'flashcardsReady', { count: maxCards }) : tt(lang, 'generatingFlashcardsBackground')}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Chapter cards */}
-      {selectedExam && (
-        <div>
-          <div style={sL}>Setup — {selectedExam.name}</div>
-          <div style={{ border:'1px solid var(--border)', borderRadius:18, background:'var(--surface)', overflow:'hidden', marginBottom:18 }}>
-            <div style={{ padding:18 }}>
-              <div style={sL}>{tt(lang, 'chapter')}</div>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-                {[{ id:'all', title:tt(lang, 'wholeExam') }, ...(selectedExam.chapters || []).map(ch => ({ id: ch.id, title: ch.title }))].map(ch => {
-                  const active = selectedChapterId === ch.id;
-                  const count = countCardsForChapter(ch.id);
-                  return (
-                    <button key={ch.id} type="button" onClick={() => setSelectedChapterId(ch.id)}
-                      style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', borderRadius:999, border:`1.5px solid ${active ? selectedPalette.dot : 'var(--border)'}`, background: active ? selectedPalette.bg : 'var(--surface)', color: active ? selectedPalette.text : 'var(--gray)', fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                      {ch.title}
-                      <span style={{ background: active ? selectedPalette.dot : 'var(--border)', color: active ? '#fff' : 'var(--gray)', fontSize:10, fontWeight:900, borderRadius:999, padding:'1px 7px', lineHeight:1.5 }}>{count}</span>
-                    </button>
-                  );
-                })}
+        {exams.length === 0 && <EmptyFlashcardState lang={lang} setTab={setTab} />}
+
+        {exams.length > 0 && (
+          <section>
+            <div style={sL}>{tt(lang, 'chooseExam')}</div>
+            <div style={flashS.examRail}>
+              {exams.map(exam => {
+                const active = exam.id === selectedExamId;
+                const pal = getExamPalette(exam, darkMode);
+                const emoji = getExamEmoji(exam);
+                return (
+                  <button key={exam.id} type="button" className="flash-exam-pill flash-interactive" onClick={() => { setSelectedExamId(exam.id); setSelectedChapterId('all'); }}
+                    style={{ ...flashS.examPill, borderColor: active ? pal.dot : 'var(--border)', background: active ? pal.dot : 'var(--surface)', color: active ? '#fff' : 'var(--ink)', boxShadow: active ? `0 18px 32px -22px ${pal.dot}` : '0 10px 24px -24px rgba(15,16,53,.45)' }}>
+                    <span style={flashS.examEmoji}>{emoji}</span>
+                    {exam.name}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {selectedExam && maxCards > 0 && (
+          <section ref={setupRef} style={flashS.setupCard}>
+            <div style={flashS.setupHeader}>
+              <div style={{ minWidth:0 }}>
+                <div style={flashS.launcherEyebrow}>{lang === 'it' ? 'Ripasso pronto' : 'Review ready'}</div>
+                <h3 style={{ ...flashS.launcherTitle, whiteSpace: isMobile ? 'normal' : 'nowrap' }}>{studyTargetTitle}</h3>
+                <p style={flashS.launcherSub}>
+                  {scopeStats.unseen > 0
+                    ? (lang === 'it'
+                      ? `${scopeStats.unseen} carte mai viste su ${scopeStats.total}. Il prossimo ripasso parte da quelle nuove.`
+                      : `${scopeStats.unseen} unseen cards out of ${scopeStats.total}. Your next review starts with new cards.`)
+                    : (lang === 'it'
+                      ? 'Hai già visto tutte le carte disponibili. Consolida il capitolo o ripassa solo gli errori.'
+                      : 'You have seen every available card. Consolidate the chapter or focus only on missed cards.')}
+                </p>
+              </div>
+              <div style={flashS.launcherStats}>
+                <span className="flash-launcher-stat" style={{ ...flashS.launcherStat, background:'#ECFDF5', color:'#047857' }}>
+                  <strong>{scopeStats.unseen}</strong>{lang === 'it' ? ' mai viste' : ' unseen'}
+                </span>
+                <span className="flash-launcher-stat" style={{ ...flashS.launcherStat, background:'#EEF2FF', color:'#3730E8' }}>
+                  <strong>{scopeStats.seen}/{scopeStats.total}</strong>{lang === 'it' ? ' già viste' : ' seen'}
+                </span>
+                <span className="flash-launcher-stat" style={{ ...flashS.launcherStat, background:'#FEF2F2', color:'#B91C1C' }}>
+                  <strong>{scopeStats.missed}</strong>{lang === 'it' ? ' errori' : ' missed'}
+                </span>
               </div>
             </div>
-            {maxCards > 0 && (
-              <>
-                <div style={{ height:1, background:'var(--border)' }} />
-                <div style={{ padding:18 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                    <div style={sL}>{tt(lang, 'cards')}</div>
-                    <span style={{ fontSize:12, color:'var(--gray)', fontWeight:700 }}>{tt(lang, 'availableCount', { count: maxCards })}</span>
-                  </div>
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
-                    {[5,10,15,20].map(n => {
-                      const disabled = n > maxCards;
-                      const active = numCards === n && !disabled;
-                      return (
-                        <button key={n} type="button" onClick={() => !disabled && setNumCards(n)} disabled={disabled}
-                          style={{ padding:'12px 4px', borderRadius:12, border:`1.5px solid ${active ? selectedPalette.dot : 'var(--border)'}`, background: active ? selectedPalette.bg : 'var(--surface)', fontWeight:900, fontSize:18, color: active ? selectedPalette.text : disabled ? 'var(--border)' : 'var(--gray)', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
-                          {n}
-                          <span style={{ fontSize:9, fontWeight:700, color: active ? selectedPalette.text : 'var(--gray-2)', opacity: disabled ? 0 : 0.7 }}>{tt(lang, 'cardsShort')}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+
+            <div style={flashS.launcherBody}>
+              <div style={flashS.setupGroup}>
+                <div style={sL}>{tt(lang, 'chapter')}</div>
+                <div style={flashS.scopeRow}>
+                  {[{ id:'all', title:tt(lang, 'wholeExam') }, ...(selectedExam.chapters || []).map(ch => ({ id:ch.id, title:ch.title }))].map((chapter) => {
+                    const cardCount = countCardsForChapter(chapter.id);
+                    const active = selectedChapterId === chapter.id;
+                    const disabled = cardCount === 0;
+                    return (
+                      <button
+                        key={chapter.id}
+                        type="button"
+                        className="flash-scope-chip flash-interactive"
+                        disabled={disabled}
+                        onClick={() => {
+                          if (disabled) return;
+                          setSelectedChapterId(chapter.id);
+                          setNumCards((current) => Math.min(current, cardCount));
+                        }}
+                        style={{
+                          ...flashS.scopeChip,
+                          borderColor: active ? selectedPalette.dot : 'var(--border)',
+                          background: active ? selectedPalette.bg : 'var(--surface)',
+                          color: active ? selectedPalette.text : disabled ? '#A7ADBD' : 'var(--ink)',
+                          opacity: disabled ? .55 : 1,
+                          cursor: disabled ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        <span style={flashS.scopeTitle}>{chapter.title}</span>
+                        <span style={{ ...flashS.scopeCount, background: active ? selectedPalette.dot : '#EEF2FF', color: active ? '#fff' : 'var(--gray)' }}>{cardCount}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-              </>
-            )}
-          </div>
-          <button type="button" onClick={startConfiguredDeck} disabled={!maxCards || loadingCards}
-            style={{ width:'100%', borderRadius:16, padding:'16px', background: maxCards && !loadingCards ? `linear-gradient(135deg, ${selectedPalette.dot} 0%, ${selectedPalette.dot}cc 100%)` : '#CBD5E1', color:'#fff', fontWeight:900, fontSize:16, cursor: maxCards && !loadingCards ? 'pointer' : 'not-allowed', border:'none', marginBottom:24 }}>
-            {loadingCards ? tt(lang, 'loading') : maxCards ? tt(lang, 'studyCardsCta', { count: effectiveCards, title: focusTitle }) : waitingForPractice ? tt(lang, 'generatingFlashcards') : tt(lang, 'flashPreparing')}
-          </button>
+              </div>
 
-          <div style={sL}>{tt(lang, 'chapters')} — {selectedExam.name}</div>
-          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap:12 }}>
-            {selectedExam.chapters.map(ch => {
-              const pal = selectedPalette;
-              const chapterCards = getCardsForChapter(ch);
-              const cardCount = chapterCards.length;
-              const hasCards = cardCount > 0;
-              const recentDeck = recentDecks.find(d => d.title === ch.title);
-              const lastScore = recentDeck?.lastScore ?? null;
-              const scoreStyle = lastScore != null ? fmtScore(lastScore) : null;
-              const studied = lastScore != null;
-              return (
-                <div key={ch.id}
-                  onClick={() => hasCards && onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: chapterCards, _examColor: selectedExam.color || null, _examDot: selectedExam.dot || null, _meta: { examId: selectedExam.id, examColor: selectedExam.color || null, examDot: selectedExam.dot || null, chapterId: ch.id } })}
-                  style={{ display:'flex', flexDirection:'column', gap:0, background:'var(--surface)', border:`1.5px solid ${studied ? pal.dot + '40' : 'var(--border)'}`, borderRadius:18, overflow:'hidden', opacity: hasCards ? 1 : 0.5, cursor: hasCards ? 'pointer' : 'default', transition:'box-shadow .15s, border-color .15s' }}
-                  onMouseEnter={e => { if (hasCards) e.currentTarget.style.boxShadow='0 4px 20px rgba(55,48,232,.1)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow='none'; }}>
-
-                  {/* Card top: colored band */}
-                  <div style={{ height:6, background: pal.dot, opacity: studied ? 1 : 0.3 }} />
-
-                  <div style={{ padding:'16px 18px', display:'flex', flexDirection:'column', gap:12, flex:1 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                      <SubjectIcon subject={selectedExam.subject} size={44} radius={12} dot={pal.dot} />
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ch.title}</div>
-                        <div style={{ fontSize:12, color:'var(--gray)', marginTop:2 }}>
-                          {hasCards ? tt(lang, 'cardsCount', { count: cardCount }) : tt(lang, 'noFlashcardsYet')}
-                        </div>
-                      </div>
-                      {scoreStyle && (
-                        <span style={{ fontSize:12, fontWeight:700, color:scoreStyle.color, background:scoreStyle.bg, padding:'3px 8px', borderRadius:999, flexShrink:0 }}>
-                          {scoreStyle.label}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Progress bar */}
-                    <div style={{ height:4, borderRadius:999, background:'var(--border)', overflow:'hidden' }}>
-                      <div style={{ height:'100%', width: studied ? `${lastScore}%` : '0%', background: !studied ? pal.dot : lastScore >= 80 ? '#10B981' : lastScore >= 60 ? '#F59E0B' : '#EF4444', borderRadius:999, transition:'width .5s ease' }} />
-                    </div>
-
-                    <button
-                      disabled={!hasCards}
-                      onClick={e => { e.stopPropagation(); if(hasCards) onOpenDeck({ noteId: ch.id, subject: selectedExam.subject, title: ch.title, cards: chapterCards, _examColor: selectedExam.color || null, _examDot: selectedExam.dot || null, _meta: { examId: selectedExam.id, examColor: selectedExam.color || null, examDot: selectedExam.dot || null, chapterId: ch.id } }); }}
-                      style={{ width:'100%', padding:'10px', borderRadius:12, background: hasCards ? pal.dot : 'var(--border)', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor: hasCards ? 'pointer' : 'not-allowed', letterSpacing:'.01em' }}>
-                      {studied ? `↻ ${tt(lang, 'review')}` : `▶ ${tt(lang, 'study')}`}
-                    </button>
-                  </div>
+              <div style={flashS.countPanel}>
+                <div style={{ ...sL, marginBottom:0 }}>{lang === 'it' ? 'Quanto ripassare' : 'Session size'}</div>
+                <div style={flashS.countGrid}>
+                  {[5, 10, 15, 20].map((count) => {
+                    const disabled = count > (primaryMaxCards || maxCards);
+                    const active = numCards === count && !disabled;
+                    return (
+                      <button
+                        key={count}
+                        type="button"
+                        className="flash-count-btn flash-interactive"
+                        disabled={disabled}
+                        onClick={() => !disabled && setNumCards(count)}
+                        style={{
+                          ...flashS.countButton,
+                          borderColor: active ? selectedPalette.dot : 'var(--border)',
+                          background: active ? selectedPalette.bg : 'var(--surface)',
+                          color: active ? selectedPalette.text : disabled ? '#C8CEDA' : 'var(--ink)',
+                          opacity: disabled ? .45 : 1,
+                          cursor: disabled ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        <strong style={flashS.countNumber}>{count}</strong>
+                      </button>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-          {loadingCards && <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>{tt(lang, 'loadingFlashcards')}</p>}
-          {cardsError && <p style={{ margin:'12px 0 0', color:'#DC2626', fontSize:13 }}>{cardsError}</p>}
-          {!loadingCards && !cardsError && playableCards.length === 0 && (
-            <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>{tt(lang, 'noFlashcardsYet')}</p>
-          )}
-          <form onSubmit={submitCardForm} style={{ marginTop:16, padding:16, border:'1px solid var(--border)', borderRadius:16, background:'var(--surface)', display:'grid', gap:10 }}>
-            <div style={sL}>{editingId ? tt(lang, 'editFlashcard') : tt(lang, 'newFlashcard')}</div>
-            <select value={form.chapterId} onChange={e => setForm(f => ({ ...f, chapterId: e.target.value }))}
-              style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)' }}>
-              {(selectedExam.chapters || []).map(ch => <option key={ch.id} value={ch.id}>{ch.title}</option>)}
-            </select>
-            <input value={form.front} onChange={e => setForm(f => ({ ...f, front: e.target.value }))} placeholder={tt(lang, 'front')}
-              style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)' }} />
-            <textarea value={form.back} onChange={e => setForm(f => ({ ...f, back: e.target.value }))} placeholder={tt(lang, 'back')} rows={3}
-              style={{ padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--input-bg)', color:'var(--ink)', resize:'vertical' }} />
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <button type="submit" style={{ padding:'10px 14px', borderRadius:10, border:'none', background:'var(--indigo)', color:'#fff', fontWeight:700 }}>
-                {editingId ? tt(lang, 'save') : tt(lang, 'create')}
+              </div>
+            </div>
+
+            <div
+              className="flash-launch-actions"
+              style={{
+                ...flashS.setupActions,
+                gridTemplateColumns: scopeStats.missed > 0 ? 'minmax(0, 1fr) minmax(220px, .34fr)' : 'minmax(0, 1fr)',
+              }}
+            >
+              <button type="button" className="flash-primary-cta flash-interactive" onClick={() => startConfiguredDeck('new')} style={{ ...flashS.startSetup, background:selectedPalette.dot }}>
+                <Play size={16} />
+                {primaryStudyLabel}
               </button>
-              {editingId && (
-                <button type="button" onClick={() => { setEditingId(null); setForm(f => ({ ...f, front:'', back:'' })); }}
-                  style={{ padding:'10px 14px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700 }}>
-                  {tt(lang, 'cancel')}
+              {scopeStats.missed > 0 && (
+                <button type="button" className="flash-primary-cta flash-interactive" onClick={() => startConfiguredDeck('missed')} style={flashS.missedSetup}>
+                  <Play size={16} />
+                  {lang === 'it'
+                    ? `Ripassa ${missedEffectiveCards} errori`
+                    : `Review ${missedEffectiveCards} missed`}
                 </button>
               )}
             </div>
-          </form>
-          {playableCards.length > 0 && (
-            <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:8 }}>
-              {playableCards.slice(0, 8).map(card => (
-                <div key={card.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', border:'1px solid var(--border)', borderRadius:12, background:'var(--surface)' }}>
+          </section>
+        )}
+
+        {selectedExam && (
+          <section>
+            <div style={sL}>{tt(lang, 'chapters')} — {selectedExam.name}</div>
+            {(selectedExam.chapters || []).length === 0 ? (
+              <div style={flashS.chapterEmptyState}>
+                <div style={flashS.emptyIcon}><BookOpen size={24} /></div>
+                <h3 style={flashS.emptyTitle}>{tt(lang, 'noFlashcardsYet')}</h3>
+                <p style={flashS.emptyText}>{lang === 'it' ? 'Aggiungi un capitolo e carica il materiale: le flashcard appariranno qui appena pronte.' : 'Add a chapter and upload material: flashcards will appear here as soon as they are ready.'}</p>
+                <button type="button" onClick={openSelectedExamForChapter} style={flashS.emptyCta}>
+                  <Plus size={18} /> {lang === 'it' ? 'Nuovo capitolo' : 'New Chapter'}
+                </button>
+              </div>
+            ) : (
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap:14 }}>
+                {(selectedExam.chapters || []).map((chapter) => {
+                  const pal = selectedPalette;
+                  const rawCount = rawCardsForChapter(chapter.id).length;
+                  const chapterStats = getScopePracticeStats(playableCardsForChapter(chapter.id));
+                  const progress = getChapterProgress(chapter, rawCount);
+                  const statusText = rawCount ? tt(lang, 'cardsCount', { count: rawCount }) : tt(lang, 'noFlashcardsYet');
+                  return (
+                    <article key={chapter.id} className="flash-chapter-card flash-interactive" style={{ minHeight:164, display:'grid', alignContent:'space-between', gap:14, padding:14, borderRadius:18, border:`1.5px solid ${progress?.reliable ? pal.dot : 'var(--border)'}`, borderTop:`5px solid ${progress ? progress.color : `${pal.dot}44`}`, background:'var(--surface)', boxShadow:'0 18px 38px -34px rgba(15,16,53,.30)', transition:'transform .15s ease, box-shadow .15s ease, border-color .15s ease' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+                        <SubjectIcon subject={selectedExam.subject} size={42} radius={12} dot={pal.dot} />
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <h3 style={{ margin:0, color:'var(--ink)', fontSize:14, fontWeight:850, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{chapter.title}</h3>
+                          <p style={{ margin:'4px 0 0', color:'var(--gray)', fontSize:12, fontWeight:650 }}>{statusText}</p>
+                        </div>
+                        {progress && (
+                          <span title={progress.detail} style={{ fontSize:12, fontWeight:850, color:progress.color, background:progress.bg, padding:'4px 8px', borderRadius:999 }}>
+                            {progress.label}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ height:4, borderRadius:999, background:'var(--border)', overflow:'hidden' }}>
+                        <div style={{ width: progress ? `${progress.reliable ? progress.score : progress.coverage}%` : rawCount ? '18%' : '0%', height:'100%', borderRadius:999, background: progress ? progress.color : pal.dot }} />
+                      </div>
+                      {rawCount > 0 && (
+                        <div style={flashS.chapterStats}>
+                          <span>{chapterStats.unseen} {lang === 'it' ? 'mai viste' : 'unseen'}</span>
+                          <span>{chapterStats.seen}/{chapterStats.total} {lang === 'it' ? 'viste' : 'seen'}</span>
+                          <span>{chapterStats.missed} {lang === 'it' ? 'errori' : 'missed'}</span>
+                        </div>
+                      )}
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:8 }}>
+                        <button type="button" onClick={() => openManageChapter(chapter)}
+                          style={{ minHeight:40, display:'inline-flex', alignItems:'center', justifyContent:'center', gap:7, border:'1.5px solid var(--border)', borderRadius:11, background:'var(--surface)', color:'var(--ink)', fontSize:13, fontWeight:850, cursor:'pointer' }}>
+                          <Pencil size={14} /> {lang === 'it' ? 'Gestisci' : 'Manage'}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {loadingCards && <p style={{ margin:'12px 0 0', color:'var(--gray)', fontSize:13 }}>{tt(lang, 'loadingFlashcards')}</p>}
+            {cardsError && <p style={{ margin:'12px 0 0', color:'#DC2626', fontSize:13, fontWeight:750 }}>{cardsError}</p>}
+          </section>
+        )}
+
+        {recentDecks.length > 0 && (
+          <section>
+            <div style={{ height:1, background:'var(--border)', marginBottom:18 }} />
+            <div style={sL}>{tt(lang, 'recentSessions')}</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:9, width:'100%' }}>
+              {recentDecks.slice(0, 5).map((recent, index) => {
+                const score = recent.lastScore != null ? fmtScore(recent.lastScore) : null;
+                const deckExam = exams.find((exam) => String(exam.id) === String(recent._meta?.examId || recent._examId));
+                const pal = getExamPalette(deckExam || { subject: recent.subject, color: recent._examColor || recent._meta?.examColor, dot: recent._examDot || recent._meta?.examDot }, darkMode);
+                return (
+                  <button key={`${recent.title}-${index}`} type="button" onClick={() => openRecentReview(recent)}
+                    style={{ display:'flex', alignItems:'center', gap:12, width:'100%', minHeight:58, padding:'10px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, cursor:'pointer', textAlign:'left' }}>
+                    <SubjectIcon subject={recent.subject} size={38} radius={10} dot={pal.dot} />
+                    <span style={{ flex:1, minWidth:0 }}>
+                      <strong style={{ display:'block', color:'var(--ink)', fontSize:13, fontWeight:850, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{recent.title}</strong>
+                      <small style={{ display:'block', marginTop:2, color:'var(--gray)', fontSize:12, fontWeight:650 }}>{recent.subject} · {tt(lang, 'cardsCount', { count: (recent.cards || []).length })}{recent.ts ? ` · ${fmtDate(recent.ts)}` : ''}</small>
+                    </span>
+                    {score && <span style={{ fontSize:12, fontWeight:850, color:score.color, background:score.bg, padding:'4px 9px', borderRadius:999 }}>{score.label}</span>}
+                    <span style={{ padding:'7px 13px', borderRadius:10, background:'var(--indigo)', color:'#fff', fontWeight:800, fontSize:12 }}>{tt(lang, 'review')}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </div>
+
+      {managedChapter && (
+        <div style={flashS.manageOverlay}>
+          <button type="button" aria-label={tt(lang, 'close')} onClick={closeManageChapter} style={flashS.manageScrim} />
+          <aside style={{ ...flashS.manageDrawer, width: isMobile ? '100%' : 430 }}>
+            <div style={flashS.manageTop}>
+              <button type="button" onClick={closeManageChapter} style={flashS.manageBack}>{lang === 'it' ? 'Torna ai capitoli' : 'Back to chapters'}</button>
+              <button type="button" onClick={closeManageChapter} style={flashS.manageClose}><XMark size={16} /></button>
+            </div>
+            <div style={{ color:'var(--gray)', fontSize:11, fontWeight:800, marginBottom:6 }}>{tt(lang, 'flashcards')} / {selectedExam.name}</div>
+            <div style={flashS.manageTitleRow}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
+                <SubjectIcon subject={selectedExam.subject} size={38} radius={11} dot={selectedPalette.dot} />
+                <h3 style={flashS.manageTitle}>{managedChapter.title}</h3>
+              </div>
+              <span style={flashS.manageCount}>{tt(lang, 'cardsCount', { count: managedCards.length })}</span>
+            </div>
+            <button type="button" disabled={!playableCardsForChapter(managedChapter.id).length} onClick={() => startReviewDeck({ title: managedChapter.title, subject: selectedExam.subject, cards: playableCardsForChapter(managedChapter.id), _meta: { examId: selectedExam.id, chapterId: managedChapter.id, examName: selectedExam.name, chapterName: managedChapter.title } }, false)}
+              style={{ ...flashS.manageStudy, background: playableCardsForChapter(managedChapter.id).length ? 'var(--indigo)' : '#CBD5E1', cursor: playableCardsForChapter(managedChapter.id).length ? 'pointer' : 'not-allowed' }}>
+              <Play size={14} /> {lang === 'it' ? 'Studia questo capitolo' : 'Study this chapter'}
+            </button>
+            <form ref={manageFormRef} onSubmit={submitCardForm} style={flashS.manageForm}>
+              <div style={{ ...sL, marginBottom:0 }}>{editingId ? tt(lang, 'editFlashcard') : tt(lang, 'newFlashcard')}</div>
+              <input value={form.front} onChange={event => setForm(current => ({ ...current, front: event.target.value }))} placeholder={lang === 'it' ? 'Scrivi la domanda o il termine...' : 'Write the question or term...'} style={flashS.manageInput} />
+              <textarea value={form.back} onChange={event => setForm(current => ({ ...current, back: event.target.value }))} placeholder={lang === 'it' ? 'Scrivi la risposta o la spiegazione...' : 'Write the answer or explanation...'} rows={4} style={{ ...flashS.manageInput, resize:'vertical', minHeight:88 }} />
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                <button type="submit" style={flashS.manageCreate}>{editingId ? tt(lang, 'save') : tt(lang, 'create')}</button>
+                {editingId && (
+                  <button type="button" onClick={() => { setEditingId(null); setForm({ chapterId: managedChapter.id, front:'', back:'' }); }} style={flashS.manageCancel}>{tt(lang, 'cancel')}</button>
+                )}
+              </div>
+            </form>
+            <div style={flashS.manageList}>
+              {managedCards.length === 0 ? (
+                <div style={flashS.manageEmpty}>{tt(lang, 'noFlashcardsYet')}</div>
+              ) : managedCards.map((card) => (
+                <article key={card.id} style={flashS.manageCard}>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{card.front}</div>
-                    <div style={{ fontSize:12, color:'var(--gray)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{card.back}</div>
+                    <strong style={flashS.manageCardFront}>{card.front || card.q}</strong>
+                    <span style={flashS.manageCardBack}>{card.back || card.a}</span>
                   </div>
-                  <button type="button" onClick={() => startEditCard(card)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontWeight:700, fontSize:12 }}>{tt(lang, 'edit')}</button>
-                  <button type="button" onClick={() => removeCard(card.id)} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid #fca5a5', background:'#FEE2E2', color:'#991B1B', fontWeight:700, fontSize:12 }}>{tt(lang, 'delete')}</button>
-                </div>
+                  <button type="button" onClick={() => startEditCard(card)} style={flashS.manageEdit}><Pencil size={13} /> {tt(lang, 'edit')}</button>
+                  <button type="button" onClick={() => removeCard(card.id)} style={flashS.manageDelete}><Trash2 size={13} /> {tt(lang, 'delete')}</button>
+                </article>
               ))}
             </div>
-          )}
+          </aside>
         </div>
       )}
 
-      {/* Recent sessions */}
-      {recentDecks.length > 0 && (
-        <div>
-          <div style={{ height:1, background:'var(--border)', marginBottom:20 }} />
-          <div style={sL}>{tt(lang, 'recentSessions')}</div>
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {recentDecks.map((deck, i) => {
-              const sc = deck.lastScore != null ? fmtScore(deck.lastScore) : null;
-              const deckExam = exams.find((exam) => String(exam.id) === String(deck._meta?.examId || deck._examId));
-              const pal = getExamPalette(deckExam || { subject: deck.subject, color: deck._examColor || deck._meta?.examColor, dot: deck._examDot || deck._meta?.examDot }, darkMode);
-              return (
-                <div key={i}
-                  style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, cursor:'pointer', transition:'border-color .15s' }}
-                  onClick={() => onOpenDeck(deck)}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = pal.dot + '60'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-                  <SubjectIcon subject={deck.subject} size={40} radius={10} dot={pal.dot} />
+      {reviewSession && (
+        <div style={flashS.manageOverlay}>
+          <button type="button" aria-label={tt(lang, 'close')} onClick={() => setReviewSession(null)} style={flashS.manageScrim} />
+          <aside style={{ ...flashS.manageDrawer, width: isMobile ? '100%' : 480 }}>
+            <div style={flashS.manageTop}>
+              <button type="button" onClick={() => setReviewSession(null)} style={flashS.manageBack}>{lang === 'it' ? 'Torna alle sessioni' : 'Back to sessions'}</button>
+              <button type="button" onClick={() => setReviewSession(null)} style={flashS.manageClose}><XMark size={16} /></button>
+            </div>
+            <div style={{ color:'var(--gray)', fontSize:11, fontWeight:800, marginBottom:6 }}>{lang === 'it' ? 'Sessione recente' : 'Recent session'}</div>
+            <div style={flashS.manageTitleRow}>
+              <h3 style={flashS.manageTitle}>{reviewSession.title}</h3>
+              {reviewSession.lastScore != null && <span style={flashS.manageCount}>{reviewSession.lastScore}%</span>}
+            </div>
+            <div style={flashS.reviewActions}>
+              <button type="button" disabled={!reviewSession.cards?.length} onClick={() => startReviewDeck(reviewSession, false)} style={{ ...flashS.manageStudy, background: reviewSession.cards?.length ? 'var(--indigo)' : '#CBD5E1' }}>
+                <Play size={14} /> {lang === 'it' ? 'Ripassa tutte' : 'Review all'}
+              </button>
+              <button type="button" disabled={!reviewSession.cards?.some((card) => card.known === false)} onClick={() => startReviewDeck(reviewSession, true)} style={{ ...flashS.manageStudy, background: reviewSession.cards?.some((card) => card.known === false) ? '#EF4444' : '#CBD5E1' }}>
+                <Play size={14} /> {lang === 'it' ? 'Ripassa errori' : 'Review missed'}
+              </button>
+            </div>
+            <div style={flashS.manageList}>
+              {!reviewSession.cards?.length ? (
+                <div style={flashS.manageEmpty}>{lang === 'it' ? 'Questa sessione non ha carte recuperabili.' : 'This session has no recoverable cards.'}</div>
+              ) : reviewSession.cards.map((card, index) => {
+                const cardKey = `${card.id || card.front}-${index}`;
+                const expanded = expandedReviewCard === cardKey;
+                return (
+                <button key={cardKey} type="button" onClick={() => setExpandedReviewCard(expanded ? null : cardKey)} style={{ ...flashS.manageCard, alignItems: expanded ? 'flex-start' : 'center', width:'100%', textAlign:'left', cursor:'pointer', borderColor: card.known === false ? '#FCA5A5' : '#BBF7D0', background: card.known === false ? '#FEF2F2' : '#F0FDF4' }}>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deck.title}</div>
-                    <div style={{ fontSize:12, color:'var(--gray)', marginTop:1 }}>{deck.subject} · {tt(lang, 'cardsCount', { count: (deck.cards||[]).length })}{deck.ts ? ' · ' + fmtDate(deck.ts) : ''}</div>
+                    <strong style={expanded ? flashS.reviewCardFrontExpanded : flashS.manageCardFront}>{card.front || card.q}</strong>
+                    <span style={expanded ? flashS.reviewCardBackExpanded : flashS.manageCardBack}>{card.back || card.a}</span>
+                    {!expanded && <small style={flashS.reviewCardHint}>{lang === 'it' ? 'Clicca per leggere tutto' : 'Click to read all'}</small>}
                   </div>
-                  {sc && <span style={{ fontSize:12, fontWeight:700, color:sc.color, background:sc.bg, padding:'3px 9px', borderRadius:999, flexShrink:0 }}>{sc.label}</span>}
-                  <button onClick={e => { e.stopPropagation(); onOpenDeck(deck); }}
-                    style={{ padding:'7px 16px', borderRadius:10, background:'var(--indigo)', color:'#fff', fontWeight:600, fontSize:12, border:'none', cursor:'pointer', flexShrink:0 }}>
-                    {tt(lang, 'review')}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                  <span style={{ ...flashS.reviewBadge, color: card.known === false ? '#B91C1C' : '#047857', background: card.known === false ? '#FEE2E2' : '#D1FAE5' }}>
+                    {card.known === false ? (lang === 'it' ? 'Da ripassare' : 'Missed') : (lang === 'it' ? 'Saputa' : 'Known')}
+                  </span>
+                </button>
+              );})}
+            </div>
+          </aside>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -650,6 +981,7 @@ export function FlashcardViewer({ noteId, subject, title, cards, _meta, _examCol
       flashcardId: card.id || null,
       known: answered[index] === true,
       front: card.front || card.q || '',
+      back: card.back || card.a || '',
     }));
     async function saveReview() {
       const result = await submitFlashcardReview({
@@ -846,8 +1178,63 @@ const flashS = {
   backBtn: { padding: '12px 18px', borderRadius: 999, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 },
   emptyWrap: { maxWidth: 480, minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' },
   emptyState: { minHeight: 360, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '34px 24px', borderRadius: 22, border: '1.5px dashed var(--border)', background: 'linear-gradient(180deg, #FAFBFF 0%, #FFFFFF 100%)', textAlign: 'center', boxShadow: '0 18px 40px -34px rgba(15,16,53,.35)' },
+  chapterEmptyState: { width: 'min(760px, 100%)', minHeight: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '34px 24px', borderRadius: 22, border: '1.5px dashed var(--border)', background: 'linear-gradient(180deg, #FAFBFF 0%, #FFFFFF 100%)', textAlign: 'center', boxShadow: '0 18px 40px -34px rgba(15,16,53,.35)' },
   emptyIcon: { width: 58, height: 58, borderRadius: 18, background: 'var(--lavender)', color: 'var(--indigo)', display: 'grid', placeItems: 'center' },
   emptyTitle: { margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-.02em' },
   emptyText: { margin: 0, maxWidth: 390, color: 'var(--gray)', fontSize: 15, fontWeight: 650, lineHeight: 1.5 },
   emptyCta: { marginTop: 4, minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '0 20px', borderRadius: 16, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 14px 28px -20px rgba(55,48,232,.8)' },
+  examRail: { display:'flex', flexWrap:'wrap', gap:12, padding:'2px 0 4px' },
+  examPill: { minHeight:52, display:'inline-flex', alignItems:'center', gap:11, padding:'0 20px', borderRadius:17, border:'1.5px solid var(--border)', fontSize:15, fontWeight:950, cursor:'pointer', transition:'transform .15s ease, box-shadow .15s ease, border-color .15s ease', letterSpacing:'-.01em' },
+  examEmoji: { width:28, height:28, borderRadius:10, display:'inline-grid', placeItems:'center', fontSize:18, background:'rgba(255,255,255,.5)' },
+  setupCard: { padding:18, borderRadius:22, border:'1px solid var(--border)', background:'linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%)', boxShadow:'0 22px 54px -42px rgba(15,16,53,.38)', display:'grid', gap:16 },
+  setupHeader: { display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:18, flexWrap:'wrap', paddingBottom:14, borderBottom:'1px solid #EEF1F7' },
+  launcherEyebrow: { marginBottom:6, color:'var(--gray)', fontSize:11, fontWeight:900, textTransform:'uppercase', letterSpacing:'.1em' },
+  launcherTitle: { margin:0, color:'var(--ink)', fontSize:22, fontWeight:950, letterSpacing:'-.03em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  launcherSub: { margin:'6px 0 0', color:'var(--gray)', fontSize:13, fontWeight:700, lineHeight:1.45 },
+  launcherStats: { display:'flex', alignItems:'center', justifyContent:'flex-end', flexWrap:'wrap', gap:8, maxWidth:520 },
+  launcherStat: { minHeight:34, display:'inline-flex', alignItems:'center', gap:5, borderRadius:999, padding:'0 11px', fontSize:12, fontWeight:850, whiteSpace:'nowrap' },
+  launcherBody: { display:'grid', gridTemplateColumns:'1fr', gap:18, alignItems:'stretch' },
+  setupHint: { margin:'4px 0 0', color:'var(--gray)', fontSize:13, fontWeight:650, lineHeight:1.45 },
+  setupAvailable: { color:'var(--gray)', fontSize:12, fontWeight:850, whiteSpace:'nowrap' },
+  setupGroup: { display:'grid', gap:9 },
+  setupLine: { display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 },
+  scopeRow: { display:'flex', flexWrap:'wrap', gap:8 },
+  scopeChip: { minHeight:40, maxWidth:'100%', display:'inline-flex', alignItems:'center', gap:8, padding:'0 13px', borderRadius:14, border:'1.5px solid var(--border)', fontSize:13, fontWeight:850, transition:'all .15s' },
+  scopeTitle: { overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  scopeCount: { minWidth:22, height:22, borderRadius:999, display:'inline-grid', placeItems:'center', padding:'0 6px', fontSize:11, fontWeight:900 },
+  countPanel: { display:'grid', gap:9 },
+  countGrid: { display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:10, width:'100%' },
+  countButton: { minHeight:52, borderRadius:15, border:'1.5px solid var(--border)', display:'grid', placeItems:'center', alignContent:'center', gap:3, transition:'all .15s' },
+  countNumber: { fontSize:18, lineHeight:1, fontWeight:950 },
+  countLabel: { color:'var(--gray)', fontSize:11, fontWeight:850 },
+  startSetup: { minHeight:50, border:'none', borderRadius:16, color:'#fff', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:8, padding:'0 18px', fontSize:15, fontWeight:950, cursor:'pointer', boxShadow:'0 18px 32px -24px rgba(55,48,232,.85)' },
+  setupActions: { display:'grid', gridTemplateColumns:'minmax(0, 1fr)', gap:10 },
+  missedSetup: { minHeight:48, border:'1.5px solid #FCA5A5', borderRadius:15, background:'#FEF2F2', color:'#DC2626', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:8, padding:'0 18px', fontSize:15, fontWeight:950, cursor:'pointer' },
+  chapterStats: { display:'flex', alignItems:'center', flexWrap:'wrap', gap:6, marginTop:-2, color:'#697386', fontSize:11, fontWeight:850 },
+  manageOverlay: { position:'fixed', inset:0, zIndex:2200, display:'flex', justifyContent:'flex-end' },
+  manageScrim: { position:'absolute', inset:0, border:'none', background:'rgba(15,16,53,.34)', cursor:'pointer' },
+  manageDrawer: { position:'relative', zIndex:1, height:'100%', maxWidth:'100%', overflowY:'auto', background:'#fff', borderLeft:'1px solid #E7E9F2', boxShadow:'-26px 0 60px rgba(15,16,53,.18)', padding:22, display:'flex', flexDirection:'column', gap:14 },
+  manageTop: { display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 },
+  manageBack: { border:'none', background:'transparent', color:'#3730E8', fontSize:13, fontWeight:850, cursor:'pointer', padding:0 },
+  manageClose: { width:34, height:34, borderRadius:10, border:'1px solid #E7E9F2', background:'#fff', color:'#777C90', display:'grid', placeItems:'center', cursor:'pointer' },
+  manageTitleRow: { display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, minWidth:0 },
+  manageTitle: { margin:0, color:'#171733', fontSize:18, fontWeight:900, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  manageCount: { borderRadius:999, background:'#EEF2FF', color:'#3730E8', padding:'5px 9px', fontSize:11, fontWeight:900, whiteSpace:'nowrap' },
+  manageStudy: { minHeight:42, border:'none', borderRadius:10, color:'#fff', fontSize:13, fontWeight:900, display:'inline-flex', alignItems:'center', justifyContent:'center', gap:8 },
+  reviewActions: { display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 },
+  reviewBadge: { flex:'0 0 auto', borderRadius:999, padding:'6px 9px', fontSize:11, fontWeight:900, whiteSpace:'nowrap' },
+  reviewCardFrontExpanded: { display:'block', color:'#171733', fontSize:13, fontWeight:900, lineHeight:1.35, whiteSpace:'normal' },
+  reviewCardBackExpanded: { display:'block', marginTop:6, color:'#777C90', fontSize:12, fontWeight:700, lineHeight:1.5, whiteSpace:'normal' },
+  reviewCardHint: { display:'block', marginTop:5, color:'#8E95A8', fontSize:10, fontWeight:800 },
+  manageList: { display:'flex', flexDirection:'column', gap:8, minHeight:0 },
+  manageEmpty: { padding:16, border:'1px dashed #DDE1EF', borderRadius:14, background:'#FAFBFF', color:'#777C90', fontSize:13, fontWeight:750, textAlign:'center' },
+  manageCard: { display:'flex', alignItems:'center', gap:8, padding:'10px 10px', border:'1px solid #E7E9F2', borderRadius:12, background:'#fff', minWidth:0 },
+  manageCardFront: { display:'block', color:'#171733', fontSize:12, fontWeight:900, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  manageCardBack: { display:'block', marginTop:2, color:'#777C90', fontSize:11, fontWeight:650, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  manageEdit: { minHeight:30, display:'inline-flex', alignItems:'center', justifyContent:'center', gap:5, border:'1px solid #E7E9F2', borderRadius:9, background:'#fff', color:'#171733', padding:'0 8px', fontSize:11, fontWeight:850, cursor:'pointer', flex:'0 0 auto' },
+  manageDelete: { minHeight:30, display:'inline-flex', alignItems:'center', justifyContent:'center', gap:5, border:'1px solid #FCA5A5', borderRadius:9, background:'#FEF2F2', color:'#B91C1C', padding:'0 8px', fontSize:11, fontWeight:850, cursor:'pointer', flex:'0 0 auto' },
+  manageForm: { padding:14, border:'1px solid #E7E9F2', borderRadius:14, background:'#FBFCFF', display:'grid', gap:9 },
+  manageInput: { width:'100%', boxSizing:'border-box', padding:'11px 12px', borderRadius:10, border:'1px solid #E7E9F2', background:'#fff', color:'#171733', fontSize:13, fontWeight:650, outline:'none' },
+  manageCreate: { minHeight:36, border:'none', borderRadius:10, background:'#7C6CF6', color:'#fff', padding:'0 16px', fontSize:12, fontWeight:900, cursor:'pointer' },
+  manageCancel: { minHeight:36, border:'1px solid #E7E9F2', borderRadius:10, background:'#fff', color:'#777C90', padding:'0 14px', fontSize:12, fontWeight:850, cursor:'pointer' },
 };
