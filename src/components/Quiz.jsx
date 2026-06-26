@@ -1112,7 +1112,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
           <h2 style={{ margin:'0 0 3px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>
             {focusedFromNotes ? `${tt(lang, 'quiz')} · ${focusTitle}` : tt(lang, 'quiz')}
           </h2>
-          <p style={{ margin:0, fontSize:13, color:'var(--gray)' }}>
+          <p style={{ margin:0, color:'var(--gray)', fontSize:14, fontWeight:650 }}>
             {tt(lang, 'configurePractice')}
           </p>
         </div>
