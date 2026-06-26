@@ -696,7 +696,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         _examColor: exam.color || null,
         _examDot: exam.dot || null,
         _meta: practicePayload,
-        _practiceConfig: { ...practicePayload, autoStart: true },
+        _practiceConfig: { ...practicePayload, autoStart: false },
       });
       setFlashLanding(true);
       setTab('flashcards');
