@@ -47,6 +47,15 @@ function QuizStyles() {
         .quiz-launch-actions {
           grid-template-columns: 1fr !important;
         }
+        .quiz-chapter-grid {
+          grid-template-columns: minmax(0, 1fr) !important;
+        }
+        .quiz-chapter-top {
+          align-items: flex-start;
+        }
+        .quiz-chapter-mastery {
+          flex-shrink: 0;
+        }
       }
     `}</style>
   );
@@ -1348,7 +1357,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
       {selectedExam && chapterMastery.length > 0 && (
         <section>
           <div style={secLabel}>{tt(lang, 'chapters')} — {selectedExam.name}</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:14 }}>
+          <div className="quiz-chapter-grid" style={{ display:'grid', gridTemplateColumns:isMobile ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))', gap:14 }}>
             {chapterMastery.map(({ chapter, stats, score, coverage, enoughCoverage, tone }) => {
               const active = String(selectedChapterId) === String(chapter.id);
               const questionsLabel = stats.total === 1
@@ -1381,7 +1390,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
                     opacity: disabled ? .72 : 1,
                   }}
                 >
-                  <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+                  <div className="quiz-chapter-top" style={{ display:'flex', alignItems:'flex-start', gap:12, minWidth:0 }}>
                     <span style={{ width:42, height:42, borderRadius:12, display:'grid', placeItems:'center', flexShrink:0, fontSize:22, background:selectedPalette.bg, border:`1.5px solid ${selectedPalette.dot}33` }}>
                         {getExamEmoji(selectedExam)}
                     </span>
@@ -1389,7 +1398,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
                       <h3 style={{ margin:0, color:'var(--ink)', fontSize:14, fontWeight:850, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{chapter.title}</h3>
                       <p style={{ margin:'4px 0 0', color:'var(--gray)', fontSize:12, fontWeight:650 }}>{questionsLabel}</p>
                     </div>
-                    <span style={{ fontSize:12, fontWeight:850, color:selectedPalette.text, background:selectedPalette.bg, padding:'4px 8px', borderRadius:999 }}>
+                    <span className="quiz-chapter-mastery" style={{ fontSize:12, fontWeight:850, color:selectedPalette.text, background:selectedPalette.bg, padding:'4px 8px', borderRadius:999, lineHeight:1.15, whiteSpace:'nowrap' }}>
                       {masteryLabel}
                     </span>
                   </div>
