@@ -692,11 +692,13 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
         subject: exam.subject,
         title: chapter ? chapter.title || chapter.name : exam.name,
         cards: cards.slice(0, config.count),
+        _examId: exam.id,
         _examColor: exam.color || null,
         _examDot: exam.dot || null,
         _meta: practicePayload,
+        _practiceConfig: { ...practicePayload, autoStart: true },
       });
-      setFlashLanding(true);
+      setFlashLanding(false);
       setTab('flashcards');
       return;
     }
