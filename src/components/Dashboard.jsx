@@ -727,7 +727,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   };
 
   return (
-    <div style={{ ...shellS.wrap, padding: isMobile ? '12px 0 80px' : '24px clamp(18px, 2.4vw, 40px) 40px' }}>
+    <div className="lockeen-app-shell" style={{ ...shellS.wrap, padding: isMobile ? '12px 0 80px' : '24px clamp(18px, 2.4vw, 40px) 40px' }}>
       <DashboardHeader
         user={user}
         lang={lang}

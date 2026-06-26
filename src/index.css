@@ -45,13 +45,21 @@
     max-width: 100%;
     overflow-x: hidden;
   }
+  .lockeen-app-shell {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    touch-action: pan-y;
+  }
   @supports (overflow: clip) {
     html,
     body,
     #root,
     .page,
     #page-app,
-    #page-landing {
+    #page-landing,
+    .lockeen-app-shell {
       overflow-x: clip;
     }
   }

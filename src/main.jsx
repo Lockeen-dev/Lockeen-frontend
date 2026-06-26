@@ -20,6 +20,22 @@ function reloadForStaleAsset(error) {
   return true;
 }
 
+function clampHorizontalScroll() {
+  if (window.scrollX !== 0) {
+    window.scrollTo(0, window.scrollY);
+  }
+}
+
+if ('scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
+}
+
+window.addEventListener('load', clampHorizontalScroll, { passive: true });
+window.addEventListener('pageshow', clampHorizontalScroll, { passive: true });
+window.addEventListener('resize', clampHorizontalScroll, { passive: true });
+window.addEventListener('orientationchange', clampHorizontalScroll, { passive: true });
+window.addEventListener('scroll', clampHorizontalScroll, { passive: true });
+
 window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault();
   reloadForStaleAsset(event.payload || event);
