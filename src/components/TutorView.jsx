@@ -77,6 +77,10 @@ function getTutorStyleStorageKey(user) {
   return `lockeen:tutor-style:${user?.id || user?.email || 'guest'}`;
 }
 
+function getTutorLastSessionStorageKey(user) {
+  return `lockeen:tutor-last-session:${user?.id || user?.email || 'guest'}`;
+}
+
 function clipTutorContext(text = '', max = 900) {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();
   if (!clean) return '';
@@ -552,6 +556,7 @@ export default function TutorView({ user, lang = 'en' }) {
   const activeTyping = typingSessionId != null && String(typingSessionId) === String(activeId);
   const folderStorageKey = getTutorFolderStorageKey(user);
   const tutorStyleStorageKey = getTutorStyleStorageKey(user);
+  const tutorLastSessionStorageKey = getTutorLastSessionStorageKey(user);
   const tutorUsageQuota = Number.isFinite(Number(tutorUsage?.quota)) ? Number(tutorUsage.quota) : planLimits.aiTutorMessagesPerMonth;
   const tutorUsageRemaining = Number.isFinite(Number(tutorUsage?.remaining)) ? Number(tutorUsage.remaining) : null;
   const tutorUsageUsed = Number.isFinite(Number(tutorUsage?.used))
@@ -580,11 +585,19 @@ export default function TutorView({ user, lang = 'en' }) {
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
+  useEffect(() => {
+    if (!activeId) return;
+    try {
+      window.localStorage?.setItem(tutorLastSessionStorageKey, String(activeId));
+    } catch {
+      // Preference-only persistence; tutor sessions remain the source of truth.
+    }
+  }, [activeId, tutorLastSessionStorageKey]);
   useEffect(() => () => {
     generationAbortRef.current?.abort?.();
   }, []);
   useEffect(() => { endRef.current?.scrollTo({ top: endRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, activeTyping]);
-  useEffect(() => { if (!isMobile) setHistoryOpen(true); else setHistoryOpen(false); }, [isMobile]);
+  useEffect(() => { setHistoryOpen(false); }, [isMobile]);
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key !== 'Escape') return;
@@ -731,7 +744,13 @@ export default function TutorView({ user, lang = 'en' }) {
       }
 
       if ((result.data || []).length > 0) {
-        const first = result.data[0];
+        let storedActiveId = '';
+        try {
+          storedActiveId = window.localStorage?.getItem(tutorLastSessionStorageKey) || '';
+        } catch {
+          storedActiveId = '';
+        }
+        const first = result.data.find(session => String(session.id) === String(storedActiveId)) || result.data[0];
         setSessions(result.data);
         setActiveId(first.id);
         setMsgs(first.msgs?.length ? first.msgs : initialTutorMsgs(lang));
@@ -756,7 +775,7 @@ export default function TutorView({ user, lang = 'en' }) {
 
     loadSessions();
     return () => { cancelled = true; };
-  }, [user?.id, user?.email]);
+  }, [tutorLastSessionStorageKey, user?.id, user?.email]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -945,7 +964,7 @@ export default function TutorView({ user, lang = 'en' }) {
     if (folderPersistence === 'local' && targetFolderId) {
       setSessionFolders(prev => ({ ...prev, [result.data.id]: activeFolderId }));
     }
-    if (isMobile) setHistoryOpen(false);
+    setHistoryOpen(false);
     focusComposer();
   };
 
@@ -953,7 +972,7 @@ export default function TutorView({ user, lang = 'en' }) {
     setActiveId(s.id);
     setMsgs(s.msgs?.length ? s.msgs : initialTutorMsgs(lang));
     setFiles([]);
-    if (isMobile) setHistoryOpen(false);
+    setHistoryOpen(false);
     focusComposer();
   };
 

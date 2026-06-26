@@ -717,6 +717,11 @@ function NotesView({ user, exams, lang = 'en', setExams, activeId, setActiveId, 
           <div style={examsS.emptyIcon}><FileText size={22} /></div>
           <div style={examsS.emptyTitle}>{exams.length === 0 ? tt(lang, 'noExamsYet') : tt(lang, 'noExamsFound')}</div>
           <div style={examsS.emptySub}>{exams.length === 0 ? tt(lang, 'createFirstExam') : tt(lang, 'tryDifferentSearch')}</div>
+          {exams.length === 0 && (
+            <button type="button" onClick={() => setShowCreate(true)} style={examsS.emptyCta}>
+              <Plus size={18} /> {tt(lang, 'newExam')}
+            </button>
+          )}
         </div>
       )}
 
@@ -3143,10 +3148,11 @@ const examsS = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 },
   backBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, padding: '7px 14px 7px 12px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 },
   subjectBadge: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: 'var(--ink)' },
-  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '48px 20px', background: 'var(--sidebar-bg)', border: '1px dashed var(--border)', borderRadius: 18, color: 'var(--gray)', textAlign: 'center' },
-  emptyIcon: { width: 44, height: 44, borderRadius: 12, background: 'var(--lavender)', color: 'var(--indigo)', display: 'grid', placeItems: 'center', marginBottom: 4 },
-  emptyTitle: { fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
-  emptySub: { fontSize: 13 },
+  empty: { minHeight: 360, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '34px 24px', borderRadius: 22, border: '1.5px dashed var(--border)', background: 'linear-gradient(180deg, #FAFBFF 0%, #FFFFFF 100%)', color: 'var(--gray)', textAlign: 'center', boxShadow: '0 18px 40px -34px rgba(15,16,53,.35)' },
+  emptyIcon: { width: 58, height: 58, borderRadius: 18, background: 'var(--lavender)', color: 'var(--indigo)', display: 'grid', placeItems: 'center' },
+  emptyTitle: { margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-.02em' },
+  emptySub: { margin: 0, maxWidth: 390, color: 'var(--gray)', fontSize: 15, fontWeight: 650, lineHeight: 1.5 },
+  emptyCta: { marginTop: 4, minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '0 20px', borderRadius: 16, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 14px 28px -20px rgba(55,48,232,.8)' },
 };
 
 const examS = {

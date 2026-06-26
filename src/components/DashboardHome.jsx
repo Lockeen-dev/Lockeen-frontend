@@ -83,6 +83,7 @@ function DashboardHome({
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activityExpanded, setActivityExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,7 +173,7 @@ function DashboardHome({
 
       {error && <div style={s.error}>{error}</div>}
 
-      <div style={s.stack}>
+      <div style={{ ...s.stack, gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))' }}>
         <TodaySchedule
           s={s}
           todayEvents={todayEvents}
@@ -192,6 +193,8 @@ function DashboardHome({
           activityCopy={activityCopy}
           relativeTime={relativeTime}
           lang={lang}
+          expanded={activityExpanded}
+          onToggleExpanded={() => setActivityExpanded((value) => !value)}
         />
       </div>
     </div>
@@ -217,7 +220,7 @@ const s = {
   progressValue: { color: '#fff', fontSize: 20, fontWeight: 900, lineHeight: 1 },
   progressLabel: { marginTop: 4, color: 'rgba(255,255,255,.82)', fontSize: 10, fontWeight: 900, letterSpacing: '.06em' },
   grid: { display: 'grid', gap: 18, alignItems: 'start' },
-  stack: { display: 'grid', gap: 18, minWidth: 0 },
+  stack: { display: 'grid', gap: 18, minWidth: 0, alignItems: 'start' },
   panel: { background: '#fff', border: '1px solid #E7E9F2', borderRadius: 18, padding: 18, boxShadow: '0 16px 42px -36px rgba(15,16,53,.28)', minWidth: 0 },
   quickPanel: { height: '100%' },
   panelHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 },
@@ -234,6 +237,7 @@ const s = {
   quickGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 9, marginTop: 12 },
   quickAction: { minHeight: 78, border: '1px solid #E7E9F2', borderRadius: 13, background: '#fff', padding: 12, display: 'grid', justifyItems: 'start', alignContent: 'space-between', color: '#171733', cursor: 'pointer', textAlign: 'left' },
   iconTile: { width: 34, height: 34, borderRadius: 11, display: 'inline-grid', placeItems: 'center', flex: '0 0 auto' },
+  activityStack: { display: 'grid', gap: 12 },
   activityList: { display: 'grid', gap: 9 },
   activityItem: { display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, padding: '4px 0' },
   activityIcon: { width: 36, height: 36, borderRadius: 11, display: 'inline-grid', placeItems: 'center', flex: '0 0 auto' },
@@ -241,6 +245,8 @@ const s = {
   activityTitle: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14, lineHeight: 1.3, fontWeight: 850 },
   activityMeta: { color: '#777C90', fontSize: 12, lineHeight: 1.2, fontWeight: 650 },
   scoreBadge: { borderRadius: 999, padding: '4px 9px', fontSize: 12, fontWeight: 850, flex: '0 0 auto' },
+  activityMoreButton: { border: '1px solid #E1E5F2', borderRadius: 12, background: '#FAFBFF', color: '#3730E8', padding: '10px 12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, fontWeight: 850, cursor: 'pointer', width: '100%' },
+  activityMoreChevron: { display: 'inline-block', fontSize: 17, lineHeight: 1, transition: 'transform .18s ease' },
   recoList: { display: 'grid', gap: 14 },
   recoCard: { border: '1px solid #D8DCFF', borderRadius: 16, padding: 16 },
   recoTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 },

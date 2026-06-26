@@ -4,6 +4,7 @@ import { getExamEmoji, getExamPalette } from '../lib/examUi';
 import { getSubjectPalette } from '../data/mockData';
 import { getQuiz, listQuizzes, submitQuizAttempt } from '../services/quiz';
 import { tt } from '../lib/i18n';
+import useIsMobile from '../lib/useIsMobile';
 
 function QuizStyles() {
   return (
@@ -33,13 +34,27 @@ function QuizStyles() {
         outline-offset: 3px;
       }
       @media (max-width: 640px) {
+        .quiz-exam-rail {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
         .quiz-exam-pill {
-          flex: 1 1 calc(50% - 8px);
+          width: 100%;
           justify-content: center;
           min-width: 0;
         }
         .quiz-launch-actions {
           grid-template-columns: 1fr !important;
+        }
+        .quiz-chapter-grid {
+          grid-template-columns: minmax(0, 1fr) !important;
+        }
+        .quiz-chapter-top {
+          align-items: flex-start;
+        }
+        .quiz-chapter-mastery {
+          flex-shrink: 0;
         }
       }
     `}</style>
@@ -632,6 +647,7 @@ const quizS = {
   emptyCta: { marginTop: 4, minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '0 20px', borderRadius: 16, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 14px 28px -20px rgba(55,48,232,.8)' },
   chapterEmptyState: { width:'min(760px, 100%)', minHeight: 360, margin:'0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '34px 24px', borderRadius: 22, border: '1.5px dashed var(--border)', background: 'linear-gradient(180deg, #FAFBFF 0%, #FFFFFF 100%)', textAlign: 'center', boxShadow: '0 18px 40px -34px rgba(15,16,53,.35)' },
   examRail: { display:'flex', flexWrap:'wrap', gap:12, padding:'2px 0 4px' },
+  examRailMobile: { display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:12, padding:'2px 0 4px' },
   examPill: { minHeight:52, display:'inline-flex', alignItems:'center', gap:11, padding:'0 20px', borderRadius:17, border:'1.5px solid var(--border)', fontSize:15, fontWeight:950, cursor:'pointer', transition:'transform .15s ease, box-shadow .15s ease, border-color .15s ease', letterSpacing:'-.01em' },
   examEmoji: { width:28, height:28, borderRadius:10, display:'inline-grid', placeItems:'center', fontSize:18, background:'rgba(255,255,255,.5)' },
   setupCard: { padding:18, borderRadius:22, border:'1px solid var(--border)', background:'linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%)', boxShadow:'0 22px 54px -42px rgba(15,16,53,.38)', display:'grid', gap:16 },
@@ -716,6 +732,7 @@ export function QuizReview({ run, onBack, darkMode, lang = 'en' }) {
 }
 
 export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenExam, darkMode, lang = 'en' }) {
+  const isMobile = useIsMobile();
   const [selectedExamId, setSelectedExamId] = useState(deck?._examId ?? exams[0]?.id ?? null);
   const [selectedChapterId, setSelectedChapterId] = useState(deck?._practiceConfig?.chapterId ?? 'all');
   const [numQ, setNumQ] = useState(deck?._practiceConfig?.count ?? 10);
@@ -1104,7 +1121,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
   const divider = { height:1, background:'var(--border)', margin:'0' };
 
   return (
-    <div style={{ width:'100%', maxWidth: 1120, margin: '0 auto', display:'flex', flexDirection:'column', gap:24 }}>
+    <div style={{ width:'100%', maxWidth: exams.length === 0 ? 600 : 1120, margin: '0 auto', display:'flex', flexDirection:'column', gap:24 }}>
 
       {/* Page header */}
       <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between' }}>
@@ -1112,7 +1129,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
           <h2 style={{ margin:'0 0 3px', fontSize:22, fontWeight:800, color:'var(--ink)' }}>
             {focusedFromNotes ? `${tt(lang, 'quiz')} · ${focusTitle}` : tt(lang, 'quiz')}
           </h2>
-          <p style={{ margin:0, fontSize:13, color:'var(--gray)' }}>
+          <p style={{ margin:0, color:'var(--gray)', fontSize:14, fontWeight:650 }}>
             {tt(lang, 'configurePractice')}
           </p>
         </div>
@@ -1133,7 +1150,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
       {exams.length > 0 && (
         <section>
           <div style={secLabel}>{tt(lang, 'chooseExam')}</div>
-          <div style={quizS.examRail}>
+          <div className="quiz-exam-rail" style={isMobile ? quizS.examRailMobile : quizS.examRail}>
             {exams.map(exam => {
               const active = exam.id === selectedExamId;
               const pal = getExamPalette(exam, darkMode);
@@ -1340,7 +1357,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
       {selectedExam && chapterMastery.length > 0 && (
         <section>
           <div style={secLabel}>{tt(lang, 'chapters')} — {selectedExam.name}</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:14 }}>
+          <div className="quiz-chapter-grid" style={{ display:'grid', gridTemplateColumns:isMobile ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))', gap:14 }}>
             {chapterMastery.map(({ chapter, stats, score, coverage, enoughCoverage, tone }) => {
               const active = String(selectedChapterId) === String(chapter.id);
               const questionsLabel = stats.total === 1
@@ -1373,7 +1390,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
                     opacity: disabled ? .72 : 1,
                   }}
                 >
-                  <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+                  <div className="quiz-chapter-top" style={{ display:'flex', alignItems:'flex-start', gap:12, minWidth:0 }}>
                     <span style={{ width:42, height:42, borderRadius:12, display:'grid', placeItems:'center', flexShrink:0, fontSize:22, background:selectedPalette.bg, border:`1.5px solid ${selectedPalette.dot}33` }}>
                         {getExamEmoji(selectedExam)}
                     </span>
@@ -1381,7 +1398,7 @@ export function QuizTab({ deck, exams, quizRuns, onQuizComplete, setTab, onOpenE
                       <h3 style={{ margin:0, color:'var(--ink)', fontSize:14, fontWeight:850, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{chapter.title}</h3>
                       <p style={{ margin:'4px 0 0', color:'var(--gray)', fontSize:12, fontWeight:650 }}>{questionsLabel}</p>
                     </div>
-                    <span style={{ fontSize:12, fontWeight:850, color:selectedPalette.text, background:selectedPalette.bg, padding:'4px 8px', borderRadius:999 }}>
+                    <span className="quiz-chapter-mastery" style={{ fontSize:12, fontWeight:850, color:selectedPalette.text, background:selectedPalette.bg, padding:'4px 8px', borderRadius:999, lineHeight:1.15, whiteSpace:'nowrap' }}>
                       {masteryLabel}
                     </span>
                   </div>

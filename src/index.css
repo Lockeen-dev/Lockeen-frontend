@@ -28,7 +28,41 @@
     --chart-track:#F4F5FF;
   }
   *, *::before, *::after { box-sizing: border-box; }
-  html, body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #070B2D; background:#ffffff; overflow-x: hidden; max-width: 100vw; }
+  html, body {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #070B2D;
+    background:#ffffff;
+    overflow-x: hidden;
+  }
+  #root,
+  .page,
+  #page-app,
+  #page-landing {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  .lockeen-app-shell {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    touch-action: pan-y;
+  }
+  @supports (overflow: clip) {
+    html,
+    body,
+    #root,
+    .page,
+    #page-app,
+    #page-landing,
+    .lockeen-app-shell {
+      overflow-x: clip;
+    }
+  }
   .gradient-text { background: linear-gradient(90deg, #2F2BFF 0%, #8B5CF6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .gradient-hero-bg { background: linear-gradient(135deg, #070B2D 0%, #1a1f5c 50%, #2F2BFF 100%); }
   .grid-pattern {

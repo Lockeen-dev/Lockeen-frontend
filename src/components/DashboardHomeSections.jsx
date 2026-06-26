@@ -140,8 +140,14 @@ export function TodaySchedule({ s, todayEvents, completedToday, totalToday, isEv
   );
 }
 
-export function RecentActivity({ s, loading, latestActivity, totalExams = 0, setTab, scoreFromActivity, activityCopy, relativeTime, lang = 'en' }) {
+export function RecentActivity({ s, loading, latestActivity, totalExams = 0, setTab, scoreFromActivity, activityCopy, relativeTime, lang = 'en', expanded = false, onToggleExpanded }) {
   const hasNoExams = Number(totalExams || 0) === 0;
+  const activityLimit = 5;
+  const visibleActivity = expanded ? latestActivity : latestActivity.slice(0, activityLimit);
+  const hasMoreActivity = latestActivity.length > activityLimit;
+  const moreLabel = lang === 'it'
+    ? expanded ? 'Mostra meno' : `Mostra altre ${latestActivity.length - activityLimit}`
+    : expanded ? 'Show less' : `Show ${latestActivity.length - activityLimit} more`;
   return (
     <section style={s.panel}>
       <div style={s.panelHead}>
@@ -157,23 +163,31 @@ export function RecentActivity({ s, loading, latestActivity, totalExams = 0, set
           {hasNoExams && <button style={s.outlineButton} onClick={() => setTab('notes')}>{tt(lang, 'newExam')}</button>}
         </div>
       ) : (
-        <div style={s.activityList}>
-          {latestActivity.map((activity) => {
-            const score = scoreFromActivity(activity);
-            const tone = activity.type === 'quiz_attempt' ? 'cyan' : activity.type === 'flashcard_review' ? 'purple' : 'indigo';
-            return (
-              <div key={activity.id} style={s.activityItem}>
-                <span style={{ ...s.activityIcon, background: tone === 'cyan' ? '#ECFEFF' : tone === 'purple' ? '#F5F3FF' : '#EEF2FF', color: tone === 'cyan' ? '#0891B2' : tone === 'purple' ? '#7C3AED' : '#3730E8' }}>
-                  {activity.type === 'flashcard_review' ? <Layers size={16} /> : activity.type === 'quiz_attempt' ? <Sparkles size={16} /> : <FileText size={16} />}
-                </span>
-                <div style={s.activityText}>
-                  <strong style={s.activityTitle}>{activityCopy(activity)} - {activity.title}</strong>
-                  <span style={s.activityMeta}>{relativeTime(activity.at)}</span>
+        <div style={s.activityStack}>
+          <div style={s.activityList}>
+            {visibleActivity.map((activity) => {
+              const score = scoreFromActivity(activity);
+              const tone = activity.type === 'quiz_attempt' ? 'cyan' : activity.type === 'flashcard_review' ? 'purple' : 'indigo';
+              return (
+                <div key={activity.id} style={s.activityItem}>
+                  <span style={{ ...s.activityIcon, background: tone === 'cyan' ? '#ECFEFF' : tone === 'purple' ? '#F5F3FF' : '#EEF2FF', color: tone === 'cyan' ? '#0891B2' : tone === 'purple' ? '#7C3AED' : '#3730E8' }}>
+                    {activity.type === 'flashcard_review' ? <Layers size={16} /> : activity.type === 'quiz_attempt' ? <Sparkles size={16} /> : <FileText size={16} />}
+                  </span>
+                  <div style={s.activityText}>
+                    <strong style={s.activityTitle}>{activityCopy(activity)} - {activity.title}</strong>
+                    <span style={s.activityMeta}>{relativeTime(activity.at)}</span>
+                  </div>
+                  {score !== null && <span style={{ ...s.scoreBadge, background: score >= 70 ? '#DCFCE7' : '#FEE2E2', color: score >= 70 ? '#047857' : '#DC2626' }}>{score}%</span>}
                 </div>
-                {score !== null && <span style={{ ...s.scoreBadge, background: score >= 70 ? '#DCFCE7' : '#FEE2E2', color: score >= 70 ? '#047857' : '#DC2626' }}>{score}%</span>}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          {hasMoreActivity && (
+            <button type="button" style={s.activityMoreButton} onClick={onToggleExpanded}>
+              <span>{moreLabel}</span>
+              <span style={{ ...s.activityMoreChevron, transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>⌄</span>
+            </button>
+          )}
         </div>
       )}
     </section>

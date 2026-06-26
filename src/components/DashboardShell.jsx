@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Bell, BookOpen, CalendarIcon, Coins, Layers, LogOut, MsgCircle, Pencil, Sparkles, ZapSolid } from '../lib/icons';
+import { BarChart3, Bell, BookOpen, CalendarIcon, Coins, Layers, LogOut, MsgCircle, Pencil, Sparkles, ZapSolid } from '../lib/icons';
 import { tt } from '../lib/i18n';
 import LanguageSelect from './LanguageSelect';
 import Sidebar from './Sidebar';
@@ -12,22 +12,23 @@ export function BottomNav({ tab, setTab, lang = 'en' }) {
     { id: 'calendar', label: tt(lang, 'calendar'), Icon: CalendarIcon },
     { id: 'flashcards', label: tt(lang, 'flash'), Icon: Layers },
     { id: 'quiz', label: tt(lang, 'quiz'), Icon: Sparkles },
+    { id: 'analytics', label: tt(lang, 'analytics'), Icon: BarChart3 },
     { id: 'tutor', label: tt(lang, 'aiTutor'), Icon: MsgCircle },
   ];
 
   return (
-    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'rgba(255,255,255,.96)', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 2, padding: '7px 7px calc(7px + env(safe-area-inset-bottom, 0px))', boxShadow: '0 -16px 40px -28px rgba(15,16,53,.45)', backdropFilter: 'blur(16px)' }}>
+    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'rgba(255,255,255,.96)', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 1, padding: '6px 6px calc(6px + env(safe-area-inset-bottom, 0px))', boxShadow: '0 -16px 40px -28px rgba(15,16,53,.45)', backdropFilter: 'blur(16px)' }}>
       {items.map(({ id, label, Icon: I }) => {
         const active = id === tab;
         return (
           <button
             key={id}
             onClick={() => setTab(id)}
-            style={{ position: 'relative', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, border: 'none', borderRadius: 16, background: active ? 'var(--lavender)' : 'transparent', padding: '7px 2px 6px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor: 'pointer', minHeight: 60, WebkitTapHighlightColor: 'transparent' }}
+            style={{ position: 'relative', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, border: 'none', borderRadius: 14, background: active ? 'var(--lavender)' : 'transparent', padding: '7px 1px 6px', color: active ? 'var(--indigo)' : 'var(--gray)', cursor: 'pointer', minHeight: 58, WebkitTapHighlightColor: 'transparent' }}
             aria-current={active ? 'page' : undefined}
           >
-            <I size={active ? 20 : 19} strokeWidth={active ? 2.6 : 2.2} />
-            <span style={{ fontSize: 9.5, fontWeight: 900, lineHeight: 1, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+            <I size={active ? 19 : 18} strokeWidth={active ? 2.6 : 2.2} />
+            <span style={{ fontSize: 8.6, fontWeight: 900, lineHeight: 1, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
           </button>
         );
       })}
@@ -231,7 +232,7 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
 }
 
 export const shellS = {
-  wrap: { minHeight: '100vh', width: '100%', margin: '0 auto', padding: '22px clamp(24px, 3vw, 48px) 38px', boxSizing: 'border-box', overflowX: 'hidden', background: '#fff' },
+  wrap: { minHeight: '100vh', width: '100%', maxWidth: '100%', margin: '0 auto', padding: '22px clamp(24px, 3vw, 48px) 38px', boxSizing: 'border-box', overflowX: 'hidden', background: '#fff' },
   header: { position: 'relative', marginBottom: 18, padding: '4px 4px 12px' },
   headerRule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: '#E8EBF4', borderRadius: 999 },
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 52 },

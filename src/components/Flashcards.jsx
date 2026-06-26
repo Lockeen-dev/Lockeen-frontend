@@ -40,8 +40,13 @@ function FlashStyles() {
         outline-offset: 3px;
       }
       @media (max-width: 640px) {
+        .flash-exam-rail {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
         .flash-exam-pill {
-          flex: 1 1 calc(50% - 8px);
+          width: 100%;
           justify-content: center;
           min-width: 0;
         }
@@ -316,7 +321,11 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, onOpenExam, se
 
   const cardsBelongToSelectedExam = selectedExamId && String(cardsExamId) === String(selectedExamId);
   const selectedExamCards = cardsBelongToSelectedExam ? cards : [];
-  const playableCards = selectedExamCards.filter(isPlayableFlashcard);
+  const deckFallbackCards = deck?._practiceConfig?.source === 'analytics-grade-predictor' &&
+    String(deck?._examId ?? deck?._practiceConfig?.examId) === String(selectedExamId)
+    ? (deck.cards || []).map(normalizeFlashcard)
+    : [];
+  const playableCards = (selectedExamCards.length ? selectedExamCards : deckFallbackCards).filter(isPlayableFlashcard);
   const getCardsForChapter = (chapter) => {
     const serviceCards = playableCards.filter((card) => String(card.chapterId) === String(chapter.id));
     if (cardsLoaded && !cardsError) return serviceCards;
@@ -618,7 +627,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, onOpenExam, se
         {exams.length > 0 && (
           <section>
             <div style={sL}>{tt(lang, 'chooseExam')}</div>
-            <div style={flashS.examRail}>
+            <div className="flash-exam-rail" style={isMobile ? flashS.examRailMobile : flashS.examRail}>
               {exams.map(exam => {
                 const active = exam.id === selectedExamId;
                 const pal = getExamPalette(exam, darkMode);
@@ -1184,6 +1193,7 @@ const flashS = {
   emptyText: { margin: 0, maxWidth: 390, color: 'var(--gray)', fontSize: 15, fontWeight: 650, lineHeight: 1.5 },
   emptyCta: { marginTop: 4, minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '0 20px', borderRadius: 16, border: 'none', background: 'var(--indigo)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 14px 28px -20px rgba(55,48,232,.8)' },
   examRail: { display:'flex', flexWrap:'wrap', gap:12, padding:'2px 0 4px' },
+  examRailMobile: { display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:12, padding:'2px 0 4px' },
   examPill: { minHeight:52, display:'inline-flex', alignItems:'center', gap:11, padding:'0 20px', borderRadius:17, border:'1.5px solid var(--border)', fontSize:15, fontWeight:950, cursor:'pointer', transition:'transform .15s ease, box-shadow .15s ease, border-color .15s ease', letterSpacing:'-.01em' },
   examEmoji: { width:28, height:28, borderRadius:10, display:'inline-grid', placeItems:'center', fontSize:18, background:'rgba(255,255,255,.5)' },
   setupCard: { padding:18, borderRadius:22, border:'1px solid var(--border)', background:'linear-gradient(180deg, #FFFFFF 0%, #FBFCFF 100%)', boxShadow:'0 22px 54px -42px rgba(15,16,53,.38)', display:'grid', gap:16 },
