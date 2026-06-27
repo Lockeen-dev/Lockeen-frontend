@@ -413,14 +413,14 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, onOpenExam, se
       missedCards,
     };
   };
-  const getChapterProgress = (chapter, rawCount) => {
+  const getChapterProgress = (chapter, rawCount, palette) => {
     const stats = getScopePracticeStats(playableCardsForChapter(chapter.id));
     if (!stats.seen || !rawCount) return null;
     const coverage = Math.min(100, Math.round((stats.seen / rawCount) * 100));
     const score = Math.max(0, Math.min(100, Math.round((stats.known / stats.seen) * 100)));
     const reliableThreshold = Math.min(rawCount, Math.max(5, Math.ceil(rawCount * 0.4)));
     const reliable = stats.seen >= reliableThreshold;
-    const tone = reliable ? fmtScore(score) : { label: `${Math.min(stats.seen, rawCount)}/${rawCount}`, color: '#64748B', bg: '#F1F5F9' };
+    const tone = reliable ? fmtScore(score) : { label: `${Math.min(stats.seen, rawCount)}/${rawCount}`, color: palette.text, bg: palette.bg };
     return {
       score,
       coverage,
@@ -780,10 +780,10 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, onOpenExam, se
                   const pal = selectedPalette;
                   const rawCount = rawCardsForChapter(chapter.id).length;
                   const chapterStats = getScopePracticeStats(playableCardsForChapter(chapter.id));
-                  const progress = getChapterProgress(chapter, rawCount);
+                  const progress = getChapterProgress(chapter, rawCount, pal);
                   const statusText = rawCount ? tt(lang, 'cardsCount', { count: rawCount }) : tt(lang, 'noFlashcardsYet');
                   return (
-                    <article key={chapter.id} className="flash-chapter-card flash-interactive" style={{ minHeight:164, display:'grid', alignContent:'space-between', gap:14, padding:14, borderRadius:18, border:`1.5px solid ${progress?.reliable ? pal.dot : 'var(--border)'}`, borderTop:`5px solid ${progress ? progress.color : `${pal.dot}44`}`, background:'var(--surface)', boxShadow:'0 18px 38px -34px rgba(15,16,53,.30)', transition:'transform .15s ease, box-shadow .15s ease, border-color .15s ease' }}>
+                    <article key={chapter.id} className="flash-chapter-card flash-interactive" style={{ minHeight:164, display:'grid', alignContent:'space-between', gap:14, padding:14, borderRadius:18, border:`1.5px solid ${progress ? pal.border : 'var(--border)'}`, borderTop:`5px solid ${progress ? pal.dot : `${pal.dot}44`}`, background:'var(--surface)', boxShadow:'0 18px 38px -34px rgba(15,16,53,.30)', transition:'transform .15s ease, box-shadow .15s ease, border-color .15s ease' }}>
                       <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
                         <SubjectIcon subject={selectedExam.subject} size={42} radius={12} dot={pal.dot} />
                         <div style={{ flex:1, minWidth:0 }}>
@@ -797,7 +797,7 @@ export function FlashcardLanding({ deck, recentDecks, onOpenDeck, onOpenExam, se
                         )}
                       </div>
                       <div style={{ height:4, borderRadius:999, background:'var(--border)', overflow:'hidden' }}>
-                        <div style={{ width: progress ? `${progress.reliable ? progress.score : progress.coverage}%` : rawCount ? '18%' : '0%', height:'100%', borderRadius:999, background: progress ? progress.color : pal.dot }} />
+                        <div style={{ width: progress ? `${progress.reliable ? progress.score : progress.coverage}%` : rawCount ? '18%' : '0%', height:'100%', borderRadius:999, background: progress?.reliable ? progress.color : pal.dot }} />
                       </div>
                       {rawCount > 0 && (
                         <div style={flashS.chapterStats}>
