@@ -1499,7 +1499,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
           <div style={calS.modalField}>
             <label style={calS.modalLabel}>{tt(lang, 'activityTitle')}</label>
             <input value={modalName} onChange={e => setModalName(e.target.value)} onKeyDown={e => e.key==='Enter' && addEvent()}
-              placeholder={tt(lang, 'activityPlaceholder')} style={calS.modalInput} autoFocus />
+              placeholder={tt(lang, 'activityPlaceholder')} style={calS.modalInput} autoFocus={!isMobile} />
           </div>
           <div style={{ display:'flex', flexDirection:isMobile ? 'column' : 'row', gap:12, marginBottom:16 }}>
             <div style={{ flex:1, minWidth:0 }}><label style={calS.modalLabel}>{tt(lang, 'startTime')}</label><input type="time" value={modalTime} onChange={e => setModalTime(e.target.value)} style={calS.modalInput} /></div>
@@ -1972,7 +1972,7 @@ const calS = {
   mobileModalTitle: { fontSize:18, lineHeight:1.25, overflowWrap:'anywhere' },
   modalField: { marginBottom:16 },
   modalLabel: { display:'block', fontSize:12, fontWeight:700, color:'var(--ink)', marginBottom:8 },
-  modalInput: { width:'100%', padding:'10px 12px', border:'1px solid var(--border)', borderRadius:10, fontSize:14, color:'var(--ink)', background:'var(--surface)', outline:'none', boxSizing:'border-box' },
+  modalInput: { width:'100%', padding:'10px 12px', border:'1px solid var(--border)', borderRadius:10, fontSize:16, color:'var(--ink)', background:'var(--surface)', outline:'none', boxSizing:'border-box' },
   modalChipRow: { display:'flex', gap:8, flexWrap:'wrap', marginTop:8, maxWidth:'100%' },
   mobileModalChipRow: { display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:8 },
   mobileModalChip: { width:'100%', minWidth:0, justifyContent:'center', overflow:'hidden', textOverflow:'ellipsis' },
