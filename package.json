@@ -14,7 +14,8 @@
     "tutor:check": "node scripts/check-tutor-contracts.mjs",
     "planner:check": "node scripts/check-study-planner.mjs",
     "flashcards:check": "node scripts/check-flashcard-generation.mjs",
-    "ci": "npm run setup:check && npm run security:frontend-env && npm run security:real-mode && npm run security:rls && npm run tutor:check && npm run planner:check && npm run flashcards:check && npm run build"
+    "quiz:check": "node scripts/check-quiz-generation.mjs",
+    "ci": "npm run setup:check && npm run security:frontend-env && npm run security:real-mode && npm run security:rls && npm run tutor:check && npm run planner:check && npm run flashcards:check && npm run quiz:check && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
