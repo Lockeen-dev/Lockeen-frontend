@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { isMockMode } from '../lib/apiClient';
 import { cellularRespirationCards, cellularRespirationQuestions, seedExams } from '../data/mockData';
@@ -18,6 +18,13 @@ import { listCalendarEvents, listUserCalendarActivities, updateCalendarActivity 
 
 /* ===================== DASHBOARD SHELL ===================== */
 const CALENDAR_EVENTS_STORAGE_PREFIX = 'lockeen.calendarEvents.v1';
+
+function resetHorizontalViewport() {
+  if (typeof window === 'undefined') return;
+  document.documentElement.scrollLeft = 0;
+  document.body.scrollLeft = 0;
+  if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+}
 
 function calendarStorageKey(user) {
   return `${CALENDAR_EVENTS_STORAGE_PREFIX}:${user?.id || user?.email || 'local'}`;
@@ -157,6 +164,19 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notifRef = useRef(null);
   const profileRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!isMobile) return undefined;
+    resetHorizontalViewport();
+    const firstFrame = window.requestAnimationFrame(resetHorizontalViewport);
+    const secondFrame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(resetHorizontalViewport);
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [isMobile, tab, user?.id, user?.email]);
 
   useEffect(() => {
     function onDashboardView(event) {
