@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { Brain, CheckCircle, Copy, FileText, MsgCircle, Paperclip, Pencil, Pin, Plus, Search, Send, SidebarPanel, Sparkles, Stop, Trash2, XMark } from '../lib/icons';
 import useIsMobile from '../lib/useIsMobile';
 import { askTutor, getAiTutorUsage } from '../services/ai';
@@ -306,14 +308,70 @@ async function prepareTutorAttachments(files, lang = 'en') {
   return attachments;
 }
 
+function normalizeLatexSource(source) {
+  return String(source || '')
+    .replace(/\\\\(?=[A-Za-z])/g, '\\')
+    .replace(/^displaystyle\s+/, '\\displaystyle ');
+}
+
+function renderLatex(source, displayMode = false) {
+  try {
+    return katex.renderToString(normalizeLatexSource(source), {
+      displayMode,
+      throwOnError: false,
+      strict: 'ignore',
+      trust: false,
+    });
+  } catch {
+    return '';
+  }
+}
+
+function MathChunk({ source, display = false }) {
+  const html = renderLatex(source, display);
+  if (!html) return <span>{source}</span>;
+  return (
+    <span
+      style={display ? tutorS.mathBlock : tutorS.mathInline}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
 function inlineMarkdown(text) {
-  const parts = String(text || '').split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, index) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
+  const value = String(text || '').replace(/<br\s*\/?>/gi, '\n');
+  const parts = [];
+  const pattern = /(\\\(([\s\S]+?)\\\)|\$(?!\s)([^$\n]+?)\$|\*\*([^*]+)\*\*|\n)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(value)) !== null) {
+    if (match.index > lastIndex) parts.push(value.slice(lastIndex, match.index));
+
+    if (match[2]) {
+      parts.push(<MathChunk key={`math-${match.index}`} source={match[2]} />);
+    } else if (match[3]) {
+      parts.push(<MathChunk key={`dollar-${match.index}`} source={match[3]} />);
+    } else if (match[4]) {
+      parts.push(<strong key={`bold-${match.index}`}>{match[4]}</strong>);
+    } else {
+      parts.push(<br key={`br-${match.index}`} />);
     }
-    return part;
-  });
+
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < value.length) parts.push(value.slice(lastIndex));
+  return parts;
+}
+
+function parseDisplayMath(line) {
+  const trimmed = line.trim();
+  const bracketMath = trimmed.match(/^\\\[([\s\S]+)\\\]$/);
+  if (bracketMath) return bracketMath[1];
+  const dollarMath = trimmed.match(/^\$\$([\s\S]+)\$\$$/);
+  if (dollarMath) return dollarMath[1];
+  return null;
 }
 
 function isTableRow(line) {
@@ -412,6 +470,14 @@ function MarkdownMessage({ text }) {
       continue;
     }
 
+    const displayMath = parseDisplayMath(line);
+    if (displayMath) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: 'math', text: displayMath });
+      continue;
+    }
+
     if (isTableRow(line)) {
       flushParagraph();
       flushList();
@@ -478,6 +544,7 @@ function MarkdownMessage({ text }) {
         if (block.type === 'h2') return <h2 key={index} style={tutorS.mdH2}>{inlineMarkdown(block.text)}</h2>;
         if (block.type === 'h3') return <h3 key={index} style={tutorS.mdH3}>{inlineMarkdown(block.text)}</h3>;
         if (block.type === 'h4') return <h4 key={index} style={tutorS.mdH4}>{inlineMarkdown(block.text)}</h4>;
+        if (block.type === 'math') return <div key={index} style={tutorS.mathBlockWrap}><MathChunk source={block.text} display /></div>;
         if (block.type === 'p') return <p key={index} style={tutorS.mdP}>{inlineMarkdown(block.text)}</p>;
         if (block.type === 'callout') return <div key={index} style={{ ...tutorS.callout, background: block.bg }}>{inlineMarkdown(block.text)}</div>;
         if (block.type === 'ul') {
@@ -2014,6 +2081,9 @@ const tutorS = {
   mdP: { margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--ink)' },
   mdList: { margin: '0 0 0 18px', padding: 0, display: 'flex', flexDirection: 'column', gap: 4, lineHeight: 1.5 },
   callout: { marginTop: 2, padding: '9px 11px', borderRadius: 10, border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13, lineHeight: 1.45 },
+  mathInline: { display: 'inline-block', maxWidth: '100%', overflowX: 'auto', overflowY: 'hidden', verticalAlign: '-0.18em' },
+  mathBlockWrap: { maxWidth: '100%', overflowX: 'auto', padding: '4px 0 2px' },
+  mathBlock: { display: 'block', maxWidth: '100%', overflowX: 'auto', overflowY: 'hidden', padding: '3px 0' },
   tableWrap: { maxWidth: '100%', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12, lineHeight: 1.4 },
   th: { textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid var(--border)', fontWeight: 800, color: 'var(--ink)', background: 'var(--sidebar-bg)' },
