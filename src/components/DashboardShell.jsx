@@ -102,6 +102,7 @@ export function DashboardHeader({
           <ProfileMenu
             user={user}
             lang={lang}
+            isMobile={isMobile}
             profileRef={profileRef}
             showProfileMenu={showProfileMenu}
             setShowProfileMenu={setShowProfileMenu}
@@ -154,7 +155,24 @@ function NotificationItem({ notification: n }) {
   );
 }
 
-function ProfileMenu({ user, lang, profileRef, showProfileMenu, setShowProfileMenu, setTab, handleLogout }) {
+function ProfileMenu({ user, lang, isMobile, profileRef, showProfileMenu, setShowProfileMenu, setTab, handleLogout }) {
+  const menuStyle = isMobile
+    ? {
+        position: 'fixed',
+        top: 92,
+        left: 16,
+        right: 16,
+        width: 'auto',
+        minWidth: 0,
+        maxWidth: 'calc(100vw - 32px)',
+      }
+    : {
+        position: 'absolute',
+        top: 48,
+        right: 0,
+        minWidth: 210,
+      };
+
   return (
     <div ref={profileRef} style={{ position: 'relative' }}>
       <button
@@ -169,7 +187,7 @@ function ProfileMenu({ user, lang, profileRef, showProfileMenu, setShowProfileMe
         {user.name?.[0]?.toUpperCase() || 'A'}
       </button>
       {showProfileMenu && (
-        <div style={{ position: 'absolute', top: 48, right: 0, minWidth: 210, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 16px 40px -12px rgba(15,16,53,.25)', padding: 8, zIndex: 9999 }}>
+        <div style={{ ...menuStyle, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 16px 40px -12px rgba(15,16,53,.25)', padding: 8, zIndex: 9999, boxSizing: 'border-box' }}>
           <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', marginBottom: 6 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{user.name || 'Alex'}</div>
             <div style={{ fontSize: 11, color: 'var(--gray)', marginTop: 2 }}>{user.email || 'alex@lockeen.com'}</div>
