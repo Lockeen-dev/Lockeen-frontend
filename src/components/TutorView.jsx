@@ -1618,7 +1618,18 @@ export default function TutorView({ user, lang = 'en' }) {
           {!loadingSessions && (
             <>
               <p style={tutorS.simpleHistoryTitle}>{tt(lang, 'history')}</p>
-              {visibleSessions.map(renderSessionItem)}
+              {pinnedSessions.length > 0 && (
+                <>
+                  <p style={tutorS.simpleHistoryLabel}>{tt(lang, 'pinned')}</p>
+                  {pinnedSessions.map(renderSessionItem)}
+                </>
+              )}
+              {recentSessions.length > 0 && (
+                <>
+                  <p style={tutorS.simpleHistoryLabel}>{pinnedSessions.length > 0 ? tt(lang, 'recent') : (lang === 'it' ? 'Chat' : 'Chats')}</p>
+                  {recentSessions.map(renderSessionItem)}
+                </>
+              )}
               {visibleSessions.length === 0 && (
                 <div style={tutorS.noHistory}>
                   {cleanSessionSearch
@@ -1915,8 +1926,9 @@ const tutorS = {
   folderActionBtn: { width: 44, height: 44, borderRadius: 13, border: 'none', background: 'transparent', color: 'var(--gray-2)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 },
   folderDangerActionBtn: { color: '#EF4444' },
   historyScroll: { flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2 },
-  simpleHistoryScroll: { padding: '14px 0 0 22px', gap: 12 },
-  simpleHistoryTitle: { margin: '0 0 18px', color: '#09090B', fontSize: 22, lineHeight: 1.15, fontWeight: 850, letterSpacing: 0 },
+  simpleHistoryScroll: { padding: '6px 0 0 18px', gap: 9 },
+  simpleHistoryTitle: { margin: '0 0 14px', color: '#09090B', fontSize: 22, lineHeight: 1.15, fontWeight: 850, letterSpacing: 0 },
+  simpleHistoryLabel: { margin: '4px 0 2px', color: '#8A93A3', fontSize: 10, lineHeight: 1, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.08em' },
   noHistory: { fontSize: 12, color: 'var(--gray)', padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px dashed #E1E5EF' },
   chatPane: { flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', paddingLeft: 28, background: '#fff' },
   head: { flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 42, marginBottom: 0, padding: '0 2px 7px', borderBottom: '1px solid rgba(226,232,240,.72)' },
@@ -1954,17 +1966,17 @@ const tutorS = {
   historyLabel: { margin: '10px 0 8px', fontSize: 11, fontWeight: 900, color: 'var(--gray-2)', textTransform: 'uppercase', letterSpacing: '.08em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   historyItem: { position: 'relative', borderRadius: 13, border: '1px solid transparent', background: 'transparent', padding: 0 },
   historyItemActive: { background: '#F7F7FB', borderColor: '#ECECF2', boxShadow: 'none' },
-  historyItemWithActions: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 10, paddingRight: 8 },
-  historyMain: { textAlign: 'left', padding: '11px 12px', borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%', minWidth: 0 },
-  historyMainActive: { paddingRight: 4 },
-  historyTitle: { fontSize: 13, fontWeight: 850, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginBottom: 3 },
-  historyDate: { fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
-  historyMetaRow: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--gray)', fontSize: 11, fontWeight: 700 },
+  historyItemWithActions: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 8, paddingRight: 7 },
+  historyMain: { textAlign: 'left', padding: '9px 11px', borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%', minWidth: 0 },
+  historyMainActive: { paddingRight: 2 },
+  historyTitle: { fontSize: 12, fontWeight: 850, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginBottom: 3 },
+  historyDate: { fontSize: 10, fontWeight: 700, color: 'var(--gray)' },
+  historyMetaRow: { display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--gray)', fontSize: 10, fontWeight: 700 },
   historyMetaDot: { width: 3, height: 3, borderRadius: 999, background: '#CBD5E1', flexShrink: 0 },
   historyFolderPill: { display: 'none' },
   historySnippet: { marginTop: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: 'var(--gray-2)', fontSize: 11, lineHeight: 1.28, fontWeight: 650 },
-  historyIconActions: { position: 'static', display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 },
-  historyIconBtn: { width: 44, height: 44, borderRadius: 999, border: '1px solid rgba(55,48,232,.16)', background: '#fff', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 4px 10px rgba(15,23,42,.06)' },
+  historyIconActions: { position: 'static', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 },
+  historyIconBtn: { width: 36, height: 36, borderRadius: 999, border: '1px solid rgba(55,48,232,.16)', background: '#fff', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 4px 10px rgba(15,23,42,.05)' },
   historyPinnedIconBtn: { borderColor: 'var(--indigo)', background: 'var(--indigo)', color: '#fff', boxShadow: '0 8px 18px rgba(55,48,232,.2)' },
   historyDangerIconBtn: { borderColor: 'rgba(239,68,68,.22)', background: '#FFF7F7', color: '#B91C1C' },
   thread: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 4px 8px', overflowY: 'auto' },
