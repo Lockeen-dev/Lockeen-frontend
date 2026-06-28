@@ -1587,14 +1587,19 @@ export default function TutorView({ user, lang = 'en' }) {
         {isMobile && (
           <div style={tutorS.mobileHistoryHead}>
             <span>{tt(lang, 'history')}</span>
-            <button
-              type="button"
-              onClick={() => setHistoryOpen(false)}
-              style={tutorS.mobileHistoryCloseBtn}
-              aria-label={lang === 'it' ? 'Chiudi cronologia chat' : 'Close chat history'}
-            >
-              <XMark size={16} />
-            </button>
+            <div style={tutorS.mobileHistoryHeadActions}>
+              <button type="button" onClick={newChat} style={tutorS.mobileNewChatBtn} aria-label={tt(lang, 'newChat')}>
+                <Plus size={15} /> {tt(lang, 'newChat')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(false)}
+                style={tutorS.mobileHistoryCloseBtn}
+                aria-label={lang === 'it' ? 'Chiudi cronologia chat' : 'Close chat history'}
+              >
+                <XMark size={16} />
+              </button>
+            </div>
           </div>
         )}
         {showAdvancedTutorControls && !hasOnlyWelcome && <button type="button" onClick={newChat} style={tutorS.newChatBtn} aria-label={tt(lang, 'newChat')}>
@@ -1682,7 +1687,7 @@ export default function TutorView({ user, lang = 'en' }) {
           {loadingSessions && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>{tt(lang, 'loading')}</div>}
           {!loadingSessions && (
             <>
-              <p style={tutorS.simpleHistoryTitle}>{tt(lang, 'history')}</p>
+              {!isMobile && <p style={tutorS.simpleHistoryTitle}>{tt(lang, 'history')}</p>}
               {pinnedSessions.length > 0 && (
                 <>
                   <p style={tutorS.simpleHistoryLabel}>{tt(lang, 'pinned')}</p>
@@ -1967,6 +1972,8 @@ const tutorS = {
   historyScrim: { position: 'absolute', inset: 0, zIndex: 24, border: 'none', padding: 0, background: 'rgba(15,23,42,.18)', backdropFilter: 'blur(2px)', cursor: 'pointer' },
   mobileHistoryPane: { position: 'absolute', left: 0, right: 0, top: 0, zIndex: 25, background: '#fff', borderRadius: 22, boxShadow: '0 26px 80px rgba(15,23,42,.22)', overflow: 'hidden' },
   mobileHistoryHead: { minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, color: 'var(--ink)', fontSize: 15, fontWeight: 950 },
+  mobileHistoryHeadActions: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
+  mobileNewChatBtn: { minHeight: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '0 12px', borderRadius: 13, border: '1px solid rgba(55,48,232,.16)', background: 'var(--indigo)', color: '#fff', fontSize: 12, lineHeight: 1, fontWeight: 900, cursor: 'pointer', boxShadow: '0 10px 20px rgba(55,48,232,.14)' },
   mobileHistoryCloseBtn: { width: 44, height: 44, borderRadius: 14, border: '1px solid #E1E5EF', background: '#fff', color: 'var(--gray)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 },
   newChatBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', minHeight: 52, padding: '0 16px', borderRadius: 15, background: 'var(--indigo)', color: '#fff', fontWeight: 900, fontSize: 14, border: 'none', cursor: 'pointer', marginBottom: 14, boxShadow: '0 14px 28px rgba(55,48,232,.16)' },
   hiddenFolders: { display: 'none' },
