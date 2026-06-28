@@ -233,7 +233,7 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
 
 export const shellS = {
   wrap: { minHeight: '100vh', width: '100%', maxWidth: '100%', margin: '0 auto', padding: '22px clamp(24px, 3vw, 48px) 38px', boxSizing: 'border-box', overflowX: 'hidden', background: '#fff' },
-  header: { position: 'relative', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', overflow: 'hidden', marginBottom: 18, padding: '4px 4px 12px' },
+  header: { position: 'relative', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', overflow: 'visible', marginBottom: 18, padding: '4px 4px 12px', zIndex: 1200 },
   headerRule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: '#E8EBF4', borderRadius: 999 },
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 52, width: '100%', maxWidth: '100%', minWidth: 0 },
   headerBrandGroup: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: '1 1 auto', overflow: 'hidden' },
