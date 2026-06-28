@@ -1365,7 +1365,7 @@ export default function TutorView({ user, lang = 'en' }) {
     const messageCount = (s.msgs || []).filter(message => message?.text && !isTutorWelcomeText(message.text)).length;
     const folderLabel = getSessionFolderLabel(s);
     return (
-      <div key={s.id} style={{ ...tutorS.historyItem, ...(isActive ? { ...tutorS.historyItemActive, ...tutorS.historyItemWithActions } : {}) }}>
+      <div key={s.id} style={{ ...tutorS.historyItem, ...tutorS.historyItemWithActions, ...(isActive ? tutorS.historyItemActive : {}) }}>
         <button type="button" onClick={() => switchSession(s)} style={{ ...tutorS.historyMain, ...(isActive ? tutorS.historyMainActive : {}) }}>
           <div style={{ ...tutorS.historyTitle, color: isActive ? 'var(--indigo)' : 'var(--ink)' }}>{s.title}</div>
           <div style={tutorS.historyMetaRow}>
@@ -1376,19 +1376,17 @@ export default function TutorView({ user, lang = 'en' }) {
           <div style={tutorS.historyFolderPill}>{folderLabel}</div>
           {searchPreview && <div style={tutorS.historySnippet}>{searchPreview}</div>}
         </button>
-        {isActive && (
-          <div style={tutorS.historyIconActions}>
-            <button type="button" onClick={() => togglePinned(s)} title={s.pinned ? tt(lang, 'unpinChat') : tt(lang, 'pinChat')} aria-label={s.pinned ? tt(lang, 'unpinChat') : tt(lang, 'pinChat')} style={{ ...tutorS.historyIconBtn, ...(s.pinned ? tutorS.historyPinnedIconBtn : {}) }}>
-              <Pin size={12} />
-            </button>
-            <button type="button" onClick={() => openRenameSession(s)} title={tt(lang, 'renameChat')} aria-label={tt(lang, 'renameChat')} style={tutorS.historyIconBtn}>
-              <Pencil size={12} />
-            </button>
-            <button type="button" onClick={() => setDeleteTarget(s)} title={tt(lang, 'deleteChat')} aria-label={tt(lang, 'deleteChat')} style={{ ...tutorS.historyIconBtn, ...tutorS.historyDangerIconBtn }}>
-              <Trash2 size={12} />
-            </button>
-          </div>
-        )}
+        <div style={tutorS.historyIconActions}>
+          <button type="button" onClick={() => togglePinned(s)} title={s.pinned ? tt(lang, 'unpinChat') : tt(lang, 'pinChat')} aria-label={s.pinned ? tt(lang, 'unpinChat') : tt(lang, 'pinChat')} style={{ ...tutorS.historyIconBtn, ...(s.pinned ? tutorS.historyPinnedIconBtn : {}) }}>
+            <Pin size={10} />
+          </button>
+          <button type="button" onClick={() => openRenameSession(s)} title={tt(lang, 'renameChat')} aria-label={tt(lang, 'renameChat')} style={tutorS.historyIconBtn}>
+            <Pencil size={10} />
+          </button>
+          <button type="button" onClick={() => setDeleteTarget(s)} title={tt(lang, 'deleteChat')} aria-label={tt(lang, 'deleteChat')} style={{ ...tutorS.historyIconBtn, ...tutorS.historyDangerIconBtn }}>
+            <Trash2 size={10} />
+          </button>
+        </div>
       </div>
     );
   };
@@ -1966,8 +1964,8 @@ const tutorS = {
   historyLabel: { margin: '10px 0 8px', fontSize: 11, fontWeight: 900, color: 'var(--gray-2)', textTransform: 'uppercase', letterSpacing: '.08em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   historyItem: { position: 'relative', borderRadius: 13, border: '1px solid transparent', background: 'transparent', padding: 0 },
   historyItemActive: { background: '#F7F7FB', borderColor: '#ECECF2', boxShadow: 'none' },
-  historyItemWithActions: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 8, paddingRight: 7 },
-  historyMain: { textAlign: 'left', padding: '9px 11px', borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%', minWidth: 0 },
+  historyItemWithActions: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 6, paddingRight: 7 },
+  historyMain: { textAlign: 'left', padding: '9px 8px 9px 11px', borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%', minWidth: 0 },
   historyMainActive: { paddingRight: 2 },
   historyTitle: { fontSize: 12, fontWeight: 850, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginBottom: 3 },
   historyDate: { fontSize: 10, fontWeight: 700, color: 'var(--gray)' },
@@ -1975,10 +1973,10 @@ const tutorS = {
   historyMetaDot: { width: 3, height: 3, borderRadius: 999, background: '#CBD5E1', flexShrink: 0 },
   historyFolderPill: { display: 'none' },
   historySnippet: { marginTop: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: 'var(--gray-2)', fontSize: 11, lineHeight: 1.28, fontWeight: 650 },
-  historyIconActions: { position: 'static', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 },
-  historyIconBtn: { width: 36, height: 36, borderRadius: 999, border: '1px solid rgba(55,48,232,.16)', background: '#fff', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 4px 10px rgba(15,23,42,.05)' },
-  historyPinnedIconBtn: { borderColor: 'var(--indigo)', background: 'var(--indigo)', color: '#fff', boxShadow: '0 8px 18px rgba(55,48,232,.2)' },
-  historyDangerIconBtn: { borderColor: 'rgba(239,68,68,.22)', background: '#FFF7F7', color: '#B91C1C' },
+  historyIconActions: { position: 'static', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 },
+  historyIconBtn: { width: 30, height: 30, borderRadius: 999, border: '1px solid rgba(55,48,232,.12)', background: '#fff', color: 'rgba(55,48,232,.78)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 3px 8px rgba(15,23,42,.035)' },
+  historyPinnedIconBtn: { borderColor: 'var(--indigo)', background: 'var(--indigo)', color: '#fff', boxShadow: '0 7px 14px rgba(55,48,232,.16)' },
+  historyDangerIconBtn: { borderColor: 'rgba(239,68,68,.18)', background: '#FFF7F7', color: '#C24141' },
   thread: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 4px 8px', overflowY: 'auto' },
   emptyState: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 18px 30px', textAlign: 'center' },
   emptyIcon: { width: 66, height: 66, borderRadius: 18, display: 'grid', placeItems: 'center', color: '#fff', background: 'linear-gradient(135deg, var(--indigo), var(--purple))', boxShadow: '0 20px 42px rgba(55,48,232,.18)' },
