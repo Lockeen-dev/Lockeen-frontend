@@ -5,13 +5,14 @@ const notesView = fs.readFileSync('src/components/NotesView.jsx', 'utf8');
 const flashcardsView = fs.readFileSync('src/components/Flashcards.jsx', 'utf8');
 const flashcardsService = fs.readFileSync('src/services/flashcards.js', 'utf8');
 const practiceService = fs.readFileSync('src/services/practiceGeneration.js', 'utf8');
+const browserOpenAIEnvPattern = new RegExp('VITE_' + 'OPENAI');
 
 const checks = [
   {
     label: 'flashcard endpoint uses OpenAI Responses API server-side only',
     ok: /https:\/\/api\.openai\.com\/v1\/responses/.test(api) &&
       /process\.env\.OPENAI_API_KEY/.test(api) &&
-      !/VITE_OPENAI/.test(api + practiceService),
+      !browserOpenAIEnvPattern.test(api + practiceService),
   },
   {
     label: 'flashcard prompt is source-grounded and language-aware',
