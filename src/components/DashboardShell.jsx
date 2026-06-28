@@ -55,15 +55,15 @@ export function DashboardHeader({
   setTab,
 }) {
   return (
-    <header style={{ ...shellS.header, padding: isMobile ? '0 12px 12px' : shellS.header.padding }}>
+    <header style={{ ...shellS.header, padding: isMobile ? '0 10px 12px' : shellS.header.padding }}>
       <div style={shellS.headerInner}>
-        <div style={shellS.headerBrandGroup}>
-          <div style={shellS.logoMark}>
-            <img src="/Lockeen-2.png" alt="Lockeen logo" style={shellS.logoImage} />
+        <div style={{ ...shellS.headerBrandGroup, gap: isMobile ? 8 : shellS.headerBrandGroup.gap }}>
+          <div style={isMobile ? { ...shellS.logoMark, width: 34, height: 34, minWidth: 34, borderRadius: 11 } : shellS.logoMark}>
+            <img src="/Lockeen-2.png" alt="Lockeen logo" style={isMobile ? { ...shellS.logoImage, width: 43, height: 43 } : shellS.logoImage} />
           </div>
-          <span style={shellS.brand}>Lockeen</span>
+          <span style={isMobile ? { ...shellS.brand, fontSize: 17 } : shellS.brand}>Lockeen</span>
         </div>
-        <div style={shellS.headerActions}>
+        <div style={{ ...shellS.headerActions, gap: isMobile ? 6 : shellS.headerActions.gap }}>
           <LanguageSelect lang={lang} onChange={onLangChange} compact />
           {user?.isAdmin && !isMobile && (
             <button

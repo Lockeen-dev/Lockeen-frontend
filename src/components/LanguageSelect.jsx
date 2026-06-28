@@ -40,13 +40,17 @@ function LanguageSelect({ lang, onChange, compact = false, preferredPlacement = 
     };
   }, [open, preferredPlacement]);
 
+  const buttonStyle = compact
+    ? { padding: '8px 9px', gap: 5, fontSize: 12, borderRadius: 12 }
+    : {};
+
   return (
     <div ref={ref} translate="no" style={{ position:'relative', display:'inline-block' }}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         translate="no"
-        style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 12px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', cursor:'pointer', fontSize:13, fontWeight:600, color:'var(--ink)', whiteSpace:'nowrap', userSelect:'none' }}
+        style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 12px', borderRadius:12, border:'1.5px solid var(--border)', background:'var(--surface)', cursor:'pointer', fontSize:13, fontWeight:600, color:'var(--ink)', whiteSpace:'nowrap', userSelect:'none', ...buttonStyle }}
       >
         <span translate="no">{current.flag} {current.label}</span>
         <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
