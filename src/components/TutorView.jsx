@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { Brain, CheckCircle, Copy, FileText, MsgCircle, Paperclip, Pencil, Pin, Plus, Search, Send, SidebarPanel, Sparkles, Stop, Trash2, XMark } from '../lib/icons';
 import useIsMobile from '../lib/useIsMobile';
 import { askTutor, getAiTutorUsage } from '../services/ai';
@@ -306,14 +308,70 @@ async function prepareTutorAttachments(files, lang = 'en') {
   return attachments;
 }
 
+function normalizeLatexSource(source) {
+  return String(source || '')
+    .replace(/\\\\(?=[A-Za-z])/g, '\\')
+    .replace(/^displaystyle\s+/, '\\displaystyle ');
+}
+
+function renderLatex(source, displayMode = false) {
+  try {
+    return katex.renderToString(normalizeLatexSource(source), {
+      displayMode,
+      throwOnError: false,
+      strict: 'ignore',
+      trust: false,
+    });
+  } catch {
+    return '';
+  }
+}
+
+function MathChunk({ source, display = false }) {
+  const html = renderLatex(source, display);
+  if (!html) return <span>{source}</span>;
+  return (
+    <span
+      style={display ? tutorS.mathBlock : tutorS.mathInline}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
 function inlineMarkdown(text) {
-  const parts = String(text || '').split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, index) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
+  const value = String(text || '').replace(/<br\s*\/?>/gi, '\n');
+  const parts = [];
+  const pattern = /(\\\(([\s\S]+?)\\\)|\$(?!\s)([^$\n]+?)\$|\*\*([^*]+)\*\*|\n)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(value)) !== null) {
+    if (match.index > lastIndex) parts.push(value.slice(lastIndex, match.index));
+
+    if (match[2]) {
+      parts.push(<MathChunk key={`math-${match.index}`} source={match[2]} />);
+    } else if (match[3]) {
+      parts.push(<MathChunk key={`dollar-${match.index}`} source={match[3]} />);
+    } else if (match[4]) {
+      parts.push(<strong key={`bold-${match.index}`}>{match[4]}</strong>);
+    } else {
+      parts.push(<br key={`br-${match.index}`} />);
     }
-    return part;
-  });
+
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < value.length) parts.push(value.slice(lastIndex));
+  return parts;
+}
+
+function parseDisplayMath(line) {
+  const trimmed = line.trim();
+  const bracketMath = trimmed.match(/^\\\[([\s\S]+)\\\]$/);
+  if (bracketMath) return bracketMath[1];
+  const dollarMath = trimmed.match(/^\$\$([\s\S]+)\$\$$/);
+  if (dollarMath) return dollarMath[1];
+  return null;
 }
 
 function isTableRow(line) {
@@ -412,6 +470,14 @@ function MarkdownMessage({ text }) {
       continue;
     }
 
+    const displayMath = parseDisplayMath(line);
+    if (displayMath) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: 'math', text: displayMath });
+      continue;
+    }
+
     if (isTableRow(line)) {
       flushParagraph();
       flushList();
@@ -478,6 +544,7 @@ function MarkdownMessage({ text }) {
         if (block.type === 'h2') return <h2 key={index} style={tutorS.mdH2}>{inlineMarkdown(block.text)}</h2>;
         if (block.type === 'h3') return <h3 key={index} style={tutorS.mdH3}>{inlineMarkdown(block.text)}</h3>;
         if (block.type === 'h4') return <h4 key={index} style={tutorS.mdH4}>{inlineMarkdown(block.text)}</h4>;
+        if (block.type === 'math') return <div key={index} style={tutorS.mathBlockWrap}><MathChunk source={block.text} display /></div>;
         if (block.type === 'p') return <p key={index} style={tutorS.mdP}>{inlineMarkdown(block.text)}</p>;
         if (block.type === 'callout') return <div key={index} style={{ ...tutorS.callout, background: block.bg }}>{inlineMarkdown(block.text)}</div>;
         if (block.type === 'ul') {
@@ -571,6 +638,11 @@ export default function TutorView({ user, lang = 'en' }) {
 
   const formatAiError = (error) => {
     if (!error) return tt(lang, 'aiRequestFailed');
+    if (error.code === 'NOT_FOUND' && /Tutor session not found/i.test(error.message || '')) {
+      return lang === 'it'
+        ? 'Questa chat non e piu disponibile. Ne ho preparata una nuova.'
+        : 'This chat is no longer available. I prepared a new one.';
+    }
     if (error.code === 'AI_QUOTA_EXCEEDED') return tt(lang, 'aiQuotaReached');
     if (
       error.code === 'AI_PROVIDER_UNAVAILABLE' ||
@@ -581,6 +653,9 @@ export default function TutorView({ user, lang = 'en' }) {
     ) return tt(lang, 'aiProviderUnavailable');
     return error.message || tt(lang, 'aiRequestFailed');
   };
+  const isMissingTutorSessionError = (error) => (
+    error?.code === 'NOT_FOUND' && /Tutor session not found/i.test(error.message || '')
+  );
 
   useEffect(() => {
     activeIdRef.current = activeId;
@@ -800,13 +875,60 @@ export default function TutorView({ user, lang = 'en' }) {
     });
   }, [activeId, lang, msgs]);
 
+  const recoverMissingTutorSession = async (sessionId, fallbackMsgs, fallbackTitle) => {
+    const nextMsgs = Array.isArray(fallbackMsgs) && fallbackMsgs.length ? fallbackMsgs : initialTutorMsgs(lang);
+    const nextTitle = fallbackTitle || tt(lang, 'newConversation');
+    const wasActive = String(activeIdRef.current) === String(sessionId);
+    const result = await createTutorSession({ title: nextTitle, msgs: nextMsgs });
+
+    setSessions(prev => prev.filter(s => String(s.id) !== String(sessionId)));
+
+    if (result.error) {
+      if (wasActive) {
+        setActiveId(null);
+        setMsgs(nextMsgs);
+      }
+      setAiError(formatAiError(result.error));
+      return null;
+    }
+
+    setSessions(prev => sortTutorSessions([
+      result.data,
+      ...prev.filter(s => String(s.id) !== String(sessionId)),
+    ]));
+    if (wasActive) {
+      setActiveId(result.data.id);
+      setMsgs(result.data.msgs?.length ? result.data.msgs : nextMsgs);
+    }
+    setAiError('');
+    return result.data;
+  };
+
+  const removeMissingTutorSession = (sessionId) => {
+    const remaining = sessions.filter(s => String(s.id) !== String(sessionId));
+    setSessions(remaining);
+    if (String(activeIdRef.current) === String(sessionId)) {
+      const next = remaining[0];
+      setActiveId(next?.id || null);
+      setMsgs(next?.msgs?.length ? next.msgs : initialTutorMsgs(lang));
+    }
+    setAiError('');
+  };
+
   const persistSession = async (sessionId, nextMsgs, nextTitle) => {
-    if (!sessionId) return;
+    if (!sessionId) return null;
     const patch = { msgs: nextMsgs };
     if (nextTitle) patch.title = nextTitle;
     const result = await updateTutorSession(sessionId, patch);
-    if (result.error) setAiError(formatAiError(result.error));
-    else setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(sessionId) ? result.data : s)));
+    if (result.error) {
+      if (isMissingTutorSessionError(result.error)) {
+        return recoverMissingTutorSession(sessionId, nextMsgs, nextTitle);
+      }
+      setAiError(formatAiError(result.error));
+      return null;
+    }
+    setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(sessionId) ? result.data : s)));
+    return result.data;
   };
 
   const send = async () => {
@@ -847,7 +969,13 @@ export default function TutorView({ user, lang = 'en' }) {
     });
     setAiError('');
     setTypingSessionId(sessionId);
-    await persistSession(sessionId, userMsgs, nextTitle);
+    const persistedSession = await persistSession(sessionId, userMsgs, nextTitle);
+    if (!persistedSession) {
+      setTypingSessionId(null);
+      return;
+    }
+    const liveSessionId = persistedSession.id || sessionId;
+    if (String(liveSessionId) !== String(sessionId)) setTypingSessionId(liveSessionId);
     try {
       const selectedTutorStyle = TUTOR_STYLES.find(style => style.id === tutorStyle) || TUTOR_STYLES[0];
       const result = await askTutor({
@@ -883,17 +1011,17 @@ export default function TutorView({ user, lang = 'en' }) {
         ? { fallback: true, provider: result.data?.provider || 'mock' }
         : null;
       const next = [...userMsgs, { who: 'ai', text: result.error ? formatAiError(result.error) : reply, ...(responseMeta ? { meta: responseMeta } : {}) }];
-      setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(sessionId) ? { ...s, msgs: next, updatedAt: new Date().toISOString() } : s)));
-      if (String(activeIdRef.current) === String(sessionId)) setMsgs(next);
-      persistSession(sessionId, next, nextTitle);
+      setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(liveSessionId) ? { ...s, msgs: next, updatedAt: new Date().toISOString() } : s)));
+      if ([sessionId, liveSessionId].some(id => String(activeIdRef.current) === String(id))) setMsgs(next);
+      persistSession(liveSessionId, next, nextTitle);
     } catch {
       if (generationRef.current !== generationId) return;
       const message = tt(lang, 'aiUnavailableLater');
       setAiError(message);
       const next = [...userMsgs, { who: 'ai', text: message }];
-      setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(sessionId) ? { ...s, msgs: next, updatedAt: new Date().toISOString() } : s)));
-      if (String(activeIdRef.current) === String(sessionId)) setMsgs(next);
-      persistSession(sessionId, next, nextTitle);
+      setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(liveSessionId) ? { ...s, msgs: next, updatedAt: new Date().toISOString() } : s)));
+      if ([sessionId, liveSessionId].some(id => String(activeIdRef.current) === String(id))) setMsgs(next);
+      persistSession(liveSessionId, next, nextTitle);
     } finally {
       if (generationRef.current === generationId) {
         setTypingSessionId(null);
@@ -992,6 +1120,12 @@ export default function TutorView({ user, lang = 'en' }) {
 
     const result = await updateTutorSession(renameTarget.id, { title: cleanTitle });
     if (result.error) {
+      if (isMissingTutorSessionError(result.error)) {
+        removeMissingTutorSession(renameTarget.id);
+        setRenameTarget(null);
+        setRenameDraft('');
+        return;
+      }
       setAiError(formatAiError(result.error));
       return;
     }
@@ -1003,6 +1137,10 @@ export default function TutorView({ user, lang = 'en' }) {
   const togglePinned = async (session) => {
     const result = await updateTutorSession(session.id, { pinned: !session.pinned });
     if (result.error) {
+      if (isMissingTutorSessionError(result.error)) {
+        removeMissingTutorSession(session.id);
+        return;
+      }
       setAiError(formatAiError(result.error));
       return;
     }
@@ -1014,6 +1152,11 @@ export default function TutorView({ user, lang = 'en' }) {
 
     const result = await deleteTutorSession(deleteTarget.id);
     if (result.error) {
+      if (isMissingTutorSessionError(result.error)) {
+        removeMissingTutorSession(deleteTarget.id);
+        setDeleteTarget(null);
+        return;
+      }
       setAiError(formatAiError(result.error));
       return;
     }
@@ -1171,6 +1314,10 @@ export default function TutorView({ user, lang = 'en' }) {
     if (folderPersistence === 'database') {
       const result = await updateTutorSession(activeId, { folderId: nextFolderId });
       if (result.error) {
+        if (isMissingTutorSessionError(result.error)) {
+          removeMissingTutorSession(activeId);
+          return;
+        }
         setAiError(formatAiError(result.error));
         return;
       }
@@ -1220,6 +1367,7 @@ export default function TutorView({ user, lang = 'en' }) {
   const pinnedSessions = visibleSessions.filter(s => s.pinned);
   const recentSessions = visibleSessions.filter(s => !s.pinned);
   const hasOnlyWelcome = msgs.length === 1 && msgs[0]?.who === 'ai' && isTutorWelcomeText(msgs[0]?.text);
+  const showAdvancedTutorControls = false;
   const firstName = getFirstName(user);
   const activeSession = sessions.find(s => String(s.id) === String(activeId));
   const activeSessionFolderId = activeSession ? getSessionFolderId(activeSession) : 'unfiled';
@@ -1256,32 +1404,25 @@ export default function TutorView({ user, lang = 'en' }) {
   const unfiledCount = sessions.filter(session => getSessionFolderId(session) === 'unfiled').length;
   const suggestions = [
     {
-      title: tt(lang, 'explainConcept'),
-      body: lang === 'it' ? 'Spiegami un concetto difficile con parole semplici.' : 'Explain a hard concept in simple words.',
-      prompt: lang === 'it' ? 'Spiegami questo concetto con parole semplici: ' : 'Explain this concept in simple words: ',
-      icon: Sparkles,
-      tone: 'indigo',
-    },
-    {
-      title: lang === 'it' ? 'Risolvi passo-passo' : 'Solve step by step',
+      title: lang === 'it' ? 'Risolvi un esercizio' : 'Solve an exercise',
       body: lang === 'it' ? 'Guidami senza saltare i passaggi importanti.' : 'Walk me through it without skipping key steps.',
       prompt: lang === 'it' ? 'Risolvi passo-passo questo esercizio: ' : 'Solve this step by step: ',
-      icon: FileText,
-      tone: 'cyan',
+      icon: CheckCircle,
+      tone: 'green',
     },
     {
-      title: tt(lang, 'quizMe'),
-      body: lang === 'it' ? 'Fammi domande e correggi le mie risposte.' : 'Ask questions and correct my answers.',
-      prompt: tt(lang, 'quizMe'),
-      icon: CheckCircle,
+      title: lang === 'it' ? 'Spiegami un argomento' : 'Explain a topic',
+      body: lang === 'it' ? 'Spiegami un concetto difficile con parole semplici.' : 'Explain a hard concept in simple words.',
+      prompt: lang === 'it' ? 'Spiegami questo argomento: ' : 'Explain this topic: ',
+      icon: Sparkles,
       tone: 'amber',
     },
     {
-      title: tt(lang, 'createRecap'),
-      body: lang === 'it' ? 'Riassumi i punti chiave dei miei appunti.' : 'Summarize the key points from my notes.',
-      prompt: tt(lang, 'createRecap'),
+      title: lang === 'it' ? 'Aiutami a pianificare lo studio' : 'Help me plan study',
+      body: lang === 'it' ? 'Organizza il prossimo blocco di studio.' : 'Plan the next study block.',
+      prompt: lang === 'it' ? 'Aiutami a pianificare lo studio per: ' : 'Help me plan my study for: ',
       icon: Brain,
-      tone: 'blue',
+      tone: 'violet',
     },
   ];
 
@@ -1291,8 +1432,8 @@ export default function TutorView({ user, lang = 'en' }) {
     const messageCount = (s.msgs || []).filter(message => message?.text && !isTutorWelcomeText(message.text)).length;
     const folderLabel = getSessionFolderLabel(s);
     return (
-      <div key={s.id} style={{ ...tutorS.historyItem, ...(isActive ? tutorS.historyItemActive : {}) }}>
-        <button type="button" onClick={() => switchSession(s)} style={{ ...tutorS.historyMain, paddingRight: isActive ? 146 : 10 }}>
+      <div key={s.id} style={{ ...tutorS.historyItem, ...tutorS.historyItemWithActions, ...(isActive ? tutorS.historyItemActive : {}) }}>
+        <button type="button" onClick={() => switchSession(s)} style={{ ...tutorS.historyMain, ...(isActive ? tutorS.historyMainActive : {}) }}>
           <div style={{ ...tutorS.historyTitle, color: isActive ? 'var(--indigo)' : 'var(--ink)' }}>{s.title}</div>
           <div style={tutorS.historyMetaRow}>
             <span>{s.date}</span>
@@ -1302,19 +1443,17 @@ export default function TutorView({ user, lang = 'en' }) {
           <div style={tutorS.historyFolderPill}>{folderLabel}</div>
           {searchPreview && <div style={tutorS.historySnippet}>{searchPreview}</div>}
         </button>
-        {isActive && (
-          <div style={tutorS.historyIconActions}>
-            <button type="button" onClick={() => togglePinned(s)} title={s.pinned ? tt(lang, 'unpinChat') : tt(lang, 'pinChat')} aria-label={s.pinned ? tt(lang, 'unpinChat') : tt(lang, 'pinChat')} style={{ ...tutorS.historyIconBtn, ...(s.pinned ? tutorS.historyPinnedIconBtn : {}) }}>
-              <Pin size={12} />
-            </button>
-            <button type="button" onClick={() => openRenameSession(s)} title={tt(lang, 'renameChat')} aria-label={tt(lang, 'renameChat')} style={tutorS.historyIconBtn}>
-              <Pencil size={12} />
-            </button>
-            <button type="button" onClick={() => setDeleteTarget(s)} title={tt(lang, 'deleteChat')} aria-label={tt(lang, 'deleteChat')} style={{ ...tutorS.historyIconBtn, ...tutorS.historyDangerIconBtn }}>
-              <Trash2 size={12} />
-            </button>
-          </div>
-        )}
+        <div style={tutorS.historyIconActions}>
+          <button type="button" onClick={() => togglePinned(s)} title={s.pinned ? tt(lang, 'unpinChat') : tt(lang, 'pinChat')} aria-label={s.pinned ? tt(lang, 'unpinChat') : tt(lang, 'pinChat')} style={{ ...tutorS.historyIconBtn, ...(s.pinned ? tutorS.historyPinnedIconBtn : {}) }}>
+            <Pin size={10} />
+          </button>
+          <button type="button" onClick={() => openRenameSession(s)} title={tt(lang, 'renameChat')} aria-label={tt(lang, 'renameChat')} style={tutorS.historyIconBtn}>
+            <Pencil size={10} />
+          </button>
+          <button type="button" onClick={() => setDeleteTarget(s)} title={tt(lang, 'deleteChat')} aria-label={tt(lang, 'deleteChat')} style={{ ...tutorS.historyIconBtn, ...tutorS.historyDangerIconBtn }}>
+            <Trash2 size={10} />
+          </button>
+        </div>
       </div>
     );
   };
@@ -1435,7 +1574,7 @@ export default function TutorView({ user, lang = 'en' }) {
       {historyOpen && <div data-testid="tutor-history" style={{
         ...tutorS.historyPane,
         order: isMobile ? undefined : 2,
-        width: isMobile ? '100%' : 300,
+        width: isMobile ? '100%' : 320,
         maxHeight: isMobile ? 'min(74dvh, 560px)' : 'none',
         padding: isMobile ? 16 : '0 18px 0 0',
         border: isMobile ? '1px solid #E1E5EF' : 'none',
@@ -1448,20 +1587,25 @@ export default function TutorView({ user, lang = 'en' }) {
         {isMobile && (
           <div style={tutorS.mobileHistoryHead}>
             <span>{tt(lang, 'history')}</span>
-            <button
-              type="button"
-              onClick={() => setHistoryOpen(false)}
-              style={tutorS.mobileHistoryCloseBtn}
-              aria-label={lang === 'it' ? 'Chiudi cronologia chat' : 'Close chat history'}
-            >
-              <XMark size={16} />
-            </button>
+            <div style={tutorS.mobileHistoryHeadActions}>
+              <button type="button" onClick={newChat} style={tutorS.mobileNewChatBtn} aria-label={tt(lang, 'newChat')}>
+                <Plus size={15} /> {tt(lang, 'newChat')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(false)}
+                style={tutorS.mobileHistoryCloseBtn}
+                aria-label={lang === 'it' ? 'Chiudi cronologia chat' : 'Close chat history'}
+              >
+                <XMark size={16} />
+              </button>
+            </div>
           </div>
         )}
-        <button type="button" onClick={newChat} style={tutorS.newChatBtn} aria-label={tt(lang, 'newChat')}>
+        {showAdvancedTutorControls && !hasOnlyWelcome && <button type="button" onClick={newChat} style={tutorS.newChatBtn} aria-label={tt(lang, 'newChat')}>
           <Plus size={18} /> {tt(lang, 'newChat')}
-        </button>
-        <label style={tutorS.searchBox}>
+        </button>}
+        {showAdvancedTutorControls && !hasOnlyWelcome && <label style={tutorS.searchBox}>
           <Search size={16} />
           <input
             value={sessionSearch}
@@ -1480,8 +1624,8 @@ export default function TutorView({ user, lang = 'en' }) {
               <XMark size={13} />
             </button>
           )}
-        </label>
-        <div data-testid="tutor-folders" style={tutorS.folderPanel}>
+        </label>}
+        <div data-testid="tutor-folders" style={{ ...tutorS.folderPanel, ...tutorS.hiddenFolders }}>
           <div style={tutorS.folderPanelHead}>
             <span>{lang === 'it' ? 'Cartelle' : 'Folders'}</span>
             <button type="button" onClick={() => {
@@ -1539,18 +1683,23 @@ export default function TutorView({ user, lang = 'en' }) {
             </div>
           ))}
         </div>
-        <div style={tutorS.historyScroll}>
+        <div style={{ ...tutorS.historyScroll, ...tutorS.simpleHistoryScroll }}>
           {loadingSessions && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>{tt(lang, 'loading')}</div>}
-          {!loadingSessions && pinnedSessions.length > 0 && (
-            <>
-              <p style={tutorS.historyLabel}>{tt(lang, 'pinned')} <span>{pinnedSessions.length}</span></p>
-              {pinnedSessions.map(renderSessionItem)}
-            </>
-          )}
           {!loadingSessions && (
             <>
-              <p style={tutorS.historyLabel}>{tt(lang, 'recent')} <span>{recentSessions.length}</span></p>
-              {recentSessions.map(renderSessionItem)}
+              {!isMobile && <p style={tutorS.simpleHistoryTitle}>{tt(lang, 'history')}</p>}
+              {pinnedSessions.length > 0 && (
+                <>
+                  <p style={tutorS.simpleHistoryLabel}>{tt(lang, 'pinned')}</p>
+                  {pinnedSessions.map(renderSessionItem)}
+                </>
+              )}
+              {recentSessions.length > 0 && (
+                <>
+                  <p style={tutorS.simpleHistoryLabel}>{pinnedSessions.length > 0 ? tt(lang, 'recent') : (lang === 'it' ? 'Chat' : 'Chats')}</p>
+                  {recentSessions.map(renderSessionItem)}
+                </>
+              )}
               {visibleSessions.length === 0 && (
                 <div style={tutorS.noHistory}>
                   {cleanSessionSearch
@@ -1565,70 +1714,21 @@ export default function TutorView({ user, lang = 'en' }) {
 
       {/* Chat area */}
       <div data-testid="tutor-chat-pane" style={{ ...tutorS.chatPane, order: isMobile ? undefined : 1, paddingLeft: 0, paddingRight: isMobile ? 0 : (historyOpen ? 28 : 0) }}>
-        <div data-testid="tutor-chat-header" style={{ ...tutorS.head, ...(hasOnlyWelcome ? tutorS.headEmpty : {}) }}>
-          {!hasOnlyWelcome ? (
-            <div style={tutorS.headIdentity}>
-              <div style={tutorS.headText}>
-                <div style={tutorS.headTitleRow}>
-                  <span style={tutorS.chatStatusDot} />
-                  <h2 style={tutorS.headTitle}>{activeSession?.title || 'AI Tutor'}</h2>
-                  <span style={tutorS.headPersonaPill}>{activeTutorStyle.label[lang] || activeTutorStyle.label.en}</span>
-                </div>
-                <div style={tutorS.headMeta}>
-                  <span style={tutorS.metaText}>{activeFolderLabel}</span>
-                  <span style={tutorS.metaDot} />
-                  <span style={tutorS.metaText}>{studyContextLabel}</span>
-                  {freePlan && (
-                    <span style={tutorS.usagePill} title={tt(lang, 'freeAiTutorRemainingCopy')}>
-                      <span>{tutorUsagePillLabel}</span>
-                      <span style={tutorS.usagePillTrack}>
-                        <span style={{ ...tutorS.usagePillFill, width: `${tutorUsageProgress}%` }} />
-                      </span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={tutorS.headSpacer} />
-          )}
+        <div data-testid="tutor-chat-header" style={{ ...tutorS.head, ...tutorS.headEmpty }}>
+          <div style={tutorS.headSpacer} />
           {!isMobile && (
-            <div style={tutorS.headTools}>
-              <label style={tutorS.tutorStyleSelectLabel}>
-                <span>{activeTutorStyle.label[lang] || activeTutorStyle.label.en}</span>
-                <select
-                  value={tutorStyle}
-                  onChange={(e) => setTutorStyle(e.target.value)}
-                  style={tutorS.tutorStyleSelect}
-                  aria-label={lang === 'it' ? 'Stile del tutor' : 'Tutor style'}
-                >
-                  {TUTOR_STYLES.map(style => (
-                    <option key={style.id} value={style.id}>
-                      {style.short[lang] || style.short.en}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label style={tutorS.folderSelectLabel}>
-                <span>{lang === 'it' ? 'Cartella' : 'Folder'}</span>
-                <select
-                  value={activeSessionFolderId}
-                  onChange={(e) => moveActiveSessionToFolder(e.target.value)}
-                  style={tutorS.folderSelect}
-                  aria-label={lang === 'it' ? 'Cartella della chat' : 'Chat folder'}
-                >
-                  <option value="unfiled">{lang === 'it' ? 'Senza cartella' : 'Unfiled'}</option>
-                  {folders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
-                </select>
-              </label>
+            <div style={{ ...tutorS.headTools, ...tutorS.headToolsEmpty }}>
+              <button type="button" onClick={newChat} style={tutorS.emptyNewChatBtn} aria-label={tt(lang, 'newChat')}>
+                <Plus size={17} /> {tt(lang, 'newChat')}
+              </button>
               <button
                 type="button"
                 onClick={() => setHistoryOpen(p => !p)}
-                style={{ ...tutorS.historyToggleBtn, ...(historyOpen ? tutorS.historyToggleBtnActive : {}) }}
+                style={{ ...tutorS.emptyHistoryBtn, ...(historyOpen ? tutorS.emptyHistoryBtnActive : {}) }}
                 title={historyOpen ? (lang === 'it' ? 'Nascondi cronologia chat' : 'Hide chat history') : (lang === 'it' ? 'Mostra cronologia chat' : 'Show chat history')}
                 aria-label={historyOpen ? (lang === 'it' ? 'Nascondi cronologia chat' : 'Hide chat history') : (lang === 'it' ? 'Mostra cronologia chat' : 'Show chat history')}
               >
-                <SidebarPanel size={16} />
+                <MsgCircle size={18} />
               </button>
             </div>
           )}
@@ -1638,7 +1738,7 @@ export default function TutorView({ user, lang = 'en' }) {
             </button>
           )}
         </div>
-        {isMobile && (
+        {showAdvancedTutorControls && isMobile && !hasOnlyWelcome && (
           <div style={tutorS.mobileTools}>
             <label style={{ ...tutorS.tutorStyleSelectLabel, flex: 1, maxWidth: 'none', justifyContent: 'space-between' }}>
               <span>{activeTutorStyle.label[lang] || activeTutorStyle.label.en}</span>
@@ -1673,15 +1773,12 @@ export default function TutorView({ user, lang = 'en' }) {
         <div data-testid="tutor-thread" ref={endRef} style={tutorS.thread}>
           {hasOnlyWelcome ? (
             <div style={tutorS.emptyState}>
-              <div style={tutorS.emptyIcon}><Sparkles size={30} /></div>
+              <div style={tutorS.emptyLogoMark} aria-hidden="true">
+                <img src="/Lockeen-icon.png" alt="" style={tutorS.emptyLogoImage} />
+              </div>
               <h1 style={tutorS.emptyTitle}>
                 {lang === 'it' ? 'Come posso aiutarti?' : 'How can I help?'}
               </h1>
-              <p style={tutorS.emptyCopy}>
-                {lang === 'it'
-                  ? `Ciao ${firstName}. Posso usare i tuoi esami, appunti e materiali per spiegarti, interrogarti o aiutarti a pianificare.`
-                  : `Hi ${firstName}. I can use your exams, notes, and materials to explain, quiz, or help you plan.`}
-              </p>
               <div style={tutorS.emptyComposerWrap}>
                 {renderComposer('hero')}
               </div>
@@ -1696,7 +1793,6 @@ export default function TutorView({ user, lang = 'en' }) {
                   </button>
                 ))}
               </div>
-              <p style={tutorS.emptyContextCopy}>{emptyContextCopy}</p>
             </div>
           ) : (
             msgs.map((m, i) => {
@@ -1872,12 +1968,15 @@ export default function TutorView({ user, lang = 'en' }) {
 const tutorS = {
   wrap: { display: 'flex', flexDirection: 'column', minHeight: 560 },
   shell: { position: 'relative', display: 'flex', gap: 0, overflow: 'hidden', overscrollBehavior: 'contain', background: '#fff' },
-  historyPane: { flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '0 18px 0 0', borderRight: '1px solid #EEF1F6', minHeight: 0, overflow: 'hidden', background: '#F8FAFC' },
+  historyPane: { flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '0 18px 0 0', borderRight: '1px solid #EEF1F6', minHeight: 0, overflow: 'hidden', background: '#fff' },
   historyScrim: { position: 'absolute', inset: 0, zIndex: 24, border: 'none', padding: 0, background: 'rgba(15,23,42,.18)', backdropFilter: 'blur(2px)', cursor: 'pointer' },
   mobileHistoryPane: { position: 'absolute', left: 0, right: 0, top: 0, zIndex: 25, background: '#fff', borderRadius: 22, boxShadow: '0 26px 80px rgba(15,23,42,.22)', overflow: 'hidden' },
   mobileHistoryHead: { minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, color: 'var(--ink)', fontSize: 15, fontWeight: 950 },
+  mobileHistoryHeadActions: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
+  mobileNewChatBtn: { minHeight: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '0 12px', borderRadius: 13, border: '1px solid rgba(55,48,232,.16)', background: 'var(--indigo)', color: '#fff', fontSize: 12, lineHeight: 1, fontWeight: 900, cursor: 'pointer', boxShadow: '0 10px 20px rgba(55,48,232,.14)' },
   mobileHistoryCloseBtn: { width: 44, height: 44, borderRadius: 14, border: '1px solid #E1E5EF', background: '#fff', color: 'var(--gray)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 },
   newChatBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', minHeight: 52, padding: '0 16px', borderRadius: 15, background: 'var(--indigo)', color: '#fff', fontWeight: 900, fontSize: 14, border: 'none', cursor: 'pointer', marginBottom: 14, boxShadow: '0 14px 28px rgba(55,48,232,.16)' },
+  hiddenFolders: { display: 'none' },
   searchBox: { minHeight: 46, display: 'flex', alignItems: 'center', gap: 10, padding: '0 13px', borderRadius: 15, border: '1px solid #E3E7EF', background: '#fff', color: 'var(--gray)', marginBottom: 12 },
   searchInput: { flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 14, fontWeight: 650 },
   searchClearBtn: { width: 36, height: 36, borderRadius: 12, border: 'none', background: '#F1F5F9', color: 'var(--gray-2)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, flexShrink: 0 },
@@ -1899,10 +1998,13 @@ const tutorS = {
   folderActionBtn: { width: 44, height: 44, borderRadius: 13, border: 'none', background: 'transparent', color: 'var(--gray-2)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 },
   folderDangerActionBtn: { color: '#EF4444' },
   historyScroll: { flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2 },
+  simpleHistoryScroll: { padding: '6px 0 0 18px', gap: 9 },
+  simpleHistoryTitle: { margin: '0 0 14px', color: '#09090B', fontSize: 22, lineHeight: 1.15, fontWeight: 850, letterSpacing: 0 },
+  simpleHistoryLabel: { margin: '4px 0 2px', color: '#8A93A3', fontSize: 10, lineHeight: 1, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.08em' },
   noHistory: { fontSize: 12, color: 'var(--gray)', padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px dashed #E1E5EF' },
   chatPane: { flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', paddingLeft: 28, background: '#fff' },
   head: { flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 42, marginBottom: 0, padding: '0 2px 7px', borderBottom: '1px solid rgba(226,232,240,.72)' },
-  headEmpty: { minHeight: 44, padding: '0 2px', borderBottom: 'none' },
+  headEmpty: { minHeight: 48, padding: '0 2px', borderBottom: 'none' },
   headSpacer: { flex: '1 1 auto', minWidth: 0 },
   headIdentity: { flex: '1 1 auto', display: 'flex', alignItems: 'center', minWidth: 0 },
   headText: { minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 },
@@ -1915,6 +2017,10 @@ const tutorS = {
   headPersonaPill: { display: 'inline-flex', alignItems: 'center', minHeight: 22, padding: '0 8px', borderRadius: 999, background: '#F8FAFF', border: '1px solid rgba(55,48,232,.12)', color: 'var(--indigo)', fontSize: 11, lineHeight: 1, fontWeight: 900, whiteSpace: 'nowrap' },
   avatar: { width: 24, height: 24, borderRadius: 8, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', boxShadow: '0 8px 18px rgba(55,48,232,.14)', flexShrink: 0 },
   headTools: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
+  headToolsEmpty: { position: 'absolute', top: 0, right: 0, zIndex: 3 },
+  emptyNewChatBtn: { minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 15px', borderRadius: 10, border: '1px solid #E4E4E7', background: '#fff', color: '#09090B', fontSize: 15, fontWeight: 820, cursor: 'pointer', boxShadow: '0 1px 0 rgba(15,23,42,.02)' },
+  emptyHistoryBtn: { width: 44, height: 44, borderRadius: 10, border: 'none', background: '#F1F1F5', color: '#09090B', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 },
+  emptyHistoryBtnActive: { background: '#D8D8DE' },
   historyToggleBtn: { width: 42, height: 42, borderRadius: 14, border: '1px solid #E1E5EF', background: '#fff', color: 'var(--gray)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 8px 20px rgba(15,23,42,.035)', transition: 'background .16s ease, color .16s ease, border-color .16s ease, box-shadow .16s ease' },
   historyToggleBtnActive: { borderColor: 'rgba(55,48,232,.18)', background: '#F1F3FF', color: 'var(--indigo)', boxShadow: '0 10px 24px rgba(55,48,232,.08)' },
   tutorStyleSelectLabel: { display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 40, padding: '0 9px 0 12px', borderRadius: 999, border: '1px solid rgba(55,48,232,.14)', background: '#fff', color: 'var(--indigo)', fontSize: 10, fontWeight: 900, maxWidth: 210, boxShadow: '0 8px 20px rgba(15,23,42,.03)' },
@@ -1931,39 +2037,45 @@ const tutorS = {
   usagePillFill: { display: 'block', height: '100%', borderRadius: 999, background: 'var(--indigo)', transition: 'width .2s ease' },
   historyLabel: { margin: '10px 0 8px', fontSize: 11, fontWeight: 900, color: 'var(--gray-2)', textTransform: 'uppercase', letterSpacing: '.08em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   historyItem: { position: 'relative', borderRadius: 13, border: '1px solid transparent', background: 'transparent', padding: 0 },
-  historyItemActive: { background: 'linear-gradient(135deg, rgba(55,48,232,.08), rgba(105,80,255,.06))', borderColor: 'rgba(55,48,232,.22)', boxShadow: '0 10px 24px rgba(55,48,232,.08)' },
-  historyMain: { textAlign: 'left', padding: '11px 12px', borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%' },
-  historyTitle: { fontSize: 13, fontWeight: 850, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginBottom: 3 },
-  historyDate: { fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
-  historyMetaRow: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--gray)', fontSize: 11, fontWeight: 700 },
+  historyItemActive: { background: '#F7F7FB', borderColor: '#ECECF2', boxShadow: 'none' },
+  historyItemWithActions: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 6, paddingRight: 7 },
+  historyMain: { textAlign: 'left', padding: '9px 8px 9px 11px', borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%', minWidth: 0 },
+  historyMainActive: { paddingRight: 2 },
+  historyTitle: { fontSize: 12, fontWeight: 850, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginBottom: 3 },
+  historyDate: { fontSize: 10, fontWeight: 700, color: 'var(--gray)' },
+  historyMetaRow: { display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--gray)', fontSize: 10, fontWeight: 700 },
   historyMetaDot: { width: 3, height: 3, borderRadius: 999, background: '#CBD5E1', flexShrink: 0 },
-  historyFolderPill: { display: 'inline-flex', maxWidth: '100%', marginTop: 7, padding: '4px 8px', borderRadius: 999, background: '#fff', border: '1px solid #E5E7F1', color: 'var(--gray-2)', fontSize: 10, lineHeight: 1, fontWeight: 850, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' },
+  historyFolderPill: { display: 'none' },
   historySnippet: { marginTop: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: 'var(--gray-2)', fontSize: 11, lineHeight: 1.28, fontWeight: 650 },
-  historyIconActions: { position: 'absolute', top: 47, right: 10, display: 'flex', alignItems: 'center', gap: 5 },
-  historyIconBtn: { width: 36, height: 36, borderRadius: 999, border: '1px solid rgba(55,48,232,.16)', background: '#fff', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 4px 10px rgba(15,23,42,.06)' },
-  historyPinnedIconBtn: { borderColor: 'var(--indigo)', background: 'var(--indigo)', color: '#fff', boxShadow: '0 8px 18px rgba(55,48,232,.2)' },
-  historyDangerIconBtn: { borderColor: 'rgba(239,68,68,.22)', background: '#FFF7F7', color: '#B91C1C' },
+  historyIconActions: { position: 'static', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 },
+  historyIconBtn: { width: 30, height: 30, borderRadius: 999, border: '1px solid rgba(55,48,232,.12)', background: '#fff', color: 'rgba(55,48,232,.78)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 3px 8px rgba(15,23,42,.035)' },
+  historyPinnedIconBtn: { borderColor: 'var(--indigo)', background: 'var(--indigo)', color: '#fff', boxShadow: '0 7px 14px rgba(55,48,232,.16)' },
+  historyDangerIconBtn: { borderColor: 'rgba(239,68,68,.18)', background: '#FFF7F7', color: '#C24141' },
   thread: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 4px 8px', overflowY: 'auto' },
-  emptyState: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '26px 18px 30px', textAlign: 'center' },
+  emptyState: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 18px 30px', textAlign: 'center' },
   emptyIcon: { width: 66, height: 66, borderRadius: 18, display: 'grid', placeItems: 'center', color: '#fff', background: 'linear-gradient(135deg, var(--indigo), var(--purple))', boxShadow: '0 20px 42px rgba(55,48,232,.18)' },
-  emptyTitle: { margin: '18px 0 8px', color: 'var(--ink)', fontSize: 24, lineHeight: 1.08, fontWeight: 950, letterSpacing: 0 },
+  emptyLogoMark: { width: 80, height: 80, borderRadius: 18, background: '#432BFF', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 16px 34px rgba(67,43,255,.16)' },
+  emptyLogoImage: { width: 60, height: 60, objectFit: 'contain', display: 'block' },
+  emptyTitle: { margin: '18px 0 18px', color: '#09090B', fontSize: 28, lineHeight: 1.08, fontWeight: 850, letterSpacing: 0 },
   emptyCopy: { margin: 0, maxWidth: 600, color: 'var(--gray)', fontSize: 15, lineHeight: 1.45, fontWeight: 650 },
   emptyContextCopy: { margin: '14px 0 0', maxWidth: 620, color: 'var(--gray-2)', fontSize: 12, lineHeight: 1.35, fontWeight: 700 },
-  emptyComposerWrap: { width: 'min(680px, 100%)', marginTop: 18 },
-  emptyPromptGrid: { width: 'min(680px, 100%)', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  emptyComposerWrap: { width: 'min(840px, 100%)', marginTop: 0 },
+  emptyPromptGrid: { width: 'min(760px, 100%)', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 12, marginTop: 20 },
   emptyPromptGridMobile: { flexDirection: 'column', alignItems: 'stretch' },
-  emptyPromptCard: { minHeight: 40, display: 'inline-flex', alignItems: 'center', gap: 8, textAlign: 'left', padding: '8px 12px', borderRadius: 999, border: '1px solid #E1E5EF', background: '#fff', color: 'var(--ink)', cursor: 'pointer', boxShadow: '0 10px 22px rgba(15,23,42,.035)', transition: 'transform .18s ease, border-color .18s ease, box-shadow .18s ease' },
-  promptIcon: { width: 24, height: 24, borderRadius: 999, display: 'grid', placeItems: 'center', flexShrink: 0, background: '#EEF2FF', border: '1px solid #D8DEFF', color: 'var(--indigo)' },
+  emptyPromptCard: { minHeight: 40, display: 'inline-flex', alignItems: 'center', gap: 8, textAlign: 'left', padding: '7px 14px 7px 10px', borderRadius: 999, border: '1px solid #DADAE3', background: '#fff', color: '#09090B', cursor: 'pointer', boxShadow: 'none', transition: 'transform .18s ease, border-color .18s ease, box-shadow .18s ease' },
+  promptIcon: { width: 22, height: 22, borderRadius: 999, display: 'grid', placeItems: 'center', flexShrink: 0, background: '#EEF2FF', border: '1px solid #D8DEFF', color: 'var(--indigo)' },
   indigoPromptIcon: { background: '#EEF2FF', borderColor: '#D8DEFF', color: 'var(--indigo)' },
   cyanPromptIcon: { background: '#ECFEFF', borderColor: '#BAE6FD', color: '#0891B2' },
   amberPromptIcon: { background: '#FFF7ED', borderColor: '#FED7AA', color: '#EA580C' },
   bluePromptIcon: { background: '#EFF6FF', borderColor: '#BFDBFE', color: '#2563EB' },
-  promptTitle: { display: 'block', color: 'var(--ink)', fontSize: 12, lineHeight: 1.2, fontWeight: 850, marginBottom: 0 },
+  greenPromptIcon: { background: '#F0FDF4', borderColor: '#BBF7D0', color: '#22C55E' },
+  violetPromptIcon: { background: '#FAF5FF', borderColor: '#E9D5FF', color: '#8B5CF6' },
+  promptTitle: { display: 'block', color: '#09090B', fontSize: 14, lineHeight: 1.2, fontWeight: 650, marginBottom: 0 },
   promptBody: { display: 'none' },
   userMessageGroup: { maxWidth: '82%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 },
   aiMessageGroup: { maxWidth: '82%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 },
-  bubbleAI:   { maxWidth: '100%', background: 'var(--bubble-ai-bg)', color: 'var(--ink)', padding: '14px 16px', borderRadius: 18, borderTopLeftRadius: 6, fontSize: 14, lineHeight: 1.5 },
-  bubbleUser: { maxWidth: '100%', background: 'var(--indigo)', color: '#fff', padding: '12px 16px', borderRadius: 18, borderTopRightRadius: 6, fontSize: 14, lineHeight: 1.5 },
+  bubbleAI:   { maxWidth: '100%', background: '#F7F7FB', color: 'var(--ink)', padding: '16px 18px', borderRadius: 18, border: '1px solid #ECECF2', fontSize: 14, lineHeight: 1.52 },
+  bubbleUser: { maxWidth: '100%', background: '#3F35F2', color: '#fff', padding: '12px 16px', borderRadius: 16, fontSize: 14, lineHeight: 1.5 },
   messageActions: { display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 2, marginTop: -3, flexWrap: 'wrap' },
   messageActionsUser: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, paddingRight: 2, marginTop: -3, flexWrap: 'wrap' },
   messageActionBtn: { minHeight: 36, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '0 12px', borderRadius: 999, border: '1px solid #E1E5EF', background: '#fff', color: 'var(--gray)', cursor: 'pointer', fontSize: 11, fontWeight: 800, boxShadow: '0 6px 16px rgba(15,23,42,.04)' },
@@ -1976,27 +2088,30 @@ const tutorS = {
   mdP: { margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--ink)' },
   mdList: { margin: '0 0 0 18px', padding: 0, display: 'flex', flexDirection: 'column', gap: 4, lineHeight: 1.5 },
   callout: { marginTop: 2, padding: '9px 11px', borderRadius: 10, border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13, lineHeight: 1.45 },
+  mathInline: { display: 'inline-block', maxWidth: '100%', overflowX: 'auto', overflowY: 'hidden', verticalAlign: '-0.18em' },
+  mathBlockWrap: { maxWidth: '100%', overflowX: 'auto', padding: '4px 0 2px' },
+  mathBlock: { display: 'block', maxWidth: '100%', overflowX: 'auto', overflowY: 'hidden', padding: '3px 0' },
   tableWrap: { maxWidth: '100%', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12, lineHeight: 1.4 },
   th: { textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid var(--border)', fontWeight: 800, color: 'var(--ink)', background: 'var(--sidebar-bg)' },
   td: { padding: '8px 10px', borderBottom: '1px solid var(--border)', color: 'var(--ink)', verticalAlign: 'top' },
   typingDot: { width: 8, height: 8, borderRadius: 999, background: 'var(--gray-2)', animation: 'tdot 1s infinite ease-in-out' },
-  composerDock: { flexShrink: 0, marginTop: 'auto', padding: '12px 0 0', borderTop: '1px solid #EEF1F7', background: 'linear-gradient(180deg, rgba(255,255,255,0), #fff 22%)', boxSizing: 'border-box' },
+  composerDock: { flexShrink: 0, marginTop: 'auto', padding: '12px 0 0', borderTop: '1px solid #F0F0F4', background: 'linear-gradient(180deg, rgba(255,255,255,0), #fff 22%)', boxSizing: 'border-box' },
   suggestRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '0 0 10px' },
   suggestChip: { minHeight: 38, padding: '8px 13px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12, cursor: 'pointer' },
   backgroundTypingNotice: { width: 'min(860px, 100%)', margin: '0 auto 8px', minHeight: 36, padding: '8px 10px 8px 13px', borderRadius: 13, border: '1px solid rgba(55,48,232,.16)', background: '#F8FAFF', color: 'var(--gray)', fontSize: 12, fontWeight: 750, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   backgroundTypingStop: { minHeight: 36, padding: '0 12px', borderRadius: 999, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', fontSize: 11, fontWeight: 900, cursor: 'pointer', flexShrink: 0 },
   errorBox: { marginBottom: 8, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600 },
-  composer: { width: 'min(860px, 100%)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 9, background: '#fff', border: '1px solid #DDE2ED', borderRadius: 20, boxShadow: '0 18px 50px rgba(15,23,42,.08)' },
-  heroComposer: { width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 8, background: '#fff', border: '1px solid #DDE2ED', borderRadius: 17, boxShadow: '0 12px 28px rgba(15,23,42,.045)' },
+  composer: { width: 'min(860px, 100%)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 9, background: '#fff', border: '2px solid #E4E4EA', borderRadius: 18, boxShadow: 'none' },
+  heroComposer: { width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 8, background: '#fff', border: '2px solid #E4E4EA', borderRadius: 16, boxShadow: 'none' },
   composerRow: { display: 'flex', alignItems: 'flex-end', gap: 8, width: '100%' },
-  heroComposerRow: { minHeight: 116, display: 'grid', gridTemplateColumns: '44px 1fr 44px', alignItems: 'end', gap: 8, width: '100%' },
+  heroComposerRow: { minHeight: 168, display: 'grid', gridTemplateColumns: '44px 1fr 44px', alignItems: 'end', gap: 8, width: '100%' },
   attachBtn: { flexShrink: 0, width: 44, height: 44, borderRadius: 14, background: '#F8FAFF', border: '1px solid #E7E9F4', cursor: 'pointer', color: 'var(--gray)', display: 'grid', placeItems: 'center' },
-  heroAttachBtn: { alignSelf: 'end', width: 44, height: 44, borderRadius: 12, background: '#F8FAFC', border: '1px solid #E7E9F4', cursor: 'pointer', color: 'var(--gray)', display: 'grid', placeItems: 'center' },
+  heroAttachBtn: { alignSelf: 'end', width: 44, height: 44, borderRadius: 10, background: '#fff', border: '1px solid #E4E4EA', cursor: 'pointer', color: '#09090B', display: 'grid', placeItems: 'center' },
   composerInput: { flex: 1, minWidth: 0, minHeight: 46, maxHeight: 118, border: 'none', outline: 'none', padding: '13px 8px', fontSize: 16, lineHeight: 1.35, background: 'transparent', color: 'var(--ink)', resize: 'none', overflowY: 'auto', fontFamily: 'inherit' },
-  heroComposerInput: { alignSelf: 'stretch', width: '100%', minWidth: 0, minHeight: 96, maxHeight: 132, border: 'none', outline: 'none', padding: '10px 4px', fontSize: 15, lineHeight: 1.4, background: 'transparent', color: 'var(--ink)', resize: 'none', overflowY: 'auto', fontFamily: 'inherit' },
+  heroComposerInput: { alignSelf: 'stretch', width: '100%', minWidth: 0, minHeight: 150, maxHeight: 168, border: 'none', outline: 'none', padding: '12px 4px', fontSize: 17, lineHeight: 1.4, background: 'transparent', color: 'var(--ink)', resize: 'none', overflowY: 'auto', fontFamily: 'inherit' },
   sendBtn: { width: 46, height: 46, borderRadius: 15, border: 'none', background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center', boxShadow: '0 14px 28px rgba(55,48,232,.18)' },
-  heroSendBtn: { alignSelf: 'end', width: 44, height: 44, borderRadius: 12, border: 'none', background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center', boxShadow: '0 10px 22px rgba(55,48,232,.16)' },
+  heroSendBtn: { alignSelf: 'end', width: 44, height: 44, borderRadius: 10, border: 'none', background: '#EFEFF4', color: '#7A7A86', display: 'grid', placeItems: 'center', boxShadow: 'none' },
   stopBtn: { width: 46, height: 46, borderRadius: 15, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: '0 14px 28px rgba(220,38,38,.12)' },
   heroStopBtn: { alignSelf: 'end', width: 44, height: 44, borderRadius: 12, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: '0 10px 22px rgba(220,38,38,.1)' },
   attachmentTray: { width: '100%', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '4px 4px 0' },

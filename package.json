@@ -11,16 +11,18 @@
     "security:frontend-env": "node scripts/check-frontend-secrets.mjs",
     "security:real-mode": "node scripts/check-real-mode-mock-guards.mjs",
     "security:rls": "node scripts/check-rls-baseline.mjs",
+    "ai-tutor:check": "node scripts/check-ai-tutor-production.mjs",
     "tutor:check": "node scripts/check-tutor-contracts.mjs",
     "planner:check": "node scripts/check-study-planner.mjs",
     "flashcards:check": "node scripts/check-flashcard-generation.mjs",
     "quiz:check": "node scripts/check-quiz-generation.mjs",
-    "ci": "npm run setup:check && npm run security:frontend-env && npm run security:real-mode && npm run security:rls && npm run tutor:check && npm run planner:check && npm run flashcards:check && npm run quiz:check && npm run build"
+    "ci": "npm run setup:check && npm run security:frontend-env && npm run security:real-mode && npm run security:rls && npm run ai-tutor:check && npm run tutor:check && npm run planner:check && npm run flashcards:check && npm run quiz:check && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.40.0",
+    "katex": "^0.17.0",
     "lucide-react": "^0.468.0",
     "pdfjs-dist": "^4.10.38",
     "react": "^18.3.1",

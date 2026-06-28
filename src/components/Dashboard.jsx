@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { isMockMode } from '../lib/apiClient';
 import { cellularRespirationCards, cellularRespirationQuestions, seedExams } from '../data/mockData';
@@ -18,6 +18,19 @@ import { listCalendarEvents, listUserCalendarActivities, updateCalendarActivity 
 
 /* ===================== DASHBOARD SHELL ===================== */
 const CALENDAR_EVENTS_STORAGE_PREFIX = 'lockeen.calendarEvents.v1';
+
+function resetHorizontalViewport() {
+  if (typeof window === 'undefined') return;
+  document.documentElement.scrollLeft = 0;
+  document.body.scrollLeft = 0;
+  if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+}
+
+function syncMobileViewportWidth() {
+  if (typeof window === 'undefined') return;
+  const width = Math.floor(window.visualViewport?.width || window.innerWidth || 0);
+  if (width > 0) document.documentElement.style.setProperty('--lockeen-vvw', `${width}px`);
+}
 
 function calendarStorageKey(user) {
   return `${CALENDAR_EVENTS_STORAGE_PREFIX}:${user?.id || user?.email || 'local'}`;
@@ -157,6 +170,53 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notifRef = useRef(null);
   const profileRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!isMobile) return undefined;
+    syncMobileViewportWidth();
+    resetHorizontalViewport();
+    const firstFrame = window.requestAnimationFrame(resetHorizontalViewport);
+    const secondFrame = window.requestAnimationFrame(() => {
+      syncMobileViewportWidth();
+      window.requestAnimationFrame(resetHorizontalViewport);
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [isMobile, tab, user?.id, user?.email]);
+
+  useEffect(() => {
+    if (!isMobile) return undefined;
+    syncMobileViewportWidth();
+    const viewport = window.visualViewport;
+    const sync = () => {
+      syncMobileViewportWidth();
+      resetHorizontalViewport();
+    };
+    window.addEventListener('resize', sync);
+    window.addEventListener('orientationchange', sync);
+    viewport?.addEventListener('resize', sync);
+    viewport?.addEventListener('scroll', sync);
+    return () => {
+      window.removeEventListener('resize', sync);
+      window.removeEventListener('orientationchange', sync);
+      viewport?.removeEventListener('resize', sync);
+      viewport?.removeEventListener('scroll', sync);
+      document.documentElement.style.removeProperty('--lockeen-vvw');
+    };
+  }, [isMobile]);
+
+  const mobileShellStyle = isMobile
+    ? {
+        width: 'var(--lockeen-vvw, 100vw)',
+        maxWidth: 'var(--lockeen-vvw, 100vw)',
+        minWidth: 'var(--lockeen-vvw, 100vw)',
+        padding: '12px 0 80px',
+      }
+    : {
+        padding: '24px clamp(18px, 2.4vw, 40px) 40px',
+      };
 
   useEffect(() => {
     function onDashboardView(event) {
@@ -729,7 +789,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   };
 
   return (
-    <div className="lockeen-app-shell" style={{ ...shellS.wrap, padding: isMobile ? '12px 0 80px' : '24px clamp(18px, 2.4vw, 40px) 40px' }}>
+    <div className="lockeen-app-shell" style={{ ...shellS.wrap, ...mobileShellStyle }}>
       <DashboardHeader
         user={user}
         lang={lang}

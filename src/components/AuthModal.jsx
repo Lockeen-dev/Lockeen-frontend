@@ -198,6 +198,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
         window.history.replaceState({}, '', window.location.pathname || '/');
       }
       setNotice(copy.errors.passwordUpdated);
+      settleMobileViewport();
       onAuth && onAuth(result.data.user);
       return;
     }
@@ -220,6 +221,7 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
       setError(formatAuthError(result.error, mode, copy));
       return;
     }
+    settleMobileViewport();
     onAuth && onAuth(result.data.user);
   };
 
@@ -366,6 +368,17 @@ export default function AuthModal({ initialMode = "signin", onAuth, onClose, dar
   );
 }
 
+function settleMobileViewport() {
+  if (typeof window === 'undefined' || !window.matchMedia?.('(max-width: 768px)').matches) return;
+  const active = document.activeElement;
+  if (active && typeof active.blur === 'function') active.blur();
+  requestAnimationFrame(() => {
+    document.documentElement.scrollLeft = 0;
+    document.body.scrollLeft = 0;
+    if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+  });
+}
+
 function Field({ label, right, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -437,7 +450,7 @@ const authS = {
   divider: { display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0' },
   dividerLine: { flex: 1, height: 1, background: 'var(--border)' },
   dividerText: { color: 'var(--gray-2)', fontSize: 13 },
-  input: { width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 15, color: 'var(--ink)', background: 'var(--input-bg)', outline: 'none', transition: 'border-color .15s' },
+  input: { width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 16, color: 'var(--ink)', background: 'var(--input-bg)', outline: 'none', transition: 'border-color .15s' },
   error: { padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600, lineHeight: 1.4 },
   notice: { padding: '10px 12px', borderRadius: 12, background: '#ECFDF5', border: '1px solid #86EFAC', color: '#166534', fontSize: 13, fontWeight: 600, lineHeight: 1.4 },
   eyeBtn: { position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', padding: 8, color: 'var(--gray)', borderRadius: 8 },
