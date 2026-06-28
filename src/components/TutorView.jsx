@@ -1692,11 +1692,8 @@ export default function TutorView({ user, lang = 'en' }) {
         <div data-testid="tutor-thread" ref={endRef} style={tutorS.thread}>
           {hasOnlyWelcome ? (
             <div style={tutorS.emptyState}>
-              <div style={tutorS.emptyMascot} aria-hidden="true">
-                <div style={tutorS.emptyMascotHead}>
-                  <span style={tutorS.emptyMascotEye} />
-                  <span style={tutorS.emptyMascotEye} />
-                </div>
+              <div style={tutorS.emptyLogoMark} aria-hidden="true">
+                <img src="/Lockeen-icon.png" alt="" style={tutorS.emptyLogoImage} />
               </div>
               <h1 style={tutorS.emptyTitle}>
                 {lang === 'it' ? 'Come posso aiutarti?' : 'How can I help?'}
@@ -1971,9 +1968,8 @@ const tutorS = {
   thread: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 4px 8px', overflowY: 'auto' },
   emptyState: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 18px 30px', textAlign: 'center' },
   emptyIcon: { width: 66, height: 66, borderRadius: 18, display: 'grid', placeItems: 'center', color: '#fff', background: 'linear-gradient(135deg, var(--indigo), var(--purple))', boxShadow: '0 20px 42px rgba(55,48,232,.18)' },
-  emptyMascot: { width: 80, height: 80, borderRadius: 14, background: '#4B63F4', display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden' },
-  emptyMascotHead: { width: 52, height: 36, borderRadius: '46% 46% 38% 38%', background: '#171721', border: '5px solid #FF6B2C', transform: 'rotate(-8deg)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, boxShadow: '0 0 0 2px rgba(23,23,33,.08)' },
-  emptyMascotEye: { width: 9, height: 6, borderRadius: '50% 50% 45% 45%', background: '#fff', display: 'block' },
+  emptyLogoMark: { width: 80, height: 80, borderRadius: 18, background: '#432BFF', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 16px 34px rgba(67,43,255,.16)' },
+  emptyLogoImage: { width: 78, height: 78, objectFit: 'contain', display: 'block' },
   emptyTitle: { margin: '18px 0 18px', color: '#09090B', fontSize: 28, lineHeight: 1.08, fontWeight: 850, letterSpacing: 0 },
   emptyCopy: { margin: 0, maxWidth: 600, color: 'var(--gray)', fontSize: 15, lineHeight: 1.45, fontWeight: 650 },
   emptyContextCopy: { margin: '14px 0 0', maxWidth: 620, color: 'var(--gray-2)', fontSize: 12, lineHeight: 1.35, fontWeight: 700 },
