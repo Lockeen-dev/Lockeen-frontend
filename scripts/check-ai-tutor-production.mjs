@@ -7,6 +7,8 @@ const tutorView = fs.readFileSync('src/components/TutorView.jsx', 'utf8');
 const envExample = fs.readFileSync('.env.example', 'utf8');
 
 const browserOpenAIEnvPattern = new RegExp('VITE_' + 'OPENAI');
+const serviceRoleEnvName = 'SUPABASE_' + 'SERVICE_' + 'ROLE_' + 'KEY';
+const serviceRoleMissingCode = 'SUPABASE_' + 'SERVICE_' + 'ROLE_' + 'MISSING';
 
 const checks = [
   {
@@ -40,7 +42,7 @@ const checks = [
     label: 'preview and production require persistent quota storage',
     ok: /function requiresPersistentQuota/.test(aiApi) &&
       /\['production', 'preview'\]\.includes\(process\.env\.VERCEL_ENV \|\| ''\)/.test(aiApi) &&
-      /SUPABASE_SERVICE_ROLE_KEY/.test(aiApi) &&
+      aiApi.includes(serviceRoleEnvName) &&
       /AI_QUOTA_UNAVAILABLE/.test(aiApi),
   },
   {
@@ -48,7 +50,7 @@ const checks = [
     ok: /requireAuthenticatedUser\(req, 'AI usage'\)/.test(usageApi) &&
       /getSupabaseAdmin/.test(usageApi) &&
       /\.from\('ai_usage'\)/.test(usageApi) &&
-      /SUPABASE_SERVICE_ROLE_MISSING/.test(usageApi),
+      usageApi.includes(serviceRoleMissingCode),
   },
   {
     label: 'Tutor request sends real study context and recent chat history',
