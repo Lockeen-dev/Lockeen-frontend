@@ -53,7 +53,15 @@ export function DashboardHero({
   const ringCircumference = 2 * Math.PI * ringRadius;
   const ringOffset = ringCircumference - (Math.max(0, Math.min(100, heroProgress)) / 100) * ringCircumference;
   return (
-    <section style={{ ...s.hero, padding: isMobile ? 22 : 26 }}>
+    <section
+      style={{
+        ...s.hero,
+        flexDirection: isMobile ? 'column' : 'row',
+        alignItems: isMobile ? 'stretch' : 'center',
+        gap: isMobile ? 16 : s.hero.gap,
+        padding: isMobile ? 22 : 26,
+      }}
+    >
       <div style={s.heroText}>
         <div style={s.kicker}>{heroDate}</div>
         <h1 style={s.heroTitle}>{tt(lang, 'goodMorning')}, {user.name || 'Alex'}</h1>
@@ -75,7 +83,16 @@ export function DashboardHero({
           )}
         </div>
       </div>
-      <div style={s.progressRing} aria-label={tt(lang, 'todayProgressAria', { progress: heroProgressText })}>
+      <div
+        style={{
+          ...s.progressRing,
+          width: isMobile ? 82 : s.progressRing.width,
+          height: isMobile ? 82 : s.progressRing.height,
+          alignSelf: isMobile ? 'flex-end' : undefined,
+          marginTop: isMobile ? -6 : undefined,
+        }}
+        aria-label={tt(lang, 'todayProgressAria', { progress: heroProgressText })}
+      >
         <svg style={s.progressSvg} viewBox="0 0 100 100" aria-hidden="true">
           <circle style={s.progressTrack} cx="50" cy="50" r={ringRadius} />
           <circle

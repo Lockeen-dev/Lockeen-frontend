@@ -17,7 +17,7 @@ export function BottomNav({ tab, setTab, lang = 'en' }) {
   ];
 
   return (
-    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'rgba(255,255,255,.96)', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 1, padding: '6px 6px calc(6px + env(safe-area-inset-bottom, 0px))', boxShadow: '0 -16px 40px -28px rgba(15,16,53,.45)', backdropFilter: 'blur(16px)' }}>
+    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, width: '100%', maxWidth: '100vw', boxSizing: 'border-box', overflow: 'hidden', zIndex: 1000, background: 'rgba(255,255,255,.96)', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 1, padding: '6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))', boxShadow: '0 -16px 40px -28px rgba(15,16,53,.45)', backdropFilter: 'blur(16px)' }}>
       {items.map(({ id, label, Icon: I }) => {
         const active = id === tab;
         return (
@@ -57,13 +57,13 @@ export function DashboardHeader({
   return (
     <header style={{ ...shellS.header, padding: isMobile ? '0 12px 12px' : shellS.header.padding }}>
       <div style={shellS.headerInner}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, background: '#3730E8', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src="/Lockeen-2.png" alt="Lockeen logo" style={{ width: 58, height: 58, maxWidth: 'none' }} />
+        <div style={shellS.headerBrandGroup}>
+          <div style={shellS.logoMark}>
+            <img src="/Lockeen-2.png" alt="Lockeen logo" style={shellS.logoImage} />
           </div>
           <span style={shellS.brand}>Lockeen</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={shellS.headerActions}>
           <LanguageSelect lang={lang} onChange={onLangChange} compact />
           {user?.isAdmin && !isMobile && (
             <button
@@ -233,14 +233,18 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
 
 export const shellS = {
   wrap: { minHeight: '100vh', width: '100%', maxWidth: '100%', margin: '0 auto', padding: '22px clamp(24px, 3vw, 48px) 38px', boxSizing: 'border-box', overflowX: 'hidden', background: '#fff' },
-  header: { position: 'relative', marginBottom: 18, padding: '4px 4px 12px' },
+  header: { position: 'relative', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', overflow: 'hidden', marginBottom: 18, padding: '4px 4px 12px' },
   headerRule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: '#E8EBF4', borderRadius: 999 },
-  headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 52 },
-  brand: { fontSize: 18, fontWeight: 800, color: 'var(--indigo)' },
+  headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 52, width: '100%', maxWidth: '100%', minWidth: 0 },
+  headerBrandGroup: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: '1 1 auto', overflow: 'hidden' },
+  headerActions: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, minWidth: 0, flex: '0 1 auto' },
+  logoMark: { width: 36, height: 36, minWidth: 36, background: '#3730E8', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flex: '0 0 auto' },
+  logoImage: { width: 46, height: 46, maxWidth: 'none', display: 'block' },
+  brand: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 18, fontWeight: 800, color: 'var(--indigo)' },
   iconBtn: { width: 38, height: 38, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
   adminAmbassadorBtn: { height: 38, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '0 13px', borderRadius: 10, background: 'rgba(55,48,232,.08)', border: '1px solid rgba(55,48,232,.18)', color: 'var(--indigo)', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
   avatar: { width: 38, height: 38, borderRadius: 999, background: 'linear-gradient(135deg, var(--indigo), var(--purple))', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 },
-  outerCard: { width: '100%', maxWidth: '100%', border: 'none', borderRadius: 0, background: 'transparent', overflow: 'visible', boxShadow: 'none' },
-  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 108px)', width: '100%', minWidth: 0, gap: 14 },
+  outerCard: { width: '100%', maxWidth: '100%', minWidth: 0, border: 'none', borderRadius: 0, background: 'transparent', overflow: 'hidden', boxShadow: 'none' },
+  grid: { display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 108px)', width: '100%', maxWidth: '100%', minWidth: 0, gap: 14, overflow: 'hidden' },
   main: { padding: '30px clamp(28px, 3vw, 56px) 42px', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box', background: '#fff' },
 };
