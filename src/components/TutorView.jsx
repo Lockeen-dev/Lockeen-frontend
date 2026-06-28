@@ -1220,6 +1220,7 @@ export default function TutorView({ user, lang = 'en' }) {
   const pinnedSessions = visibleSessions.filter(s => s.pinned);
   const recentSessions = visibleSessions.filter(s => !s.pinned);
   const hasOnlyWelcome = msgs.length === 1 && msgs[0]?.who === 'ai' && isTutorWelcomeText(msgs[0]?.text);
+  const showAdvancedTutorControls = false;
   const firstName = getFirstName(user);
   const activeSession = sessions.find(s => String(s.id) === String(activeId));
   const activeSessionFolderId = activeSession ? getSessionFolderId(activeSession) : 'unfiled';
@@ -1451,10 +1452,10 @@ export default function TutorView({ user, lang = 'en' }) {
             </button>
           </div>
         )}
-        {!hasOnlyWelcome && <button type="button" onClick={newChat} style={tutorS.newChatBtn} aria-label={tt(lang, 'newChat')}>
+        {showAdvancedTutorControls && !hasOnlyWelcome && <button type="button" onClick={newChat} style={tutorS.newChatBtn} aria-label={tt(lang, 'newChat')}>
           <Plus size={18} /> {tt(lang, 'newChat')}
         </button>}
-        {!hasOnlyWelcome && <label style={tutorS.searchBox}>
+        {showAdvancedTutorControls && !hasOnlyWelcome && <label style={tutorS.searchBox}>
           <Search size={16} />
           <input
             value={sessionSearch}
@@ -1474,7 +1475,7 @@ export default function TutorView({ user, lang = 'en' }) {
             </button>
           )}
         </label>}
-        <div data-testid="tutor-folders" style={{ ...tutorS.folderPanel, ...(hasOnlyWelcome ? tutorS.hiddenFolders : {}) }}>
+        <div data-testid="tutor-folders" style={{ ...tutorS.folderPanel, ...tutorS.hiddenFolders }}>
           <div style={tutorS.folderPanelHead}>
             <span>{lang === 'it' ? 'Cartelle' : 'Folders'}</span>
             <button type="button" onClick={() => {
@@ -1532,25 +1533,12 @@ export default function TutorView({ user, lang = 'en' }) {
             </div>
           ))}
         </div>
-        <div style={{ ...tutorS.historyScroll, ...(hasOnlyWelcome ? tutorS.simpleHistoryScroll : {}) }}>
+        <div style={{ ...tutorS.historyScroll, ...tutorS.simpleHistoryScroll }}>
           {loadingSessions && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>{tt(lang, 'loading')}</div>}
-          {!loadingSessions && hasOnlyWelcome && (
+          {!loadingSessions && (
             <>
               <p style={tutorS.simpleHistoryTitle}>{tt(lang, 'history')}</p>
               {visibleSessions.map(renderSessionItem)}
-              {visibleSessions.length === 0 && <div style={tutorS.noHistory}>{tt(lang, 'noChatsYet')}</div>}
-            </>
-          )}
-          {!loadingSessions && !hasOnlyWelcome && pinnedSessions.length > 0 && (
-            <>
-              <p style={tutorS.historyLabel}>{tt(lang, 'pinned')} <span>{pinnedSessions.length}</span></p>
-              {pinnedSessions.map(renderSessionItem)}
-            </>
-          )}
-          {!loadingSessions && !hasOnlyWelcome && (
-            <>
-              <p style={tutorS.historyLabel}>{tt(lang, 'recent')} <span>{recentSessions.length}</span></p>
-              {recentSessions.map(renderSessionItem)}
               {visibleSessions.length === 0 && (
                 <div style={tutorS.noHistory}>
                   {cleanSessionSearch
@@ -1565,90 +1553,22 @@ export default function TutorView({ user, lang = 'en' }) {
 
       {/* Chat area */}
       <div data-testid="tutor-chat-pane" style={{ ...tutorS.chatPane, order: isMobile ? undefined : 1, paddingLeft: 0, paddingRight: isMobile ? 0 : (historyOpen ? 28 : 0) }}>
-        <div data-testid="tutor-chat-header" style={{ ...tutorS.head, ...(hasOnlyWelcome ? tutorS.headEmpty : {}) }}>
-          {!hasOnlyWelcome ? (
-            <div style={tutorS.headIdentity}>
-              <div style={tutorS.headText}>
-                <div style={tutorS.headTitleRow}>
-                  <span style={tutorS.chatStatusDot} />
-                  <h2 style={tutorS.headTitle}>{activeSession?.title || 'AI Tutor'}</h2>
-                  <span style={tutorS.headPersonaPill}>{activeTutorStyle.label[lang] || activeTutorStyle.label.en}</span>
-                </div>
-                <div style={tutorS.headMeta}>
-                  <span style={tutorS.metaText}>{activeFolderLabel}</span>
-                  <span style={tutorS.metaDot} />
-                  <span style={tutorS.metaText}>{studyContextLabel}</span>
-                  {freePlan && (
-                    <span style={tutorS.usagePill} title={tt(lang, 'freeAiTutorRemainingCopy')}>
-                      <span>{tutorUsagePillLabel}</span>
-                      <span style={tutorS.usagePillTrack}>
-                        <span style={{ ...tutorS.usagePillFill, width: `${tutorUsageProgress}%` }} />
-                      </span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={tutorS.headSpacer} />
-          )}
+        <div data-testid="tutor-chat-header" style={{ ...tutorS.head, ...tutorS.headEmpty }}>
+          <div style={tutorS.headSpacer} />
           {!isMobile && (
-            <div style={{ ...tutorS.headTools, ...(hasOnlyWelcome ? tutorS.headToolsEmpty : {}) }}>
-              {hasOnlyWelcome ? (
-                <>
-                  <button type="button" onClick={newChat} style={tutorS.emptyNewChatBtn} aria-label={tt(lang, 'newChat')}>
-                    <Plus size={17} /> {tt(lang, 'newChat')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setHistoryOpen(p => !p)}
-                    style={{ ...tutorS.emptyHistoryBtn, ...(historyOpen ? tutorS.emptyHistoryBtnActive : {}) }}
-                    title={historyOpen ? (lang === 'it' ? 'Nascondi cronologia chat' : 'Hide chat history') : (lang === 'it' ? 'Mostra cronologia chat' : 'Show chat history')}
-                    aria-label={historyOpen ? (lang === 'it' ? 'Nascondi cronologia chat' : 'Hide chat history') : (lang === 'it' ? 'Mostra cronologia chat' : 'Show chat history')}
-                  >
-                    <MsgCircle size={18} />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <label style={tutorS.tutorStyleSelectLabel}>
-                    <span>{activeTutorStyle.label[lang] || activeTutorStyle.label.en}</span>
-                    <select
-                      value={tutorStyle}
-                      onChange={(e) => setTutorStyle(e.target.value)}
-                      style={tutorS.tutorStyleSelect}
-                      aria-label={lang === 'it' ? 'Stile del tutor' : 'Tutor style'}
-                    >
-                      {TUTOR_STYLES.map(style => (
-                        <option key={style.id} value={style.id}>
-                          {style.short[lang] || style.short.en}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label style={tutorS.folderSelectLabel}>
-                    <span>{lang === 'it' ? 'Cartella' : 'Folder'}</span>
-                    <select
-                      value={activeSessionFolderId}
-                      onChange={(e) => moveActiveSessionToFolder(e.target.value)}
-                      style={tutorS.folderSelect}
-                      aria-label={lang === 'it' ? 'Cartella della chat' : 'Chat folder'}
-                    >
-                      <option value="unfiled">{lang === 'it' ? 'Senza cartella' : 'Unfiled'}</option>
-                      {folders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setHistoryOpen(p => !p)}
-                    style={{ ...tutorS.historyToggleBtn, ...(historyOpen ? tutorS.historyToggleBtnActive : {}) }}
-                    title={historyOpen ? (lang === 'it' ? 'Nascondi cronologia chat' : 'Hide chat history') : (lang === 'it' ? 'Mostra cronologia chat' : 'Show chat history')}
-                    aria-label={historyOpen ? (lang === 'it' ? 'Nascondi cronologia chat' : 'Hide chat history') : (lang === 'it' ? 'Mostra cronologia chat' : 'Show chat history')}
-                  >
-                    <SidebarPanel size={16} />
-                  </button>
-                </>
-              )}
+            <div style={{ ...tutorS.headTools, ...tutorS.headToolsEmpty }}>
+              <button type="button" onClick={newChat} style={tutorS.emptyNewChatBtn} aria-label={tt(lang, 'newChat')}>
+                <Plus size={17} /> {tt(lang, 'newChat')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(p => !p)}
+                style={{ ...tutorS.emptyHistoryBtn, ...(historyOpen ? tutorS.emptyHistoryBtnActive : {}) }}
+                title={historyOpen ? (lang === 'it' ? 'Nascondi cronologia chat' : 'Hide chat history') : (lang === 'it' ? 'Mostra cronologia chat' : 'Show chat history')}
+                aria-label={historyOpen ? (lang === 'it' ? 'Nascondi cronologia chat' : 'Hide chat history') : (lang === 'it' ? 'Mostra cronologia chat' : 'Show chat history')}
+              >
+                <MsgCircle size={18} />
+              </button>
             </div>
           )}
           {isMobile && (
@@ -1657,7 +1577,7 @@ export default function TutorView({ user, lang = 'en' }) {
             </button>
           )}
         </div>
-        {isMobile && !hasOnlyWelcome && (
+        {showAdvancedTutorControls && isMobile && !hasOnlyWelcome && (
           <div style={tutorS.mobileTools}>
             <label style={{ ...tutorS.tutorStyleSelectLabel, flex: 1, maxWidth: 'none', justifyContent: 'space-between' }}>
               <span>{activeTutorStyle.label[lang] || activeTutorStyle.label.en}</span>
@@ -1969,7 +1889,7 @@ const tutorS = {
   emptyState: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 18px 30px', textAlign: 'center' },
   emptyIcon: { width: 66, height: 66, borderRadius: 18, display: 'grid', placeItems: 'center', color: '#fff', background: 'linear-gradient(135deg, var(--indigo), var(--purple))', boxShadow: '0 20px 42px rgba(55,48,232,.18)' },
   emptyLogoMark: { width: 80, height: 80, borderRadius: 18, background: '#432BFF', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 16px 34px rgba(67,43,255,.16)' },
-  emptyLogoImage: { width: 78, height: 78, objectFit: 'contain', display: 'block' },
+  emptyLogoImage: { width: 60, height: 60, objectFit: 'contain', display: 'block' },
   emptyTitle: { margin: '18px 0 18px', color: '#09090B', fontSize: 28, lineHeight: 1.08, fontWeight: 850, letterSpacing: 0 },
   emptyCopy: { margin: 0, maxWidth: 600, color: 'var(--gray)', fontSize: 15, lineHeight: 1.45, fontWeight: 650 },
   emptyContextCopy: { margin: '14px 0 0', maxWidth: 620, color: 'var(--gray-2)', fontSize: 12, lineHeight: 1.35, fontWeight: 700 },
@@ -1988,8 +1908,8 @@ const tutorS = {
   promptBody: { display: 'none' },
   userMessageGroup: { maxWidth: '82%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 },
   aiMessageGroup: { maxWidth: '82%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 },
-  bubbleAI:   { maxWidth: '100%', background: 'var(--bubble-ai-bg)', color: 'var(--ink)', padding: '14px 16px', borderRadius: 18, borderTopLeftRadius: 6, fontSize: 14, lineHeight: 1.5 },
-  bubbleUser: { maxWidth: '100%', background: 'var(--indigo)', color: '#fff', padding: '12px 16px', borderRadius: 18, borderTopRightRadius: 6, fontSize: 14, lineHeight: 1.5 },
+  bubbleAI:   { maxWidth: '100%', background: '#F7F7FB', color: 'var(--ink)', padding: '16px 18px', borderRadius: 18, border: '1px solid #ECECF2', fontSize: 14, lineHeight: 1.52 },
+  bubbleUser: { maxWidth: '100%', background: '#3F35F2', color: '#fff', padding: '12px 16px', borderRadius: 16, fontSize: 14, lineHeight: 1.5 },
   messageActions: { display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 2, marginTop: -3, flexWrap: 'wrap' },
   messageActionsUser: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, paddingRight: 2, marginTop: -3, flexWrap: 'wrap' },
   messageActionBtn: { minHeight: 36, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '0 12px', borderRadius: 999, border: '1px solid #E1E5EF', background: '#fff', color: 'var(--gray)', cursor: 'pointer', fontSize: 11, fontWeight: 800, boxShadow: '0 6px 16px rgba(15,23,42,.04)' },
@@ -2007,13 +1927,13 @@ const tutorS = {
   th: { textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid var(--border)', fontWeight: 800, color: 'var(--ink)', background: 'var(--sidebar-bg)' },
   td: { padding: '8px 10px', borderBottom: '1px solid var(--border)', color: 'var(--ink)', verticalAlign: 'top' },
   typingDot: { width: 8, height: 8, borderRadius: 999, background: 'var(--gray-2)', animation: 'tdot 1s infinite ease-in-out' },
-  composerDock: { flexShrink: 0, marginTop: 'auto', padding: '12px 0 0', borderTop: '1px solid #EEF1F7', background: 'linear-gradient(180deg, rgba(255,255,255,0), #fff 22%)', boxSizing: 'border-box' },
+  composerDock: { flexShrink: 0, marginTop: 'auto', padding: '12px 0 0', borderTop: '1px solid #F0F0F4', background: 'linear-gradient(180deg, rgba(255,255,255,0), #fff 22%)', boxSizing: 'border-box' },
   suggestRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '0 0 10px' },
   suggestChip: { minHeight: 38, padding: '8px 13px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', fontWeight: 500, fontSize: 12, cursor: 'pointer' },
   backgroundTypingNotice: { width: 'min(860px, 100%)', margin: '0 auto 8px', minHeight: 36, padding: '8px 10px 8px 13px', borderRadius: 13, border: '1px solid rgba(55,48,232,.16)', background: '#F8FAFF', color: 'var(--gray)', fontSize: 12, fontWeight: 750, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   backgroundTypingStop: { minHeight: 36, padding: '0 12px', borderRadius: 999, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', fontSize: 11, fontWeight: 900, cursor: 'pointer', flexShrink: 0 },
   errorBox: { marginBottom: 8, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600 },
-  composer: { width: 'min(860px, 100%)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 9, background: '#fff', border: '1px solid #DDE2ED', borderRadius: 20, boxShadow: '0 18px 50px rgba(15,23,42,.08)' },
+  composer: { width: 'min(860px, 100%)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 9, background: '#fff', border: '2px solid #E4E4EA', borderRadius: 18, boxShadow: 'none' },
   heroComposer: { width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 8, background: '#fff', border: '2px solid #E4E4EA', borderRadius: 16, boxShadow: 'none' },
   composerRow: { display: 'flex', alignItems: 'flex-end', gap: 8, width: '100%' },
   heroComposerRow: { minHeight: 168, display: 'grid', gridTemplateColumns: '44px 1fr 44px', alignItems: 'end', gap: 8, width: '100%' },
