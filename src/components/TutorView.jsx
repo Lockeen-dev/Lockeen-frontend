@@ -571,6 +571,11 @@ export default function TutorView({ user, lang = 'en' }) {
 
   const formatAiError = (error) => {
     if (!error) return tt(lang, 'aiRequestFailed');
+    if (error.code === 'NOT_FOUND' && /Tutor session not found/i.test(error.message || '')) {
+      return lang === 'it'
+        ? 'Questa chat non e piu disponibile. Ne ho preparata una nuova.'
+        : 'This chat is no longer available. I prepared a new one.';
+    }
     if (error.code === 'AI_QUOTA_EXCEEDED') return tt(lang, 'aiQuotaReached');
     if (
       error.code === 'AI_PROVIDER_UNAVAILABLE' ||
@@ -581,6 +586,9 @@ export default function TutorView({ user, lang = 'en' }) {
     ) return tt(lang, 'aiProviderUnavailable');
     return error.message || tt(lang, 'aiRequestFailed');
   };
+  const isMissingTutorSessionError = (error) => (
+    error?.code === 'NOT_FOUND' && /Tutor session not found/i.test(error.message || '')
+  );
 
   useEffect(() => {
     activeIdRef.current = activeId;
@@ -800,13 +808,60 @@ export default function TutorView({ user, lang = 'en' }) {
     });
   }, [activeId, lang, msgs]);
 
+  const recoverMissingTutorSession = async (sessionId, fallbackMsgs, fallbackTitle) => {
+    const nextMsgs = Array.isArray(fallbackMsgs) && fallbackMsgs.length ? fallbackMsgs : initialTutorMsgs(lang);
+    const nextTitle = fallbackTitle || tt(lang, 'newConversation');
+    const wasActive = String(activeIdRef.current) === String(sessionId);
+    const result = await createTutorSession({ title: nextTitle, msgs: nextMsgs });
+
+    setSessions(prev => prev.filter(s => String(s.id) !== String(sessionId)));
+
+    if (result.error) {
+      if (wasActive) {
+        setActiveId(null);
+        setMsgs(nextMsgs);
+      }
+      setAiError(formatAiError(result.error));
+      return null;
+    }
+
+    setSessions(prev => sortTutorSessions([
+      result.data,
+      ...prev.filter(s => String(s.id) !== String(sessionId)),
+    ]));
+    if (wasActive) {
+      setActiveId(result.data.id);
+      setMsgs(result.data.msgs?.length ? result.data.msgs : nextMsgs);
+    }
+    setAiError('');
+    return result.data;
+  };
+
+  const removeMissingTutorSession = (sessionId) => {
+    const remaining = sessions.filter(s => String(s.id) !== String(sessionId));
+    setSessions(remaining);
+    if (String(activeIdRef.current) === String(sessionId)) {
+      const next = remaining[0];
+      setActiveId(next?.id || null);
+      setMsgs(next?.msgs?.length ? next.msgs : initialTutorMsgs(lang));
+    }
+    setAiError('');
+  };
+
   const persistSession = async (sessionId, nextMsgs, nextTitle) => {
-    if (!sessionId) return;
+    if (!sessionId) return null;
     const patch = { msgs: nextMsgs };
     if (nextTitle) patch.title = nextTitle;
     const result = await updateTutorSession(sessionId, patch);
-    if (result.error) setAiError(formatAiError(result.error));
-    else setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(sessionId) ? result.data : s)));
+    if (result.error) {
+      if (isMissingTutorSessionError(result.error)) {
+        return recoverMissingTutorSession(sessionId, nextMsgs, nextTitle);
+      }
+      setAiError(formatAiError(result.error));
+      return null;
+    }
+    setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(sessionId) ? result.data : s)));
+    return result.data;
   };
 
   const send = async () => {
@@ -847,7 +902,13 @@ export default function TutorView({ user, lang = 'en' }) {
     });
     setAiError('');
     setTypingSessionId(sessionId);
-    await persistSession(sessionId, userMsgs, nextTitle);
+    const persistedSession = await persistSession(sessionId, userMsgs, nextTitle);
+    if (!persistedSession) {
+      setTypingSessionId(null);
+      return;
+    }
+    const liveSessionId = persistedSession.id || sessionId;
+    if (String(liveSessionId) !== String(sessionId)) setTypingSessionId(liveSessionId);
     try {
       const selectedTutorStyle = TUTOR_STYLES.find(style => style.id === tutorStyle) || TUTOR_STYLES[0];
       const result = await askTutor({
@@ -883,17 +944,17 @@ export default function TutorView({ user, lang = 'en' }) {
         ? { fallback: true, provider: result.data?.provider || 'mock' }
         : null;
       const next = [...userMsgs, { who: 'ai', text: result.error ? formatAiError(result.error) : reply, ...(responseMeta ? { meta: responseMeta } : {}) }];
-      setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(sessionId) ? { ...s, msgs: next, updatedAt: new Date().toISOString() } : s)));
-      if (String(activeIdRef.current) === String(sessionId)) setMsgs(next);
-      persistSession(sessionId, next, nextTitle);
+      setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(liveSessionId) ? { ...s, msgs: next, updatedAt: new Date().toISOString() } : s)));
+      if ([sessionId, liveSessionId].some(id => String(activeIdRef.current) === String(id))) setMsgs(next);
+      persistSession(liveSessionId, next, nextTitle);
     } catch {
       if (generationRef.current !== generationId) return;
       const message = tt(lang, 'aiUnavailableLater');
       setAiError(message);
       const next = [...userMsgs, { who: 'ai', text: message }];
-      setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(sessionId) ? { ...s, msgs: next, updatedAt: new Date().toISOString() } : s)));
-      if (String(activeIdRef.current) === String(sessionId)) setMsgs(next);
-      persistSession(sessionId, next, nextTitle);
+      setSessions(prev => sortTutorSessions(prev.map(s => String(s.id) === String(liveSessionId) ? { ...s, msgs: next, updatedAt: new Date().toISOString() } : s)));
+      if ([sessionId, liveSessionId].some(id => String(activeIdRef.current) === String(id))) setMsgs(next);
+      persistSession(liveSessionId, next, nextTitle);
     } finally {
       if (generationRef.current === generationId) {
         setTypingSessionId(null);
@@ -992,6 +1053,12 @@ export default function TutorView({ user, lang = 'en' }) {
 
     const result = await updateTutorSession(renameTarget.id, { title: cleanTitle });
     if (result.error) {
+      if (isMissingTutorSessionError(result.error)) {
+        removeMissingTutorSession(renameTarget.id);
+        setRenameTarget(null);
+        setRenameDraft('');
+        return;
+      }
       setAiError(formatAiError(result.error));
       return;
     }
@@ -1003,6 +1070,10 @@ export default function TutorView({ user, lang = 'en' }) {
   const togglePinned = async (session) => {
     const result = await updateTutorSession(session.id, { pinned: !session.pinned });
     if (result.error) {
+      if (isMissingTutorSessionError(result.error)) {
+        removeMissingTutorSession(session.id);
+        return;
+      }
       setAiError(formatAiError(result.error));
       return;
     }
@@ -1014,6 +1085,11 @@ export default function TutorView({ user, lang = 'en' }) {
 
     const result = await deleteTutorSession(deleteTarget.id);
     if (result.error) {
+      if (isMissingTutorSessionError(result.error)) {
+        removeMissingTutorSession(deleteTarget.id);
+        setDeleteTarget(null);
+        return;
+      }
       setAiError(formatAiError(result.error));
       return;
     }
@@ -1171,6 +1247,10 @@ export default function TutorView({ user, lang = 'en' }) {
     if (folderPersistence === 'database') {
       const result = await updateTutorSession(activeId, { folderId: nextFolderId });
       if (result.error) {
+        if (isMissingTutorSessionError(result.error)) {
+          removeMissingTutorSession(activeId);
+          return;
+        }
         setAiError(formatAiError(result.error));
         return;
       }
@@ -1285,8 +1365,8 @@ export default function TutorView({ user, lang = 'en' }) {
     const messageCount = (s.msgs || []).filter(message => message?.text && !isTutorWelcomeText(message.text)).length;
     const folderLabel = getSessionFolderLabel(s);
     return (
-      <div key={s.id} style={{ ...tutorS.historyItem, ...(isActive ? tutorS.historyItemActive : {}) }}>
-        <button type="button" onClick={() => switchSession(s)} style={{ ...tutorS.historyMain, paddingRight: isActive ? 146 : 10 }}>
+      <div key={s.id} style={{ ...tutorS.historyItem, ...(isActive ? { ...tutorS.historyItemActive, ...tutorS.historyItemWithActions } : {}) }}>
+        <button type="button" onClick={() => switchSession(s)} style={{ ...tutorS.historyMain, ...(isActive ? tutorS.historyMainActive : {}) }}>
           <div style={{ ...tutorS.historyTitle, color: isActive ? 'var(--indigo)' : 'var(--ink)' }}>{s.title}</div>
           <div style={tutorS.historyMetaRow}>
             <span>{s.date}</span>
@@ -1874,15 +1954,17 @@ const tutorS = {
   historyLabel: { margin: '10px 0 8px', fontSize: 11, fontWeight: 900, color: 'var(--gray-2)', textTransform: 'uppercase', letterSpacing: '.08em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   historyItem: { position: 'relative', borderRadius: 13, border: '1px solid transparent', background: 'transparent', padding: 0 },
   historyItemActive: { background: '#F7F7FB', borderColor: '#ECECF2', boxShadow: 'none' },
-  historyMain: { textAlign: 'left', padding: '11px 12px', borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%' },
+  historyItemWithActions: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 10, paddingRight: 8 },
+  historyMain: { textAlign: 'left', padding: '11px 12px', borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', width: '100%', minWidth: 0 },
+  historyMainActive: { paddingRight: 4 },
   historyTitle: { fontSize: 13, fontWeight: 850, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginBottom: 3 },
   historyDate: { fontSize: 11, fontWeight: 700, color: 'var(--gray)' },
   historyMetaRow: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--gray)', fontSize: 11, fontWeight: 700 },
   historyMetaDot: { width: 3, height: 3, borderRadius: 999, background: '#CBD5E1', flexShrink: 0 },
   historyFolderPill: { display: 'none' },
   historySnippet: { marginTop: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: 'var(--gray-2)', fontSize: 11, lineHeight: 1.28, fontWeight: 650 },
-  historyIconActions: { position: 'absolute', top: 47, right: 10, display: 'flex', alignItems: 'center', gap: 5 },
-  historyIconBtn: { width: 36, height: 36, borderRadius: 999, border: '1px solid rgba(55,48,232,.16)', background: '#fff', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 4px 10px rgba(15,23,42,.06)' },
+  historyIconActions: { position: 'static', display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 },
+  historyIconBtn: { width: 44, height: 44, borderRadius: 999, border: '1px solid rgba(55,48,232,.16)', background: '#fff', color: 'var(--indigo)', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, boxShadow: '0 4px 10px rgba(15,23,42,.06)' },
   historyPinnedIconBtn: { borderColor: 'var(--indigo)', background: 'var(--indigo)', color: '#fff', boxShadow: '0 8px 18px rgba(55,48,232,.2)' },
   historyDangerIconBtn: { borderColor: 'rgba(239,68,68,.22)', background: '#FFF7F7', color: '#B91C1C' },
   thread: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 4px 8px', overflowY: 'auto' },
