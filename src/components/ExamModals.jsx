@@ -690,7 +690,7 @@ function EditChapterModal({ chapter, onClose, onSave, onDelete, lang = 'en' }) {
 }
 
 const uploadS = {
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(7,11,45,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 10000, display: 'grid', placeItems: 'center', padding: 16, overflowX: 'hidden', animation: 'fadein .2s ease' },
+  overlay: { position: 'fixed', top: -120, right: 0, bottom: -120, left: 0, background: 'rgba(7,11,45,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 10000, display: 'grid', placeItems: 'center', padding: '136px 16px', overflowX: 'hidden', animation: 'fadein .2s ease' },
   card: { position: 'relative', width: '100%', maxWidth: 'min(520px, calc(100vw - 32px))', maxHeight: '92vh', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)', padding: 28, boxShadow: '0 30px 80px -20px rgba(15,16,53,.35)' },
   closeBtn: { position: 'absolute', top: 14, right: 14, width: 32, height: 32, borderRadius: 999, background: '#F4F5FF', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
   title: { margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' },
