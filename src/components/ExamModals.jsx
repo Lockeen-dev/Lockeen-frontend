@@ -536,33 +536,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload, lang = 'en' }
         <h3 style={uploadS.title}>New Chapter</h3>
         <p style={uploadS.subtitle}>Upload your files to generate quizzes, flashcards and summaries instantly</p>
 
-        <div
-          style={{ ...uploadS.dropzone, ...(dragOver ? uploadS.dropzoneHover : null) }}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
-        >
-          <div style={uploadS.cloudIcon}><CloudUpload size={26} /></div>
-          <div style={uploadS.dropTitle}>Drag &amp; drop your files here</div>
-          <div style={uploadS.dropOr}>or</div>
-          <button type="button" onClick={browse} style={uploadS.browseBtn}>Browse Files</button>
-          <div style={uploadS.dropHint}>Supports PDF, TXT, PNG, JPG • Max 10MB per file</div>
-          <input ref={inputRef} type="file" multiple onChange={onPick} style={{ display: 'none' }} accept=".pdf,.txt,.png,.jpg,.jpeg,application/pdf,text/plain,image/png,image/jpeg" />
-        </div>
-
-        {files.length > 0 && (
-          <div style={uploadS.pills}>
-            {files.map((f) => (
-              <span key={f.id} style={uploadS.pill}>
-                <span style={uploadS.pillIcon}><FileText size={12} /></span>
-                <span style={uploadS.pillName} title={f.name}>{f.name}</span>
-                <button onClick={() => removeFile(f.id)} aria-label={'Remove ' + f.name} style={uploadS.pillX} disabled={uploading}><XIcon size={12} /></button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div style={uploadS.field}>
+        <div style={{ ...uploadS.field, marginTop: 0, marginBottom: 18 }}>
           <label style={uploadS.label}>Chapter name</label>
           <select
             value={selection}
@@ -589,6 +563,32 @@ function UploadChapterModal({ existingChapters, onClose, onUpload, lang = 'en' }
             />
           )}
         </div>
+
+        <div
+          style={{ ...uploadS.dropzone, ...(dragOver ? uploadS.dropzoneHover : null) }}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+        >
+          <div style={uploadS.cloudIcon}><CloudUpload size={26} /></div>
+          <div style={uploadS.dropTitle}>Drag &amp; drop your files here</div>
+          <div style={uploadS.dropOr}>or</div>
+          <button type="button" onClick={browse} style={uploadS.browseBtn}>Browse Files</button>
+          <div style={uploadS.dropHint}>Supports PDF, TXT, PNG, JPG • Max 10MB per file</div>
+          <input ref={inputRef} type="file" multiple onChange={onPick} style={{ display: 'none' }} accept=".pdf,.txt,.png,.jpg,.jpeg,application/pdf,text/plain,image/png,image/jpeg" />
+        </div>
+
+        {files.length > 0 && (
+          <div style={uploadS.pills}>
+            {files.map((f) => (
+              <span key={f.id} style={uploadS.pill}>
+                <span style={uploadS.pillIcon}><FileText size={12} /></span>
+                <span style={uploadS.pillName} title={f.name}>{f.name}</span>
+                <button onClick={() => removeFile(f.id)} aria-label={'Remove ' + f.name} style={uploadS.pillX} disabled={uploading}><XIcon size={12} /></button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {uploading && (
           <div style={uploadS.loading}>
@@ -687,7 +687,7 @@ function EditChapterModal({ chapter, onClose, onSave, onDelete, lang = 'en' }) {
 }
 
 const uploadS = {
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(7,11,45,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1100, display: 'grid', placeItems: 'center', padding: 16, animation: 'fadein .2s ease' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(7,11,45,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 5000, display: 'grid', placeItems: 'center', padding: 16, animation: 'fadein .2s ease' },
   card: { position: 'relative', width: '100%', maxWidth: 520, maxHeight: '92vh', overflowY: 'auto', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)', padding: 28, boxShadow: '0 30px 80px -20px rgba(15,16,53,.35)' },
   closeBtn: { position: 'absolute', top: 14, right: 14, width: 32, height: 32, borderRadius: 999, background: '#F4F5FF', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
   title: { margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' },
