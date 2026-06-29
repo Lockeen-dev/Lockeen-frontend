@@ -687,12 +687,12 @@ function EditChapterModal({ chapter, onClose, onSave, onDelete, lang = 'en' }) {
 }
 
 const uploadS = {
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(7,11,45,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 5000, display: 'grid', placeItems: 'center', padding: 16, animation: 'fadein .2s ease' },
-  card: { position: 'relative', width: '100%', maxWidth: 520, maxHeight: '92vh', overflowY: 'auto', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)', padding: 28, boxShadow: '0 30px 80px -20px rgba(15,16,53,.35)' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(7,11,45,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 5000, display: 'grid', placeItems: 'center', padding: 16, overflowX: 'hidden', animation: 'fadein .2s ease' },
+  card: { position: 'relative', width: '100%', maxWidth: 'min(520px, calc(100vw - 32px))', maxHeight: '92vh', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)', padding: 28, boxShadow: '0 30px 80px -20px rgba(15,16,53,.35)' },
   closeBtn: { position: 'absolute', top: 14, right: 14, width: 32, height: 32, borderRadius: 999, background: '#F4F5FF', color: 'var(--ink)', display: 'grid', placeItems: 'center' },
   title: { margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' },
   subtitle: { margin: '6px 0 18px', fontSize: 13, color: 'var(--gray)', lineHeight: 1.5 },
-  dropzone: { border: '2px dashed #E5E7EB', borderRadius: 16, background: '#F8F9FF', padding: '24px 16px', textAlign: 'center', transition: 'border-color .15s, background .15s' },
+  dropzone: { width: '100%', boxSizing: 'border-box', border: '2px dashed #E5E7EB', borderRadius: 16, background: '#F8F9FF', padding: '24px 16px', textAlign: 'center', transition: 'border-color .15s, background .15s' },
   dropzoneHover: { borderColor: 'var(--indigo)', background: '#EEF2FF' },
   cloudIcon: { width: 52, height: 52, borderRadius: 14, background: '#EEF2FF', color: 'var(--indigo)', display: 'grid', placeItems: 'center', margin: '0 auto 12px' },
   dropTitle: { fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
@@ -706,7 +706,7 @@ const uploadS = {
   pillX: { width: 20, height: 20, borderRadius: 999, color: 'var(--gray)', display: 'grid', placeItems: 'center' },
   field: { marginTop: 18 },
   label: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 },
-  input: { width: '100%', padding: '11px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14, color: 'var(--ink)', background: 'var(--input-bg)', outline: 'none' },
+  input: { width: '100%', boxSizing: 'border-box', padding: '11px 14px', border: '1px solid var(--border)', borderRadius: 12, fontSize: 16, color: 'var(--ink)', background: 'var(--input-bg)', outline: 'none' },
   subjPills: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   subjPill: { padding: '8px 14px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600, fontSize: 13, transition: 'all .15s' },
   subjPillActive: { background: 'var(--indigo)', color: '#fff', borderColor: 'var(--indigo)', boxShadow: '0 8px 18px -10px rgba(55,48,232,.55)' },
