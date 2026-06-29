@@ -77,7 +77,7 @@ export function DashboardRoutes({
           )}
           {tab === 'quiz' && <QuizTab deck={quizDeck} exams={exams} quizRuns={quizRuns} onQuizComplete={onQuizComplete} setTab={setTab} onOpenExam={openExam} darkMode={darkMode} lang={lang} />}
           {tab === 'tutor'     && <TutorView user={user} lang={lang} />}
-          {tab === 'analytics' && <AnalyticsView weekData={weekData} studySessions={studySessions} calEvents={calEvents} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuizForExam={openQuizForExam} onOpenPlanner={() => setPlannerOpen(true)} lang={lang} />}
+          {tab === 'analytics' && <AnalyticsView weekData={weekData} studySessions={studySessions} calEvents={calEvents} notes={exams} quizHistory={quizHistory} flashHistory={flashHistory} setTab={setTab} openQuizForExam={openQuizForExam} lang={lang} />}
           {tab === 'calendar'  && <CalendarView events={calEvents} setEvents={setCalEvents} setTab={setTab} onOpenPlanner={() => setPlannerOpen(true)} exams={exams} onStudySessionsChanged={onStudySessionsChanged} lang={lang} />}
           {tab === 'earn'      && <EarnView user={user} lang={lang} />}
           {tab === 'account'   && <AccountView user={user} lang={lang} onLangChange={onLangChange} onLogout={handleLogout} />}
