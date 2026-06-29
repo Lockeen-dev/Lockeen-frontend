@@ -123,7 +123,7 @@ export function TodaySchedule({ s, todayEvents, completedToday, totalToday, isEv
         <div style={s.panelActions}>
           <span style={s.countBadge}>{tt(lang, 'completedCounter', { completed: completedToday, total: totalToday || 0 })}</span>
           <button type="button" style={s.linkButton} onClick={() => setTab('calendar')}>
-            {tt(lang, 'openCalendar')} <ArrowRight size={14} />
+            {tt(lang, 'calendar')} <ArrowRight size={13} />
           </button>
         </div>
       </div>
