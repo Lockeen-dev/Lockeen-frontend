@@ -377,7 +377,7 @@ function mergeStudySessionsWithCalendar(studySessions = [], calEvents = {}) {
   });
 }
 
-function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, quizHistory, flashHistory, setTab, openQuizForExam, lang = 'en' }) {
+function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, quizHistory, flashHistory, setTab, openQuizForExam, onOpenPlanner, lang = 'en' }) {
   const isMobile = useIsMobile();
   const visibleStudySessions = mergeStudySessionsWithCalendar(studySessions, calEvents);
   const visibleWeekData = sessionsToWeekData(visibleStudySessions);
@@ -512,17 +512,33 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
 
       {!analyticsLoading && !analyticsError && (
       <section style={analS.gradeSection}>
-        <div style={analS.gradeHead}>
+        <div style={{ ...analS.gradeHead, ...(isMobile ? analS.gradeHeadMobile : null) }}>
           <div style={analS.gradeTitleBlock}>
             <h3 style={analS.gradeTitle}>{tt(lang, 'gradePredictor')}</h3>
-            <p style={analS.gradeSub}>{tt(lang, 'predictionBased')}</p>
+            <p style={{ ...analS.gradeSub, ...(isMobile ? analS.gradeSubMobile : null) }}>{tt(lang, 'predictionBased')}</p>
           </div>
-          <div style={analS.gradeLegend}>
+          <div style={{ ...analS.gradeLegend, ...(isMobile ? analS.gradeLegendMobile : null) }}>
             {GRADE_STATUS_LEGEND.map((item) => {
               const style = getGradeStatusStyle(item.key);
               return <span key={item.key} style={{ ...analS.statusPill, background: style.bg, color: style.color }}>{tt(lang, item.key === 'on-track' ? 'onTrack' : item.key === 'at-risk' ? 'atRisk' : item.key === 'needs-practice' ? 'needsPractice' : 'closeStatus')}</span>;
             })}
           </div>
+        </div>
+        <div style={{ ...analS.aiValueGrid, gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))' }}>
+          <div style={analS.aiValueCard}>
+            <span style={{ ...analS.aiValueIcon, background: '#EEF2FF', color: 'var(--indigo)' }}><Trend size={17} /></span>
+            <div style={analS.aiValueText}>
+              <strong>{tt(lang, 'gradePredictorValueTitle')}</strong>
+              <span>{tt(lang, 'gradePredictorValueText')}</span>
+            </div>
+          </div>
+          <button type="button" style={analS.aiValueCardButton} onClick={() => onOpenPlanner ? onOpenPlanner() : setTab?.('calendar')}>
+            <span style={{ ...analS.aiValueIcon, background: '#ECFDF5', color: '#059669' }}><Clock size={17} /></span>
+            <div style={analS.aiValueText}>
+              <strong>{tt(lang, 'aiStudyPlanValueTitle')}</strong>
+              <span>{tt(lang, 'aiStudyPlanValueText')}</span>
+            </div>
+          </button>
         </div>
         <div style={analS.gradeList}>
           {trackedNotes.length === 0 ? (
@@ -639,11 +655,19 @@ const analS = {
   progFill: { height: '100%', borderRadius: 999, transition: 'width .4s ease' },
   gradeSection: { marginTop: 32 },
   gradeHead: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'end', columnGap: 32, rowGap: 10, marginBottom: 18 },
+  gradeHeadMobile: { gridTemplateColumns: '1fr', alignItems: 'start', rowGap: 14 },
   gradeTitleBlock: { minWidth: 0 },
-  gradeTitle: { margin: 0, fontSize: 24, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-0.04em' },
+  gradeTitle: { margin: 0, fontSize: 24, fontWeight: 900, color: 'var(--ink)', letterSpacing: 0 },
   gradeSub: { margin: '12px 0 0', color: 'var(--gray)', fontSize: 16, fontWeight: 600 },
+  gradeSubMobile: { maxWidth: 320, fontSize: 14, lineHeight: 1.35, marginTop: 8 },
   gradeLegend: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', paddingBottom: 4 },
+  gradeLegendMobile: { justifyContent: 'flex-start', paddingBottom: 0 },
   statusPill: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, padding: '9px 15px', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
+  aiValueGrid: { display: 'grid', gap: 12, marginBottom: 16 },
+  aiValueCard: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, border: '1px solid var(--border)', borderRadius: 18, background: '#fff', padding: '14px 15px', boxShadow: '0 14px 34px -30px rgba(15,16,53,.34)' },
+  aiValueCardButton: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, width: '100%', border: '1px solid rgba(16,185,129,.22)', borderRadius: 18, background: '#F8FFFB', padding: '14px 15px', boxShadow: '0 14px 34px -30px rgba(15,16,53,.34)', cursor: 'pointer', textAlign: 'left' },
+  aiValueIcon: { width: 36, height: 36, borderRadius: 12, display: 'grid', placeItems: 'center', flex: '0 0 auto' },
+  aiValueText: { minWidth: 0, display: 'grid', gap: 3, color: 'var(--ink)', fontSize: 13, lineHeight: 1.35, fontWeight: 650 },
   gradeList: { border: '1px solid var(--border)', borderRadius: 22, background: 'var(--surface)', overflow: 'hidden', marginRight: 14 },
   gradeRow: { display: 'grid', gridTemplateColumns: 'minmax(250px, 1.25fr) 86px 110px minmax(300px, 1fr) 44px minmax(128px, auto)', alignItems: 'center', gap: 14, padding: '24px 22px', borderBottom: '1px solid var(--border)' },
   gradeRowMobile: { gridTemplateColumns: '1fr', alignItems: 'stretch', padding: 18 },
