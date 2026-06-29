@@ -181,6 +181,7 @@ function DashboardHome({
           totalToday={totalToday}
           isEventDone={isEventDone}
           toggleEventDone={toggleEventDone}
+          setTab={setTab}
           lang={lang}
         />
         <RecentActivity
@@ -224,6 +225,7 @@ const s = {
   panel: { background: '#fff', border: '1px solid #E7E9F2', borderRadius: 18, padding: 18, boxShadow: '0 16px 42px -36px rgba(15,16,53,.28)', minWidth: 0 },
   quickPanel: { height: '100%' },
   panelHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 },
+  panelActions: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' },
   panelTitle: { margin: 0, color: '#171733', fontSize: 16, fontWeight: 850, letterSpacing: 0 },
   countBadge: { borderRadius: 999, background: '#EEF2FF', color: '#3730E8', padding: '6px 10px', fontSize: 12, fontWeight: 850, whiteSpace: 'nowrap' },
   scheduleList: { display: 'grid', gap: 8 },
