@@ -1574,7 +1574,7 @@ export default function TutorView({ user, lang = 'en' }) {
       {historyOpen && <div data-testid="tutor-history" style={{
         ...tutorS.historyPane,
         order: isMobile ? undefined : 2,
-        width: isMobile ? '100%' : 320,
+        width: isMobile ? '100%' : 400,
         maxHeight: isMobile ? 'min(74dvh, 560px)' : 'none',
         padding: isMobile ? 16 : '0 18px 0 0',
         border: isMobile ? '1px solid #E1E5EF' : 'none',
@@ -1687,7 +1687,25 @@ export default function TutorView({ user, lang = 'en' }) {
           {loadingSessions && <div style={{ fontSize: 12, color: 'var(--gray)', padding: '8px 10px' }}>{tt(lang, 'loading')}</div>}
           {!loadingSessions && (
             <>
-              {!isMobile && <p style={tutorS.simpleHistoryTitle}>{tt(lang, 'history')}</p>}
+              {!isMobile && (
+                <div style={tutorS.desktopHistoryHead}>
+                  <p style={tutorS.simpleHistoryTitle}>{tt(lang, 'history')}</p>
+                  <div style={tutorS.desktopHistoryActions}>
+                    <button type="button" onClick={newChat} style={tutorS.desktopHistoryNewBtn} aria-label={tt(lang, 'newChat')}>
+                      <Plus size={17} /> {tt(lang, 'newChat')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryOpen(false)}
+                      style={tutorS.desktopHistoryCloseBtn}
+                      title={lang === 'it' ? 'Nascondi cronologia chat' : 'Hide chat history'}
+                      aria-label={lang === 'it' ? 'Nascondi cronologia chat' : 'Hide chat history'}
+                    >
+                      <MsgCircle size={18} />
+                    </button>
+                  </div>
+                </div>
+              )}
               {pinnedSessions.length > 0 && (
                 <>
                   <p style={tutorS.simpleHistoryLabel}>{tt(lang, 'pinned')}</p>
@@ -1716,7 +1734,7 @@ export default function TutorView({ user, lang = 'en' }) {
       <div data-testid="tutor-chat-pane" style={{ ...tutorS.chatPane, order: isMobile ? undefined : 1, paddingLeft: 0, paddingRight: isMobile ? 0 : (historyOpen ? 28 : 0) }}>
         <div data-testid="tutor-chat-header" style={{ ...tutorS.head, ...tutorS.headEmpty }}>
           <div style={tutorS.headSpacer} />
-          {!isMobile && (
+          {!isMobile && !historyOpen && (
             <div style={{ ...tutorS.headTools, ...tutorS.headToolsEmpty }}>
               <button type="button" onClick={newChat} style={tutorS.emptyNewChatBtn} aria-label={tt(lang, 'newChat')}>
                 <Plus size={17} /> {tt(lang, 'newChat')}
@@ -2000,6 +2018,10 @@ const tutorS = {
   historyScroll: { flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2 },
   simpleHistoryScroll: { padding: '6px 0 0 18px', gap: 9 },
   simpleHistoryTitle: { margin: '0 0 14px', color: '#09090B', fontSize: 22, lineHeight: 1.15, fontWeight: 850, letterSpacing: 0 },
+  desktopHistoryHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 18 },
+  desktopHistoryActions: { display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 },
+  desktopHistoryNewBtn: { minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 15px', borderRadius: 14, border: '1px solid #E4E4E7', background: '#fff', color: '#09090B', fontSize: 14, fontWeight: 820, cursor: 'pointer', boxShadow: '0 1px 0 rgba(15,23,42,.02)', whiteSpace: 'nowrap' },
+  desktopHistoryCloseBtn: { width: 44, height: 44, borderRadius: 14, border: 'none', background: '#F1F1F5', color: '#09090B', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, flexShrink: 0 },
   simpleHistoryLabel: { margin: '4px 0 2px', color: '#8A93A3', fontSize: 10, lineHeight: 1, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.08em' },
   noHistory: { fontSize: 12, color: 'var(--gray)', padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px dashed #E1E5EF' },
   chatPane: { flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', paddingLeft: 28, background: '#fff' },
