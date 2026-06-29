@@ -296,7 +296,6 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
   const [calendarError, setCalendarError] = useState(null);
   const [serviceEventCount, setServiceEventCount] = useState(0);
   const [rescheduleNotice, setRescheduleNotice] = useState(null);
-  const [density, setDensity] = useState('compact');
   const dragMeta   = useRef({});
   const monthDragMeta = useRef({});
   const moveCalendarEventRef = useRef(null);
@@ -1252,7 +1251,7 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
     const timeToY  = (t) => { const [h, m] = (t || '08:00').split(':').map(Number); return Math.max(0, (h + m / 60) * CAL_HOUR_H); };
     const durToH   = (d) => Math.max(CAL_HOUR_H * 0.45, durToMins(d || '30m') / 60 * CAL_HOUR_H);
     const slotTime = (h) => `${String(h).padStart(2, '0')}:00`;
-    const compact = density === 'compact';
+    const compact = true;
 
     return (
       <div style={{ border:'1px solid var(--border)', borderRadius:16, overflow:'hidden', background:'var(--surface)' }}>
@@ -1757,10 +1756,6 @@ export function CalendarView({ events, setEvents, setTab, onOpenPlanner, exams =
           <button onClick={navNext} style={{ ...calS.navBtn, ...(isMobile ? calS.mobileIconBtn : null) }}>›</button>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:8, ...(isMobile ? calS.mobileToolbar : null) }}>
-          <button onClick={() => setDensity((current) => current === 'compact' ? 'detailed' : 'compact')}
-            style={{ display:'inline-flex', alignItems:'center', gap:7, minHeight:isMobile ? 44 : 'auto', padding:isMobile ? '0 14px' : '8px 14px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:999, fontSize:13, fontWeight:600, color:'var(--ink)', cursor:'pointer', whiteSpace:'nowrap' }}>
-            {density === 'compact' ? tt(lang, 'compact') : tt(lang, 'detailed')}
-          </button>
           {/* View dropdown pill */}
           <div style={{ position:'relative' }}>
             <button onClick={() => setViewDropOpen(o => !o)}
