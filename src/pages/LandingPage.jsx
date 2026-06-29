@@ -110,13 +110,39 @@ export default function LandingPage() {
       card.style.setProperty('--reveal-delay', `${i * 60}ms`);
     });
 
-    // ── Nav scroll shadow ──
+    // ── Nav scroll shadow + active section ──
     const nav = landing.querySelector('nav');
-    const onScroll = () => nav?.classList.toggle('is-scrolled', window.scrollY > 24);
+    const sectionIds = ['features', 'product', 'pricing'];
+    const navLinks = [...landing.querySelectorAll('nav a[href^="#"], #mobile-menu-panel a[href^="#"]')];
+    const setActiveNav = (activeId) => {
+      navLinks.forEach((link) => {
+        const id = link.getAttribute('href')?.replace('#', '');
+        link.classList.toggle('nav-active', Boolean(activeId && id === activeId));
+        if (id === activeId) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      });
+    };
+    const updateActiveNav = () => {
+      const offset = window.innerHeight * 0.32;
+      let activeId = '';
+      sectionIds.forEach((id) => {
+        const section = document.getElementById(id);
+        if (!section) return;
+        if (section.getBoundingClientRect().top <= offset) activeId = id;
+      });
+      setActiveNav(activeId);
+    };
+    const onScroll = () => {
+      nav?.classList.toggle('is-scrolled', window.scrollY > 24);
+      updateActiveNav();
+    };
+    updateActiveNav();
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', updateActiveNav, { passive: true });
 
     return () => {
       window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', updateActiveNav);
       if (gridDiv) gridDiv.remove();
       setHeroGridRoot(null);
       if (window.showPage === showPage) window.showPage = undefined;
