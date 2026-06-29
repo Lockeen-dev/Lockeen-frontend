@@ -115,12 +115,17 @@ export function DashboardHero({
   );
 }
 
-export function TodaySchedule({ s, todayEvents, completedToday, totalToday, isEventDone, toggleEventDone, lang = 'en' }) {
+export function TodaySchedule({ s, todayEvents, completedToday, totalToday, isEventDone, toggleEventDone, setTab, lang = 'en' }) {
   return (
     <section style={s.panel}>
       <div style={s.panelHead}>
         <h2 style={s.panelTitle}>{tt(lang, 'todaySchedule')}</h2>
-        <span style={s.countBadge}>{tt(lang, 'completedCounter', { completed: completedToday, total: totalToday || 0 })}</span>
+        <div style={s.panelActions}>
+          <span style={s.countBadge}>{tt(lang, 'completedCounter', { completed: completedToday, total: totalToday || 0 })}</span>
+          <button type="button" style={s.linkButton} onClick={() => setTab('calendar')}>
+            {tt(lang, 'calendar')} <ArrowRight size={13} />
+          </button>
+        </div>
       </div>
       {todayEvents.length === 0 ? (
         <EmptyState s={s} title={tt(lang, 'noEventsToday')} text={tt(lang, 'scheduleStudyHint')} />
