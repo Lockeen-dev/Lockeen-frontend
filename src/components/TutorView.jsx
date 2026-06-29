@@ -1475,7 +1475,7 @@ export default function TutorView({ user, lang = 'en' }) {
         <form
           data-testid="tutor-composer"
           onSubmit={(e) => { e.preventDefault(); send(); }}
-          style={isHero ? tutorS.heroComposer : tutorS.composer}
+          style={isHero ? { ...tutorS.heroComposer, ...(isMobile ? tutorS.mobileHeroComposer : null) } : tutorS.composer}
         >
           {filePreviews.length > 0 && (
             <TutorAttachmentStack
@@ -1485,7 +1485,7 @@ export default function TutorView({ user, lang = 'en' }) {
               onRemove={(index) => setFiles(prev => prev.filter((_, j) => j !== index))}
             />
           )}
-          <div style={isHero ? tutorS.heroComposerRow : tutorS.composerRow}>
+          <div style={isHero ? { ...tutorS.heroComposerRow, ...(isMobile ? tutorS.mobileHeroComposerRow : null) } : tutorS.composerRow}>
             <input
               type="file"
               multiple
@@ -1526,7 +1526,7 @@ export default function TutorView({ user, lang = 'en' }) {
               placeholder={lang === 'it' ? 'Fai una domanda al tuo tutor...' : 'Ask your tutor anything...'}
               aria-label={tt(lang, 'askAnything')}
               rows={isHero ? 3 : 1}
-              style={isHero ? tutorS.heroComposerInput : tutorS.composerInput}
+              style={isHero ? { ...tutorS.heroComposerInput, ...(isMobile ? tutorS.mobileHeroComposerInput : null) } : tutorS.composerInput}
             />
             {typing ? (
               <button
@@ -1772,14 +1772,14 @@ export default function TutorView({ user, lang = 'en' }) {
 
         <div data-testid="tutor-thread" ref={endRef} style={tutorS.thread}>
           {hasOnlyWelcome ? (
-            <div style={tutorS.emptyState}>
-              <div style={tutorS.emptyLogoMark} aria-hidden="true">
-                <img src="/Lockeen-icon.png" alt="" style={tutorS.emptyLogoImage} />
+            <div style={{ ...tutorS.emptyState, ...(isMobile ? tutorS.mobileEmptyState : null) }}>
+              <div style={{ ...tutorS.emptyLogoMark, ...(isMobile ? tutorS.mobileEmptyLogoMark : null) }} aria-hidden="true">
+                <img src="/Lockeen-icon.png" alt="" style={{ ...tutorS.emptyLogoImage, ...(isMobile ? tutorS.mobileEmptyLogoImage : null) }} />
               </div>
-              <h1 style={tutorS.emptyTitle}>
+              <h1 style={{ ...tutorS.emptyTitle, ...(isMobile ? tutorS.mobileEmptyTitle : null) }}>
                 {lang === 'it' ? 'Come posso aiutarti?' : 'How can I help?'}
               </h1>
-              <div style={tutorS.emptyComposerWrap}>
+              <div style={{ ...tutorS.emptyComposerWrap, ...(isMobile ? tutorS.mobileEmptyComposerWrap : null) }}>
                 {renderComposer('hero')}
               </div>
               <div style={{ ...tutorS.emptyPromptGrid, ...(isMobile ? tutorS.emptyPromptGridMobile : {}) }}>
@@ -2053,13 +2053,18 @@ const tutorS = {
   historyDangerIconBtn: { borderColor: 'rgba(239,68,68,.18)', background: '#FFF7F7', color: '#C24141' },
   thread: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 4px 8px', overflowY: 'auto' },
   emptyState: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 18px 30px', textAlign: 'center' },
+  mobileEmptyState: { flex: '0 0 auto', minHeight: 'auto', justifyContent: 'flex-start', padding: '8px 10px 22px', overflow: 'visible' },
   emptyIcon: { width: 66, height: 66, borderRadius: 18, display: 'grid', placeItems: 'center', color: '#fff', background: 'linear-gradient(135deg, var(--indigo), var(--purple))', boxShadow: '0 20px 42px rgba(55,48,232,.18)' },
   emptyLogoMark: { width: 80, height: 80, borderRadius: 18, background: '#432BFF', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 16px 34px rgba(67,43,255,.16)' },
+  mobileEmptyLogoMark: { width: 54, height: 54, borderRadius: 15, marginTop: 2, boxShadow: '0 12px 24px rgba(67,43,255,.14)' },
   emptyLogoImage: { width: 60, height: 60, objectFit: 'contain', display: 'block' },
+  mobileEmptyLogoImage: { width: 42, height: 42 },
   emptyTitle: { margin: '18px 0 18px', color: '#09090B', fontSize: 28, lineHeight: 1.08, fontWeight: 850, letterSpacing: 0 },
+  mobileEmptyTitle: { width: '100%', margin: '14px 0 14px', fontSize: 25, lineHeight: 1.08, textAlign: 'center' },
   emptyCopy: { margin: 0, maxWidth: 600, color: 'var(--gray)', fontSize: 15, lineHeight: 1.45, fontWeight: 650 },
   emptyContextCopy: { margin: '14px 0 0', maxWidth: 620, color: 'var(--gray-2)', fontSize: 12, lineHeight: 1.35, fontWeight: 700 },
   emptyComposerWrap: { width: 'min(840px, 100%)', marginTop: 0 },
+  mobileEmptyComposerWrap: { width: '100%' },
   emptyPromptGrid: { width: 'min(760px, 100%)', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 12, marginTop: 20 },
   emptyPromptGridMobile: { flexDirection: 'column', alignItems: 'stretch' },
   emptyPromptCard: { minHeight: 40, display: 'inline-flex', alignItems: 'center', gap: 8, textAlign: 'left', padding: '7px 14px 7px 10px', borderRadius: 999, border: '1px solid #DADAE3', background: '#fff', color: '#09090B', cursor: 'pointer', boxShadow: 'none', transition: 'transform .18s ease, border-color .18s ease, box-shadow .18s ease' },
@@ -2104,12 +2109,15 @@ const tutorS = {
   errorBox: { marginBottom: 8, padding: '10px 12px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: 13, fontWeight: 600 },
   composer: { width: 'min(860px, 100%)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 9, background: '#fff', border: '2px solid #E4E4EA', borderRadius: 18, boxShadow: 'none' },
   heroComposer: { width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 8, background: '#fff', border: '2px solid #E4E4EA', borderRadius: 16, boxShadow: 'none' },
+  mobileHeroComposer: { borderRadius: 15, padding: 7 },
   composerRow: { display: 'flex', alignItems: 'flex-end', gap: 8, width: '100%' },
   heroComposerRow: { minHeight: 168, display: 'grid', gridTemplateColumns: '44px 1fr 44px', alignItems: 'end', gap: 8, width: '100%' },
+  mobileHeroComposerRow: { minHeight: 132 },
   attachBtn: { flexShrink: 0, width: 44, height: 44, borderRadius: 14, background: '#F8FAFF', border: '1px solid #E7E9F4', cursor: 'pointer', color: 'var(--gray)', display: 'grid', placeItems: 'center' },
   heroAttachBtn: { alignSelf: 'end', width: 44, height: 44, borderRadius: 10, background: '#fff', border: '1px solid #E4E4EA', cursor: 'pointer', color: '#09090B', display: 'grid', placeItems: 'center' },
   composerInput: { flex: 1, minWidth: 0, minHeight: 46, maxHeight: 118, border: 'none', outline: 'none', padding: '13px 8px', fontSize: 16, lineHeight: 1.35, background: 'transparent', color: 'var(--ink)', resize: 'none', overflowY: 'auto', fontFamily: 'inherit' },
   heroComposerInput: { alignSelf: 'stretch', width: '100%', minWidth: 0, minHeight: 150, maxHeight: 168, border: 'none', outline: 'none', padding: '12px 4px', fontSize: 17, lineHeight: 1.4, background: 'transparent', color: 'var(--ink)', resize: 'none', overflowY: 'auto', fontFamily: 'inherit' },
+  mobileHeroComposerInput: { minHeight: 116, maxHeight: 132, fontSize: 16, padding: '9px 2px' },
   sendBtn: { width: 46, height: 46, borderRadius: 15, border: 'none', background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center', boxShadow: '0 14px 28px rgba(55,48,232,.18)' },
   heroSendBtn: { alignSelf: 'end', width: 44, height: 44, borderRadius: 10, border: 'none', background: '#EFEFF4', color: '#7A7A86', display: 'grid', placeItems: 'center', boxShadow: 'none' },
   stopBtn: { width: 46, height: 46, borderRadius: 15, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: '0 14px 28px rgba(220,38,38,.12)' },
