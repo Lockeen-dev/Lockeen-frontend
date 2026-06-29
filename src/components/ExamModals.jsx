@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { Check, FileText, Icon, Trash, Trash2 } from '../lib/icons';
 import { EXTRA_SUBJECT_COLORS, getSubjectPalette, inferSubjectFromName } from '../data/mockData';
@@ -529,7 +530,7 @@ function UploadChapterModal({ existingChapters, onClose, onUpload, lang = 'en' }
     }
   };
 
-  return (
+  const modal = (
     <div style={uploadS.overlay} onClick={(e) => { if (e.target === e.currentTarget && !uploading) onClose && onClose(); }}>
       <div style={uploadS.card}>
         <button onClick={() => !uploading && onClose && onClose()} aria-label="Close" style={uploadS.closeBtn}><XIcon size={16} /></button>
@@ -630,6 +631,8 @@ function UploadChapterModal({ existingChapters, onClose, onUpload, lang = 'en' }
       </div>
     </div>
   );
+
+  return typeof document === 'undefined' ? modal : createPortal(modal, document.body);
 }
 
 function EditChapterModal({ chapter, onClose, onSave, onDelete, lang = 'en' }) {
