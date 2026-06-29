@@ -135,7 +135,7 @@ export function initMarketingDom() {
       const billingNote = billingAnnual && p.annualBillingTotal ? (pc.annualBillingNote || `Billed yearly at ${p.annualBillingTotal}`) : '';
       return `
     <div class="relative p-8 bg-white rounded-3xl border-2 transition-all duration-300 ${p.popular ? 'border-primary shadow-2xl shadow-primary/20' : 'border-border hover:border-primary/30 hover:shadow-lg'}">
-      ${p.popular ? `<div class="absolute -top-5 left-1/2 z-20 -translate-x-1/2"><div class="px-5 py-2 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold shadow-primary-soft whitespace-nowrap">${pc.badge}</div></div>` : ''}
+      ${p.popular && billingAnnual ? `<div class="absolute -top-5 left-1/2 z-20 -translate-x-1/2"><div class="px-5 py-2 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full text-sm font-semibold shadow-primary-soft whitespace-nowrap">${pc.badge}</div></div>` : ''}
       <div class="mb-6">
         <h3 class="text-2xl mb-1 font-bold">${pc.name}</h3>
         <div class="flex items-baseline gap-1 mt-4 mb-1">
@@ -158,6 +158,11 @@ export function initMarketingDom() {
     refreshIcons();
   }
 
+  function removeTeamsPricingRow() {
+    const teamsLabel = document.querySelector('[data-i18n="pricing.teams"]');
+    teamsLabel?.closest('.max-w-6xl')?.remove();
+  }
+
   const LOCKEEN_SUPPORTED_LANGS = ['en', 'it'];
   function normalizeLockeenLang(lang) {
     return LOCKEEN_SUPPORTED_LANGS.includes(lang) ? lang : 'en';
@@ -175,6 +180,7 @@ export function initMarketingDom() {
   };
 
   renderPricing(normalizeLockeenLang(localStorage.getItem('lockeen-lang') || 'en'));
+  removeTeamsPricingRow();
   const LOCKEEN_LANGS = {
     en: { flag:'🇬🇧', label:'English' },
     it: { flag:'🇮🇹', label:'Italiano' },
