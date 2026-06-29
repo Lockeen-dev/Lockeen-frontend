@@ -637,7 +637,7 @@ function ensureStaticLanguageControls(root, lang) {
   });
 }
 
-function ensureStaticNavLinks(root) {
+function ensureStaticNavLinks(root, pageName = '') {
   const desktopNav = root.querySelector('nav .hidden.md\\:flex.items-center.gap-8');
   const mobileMenu = root.querySelector('#mob-menu');
   const mobileToggle = root.querySelector('#mob-toggle');
@@ -647,7 +647,9 @@ function ensureStaticNavLinks(root) {
     { href: '/#pricing', label: 'Pricing' },
     { href: '/about', label: 'About' },
     { href: '/blog', label: 'Blog' },
+    { href: '/careers', label: 'Careers' },
   ];
+  const activeHref = pageName ? `/${pageName}` : '';
 
   if (desktopNav && desktopNav.dataset.staticNavReady !== 'true') {
     desktopNav.innerHTML = navLinks.map(({ href, label }) => (
@@ -664,6 +666,13 @@ function ensureStaticNavLinks(root) {
     )).join('')}${authLink}`;
     mobileMenu.dataset.staticNavReady = 'true';
   }
+
+  root.querySelectorAll('nav a, #mob-menu a').forEach((link) => {
+    const isActive = activeHref && link.getAttribute('href') === activeHref;
+    link.classList.toggle('static-nav-active', Boolean(isActive));
+    if (isActive) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  });
 
   if (mobileToggle) {
     mobileToggle.setAttribute('aria-label', 'Menu');
@@ -1061,7 +1070,7 @@ function ensurePartnerApplicationForm(root, lang) {
 }
 
 function applyStaticLanguage(root, lang, pageName) {
-  ensureStaticNavLinks(root);
+  ensureStaticNavLinks(root, pageName);
   ensureStaticLanguageControls(root, lang);
   updateStaticDocumentTitle(lang, pageName);
   if (pageName === 'blog') {
