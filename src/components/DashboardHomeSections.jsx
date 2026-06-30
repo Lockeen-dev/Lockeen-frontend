@@ -27,8 +27,8 @@ export function IconTile({ children, tone = 'indigo', s }) {
 export function EmptyState({ title, text, s, action = null }) {
   return (
     <div style={s.empty}>
-      <strong>{title}</strong>
-      <span>{text}</span>
+      <strong style={s.emptyTitle}>{title}</strong>
+      <span style={s.emptyText}>{text}</span>
       {action && (
         <button type="button" style={s.emptyAction} onClick={action.onClick}>
           {action.label} <ArrowRight size={13} />
