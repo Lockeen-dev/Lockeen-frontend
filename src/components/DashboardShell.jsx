@@ -237,6 +237,7 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
         ...shellS.grid,
         gridTemplateColumns: isMobile ? '1fr' : sidebarCollapsed ? '64px 1fr' : '220px 1fr',
         minHeight: tutorLocked ? 'auto' : shellS.grid.minHeight,
+        minWidth: isMobile ? 0 : sidebarCollapsed ? 980 : 1136,
         height: gridHeight,
         overflow: isMobile || tutorLocked ? 'hidden' : 'visible',
         transition: 'grid-template-columns .2s ease',
