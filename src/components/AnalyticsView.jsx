@@ -72,6 +72,19 @@ function getAverage(values = []) {
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
+function getRecentWeightedAverage(values = []) {
+  const nums = values.filter((value) => Number.isFinite(Number(value))).map(Number);
+  if (!nums.length) return null;
+  const weighted = nums.reduce((acc, value, index) => {
+    const weight = index + 1;
+    return {
+      score: acc.score + (value * weight),
+      weight: acc.weight + weight,
+    };
+  }, { score: 0, weight: 0 });
+  return Math.round(weighted.score / weighted.weight);
+}
+
 function getAverageDecimal(values = [], digits = 1) {
   const nums = values.filter((value) => Number.isFinite(Number(value))).map(Number);
   if (!nums.length) return null;
@@ -82,19 +95,6 @@ function getAverageDecimal(values = [], digits = 1) {
 function getPerformanceScore(quizAvg, flashAvg) {
   if (quizAvg != null && flashAvg != null) return (quizAvg * 0.7) + (flashAvg * 0.3);
   return quizAvg ?? flashAvg ?? null;
-}
-
-function getTrendBonus(scores = []) {
-  const values = scores.filter((score) => Number.isFinite(Number(score))).map(Number);
-  if (values.length < 5) return 0;
-  const recent = values.slice(-3);
-  const previous = values.slice(0, -3);
-  const recentAvg = getAverage(recent);
-  const previousAvg = getAverage(previous);
-  if (recentAvg == null || previousAvg == null) return 0;
-  if (recentAvg >= previousAvg + 10) return 0.5;
-  if (recentAvg <= previousAvg - 10) return -0.5;
-  return 0;
 }
 
 function estimateCoverage(exam = {}, quizScores = [], flashScores = []) {
@@ -134,7 +134,7 @@ function getExamMastery(notes = [], quizHistory = {}, flashHistory = {}) {
         .filter((score) => Number.isFinite(Number(score))).map(Number);
       const flashScores = ids.flatMap((id) => (flashHistory || {})[id] || [])
         .filter((score) => Number.isFinite(Number(score))).map(Number);
-      const performanceScore = getPerformanceScore(getAverage(quizScores), getAverage(flashScores));
+      const performanceScore = getPerformanceScore(getRecentWeightedAverage(quizScores), getRecentWeightedAverage(flashScores));
       const mastery = (exam.chapters || [])
         .map((chapter) => Number(chapter.mastery ?? chapter.progress))
         .filter((value) => Number.isFinite(value));
@@ -168,18 +168,16 @@ function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}, lang
     };
   }
 
-  const quizAvg = getAverage(quizScores);
-  const flashAvg = getAverage(flashScores);
+  const quizAvg = getRecentWeightedAverage(quizScores);
+  const flashAvg = getRecentWeightedAverage(flashScores);
   const performanceScore = getPerformanceScore(quizAvg, flashAvg) ?? getAverage(scores);
   const rawGrade = 18 + ((performanceScore || 0) / 100) * 12;
   const attemptCount = scores.length;
-  const dataWeight = attemptCount / (attemptCount + 1);
-  const trendBonus = getTrendBonus(scores);
   const daysUntilExam = getDaysUntilExam(exam);
   const coverageRatio = estimateCoverage(exam, quizScores, flashScores);
   const prediction = Number.isFinite(Number(backendPrediction))
     ? Math.round(Number(backendPrediction))
-    : clamp(Math.round(((24 * (1 - dataWeight)) + (rawGrade * dataWeight) + trendBonus) * 10) / 10, 18, 30);
+    : clamp(Math.round(rawGrade * 10) / 10, 18, 30);
   const target = exam.targetGrade || 27;
   const delta = Math.round((prediction - target) * 10) / 10;
   const attemptsConfidence = clamp(attemptCount * 9, 0, 55);
@@ -206,7 +204,7 @@ function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}, lang
     'needs-practice': tt(lang, 'needsPractice'),
   };
   const helpers = {
-    'on-track': trendBonus > 0 ? 'Improving: keep mixed review' : 'On track: maintain practice',
+    'on-track': 'On track: maintain practice',
     close: lowCoverage ? 'Close: improve coverage' : quizScores.length ? 'Close: one focused quiz can lift it' : 'Close: add quiz attempts',
     'at-risk': cramRisk ? 'Cram risk: low coverage near exam' : lowCoverage ? 'At risk: low coverage' : 'At risk: practice weak quiz topics',
     'needs-practice': 'Needs practice: start with quiz + flashcards',
