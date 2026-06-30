@@ -207,7 +207,7 @@ function ProfileMenu({ user, lang, isMobile, profileRef, showProfileMenu, setSho
   );
 }
 
-export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, children, onToggleCollapsed }) {
+export function DashboardCard({ isMobile, canPanX = false, sidebarCollapsed, tab, setTab, lang, children, onToggleCollapsed }) {
   const tutorLocked = tab === 'tutor';
   const gridHeight = tutorLocked
     ? isMobile
@@ -231,21 +231,21 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
         boxShadow: 'none',
         borderRadius: 0,
         border: 'none',
-        minWidth: isMobile ? 0 : 'max-content',
-        overflow: isMobile ? 'hidden' : 'visible',
+        minWidth: canPanX ? 'max-content' : 0,
+        overflow: canPanX ? 'visible' : 'hidden',
       }}
     >
       <div style={{
         ...shellS.grid,
         gridTemplateColumns: isMobile ? '1fr' : sidebarCollapsed ? '64px 1fr' : '220px 1fr',
         minHeight: tutorLocked ? 'auto' : shellS.grid.minHeight,
-        minWidth: isMobile ? 0 : sidebarCollapsed ? 980 : 1136,
+        minWidth: canPanX ? (sidebarCollapsed ? 980 : 1136) : 0,
         height: gridHeight,
-        overflow: isMobile || tutorLocked ? 'hidden' : 'visible',
+        overflow: canPanX && !tutorLocked ? 'visible' : 'hidden',
         transition: 'grid-template-columns .2s ease',
       }}>
         {!isMobile && <Sidebar tab={tab} setTab={setTab} lang={lang} collapsed={sidebarCollapsed} onToggleCollapsed={onToggleCollapsed} />}
-        <div style={{ ...shellS.main, height: tutorLocked ? '100%' : undefined, padding: mainPadding, overflow: isMobile || tutorLocked ? 'hidden' : 'visible' }}>
+        <div style={{ ...shellS.main, height: tutorLocked ? '100%' : undefined, padding: mainPadding, overflow: canPanX && !tutorLocked ? 'visible' : 'hidden' }}>
           {children}
         </div>
       </div>

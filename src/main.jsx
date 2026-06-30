@@ -23,8 +23,7 @@ function reloadForStaleAsset(error) {
 function clampHorizontalScroll() {
   const dashboardRoot = document.getElementById('page-app');
   const dashboardVisible = dashboardRoot && getComputedStyle(dashboardRoot).display !== 'none';
-  const desktopPointer = window.matchMedia?.('(pointer: fine), (hover: hover)').matches;
-  if (dashboardVisible && desktopPointer) return;
+  if (dashboardVisible && document.documentElement.classList.contains('lockeen-dashboard-pan-x')) return;
 
   if (window.scrollX !== 0) {
     window.scrollTo(0, window.scrollY);

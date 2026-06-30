@@ -70,24 +70,23 @@
       overflow-x: clip;
     }
   }
-  @media (pointer: fine), (hover: hover) {
-    html,
-    body {
-      max-width: none;
-      overflow-x: auto;
-    }
-    #root,
-    .page,
-    #page-app {
-      max-width: none;
-      overflow-x: visible;
-    }
-    #page-app,
-    .lockeen-app-shell {
-      min-width: max-content;
-      overflow-x: visible;
-      touch-action: auto;
-    }
+  html.lockeen-dashboard-pan-x,
+  html.lockeen-dashboard-pan-x body {
+    max-width: none;
+    min-width: max-content;
+    overflow-x: auto;
+  }
+  html.lockeen-dashboard-pan-x #root,
+  html.lockeen-dashboard-pan-x .page,
+  html.lockeen-dashboard-pan-x #page-app {
+    max-width: none;
+    overflow-x: visible;
+  }
+  html.lockeen-dashboard-pan-x #page-app,
+  html.lockeen-dashboard-pan-x .lockeen-app-shell {
+    min-width: max-content;
+    overflow-x: visible;
+    touch-action: auto;
   }
   .gradient-text { background: linear-gradient(90deg, #2F2BFF 0%, #8B5CF6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .gradient-hero-bg { background: linear-gradient(135deg, #070B2D 0%, #1a1f5c 50%, #2F2BFF 100%); }
