@@ -214,6 +214,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       }
     : {
         padding: '24px clamp(18px, 2.4vw, 40px) 40px',
+        overflowX: 'visible',
       };
 
   useEffect(() => {

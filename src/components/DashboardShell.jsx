@@ -238,10 +238,11 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
         gridTemplateColumns: isMobile ? '1fr' : sidebarCollapsed ? '64px 1fr' : '220px 1fr',
         minHeight: tutorLocked ? 'auto' : shellS.grid.minHeight,
         height: gridHeight,
+        overflow: isMobile || tutorLocked ? 'hidden' : 'visible',
         transition: 'grid-template-columns .2s ease',
       }}>
         {!isMobile && <Sidebar tab={tab} setTab={setTab} lang={lang} collapsed={sidebarCollapsed} onToggleCollapsed={onToggleCollapsed} />}
-        <div style={{ ...shellS.main, height: tutorLocked ? '100%' : undefined, padding: mainPadding, overflow: 'hidden' }}>
+        <div style={{ ...shellS.main, height: tutorLocked ? '100%' : undefined, padding: mainPadding, overflow: isMobile || tutorLocked ? 'hidden' : 'visible' }}>
           {children}
         </div>
       </div>

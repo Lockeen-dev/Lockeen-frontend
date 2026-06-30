@@ -70,6 +70,17 @@
       overflow-x: clip;
     }
   }
+  @media (min-width: 769px) {
+    html,
+    body {
+      overflow-x: auto;
+    }
+    #page-app,
+    .lockeen-app-shell {
+      overflow-x: visible;
+      touch-action: auto;
+    }
+  }
   .gradient-text { background: linear-gradient(90deg, #2F2BFF 0%, #8B5CF6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .gradient-hero-bg { background: linear-gradient(135deg, #070B2D 0%, #1a1f5c 50%, #2F2BFF 100%); }
   .grid-pattern {
