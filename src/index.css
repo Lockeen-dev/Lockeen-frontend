@@ -70,9 +70,10 @@
       overflow-x: clip;
     }
   }
-  @media (min-width: 769px) {
+  @media (pointer: fine), (hover: hover) {
     html,
     body {
+      max-width: none;
       overflow-x: auto;
     }
     #root,

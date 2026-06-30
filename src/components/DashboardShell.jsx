@@ -231,6 +231,8 @@ export function DashboardCard({ isMobile, sidebarCollapsed, tab, setTab, lang, c
         boxShadow: 'none',
         borderRadius: 0,
         border: 'none',
+        minWidth: isMobile ? 0 : 'max-content',
+        overflow: isMobile ? 'hidden' : 'visible',
       }}
     >
       <div style={{

@@ -21,6 +21,11 @@ function reloadForStaleAsset(error) {
 }
 
 function clampHorizontalScroll() {
+  const dashboardRoot = document.getElementById('page-app');
+  const dashboardVisible = dashboardRoot && getComputedStyle(dashboardRoot).display !== 'none';
+  const desktopPointer = window.matchMedia?.('(pointer: fine), (hover: hover)').matches;
+  if (dashboardVisible && desktopPointer) return;
+
   if (window.scrollX !== 0) {
     window.scrollTo(0, window.scrollY);
   }
