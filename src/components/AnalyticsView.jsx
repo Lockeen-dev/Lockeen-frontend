@@ -72,11 +72,11 @@ function getAverage(values = []) {
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
-function getRecentWeightedAverage(values = []) {
+function getRecentWeightedAverage(values = [], decay = 0.68) {
   const nums = values.filter((value) => Number.isFinite(Number(value))).map(Number);
   if (!nums.length) return null;
   const weighted = nums.reduce((acc, value, index) => {
-    const weight = index + 1;
+    const weight = Math.pow(decay, nums.length - index - 1);
     return {
       score: acc.score + (value * weight),
       weight: acc.weight + weight,
@@ -145,6 +145,12 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function getPredictionDisplay(prediction, lang = 'en') {
+  if (prediction == null) return '—';
+  if (prediction < 18) return lang === 'it' ? 'Insufficiente' : 'Insufficient';
+  return prediction;
+}
+
 function getExamMastery(notes = [], quizHistory = {}, flashHistory = {}) {
   return (notes || [])
     .filter((exam) => !exam.status || exam.status === 'active')
@@ -201,7 +207,7 @@ function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}, lang
   const daysUntilExam = getDaysUntilExam(exam);
   const coverageRatio = estimateCoverage(exam, quizScores, flashScores);
   const prediction = Number.isFinite(Number(backendPrediction))
-    ? Math.round(Number(backendPrediction))
+    ? clamp(Math.round(Number(backendPrediction) * 10) / 10, 15, 30)
     : clamp(Math.round(rawGrade * 10) / 10, 15, 30);
   const target = exam.targetGrade || 27;
   const delta = Math.round((prediction - target) * 10) / 10;
@@ -460,7 +466,7 @@ function AnalyticsView({ weekData, studySessions = [], calEvents = {}, notes, qu
   const studyM = totalMin % 60;
   const quizScoreDisplay = hasQuizData && averageQuizScore != null ? `${averageQuizScore}%` : 'n.a.';
   const flashScoreDisplay = averageFlashcardScore != null ? `${averageFlashcardScore}%` : 'n.a.';
-  const averagePredictedGradeDisplay = averagePredictedGrade != null ? averagePredictedGrade.toFixed(1) : 'n.a.';
+  const averagePredictedGradeDisplay = averagePredictedGrade != null ? getPredictionDisplay(averagePredictedGrade, lang) : 'n.a.';
   const kpiCards = [
     { label: tt(lang, 'studyTimeWeek'), displayValue: `${studyH}h ${studyM}m`, Icon: Clock, tint: 'var(--lavender)', col: 'var(--indigo)' },
     { label: tt(lang, 'currentStreak'), displayValue: `${streakDays} ${streakDays === 1 ? tt(lang, 'day') : tt(lang, 'days')}`, Icon: Flame, tint: '#FFF7ED', col: '#F97316' },
@@ -575,12 +581,14 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuizF
   const prediction = estimateGradePrediction(note, quizHistory, flashHistory, lang);
   const targetPct = Math.max(0, Math.min(100, ((targetGrade - 18) / 12) * 100));
   const predictionPct = prediction.prediction == null ? null : Math.max(0, Math.min(100, ((prediction.prediction - 18) / 12) * 100));
+  const isInsufficient = prediction.prediction != null && prediction.prediction < 18;
+  const predictionDisplay = getPredictionDisplay(prediction.prediction, lang);
   const statusStyle = getGradeStatusStyle(prediction.status);
   const examDate = formatExamDate(note.date || note.examDate);
   const subtitle = `${examDate || (lang === 'it' ? 'Nessuna data' : 'No date')} · ${prediction.prediction == null ? tt(lang, 'noData') : prediction.confidenceLabel}`;
   const hasProgress = predictionPct != null;
   const progressPct = hasProgress ? predictionPct : targetPct;
-  const deltaDisplay = prediction.delta == null ? '—' : prediction.delta > 0 ? `+${prediction.delta.toFixed(1)}` : prediction.delta.toFixed(1);
+  const deltaDisplay = prediction.delta == null || isInsufficient ? '—' : prediction.delta > 0 ? `+${prediction.delta.toFixed(1)}` : prediction.delta.toFixed(1);
   const hasChapters = (note.chapters || []).length > 0;
   const practiceLabel = !hasChapters ? tt(lang, 'addMaterialShort') : prediction.status === 'on-track' ? tt(lang, 'keepGoing') : tt(lang, 'startPractice');
   const openPractice = () => {
@@ -606,7 +614,15 @@ function GradePredictorCard({ note, quizHistory, flashHistory, setTab, openQuizF
         <div style={analS.gradeLabel}>{tt(lang, 'target').toUpperCase()}</div>
       </div>
       <div style={analS.gradeNumberBox}>
-        <div style={{ ...analS.gradeNumber, color: prediction.prediction == null ? 'var(--gray-2)' : 'var(--ink)' }}>{prediction.prediction ?? '—'}</div>
+        <div
+          style={{
+            ...analS.gradeNumber,
+            ...(isInsufficient ? analS.gradeNumberText : null),
+            color: prediction.prediction == null ? 'var(--gray-2)' : 'var(--ink)',
+          }}
+        >
+          {predictionDisplay}
+        </div>
         <div style={analS.gradeLabel}>{tt(lang, 'prediction').toUpperCase()}</div>
       </div>
       <div style={analS.gradeTrackBlock}>
@@ -679,6 +695,7 @@ const analS = {
   courseMeta: { marginTop: 8, fontSize: 13, color: 'var(--gray)', fontWeight: 800 },
   gradeNumberBox: { minWidth: 0 },
   gradeNumber: { fontSize: 29, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-0.04em', lineHeight: 1 },
+  gradeNumberText: { fontSize: 15, letterSpacing: 0, lineHeight: 1.1 },
   gradeLabel: { marginTop: 6, color: 'var(--gray)', fontSize: 10, fontWeight: 900, letterSpacing: '.03em' },
   gradeTrackBlock: { display: 'flex', flexDirection: 'column', gap: 9, minWidth: 0 },
   gradeTrack: { position: 'relative', height: 9, borderRadius: 999, background: 'var(--chart-track)', overflow: 'visible' },
