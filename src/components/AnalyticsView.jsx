@@ -92,9 +92,35 @@ function getAverageDecimal(values = [], digits = 1) {
   return Math.round((nums.reduce((sum, value) => sum + value, 0) / nums.length) * factor) / factor;
 }
 
-function getPerformanceScore(quizAvg, flashAvg) {
-  if (quizAvg != null && flashAvg != null) return (quizAvg * 0.7) + (flashAvg * 0.3);
-  return quizAvg ?? flashAvg ?? null;
+function getSourceSignal(scores = [], weight = 1) {
+  const average = getRecentWeightedAverage(scores);
+  if (average == null) return null;
+  return {
+    average,
+    count: scores.length,
+    evidence: Math.min(1, Math.log1p(scores.length) / Math.log1p(10)) * weight,
+  };
+}
+
+function getCombinedPerformance(quizScores = [], flashScores = []) {
+  const signals = [
+    getSourceSignal(quizScores, 1.15),
+    getSourceSignal(flashScores, 1),
+  ].filter(Boolean);
+  if (!signals.length) return null;
+  const totals = signals.reduce((acc, signal) => ({
+    score: acc.score + (signal.average * signal.evidence),
+    evidence: acc.evidence + signal.evidence,
+    count: acc.count + signal.count,
+  }), { score: 0, evidence: 0, count: 0 });
+  if (!totals.evidence) return null;
+  return {
+    score: totals.score / totals.evidence,
+    evidence: Math.min(1, totals.evidence / 2),
+    count: totals.count,
+    hasQuiz: quizScores.length > 0,
+    hasFlash: flashScores.length > 0,
+  };
 }
 
 function estimateCoverage(exam = {}, quizScores = [], flashScores = []) {
@@ -134,7 +160,7 @@ function getExamMastery(notes = [], quizHistory = {}, flashHistory = {}) {
         .filter((score) => Number.isFinite(Number(score))).map(Number);
       const flashScores = ids.flatMap((id) => (flashHistory || {})[id] || [])
         .filter((score) => Number.isFinite(Number(score))).map(Number);
-      const performanceScore = getPerformanceScore(getRecentWeightedAverage(quizScores), getRecentWeightedAverage(flashScores));
+      const performanceScore = getCombinedPerformance(quizScores, flashScores)?.score;
       const mastery = (exam.chapters || [])
         .map((chapter) => Number(chapter.mastery ?? chapter.progress))
         .filter((value) => Number.isFinite(value));
@@ -168,24 +194,24 @@ function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}, lang
     };
   }
 
-  const quizAvg = getRecentWeightedAverage(quizScores);
-  const flashAvg = getRecentWeightedAverage(flashScores);
-  const performanceScore = getPerformanceScore(quizAvg, flashAvg) ?? getAverage(scores);
-  const rawGrade = 18 + ((performanceScore || 0) / 100) * 12;
+  const performance = getCombinedPerformance(quizScores, flashScores);
+  const performanceScore = performance?.score ?? getAverage(scores);
+  const rawGrade = 15 + ((performanceScore || 0) / 100) * 15;
   const attemptCount = scores.length;
   const daysUntilExam = getDaysUntilExam(exam);
   const coverageRatio = estimateCoverage(exam, quizScores, flashScores);
   const prediction = Number.isFinite(Number(backendPrediction))
     ? Math.round(Number(backendPrediction))
-    : clamp(Math.round(rawGrade * 10) / 10, 18, 30);
+    : clamp(Math.round(rawGrade * 10) / 10, 15, 30);
   const target = exam.targetGrade || 27;
   const delta = Math.round((prediction - target) * 10) / 10;
-  const attemptsConfidence = clamp(attemptCount * 9, 0, 55);
-  const sourceConfidence = quizScores.length && flashScores.length ? 15 : 6;
+  const attemptsConfidence = clamp(attemptCount * 7, 0, 45);
+  const sourceConfidence = performance?.hasQuiz && performance?.hasFlash ? 15 : 6;
+  const evidenceConfidence = Math.round((performance?.evidence || 0) * 15);
   const coverageConfidence = Math.round(coverageRatio * 20);
   const confidence = Number.isFinite(Number(backendConfidence))
     ? Math.round(Number(backendConfidence))
-    : clamp(15 + attemptsConfidence + sourceConfidence + coverageConfidence, 0, 100);
+    : clamp(10 + attemptsConfidence + sourceConfidence + evidenceConfidence + coverageConfidence, 0, 100);
   const confidenceLabel = confidence >= 70 ? (lang === 'it' ? 'Alta confidenza' : 'High confidence') : confidence >= 40 ? (lang === 'it' ? 'Media confidenza' : 'Medium confidence') : confidence > 0 ? (lang === 'it' ? 'Bassa confidenza' : 'Low confidence') : tt(lang, 'noData');
   const cramRisk = daysUntilExam != null && daysUntilExam <= 7 && coverageRatio < 0.5;
   const lowCoverage = coverageRatio > 0 && coverageRatio < 0.35;
