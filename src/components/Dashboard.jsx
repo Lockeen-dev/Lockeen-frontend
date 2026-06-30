@@ -18,6 +18,17 @@ import { listCalendarEvents, listUserCalendarActivities, updateCalendarActivity 
 
 /* ===================== DASHBOARD SHELL ===================== */
 const CALENDAR_EVENTS_STORAGE_PREFIX = 'lockeen.calendarEvents.v1';
+const DASHBOARD_ZOOM_PAN_CLASS = 'lockeen-dashboard-pan-x';
+const INITIAL_DEVICE_PIXEL_RATIO = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+
+function isDesktopBrowserZoomed(isMobile) {
+  if (typeof window === 'undefined' || isMobile) return false;
+  const desktopPointer = window.matchMedia?.('(pointer: fine), (hover: hover)').matches;
+  if (!desktopPointer) return false;
+  const dprDelta = Math.abs((window.devicePixelRatio || 1) - INITIAL_DEVICE_PIXEL_RATIO);
+  const viewportRatio = window.outerWidth && window.innerWidth ? window.outerWidth / window.innerWidth : 1;
+  return dprDelta > 0.05 || viewportRatio > 1.14;
+}
 
 function resetHorizontalViewport() {
   if (typeof window === 'undefined') return;
@@ -160,6 +171,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isMobile = useIsMobile();
+  const [canPanX, setCanPanX] = useState(() => isDesktopBrowserZoomed(isMobile));
   const realMode = !isMockMode();
   const [notifications, setNotifications] = useState(() => realMode ? [] : [
     { id: 1, text: 'Welcome to Lockeen! Bell shows your activity here.', ts: Date.now() - 60000, read: false, type: 'info' },
@@ -170,6 +182,23 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notifRef = useRef(null);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    const sync = () => setCanPanX(isDesktopBrowserZoomed(isMobile));
+    sync();
+    window.addEventListener('resize', sync);
+    window.addEventListener('orientationchange', sync);
+    return () => {
+      window.removeEventListener('resize', sync);
+      window.removeEventListener('orientationchange', sync);
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle(DASHBOARD_ZOOM_PAN_CLASS, canPanX);
+    if (!canPanX) resetHorizontalViewport();
+    return () => document.documentElement.classList.remove(DASHBOARD_ZOOM_PAN_CLASS);
+  }, [canPanX]);
 
   useLayoutEffect(() => {
     if (!isMobile) return undefined;
@@ -214,7 +243,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
       }
     : {
         padding: '24px clamp(18px, 2.4vw, 40px) 40px',
-        overflowX: 'hidden',
+        overflowX: canPanX ? 'visible' : 'hidden',
       };
 
   useEffect(() => {
@@ -810,6 +839,7 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
 
       <DashboardCard
         isMobile={isMobile}
+        canPanX={canPanX}
         sidebarCollapsed={sidebarCollapsed}
         tab={tab}
         setTab={handleSetTab}
