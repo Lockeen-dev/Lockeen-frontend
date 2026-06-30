@@ -32,9 +32,6 @@ if ('scrollRestoration' in window.history) {
 
 window.addEventListener('load', clampHorizontalScroll, { passive: true });
 window.addEventListener('pageshow', clampHorizontalScroll, { passive: true });
-window.addEventListener('resize', clampHorizontalScroll, { passive: true });
-window.addEventListener('orientationchange', clampHorizontalScroll, { passive: true });
-window.addEventListener('scroll', clampHorizontalScroll, { passive: true });
 
 window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault();
