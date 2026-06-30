@@ -60,6 +60,7 @@ export function DashboardHero({
         alignItems: isMobile ? 'stretch' : 'center',
         gap: isMobile ? 16 : s.hero.gap,
         padding: isMobile ? 22 : 26,
+        position: isMobile ? 'relative' : s.hero.position,
       }}
     >
       <div style={s.heroText}>
@@ -72,13 +73,14 @@ export function DashboardHero({
               ? tt(lang, nextExamDays !== null ? 'nextExamInDays' : 'nextExamLabel', { name: nextExam.name, days: nextExamDays })
               : tt(lang, 'createExamsMaterials')}
         </p>
-        <div style={s.heroActions}>
-          <button style={s.heroButton} onClick={() => nextExam ? setTab('quiz') : setTab('notes')}>
+        <div style={{ ...s.heroActions, ...(isMobile ? s.mobileHeroActions : null) }}>
+          <button style={{ ...s.heroButton, ...(isMobile ? s.mobileHeroButton : null) }} onClick={() => nextExam ? setTab('quiz') : setTab('notes')}>
             {nextExam ? tt(lang, 'startPractice') : tt(lang, 'createExam')}
           </button>
           {nextExam && (
-            <span style={s.heroPill}>
-              <Clock size={15} /> {nextExam.name}{nextExamDays !== null ? ` · ${tt(lang, 'daysShort', { count: nextExamDays })}` : ''}
+            <span style={{ ...s.heroPill, ...(isMobile ? s.mobileHeroPill : null) }}>
+              <Clock size={15} />
+              <span style={s.heroPillText}>{nextExam.name}{nextExamDays !== null ? ` · ${tt(lang, 'daysShort', { count: nextExamDays })}` : ''}</span>
             </span>
           )}
         </div>
@@ -88,8 +90,7 @@ export function DashboardHero({
           ...s.progressRing,
           width: isMobile ? 82 : s.progressRing.width,
           height: isMobile ? 82 : s.progressRing.height,
-          alignSelf: isMobile ? 'flex-end' : undefined,
-          marginTop: isMobile ? -6 : undefined,
+          ...(isMobile ? s.mobileProgressRing : null),
         }}
         aria-label={tt(lang, 'todayProgressAria', { progress: heroProgressText })}
       >
