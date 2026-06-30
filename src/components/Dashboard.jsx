@@ -28,7 +28,7 @@ function resetHorizontalViewport() {
 
 function syncMobileViewportWidth() {
   if (typeof window === 'undefined') return;
-  const width = Math.floor(window.visualViewport?.width || window.innerWidth || 0);
+  const width = Math.floor(window.innerWidth || document.documentElement.clientWidth || 0);
   if (width > 0) document.documentElement.style.setProperty('--lockeen-vvw', `${width}px`);
 }
 
@@ -197,12 +197,10 @@ function Dashboard({ user, onLogout, darkMode = false, lang = 'en', onLangChange
     window.addEventListener('resize', sync);
     window.addEventListener('orientationchange', sync);
     viewport?.addEventListener('resize', sync);
-    viewport?.addEventListener('scroll', sync);
     return () => {
       window.removeEventListener('resize', sync);
       window.removeEventListener('orientationchange', sync);
       viewport?.removeEventListener('resize', sync);
-      viewport?.removeEventListener('scroll', sync);
       document.documentElement.style.removeProperty('--lockeen-vvw');
     };
   }, [isMobile]);
