@@ -142,8 +142,7 @@ function getExamMastery(notes = [], quizHistory = {}, flashHistory = {}) {
       if (progress == null) return null;
       return { name, progress, color: getExamPalette(exam).dot };
     })
-    .filter(Boolean)
-    .slice(0, 5);
+    .filter(Boolean);
 }
 
 function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}, lang = 'en') {
@@ -174,7 +173,7 @@ function estimateGradePrediction(exam, quizHistory = {}, flashHistory = {}, lang
   const performanceScore = getPerformanceScore(quizAvg, flashAvg) ?? getAverage(scores);
   const rawGrade = 18 + ((performanceScore || 0) / 100) * 12;
   const attemptCount = scores.length;
-  const dataWeight = attemptCount / (attemptCount + 3);
+  const dataWeight = attemptCount / (attemptCount + 1);
   const trendBonus = getTrendBonus(scores);
   const daysUntilExam = getDaysUntilExam(exam);
   const coverageRatio = estimateCoverage(exam, quizScores, flashScores);
