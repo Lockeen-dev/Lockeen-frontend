@@ -1,11 +1,23 @@
 import { useEffect, useState } from 'react';
 
+function detectMobile() {
+  if (typeof window === 'undefined') return false;
+  const narrow = window.innerWidth < 768;
+  const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches;
+  const touchDevice = navigator.maxTouchPoints > 1;
+  return narrow && (coarsePointer || touchDevice);
+}
+
 export default function useIsMobile() {
-  const [w, setW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const [mobile, setMobile] = useState(detectMobile);
   useEffect(() => {
-    const h = () => setW(window.innerWidth);
+    const h = () => setMobile(detectMobile());
     window.addEventListener('resize', h);
-    return () => window.removeEventListener('resize', h);
+    window.addEventListener('orientationchange', h);
+    return () => {
+      window.removeEventListener('resize', h);
+      window.removeEventListener('orientationchange', h);
+    };
   }, []);
-  return w < 768;
+  return mobile;
 }
