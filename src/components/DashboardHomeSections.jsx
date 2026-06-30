@@ -24,11 +24,16 @@ export function IconTile({ children, tone = 'indigo', s }) {
   return <span style={{ ...s.iconTile, background: bg, color }}>{children}</span>;
 }
 
-export function EmptyState({ title, text, s }) {
+export function EmptyState({ title, text, s, action = null }) {
   return (
     <div style={s.empty}>
       <strong>{title}</strong>
       <span>{text}</span>
+      {action && (
+        <button type="button" style={s.emptyAction} onClick={action.onClick}>
+          {action.label} <ArrowRight size={13} />
+        </button>
+      )}
     </div>
   );
 }
@@ -129,7 +134,12 @@ export function TodaySchedule({ s, todayEvents, completedToday, totalToday, isEv
         </div>
       </div>
       {todayEvents.length === 0 ? (
-        <EmptyState s={s} title={tt(lang, 'noEventsToday')} text={tt(lang, 'scheduleStudyHint')} />
+        <EmptyState
+          s={s}
+          title={tt(lang, 'noEventsToday')}
+          text={tt(lang, 'scheduleStudyHint')}
+          action={{ label: lang === 'it' ? 'Programma lo studio' : 'Plan study', onClick: () => setTab('calendar') }}
+        />
       ) : (
         <div style={s.scheduleList}>
           {todayEvents.map((ev, idx) => {
@@ -180,11 +190,15 @@ export function RecentActivity({ s, loading, latestActivity, totalExams = 0, set
       {loading ? (
         <EmptyState s={s} title={tt(lang, 'loading')} text={tt(lang, 'readingDashboardData')} />
       ) : latestActivity.length === 0 ? (
-        <div style={s.recoEmpty}>
-          <strong>{tt(lang, hasNoExams ? 'noExamsYet' : 'noRecentPractice')}</strong>
-          <span>{tt(lang, hasNoExams ? 'createFirstExam' : 'recentPracticeHint')}</span>
-          {hasNoExams && <button style={s.outlineButton} onClick={() => setTab('notes')}>{tt(lang, 'newExam')}</button>}
-        </div>
+        <EmptyState
+          s={s}
+          title={tt(lang, hasNoExams ? 'noExamsYet' : 'noRecentPractice')}
+          text={tt(lang, hasNoExams ? 'createFirstExam' : 'recentPracticeHint')}
+          action={{
+            label: hasNoExams ? tt(lang, 'newExam') : tt(lang, 'startPractice'),
+            onClick: () => setTab(hasNoExams ? 'notes' : 'quiz'),
+          }}
+        />
       ) : (
         <div style={s.activityStack}>
           <div style={s.activityList}>
