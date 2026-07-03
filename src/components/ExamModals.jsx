@@ -5,6 +5,7 @@ import { Check, FileText, Icon, Trash, Trash2 } from '../lib/icons';
 import { EXTRA_SUBJECT_COLORS, getSubjectPalette, inferSubjectFromName } from '../data/mockData';
 import { EXAM_COLOR_PALETTE, SUBJECT_EMOJI, getExamEmoji, getExamPalette, getNextExamPalette } from '../lib/examUi';
 import { tt } from '../lib/i18n';
+import { validateStudyMaterialFile } from '../services/storage';
 import { EmojiPickerButton, GradeValue, PrioritySelector, gradeS } from './common/ExamControls';
 
 const EXAM_TIME_OPTIONS = Array.from({ length: 34 }, (_, index) => {
@@ -472,15 +473,31 @@ function UploadChapterModal({ existingChapters, onClose, onUpload, lang = 'en' }
   const addFiles = (list) => {
     const arr = Array.from(list || []).filter(Boolean);
     if (!arr.length) return;
+    const accepted = [];
+    const rejected = [];
+    arr.forEach((file) => {
+      const validation = validateStudyMaterialFile(file);
+      if (validation.error) {
+        rejected.push(`${String(file.name || 'File')}: ${validation.error.message}`);
+      } else {
+        accepted.push(file);
+      }
+    });
+    if (rejected.length) {
+      setError(rejected.slice(0, 2).join(' '));
+    } else {
+      setError('');
+    }
+    if (!accepted.length) return;
     setFiles((prev) => {
       const next = [...prev];
-      arr.forEach((f) => {
+      accepted.forEach((f) => {
         const name = String(f.name || 'Document');
         next.push({ id: idRef.current++, name, size: Number(f.size) || 0, file: f });
       });
       return next;
     });
-    setNewName((cur) => (selection === '__new' ? (cur || stripExt(arr[0]?.name || 'Document')) : cur));
+    setNewName((cur) => (selection === '__new' ? (cur || stripExt(accepted[0]?.name || 'Document')) : cur));
   };
 
   const removeFile = (id) => setFiles((prev) => prev.filter((f) => f.id !== id));
