@@ -67,8 +67,8 @@ export default async function handler(req, res) {
           referral_code: referralCode || undefined,
         },
       },
-      success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/?checkout=cancelled`,
+      success_url: `${origin}/app?view=account&checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/app?view=account&checkout=cancelled`,
     });
 
     return json(res, 200, { url: session.url });

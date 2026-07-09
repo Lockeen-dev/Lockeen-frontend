@@ -77,7 +77,8 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get('checkout');
-    if (!checkout) return;
+    const billing = params.get('billing');
+    if (!checkout && !billing) return;
 
     if (checkout === 'success') {
       showNotice('success', copy.checkoutSuccess);
@@ -89,12 +90,17 @@ function AccountView({ user, lang, onLangChange, onLogout }) {
         .finally(() => window.setTimeout(() => refreshSession(), 900));
     }
     if (checkout === 'cancelled') showNotice('error', copy.checkoutCancelled);
+    if (billing === 'portal_return') {
+      showNotice('success', copy.billingUpdated);
+      window.setTimeout(() => refreshSession(), 800);
+    }
 
     params.delete('checkout');
     params.delete('session_id');
+    params.delete('billing');
     const nextSearch = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`);
-  }, [copy.checkoutCancelled, copy.checkoutSuccess, refreshSession]);
+  }, [copy.billingUpdated, copy.checkoutCancelled, copy.checkoutSuccess, refreshSession]);
 
   const showNotice = (type, text) => {
     setNotice({ type, text });
@@ -503,6 +509,7 @@ const accountCopy = {
     openingPortal: 'Opening...',
     checkoutSuccess: 'Payment completed. Pro status may take a moment to appear.',
     checkoutCancelled: 'Checkout cancelled. No payment was completed.',
+    billingUpdated: 'Billing settings updated. Plan changes may take a moment to appear.',
     portalSoon: 'The billing portal will be enabled after the Stripe webhook is connected.',
   },
   it: {
@@ -593,6 +600,7 @@ const accountCopy = {
     openingPortal: 'Apertura...',
     checkoutSuccess: 'Pagamento completato. Lo stato Pro può richiedere qualche momento per comparire.',
     checkoutCancelled: 'Checkout annullato. Nessun pagamento completato.',
+    billingUpdated: 'Impostazioni billing aggiornate. Le modifiche al piano possono richiedere qualche momento.',
     portalSoon: 'Il portale billing verrà attivato dopo il collegamento del webhook Stripe.',
   },
 };
